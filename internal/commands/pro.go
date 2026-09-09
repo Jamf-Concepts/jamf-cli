@@ -156,7 +156,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	// Retired resource names, before applyAliases so a deprecated name and a
 	// curated alias cannot both be appended for the same string.
-	applyDeprecatedNames(cmd)
+	applyDeprecatedNames(cmd, cliCtx)
 
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)

@@ -70,8 +70,8 @@ func TestDeprecatedNamesExpiryFiresOnTheDate(t *testing.T) {
 	}
 	if expired, names := deprecatedNamesExpired(deadline.Add(48 * time.Hour)); !expired {
 		t.Error("did not report expired two days after the deadline")
-	} else if len(names) != len(deprecatedNames)+len(withdrawnNames) {
-		t.Errorf("named %d entries to remove, want all %d", len(names), len(deprecatedNames)+len(withdrawnNames))
+	} else if want := len(deprecatedNames) + len(nestedAliases) + len(withdrawnNames); len(names) != want {
+		t.Errorf("named %d entries to remove, want all %d", len(names), want)
 	}
 }
 
@@ -303,4 +303,81 @@ func TestWithdrawnNameMessagesNameCommandsThatShip(t *testing.T) {
 	if found == 0 {
 		t.Error("no command names found in the withdrawal messages; the pattern stopped matching")
 	}
+}
+
+// TestNestedAliasesPointAtCommandsThatShip is the nested-redirect twin of
+// TestDeprecatedNamesPointAtCommandsThatShip, and it exists for the same
+// reason: applyNestedAliases resolves each entry through
+// generated.NestedResourceCommands and skips one it cannot find, so a path that
+// stops naming a nested sub-resource is a redirect into a wall that reports
+// nothing.
+func TestNestedAliasesPointAtCommandsThatShip(t *testing.T) {
+	root := NewRootCmd("test", "test", "test", "test")
+	if len(nestedAliases) == 0 {
+		t.Fatal("nestedAliases is empty, so this guard and applyNestedAliases both cover nothing")
+	}
+	for old, na := range nestedAliases {
+		// The target has to be a real two-token path under `pro`.
+		target, rest, err := root.Find(append([]string{"pro"}, strings.Fields(na.Path)...))
+		if err != nil || len(rest) != 0 {
+			t.Errorf("nestedAliases[%q].Path = %q, which `pro` does not ship", old, na.Path)
+			continue
+		}
+		// And the old name has to reach a command with the same children, which
+		// is what "kept working" means for a resource-level redirect.
+		stub, rest, err := root.Find([]string{"pro", old})
+		if err != nil || len(rest) != 0 {
+			t.Errorf("nestedAliases[%q] is not registered under `pro`", old)
+			continue
+		}
+		if !stub.Hidden {
+			t.Errorf("`pro %s` is visible in --help; a compatibility stub belongs in neither the group "+
+				"listing nor Additional Commands", old)
+		}
+		if stub.GroupID == "" {
+			t.Errorf("`pro %s` has no GroupID, so it lands in Additional Commands — the one listing it "+
+				"must stay out of", old)
+		}
+		wantChildren := childNames(target)
+		gotChildren := childNames(stub)
+		if strings.Join(gotChildren, ",") != strings.Join(wantChildren, ",") {
+			t.Errorf("`pro %s` ships %v but `pro %s` ships %v — the redirect has drifted from what it "+
+				"redirects to", old, gotChildren, na.Path, wantChildren)
+		}
+	}
+}
+
+// TestNestedAliasesDoNotShadowALiveName covers the ambiguity a second command
+// under a live name creates: cobra resolves by declaration order, which is not
+// a choice this table gets to make.
+func TestNestedAliasesDoNotShadowALiveName(t *testing.T) {
+	byName, byAlias := proChildren(t)
+	for old, na := range nestedAliases {
+		if _, live := deprecatedNames[old]; live {
+			t.Errorf("%q is in both deprecatedNames and nestedAliases; the alias and the stub would "+
+				"both claim the name", old)
+		}
+		if target, ok := byAlias[old]; ok && target.Name() != old {
+			t.Errorf("%q is a curated alias of `pro %s` as well as a nested redirect to %q",
+				old, target.Name(), na.Path)
+		}
+		// The stub itself is the command registered under the name, so finding
+		// it is expected; finding something else is not.
+		if c, ok := byName[old]; ok && !c.Hidden {
+			t.Errorf("`pro %s` is a live visible command, so the redirect is shadowing it", old)
+		}
+	}
+}
+
+// childNames returns a command's subcommand names, sorted.
+func childNames(cmd *cobra.Command) []string {
+	var out []string
+	for _, c := range cmd.Commands() {
+		if c.Name() == "help" {
+			continue
+		}
+		out = append(out, c.Name())
+	}
+	sort.Strings(out)
+	return out
 }

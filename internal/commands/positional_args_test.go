@@ -293,9 +293,18 @@ func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
 // same resource, so there is one subtree and the example resolves to its own
 // leaf. A registry defect, fixed by removing what caused it.
 //
+// Thirteen more arrived with the nested sub-resource split, and for those the
+// mismatch is the point: each is a leaf under a hidden compatibility stub
+// (`pro sso-settings-cert update`, `pro self-service-settings get` and the rest
+// of nestedAliases), built by calling the nested resource's own constructor, so
+// its Example correctly names the live path — `pro sso-settings cert update` —
+// which resolves to a different leaf. A stub whose --help taught its own dead
+// name would be the defect. Their arity is still covered, once, on the leaf the
+// examples do resolve to.
+//
 // Pinned so a reader that stops matching a form it handles today, or a new
 // unmatchable form, fails rather than quietly shrinking the population.
-const unmatchedExampleLeaves = 20
+const unmatchedExampleLeaves = 33
 
 // TestScaffoldKeepsTheDeclaredPositionalCeiling covers the path the walk above
 // cannot see, because that walk reads each validator with no flag set.

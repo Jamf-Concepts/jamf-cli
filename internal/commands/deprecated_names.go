@@ -5,10 +5,14 @@ package commands
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // Every `pro` resource name that changed when command names started coming from
@@ -66,13 +70,11 @@ type deprecatedName struct {
 // Generated from a diff of the resource sets either side of the change, then
 // reviewed. TestDeprecatedNamesPointAtCommandsThatShip is what keeps it honest.
 var deprecatedNames = map[string]deprecatedName{
-	"access-managements": {Now: "enrollment"},
-	"account-driven-user-enrollment-session-token-settings": {Now: "enrollment"},
+	"access-managements":                     {Now: "enrollment"},
 	"account-preferences":                    {Now: "jamf-pro-account-preferences"},
 	"activation-codes":                       {Now: "activation-code"},
 	"api-roles-privileges":                   {Now: "api-role-privileges"},
 	"app-installer-deployments":              {Now: "app-installers-deployments"},
-	"app-installer-global-settings":          {Now: "app-installers"},
 	"app-installer-titles":                   {Now: "app-installers-titles"},
 	"app-requests":                           {Now: "app-request"}, // split: the other half keeps its own name
 	"authentications":                        {Now: "api-authentication"},
@@ -152,11 +154,9 @@ var deprecatedNames = map[string]deprecatedName{
 	"return-to-service-configurations":       {Now: "return-to-service"},
 	"schedulers":                             {Now: "scheduler"}, // split: the other half keeps its own name
 	"self-service-branding-images":           {Now: "self-service"},
-	"self-service-settings":                  {Now: "self-service"},
 	"service-discovery":                      {Now: "service-discovery-enrollment"},
 	"slasas":                                 {Now: "slasa"},
 	"sso-failovers":                          {Now: "sso-settings"},
-	"sso-settings-cert":                      {Now: "sso-settings"},
 	"static-computer-groups":                 {Now: "computer-groups-static-groups"},
 	"systems":                                {Now: "jamf-pro-initialization"},
 	"teacher-settings":                       {Now: "teacher-app"},
@@ -168,6 +168,46 @@ var deprecatedNames = map[string]deprecatedName{
 	"venafis":                                {Now: "venafi"},
 	"vpp-locations":                          {Now: "volume-purchasing-locations"},
 	"vpp-subscriptions":                      {Now: "volume-purchasing-subscriptions"},
+}
+
+// nestedAlias records a retired resource name whose endpoints are now a nested
+// sub-resource, so its replacement is two tokens rather than one.
+type nestedAlias struct {
+	// Path is the command path beneath `pro`, as NestedResourceCommands keys it.
+	Path string
+}
+
+// nestedAliases maps a retired `pro` resource name onto a nested sub-resource.
+//
+// These four are separate from deprecatedNames because a cobra alias is a name
+// on one command, so it can only ever resolve to a direct child of `pro`, and
+// the endpoints these names covered now sit one level deeper. Pointing them at
+// the parent instead is not merely imprecise. Three of the four would answer
+// the wrong endpoint — `pro sso-settings-cert get` would read the SSO
+// configuration rather than its certificate — and the fourth,
+// `self-service-settings`, resolved *correctly* to `pro self-service get`
+// before the nesting and would answer `unknown command "get"` after it, which
+// is a working alias regressing rather than an imprecise one.
+//
+// All four are exact: each was one spec file in the 165-file layout, every one
+// of its operations moved into the sub-resource, and none stayed behind on the
+// parent. That is not a coincidence — it is the same partition arriving from
+// the other direction, and it is the strongest evidence the sub-resource rule
+// picks the right boundary.
+//
+// Governed by deprecatedNamesRemovedAfter along with deprecatedNames: one
+// change created both, so one date retires both.
+var nestedAliases = map[string]nestedAlias{
+	// GET/POST/PUT/DELETE /v2/sso/cert plus its download and parse actions.
+	"sso-settings-cert": {Path: "sso-settings cert"},
+	// GET/PUT /v1/app-installers/global-settings plus its history and
+	// deployment-controls reads.
+	"app-installer-global-settings": {Path: "app-installers global-settings"},
+	// GET/PUT/history/add-history-note on /v1/self-service/settings.
+	"self-service-settings": {Path: "self-service settings"},
+	// GET/PUT /v1/adue-session-token-settings, grouped under the enrollment tag
+	// and nowhere near /v4/enrollment.
+	"account-driven-user-enrollment-session-token-settings": {Path: "enrollment adue-session-token-settings"},
 }
 
 // withdrawnNames are old resource names whose endpoints are no longer ingested
@@ -201,11 +241,12 @@ var withdrawnNames = map[string]string{
 // Called after every subcommand is registered, because it resolves each
 // replacement by name and a missing one has to be a visible no-op rather than a
 // silent one — TestDeprecatedNamesPointAtCommandsThatShip is the guard.
-func applyDeprecatedNames(pro *cobra.Command) {
+func applyDeprecatedNames(pro *cobra.Command, ctx *registry.CLIContext) {
 	byName := map[string]*cobra.Command{}
 	for _, sub := range pro.Commands() {
 		byName[sub.Name()] = sub
 	}
+	applyNestedAliases(pro, ctx)
 	for old, dep := range deprecatedNames {
 		target, ok := byName[dep.Now]
 		if !ok {
@@ -219,11 +260,101 @@ func applyDeprecatedNames(pro *cobra.Command) {
 		target.Aliases = append(target.Aliases, old)
 	}
 	for old, why := range withdrawnNames {
-		if _, taken := byName[old]; taken {
+		if nameIsTaken(pro, old) {
+			// Registering a second command under a live name makes cobra
+			// resolve by declaration order, which is not a choice this table
+			// gets to make. TestNestedAliasesDoNotShadowALiveName is the guard.
 			continue
 		}
 		pro.AddCommand(newWithdrawnNameCmd(old, why))
 	}
+}
+
+// applyNestedAliases registers a retired resource name as a hidden second
+// instance of the nested subtree it now points at, so every subcommand under
+// the old name keeps working.
+//
+// A second instance rather than the same command under two parents, because
+// cobra's AddCommand reparents: registering one *cobra.Command twice would
+// leave CommandPath, --help and usage describing whichever registration came
+// last. Built from the generated constructor rather than a hand-written mirror,
+// so the redirect cannot drift from what it redirects to — a mirror is a list
+// to keep in step, and the whole reason these names exist is that nobody
+// updates one.
+//
+// The instance takes the parent's help group. It is hidden, so it does not
+// crowd `pro --help`, but a GroupID cobra's parent has not declared is an
+// error, and an empty one files it under "Additional Commands" — visible in
+// exactly the listing it should stay out of.
+func applyNestedAliases(pro *cobra.Command, ctx *registry.CLIContext) {
+	if ctx == nil {
+		return
+	}
+	constructors := generated.NestedResourceCommands()
+	for _, old := range sortedNestedAliasNames() {
+		na := nestedAliases[old]
+		make, ok := constructors[na.Path]
+		if !ok {
+			// A path that names no nested sub-resource: the sub-resource moved
+			// or stopped being one. Left as a visible no-op rather than a
+			// silent one — TestNestedAliasesPointAtCommandsThatShip is the
+			// guard, for the same reason
+			// TestDeprecatedNamesPointAtCommandsThatShip exists.
+			continue
+		}
+		if nameIsTaken(pro, old) {
+			// Registering a second command under a live name makes cobra
+			// resolve by declaration order, which is not a choice this table
+			// gets to make. TestNestedAliasesDoNotShadowALiveName is the guard.
+			continue
+		}
+		sub := make(ctx)
+		sub.Use = old
+		sub.Hidden = true
+		sub.Short = fmt.Sprintf("Deprecated — use `pro %s`", na.Path)
+		sub.Long = fmt.Sprintf(
+			"`pro %s` is a deprecated name for `pro %s` and stops working after %s.",
+			old, na.Path, deprecatedNamesRemovedAfter)
+		// From proGroupMap rather than from the parent command's GroupID,
+		// because applyProGroups has not run yet: applyDeprecatedNames is
+		// deliberately called before applyAliases, so every parent's GroupID is
+		// still "" at this point and copying it left all four stubs ungrouped —
+		// visible in `pro --help` under "Additional Commands", which is the one
+		// listing a hidden compatibility stub must stay out of. The map is the
+		// same source applyProGroups reads, so the two cannot disagree.
+		sub.GroupID = proGroupMap[firstToken(na.Path)]
+		pro.AddCommand(sub)
+	}
+}
+
+// nameIsTaken reports whether any child of pro already answers to name, as its
+// own name or as an alias.
+func nameIsTaken(pro *cobra.Command, name string) bool {
+	for _, sub := range pro.Commands() {
+		if sub.Name() == name || slicesContains(sub.Aliases, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// sortedNestedAliasNames keeps registration order deterministic, so two
+// entries claiming one name resolve the same way on every run.
+func sortedNestedAliasNames() []string {
+	out := make([]string, 0, len(nestedAliases))
+	for old := range nestedAliases {
+		out = append(out, old)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// firstToken returns the first space-separated token of a command path.
+func firstToken(path string) string {
+	if i := strings.Index(path, " "); i > 0 {
+		return path[:i]
+	}
+	return path
 }
 
 // newWithdrawnNameCmd is a stub that refuses a withdrawn resource name and says
@@ -273,13 +404,17 @@ func warnIfDeprecatedName(cmd *cobra.Command) {
 		return
 	}
 	called := resourceTokenAfter(os.Args, product)
-	dep, ok := deprecatedNames[called]
-	if !ok {
+	now := ""
+	if dep, ok := deprecatedNames[called]; ok {
+		now = dep.Now
+	} else if na, ok := nestedAliases[called]; ok {
+		now = na.Path
+	} else {
 		return
 	}
 	fmt.Fprintf(os.Stderr,
 		"warning: `%s` is a deprecated name for `%s` and stops working after %s. Use `%s %s`.\n",
-		called, dep.Now, deprecatedNamesRemovedAfter, product, dep.Now)
+		called, now, deprecatedNamesRemovedAfter, product, now)
 }
 
 // productToken returns the name of the executed command's top-level namespace —
@@ -323,8 +458,11 @@ func deprecatedNamesExpired(now time.Time) (bool, []string) {
 	if !now.After(deadline) {
 		return false, nil
 	}
-	names := make([]string, 0, len(deprecatedNames)+len(withdrawnNames))
+	names := make([]string, 0, len(deprecatedNames)+len(nestedAliases)+len(withdrawnNames))
 	for old := range deprecatedNames {
+		names = append(names, old)
+	}
+	for old := range nestedAliases {
 		names = append(names, old)
 	}
 	for old := range withdrawnNames {
