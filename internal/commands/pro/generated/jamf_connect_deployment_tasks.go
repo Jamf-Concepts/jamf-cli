@@ -46,7 +46,20 @@ func newJamfConnectDeploymentTasksCreateCmd(ctx *registry.CLIContext) *cobra.Com
   # Create a jamf-connect-deployment-task from JSON
   echo '{"name":"Example"}' | jamf-cli pro jamf-connect-deployment-tasks create 1`,
 		Annotations: map[string]string{"jamf:privileges": "Jamf Connect Deployment Retry", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:deploy"},
-		Args:        cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

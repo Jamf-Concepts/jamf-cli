@@ -274,17 +274,6 @@ func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
 	}
 }
 
-// unreachableScaffoldLeaves is the number of leaves whose --scaffold cannot be
-// invoked at all, because the modern Pro generator emits a bare ExactArgs and no
-// scaffold relaxation, so an operation under one or more path parameters with no
-// --name lookup demands identifiers its scaffold makes no request with
-// (`enrollment-customization-panels update` sits under two). That is the
-// opposite defect to issue 350 and is not fixed here: relaxing those validators
-// needs each RunE checked for reading args before its scaffold return, which is
-// its own change. Held as a count so a new one fails this test, and so does the
-// fix, which drops the number to zero.
-const unreachableScaffoldLeaves = 26
-
 // unmatchedExampleLeaves is the number of leaves whose Example resolves to no
 // invocation of that leaf, so this test reads nothing for them.
 //
@@ -307,11 +296,17 @@ const unmatchedExampleLeaves = 21
 // TestScaffoldKeepsTheDeclaredPositionalCeiling covers the path the walk above
 // cannot see, because that walk reads each validator with no flag set.
 //
-// The classic and the platform generator both relax a command's Args validator
-// while --scaffold is set, since --scaffold needs no identifier and cobra
-// validates Args before RunE. Relaxing it to no validator at all reopened issue
-// 350 behind a flag: `pro classic-jwt-configs update aaa bbb ccc --scaffold`
-// printed the template and discarded three positionals with exit 0.
+// All three generators relax a command's Args validator while --scaffold is set,
+// since --scaffold needs no identifier and cobra validates Args before RunE.
+// Relaxing it to no validator at all reopened issue 350 behind a flag:
+// `pro classic-jwt-configs update aaa bbb ccc --scaffold` printed the template
+// and discarded three positionals with exit 0. Relaxing nothing is the opposite
+// defect, issue 363: the modern Pro generator emitted a bare ExactArgs, so 26
+// leaves under one or more path parameters with no --name lookup demanded
+// identifiers their scaffold makes no request with (`pro
+// enrollment-customization-panels update` sat under two) and the flag was
+// unusable. So this test pins both ends: every scaffold-bearing leaf accepts no
+// positional and refuses one more than its Use documents.
 func TestScaffoldKeepsTheDeclaredPositionalCeiling(t *testing.T) {
 	leaves := runnableLeaves(NewRootCmd("test", "none", "none", "none"))
 
@@ -336,14 +331,15 @@ func TestScaffoldKeepsTheDeclaredPositionalCeiling(t *testing.T) {
 		if err := l.cmd.Args(l.cmd, strayArgs(count)); err != nil {
 			t.Errorf("leaf %q with --scaffold refused the %d positional(s) its Use %q documents: %v", l.path, count, l.cmd.Use, err)
 		}
-		if l.cmd.Args(l.cmd, nil) != nil {
+		// The floor has to be zero, or the flag cannot be used at all: cobra
+		// refuses before RunE reaches the scaffold return. This is the half
+		// issue 363 was about.
+		if err := l.cmd.Args(l.cmd, nil); err != nil {
 			unreachable++
+			t.Errorf("leaf %q cannot reach its own --scaffold: %v", l.path, err)
 		}
 	}
 
-	if unreachable != unreachableScaffoldLeaves {
-		t.Errorf("%d leaves cannot reach their own --scaffold, want %d: a relaxation was added or removed without moving unreachableScaffoldLeaves", unreachable, unreachableScaffoldLeaves)
-	}
 	if checked < 100 {
 		t.Fatalf("only %d leaves carry both --scaffold and an Args validator — the walk or the flag name is likely wrong", checked)
 	}
@@ -361,10 +357,10 @@ func TestScaffoldKeepsTheDeclaredPositionalCeiling(t *testing.T) {
 // refused. Reading Use and Example apart is what let that ship, so this reads
 // them together.
 //
-// Only the ceiling is asserted, because the floor is the opposite defect and is
-// not fixed here: a bounded validator that refuses too FEW positionals is the
-// same too-strict shape unreachableScaffoldLeaves counts, and asserting the
-// floor over every leaf would report all 26 of those as well.
+// Both ends are asserted, with one exemption: a --scaffold line is held to the
+// ceiling only, because every generator lowers the floor to zero while that flag
+// is set (issue 363). Every other line has to satisfy the floor too, or --help
+// teaches an invocation the command refuses for want of an identifier.
 func TestNoExampleDocumentsAnUndeclaredPositional(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 	leaves := runnableLeaves(root)
@@ -386,10 +382,9 @@ func TestNoExampleDocumentsAnUndeclaredPositional(t *testing.T) {
 				t.Errorf("leaf %q documents %d positional(s) in Use %q but its Example says %q, which passes %d",
 					l.path, count, l.cmd.Use, invocation.line, len(invocation.args))
 			}
-			// A --scaffold example is exempt from the floor: the flag makes no
-			// request and needs no identifier, and a validator that demands one
-			// anyway is the pre-existing too-strict defect
-			// unreachableScaffoldLeaves counts.
+			// A --scaffold example is exempt from the floor, because the
+			// generators lower that floor to zero while the flag is set: the
+			// flag makes no request and needs no identifier.
 			if !invocation.scaffold && len(invocation.args) < required {
 				t.Errorf("leaf %q requires %d positional(s) per Use %q but its Example says %q, which passes %d",
 					l.path, required, l.cmd.Use, invocation.line, len(invocation.args))
@@ -507,16 +502,29 @@ func TestEveryExampleInvocationNamesACommandThatExists(t *testing.T) {
 						l.path, strings.TrimSpace(line), cmd.CommandPath(), args[0])
 					continue
 				}
-				// A --scaffold example is exempt, as it is in the test above:
-				// 26 leaves demand an identifier their scaffold makes no
-				// request with, which is the pre-existing too-strict defect
-				// unreachableScaffoldLeaves counts.
-				if cmd.Args == nil || slices.Contains(remaining, "--scaffold") {
+				if cmd.Args == nil {
 					continue
 				}
-				if err := cmd.Args(cmd, args); err != nil {
+				// A --scaffold line is validated with the flag actually set,
+				// rather than skipped: the generators lower the floor to zero
+				// under it and keep the declared ceiling, so the line is still
+				// held to that ceiling. Skipping it was what let issue 363 hide
+				// here — 26 leaves whose scaffold cobra refused outright.
+				scaffolding := slices.Contains(remaining, "--scaffold") && cmd.Flags().Lookup("scaffold") != nil
+				if scaffolding {
+					if err := cmd.Flags().Set("scaffold", "true"); err != nil {
+						t.Fatalf("leaf %q: setting --scaffold: %v", l.path, err)
+					}
+				}
+				argsErr := cmd.Args(cmd, args)
+				if scaffolding {
+					if resetErr := cmd.Flags().Set("scaffold", "false"); resetErr != nil {
+						t.Fatalf("leaf %q: clearing --scaffold: %v", l.path, resetErr)
+					}
+				}
+				if argsErr != nil {
 					t.Errorf("leaf %q: Example line %q passes %d positional(s) to %q, which refuses them: %v",
-						l.path, strings.TrimSpace(line), len(args), cmd.CommandPath(), err)
+						l.path, strings.TrimSpace(line), len(args), cmd.CommandPath(), argsErr)
 				}
 			}
 		}
