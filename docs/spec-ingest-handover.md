@@ -2,8 +2,9 @@
 
 **Branch:** `feat/spec-ingest-path-derived-naming` · **Started:** 2026-09-09
 **Status:** mechanism, tag naming and the deprecation aliases all landed and
-guarded. Lint clean. 13 tests failing — **7** in one known class (the
-`gateway.successors` table emptying) and **6** stale name or count assertions.
+guarded. **Suite green, lint clean**, `verify-generated`,
+`verify-gateway-coverage`, `verify-classic-schemas` and `verify-site` all pass.
+The 13 failures recorded here are fixed — see "What was left", below.
 **Delete this file before merge.**
 
 ## The goal, in one line
@@ -107,48 +108,92 @@ component partitioning, `_MonolithLibrary.yaml`, `PreservedSpecs`,
 - `TestDroppedTagsDoNotTakeAVersionedPathWithThem`, `TestKeepPath_*`,
   `TestGroupPathsByCollection_*`, `TestMergeDocuments_*`, `TestNormalise_*`.
 
-## What is left
+## What was left, and how it was resolved
 
-### 1. The successors table emptied — 7 failing tests
+### 1. The successors table emptied — was 7 failing tests
 
 `internal/gateway/note.go`'s `successors` held one entry,
 `pro static-computer-groups`, whose v2 resource folded into the v3-served
 `computer-groups-static-groups`. Nothing is refused there any more, so the table
-is legitimately empty — and 6 tests assert a non-empty one:
+is legitimately empty. Re-checked against the shipped binary: 59 refused
+commands, none with a gateway-served replacement — `api-roles`,
+`api-integrations`, `api-role-privileges`, `api-authentication`,
+`jamf-pro-initialization`, `sso-oauth-session-tokens`, `environment-type`,
+`macos-managed-software-updates`, `classic-computer-configs`, and the device
+actions on the unpublished `POST /v2/mdm/commands`. Wire-confirmed on an EU
+environment credential that `pro computer-groups-static-groups` list, create,
+`get --name` and delete all work, which is what makes the retired entry
+retired rather than merely unasserted.
 
-```
-TestCatalogCarriesTheSuccessorForARefusedCommand   TestCatalogJSONCarriesTheSuccessorKey
-TestEveryCommandEntryFieldReachesTheCatalog        TestGroupHelpCarriesTheCaveatWhenEveryLeafIsRefused
-TestRefusalNamesACuratedSuccessorFirst             TestSuccessorMatchesTheLongestCommandPathPrefix
-TestTheRefusalNamesAWorkingSuccessorWhereOneShips
-```
+**`internal/gateway`** takes the test-local-entry idiom the doc recommended:
+`installTestSuccessor` in `gateway_test.go`, keyed on the deliberately synthetic
+`pro example-withdrawn` → `pro example-successor` so nobody mistakes the fixture
+for a live entry. `TestEverySuccessorEntryRenders` installs it too — it used to
+`t.Skip` on an empty table, and its `SuccessorTable()` completeness check read
+as agreement at `0 == 0`.
 
-I checked all 67 refused commands for a genuine successor and found none
-(`api-roles`, `api-integrations`, `classic-computer-configs`, `system`,
-`oauth`/`oauth2`, `environment-type`, `authentications`, `mdm`,
-`macos-managed-software-updates` — no gateway-served replacement for any).
+**`internal/commands` does not skip**, which is a deliberate departure from the
+recommendation. A skip there re-opens the defect those tests were written for:
+`gatewaySuccessor` was computed, stored and never marshaled for a release with
+every test green (#345). What it does instead, in two layers:
 
-**Recommended:** pin the mechanism with a test-local entry, which is this repo's
-documented idiom for a live case that resolved — see
-`gateway.TestProbedEntriesCarryTheProbeBasis` and
-`TestDropUnroutedPlatformOps`. `successors` is unexported, so `internal/gateway`
-tests can inject; the two catalog tests in `internal/commands` cannot and should
-skip with a stated reason.
+- *Delegation*, which holds at any table size including empty.
+  `TestTheRefusalNamesAWorkingSuccessorWhereOneShips` now asserts
+  `checkAPIMatch`'s message is byte-identical to `gateway.Refusal`, so a
+  hand-rolled message cannot pass by containing the same phrases.
+  `TestCatalogCarriesTheSuccessorForARefusedCommand` recomputes
+  `gateway.Successor(binary + " " + command)` per refused entry and demands
+  agreement — the binary-name half is exactly what broke before.
+  `TestCatalogJSONCarriesTheSuccessorKey` drives `commandEntriesToMaps` with two
+  hand-built rows, that function being pure, so both directions of the
+  positive-only key are pinned without a live value.
+- *An installed fixture* for the four renderers whose successor path is
+  otherwise dead code — deleting it would change nothing observable for any
+  input the shipped tree can produce. `gateway.InstallSuccessorForTest` is the
+  hook. It takes `*testing.T` as the narrowest interface satisfying it
+  (`Helper`/`Fatalf`) rather than importing `testing` into a production package,
+  which is also what keeps it out of production use: nothing outside a test has
+  a value to pass. It refuses to shadow a live entry. Users:
+  `TestGroupHelpRendersACuratedSuccessorWhenOneExists`,
+  `TestLeafHelpRendersACuratedSuccessorWhenOneExists`,
+  `TestTheRefusalRendersACuratedSuccessorWhenOneExists`,
+  `TestCatalogCarriesACuratedSuccessorWhenOneExists`.
 
-### 2. Stale name and count assertions — 6 failing tests
+`TestEveryCommandEntryFieldReachesTheCatalog` was the other casualty and is the
+one place the fix is a straight improvement. It swept the shipped tree, so it
+reported `gatewaySuccessor` unprojected when the *table* emptied — the guard
+failing on absent live data rather than on a defect. It now runs over one
+reflectively-populated `commandEntry`, which answers the objection its own
+comment raised against a fixture (a hand-written literal is a list to keep in
+step with the struct) and covers every field rather than the ones the tree
+happens to carry. An unhandled field kind fails rather than being skipped.
 
-`TestApplyAliases`, `TestCollectCommands` (×3),
-`TestRequestBodyFlagIsUniformlyFromFile`,
-`TestNoExampleDocumentsAnUndeclaredPositional`. Each references a resource name
-that moved or a hardcoded count that shifted. Mechanical; the failure message
-names the value in every case.
+All seven renderer/projection paths were mutation-checked: dropping the map
+copy, returning `""` from `gatewaySuccessorOf`, passing it the binary-less
+prefix, dropping `successorHelp` from either help renderer, composing the
+refusal by hand, and removing the successor block from `gateway.Refusal`. Each
+fails at least one test.
 
-Two earlier ones in the same class
+### 2. Stale name and count assertions — was 6 failing tests
 
-- `TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands` expects
-  `pro mdm-commands`; the operation is now `pro mdm commands`.
-- `TestNoExampleDocumentsAnUndeclaredPositional` asserts a hardcoded count of 21
-  unmatched leaves; it is 20.
+All mechanical, all fixed.
+
+- `TestApplyAliases`, `TestCollectCommands` (×3) — `pro computers-inventory`
+  → `pro computer-inventory`.
+- `TestRequestBodyFlagIsUniformlyFromFile` — `bodyFileUploadLeaves` keyed
+  `pro computers-inventory upload` and
+  `pro enrollment-customizations-images upload`; both singular now.
+- `TestNoExampleDocumentsAnUndeclaredPositional` — `unmatchedExampleLeaves`
+  21 → 20. The one that dropped is `pro computer-groups get`, which sat in the
+  second of two identical computer-groups subtrees because the generated
+  registry called `NewComputerGroupsCmd` twice. Spec-derived identity gives one
+  subtree, so the example resolves to its own leaf: a registry defect fixed by
+  removing what caused it, and the comment now records that rather than the
+  duplicate.
+- `TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands` was passing, but only
+  because `pro mdm-commands commands` resolves through a deprecation alias. It
+  now names the live `pro mdm commands`, so it survives the alias expiry and
+  asserts what it claims to.
 
 ### 3. The renames themselves — **as separate commits**
 
@@ -191,6 +236,18 @@ When this expires, delete `deprecated_names.go`, its wiring in `pro.go` and
 
 `docs/site/catalog.js`, the wiki (separate `.wiki.git` repo), `skills/jamf-cli/SKILL.md`,
 `CHANGELOG.md`, `docs/GLOSSARY.md`, and CLAUDE.md's own examples.
+
+Two CLAUDE.md claims are now false and need correcting with the rest:
+
+- The gateway-coverage section says the surviving withdrawal refusals leave
+  "only one … a command anyone can run: `pro static-computer-groups` (v2),
+  beside `pro computer-groups-static-groups` (v3) in the same binary." Both
+  versions are one resource now, the v3 wins, and `static-computer-groups` does
+  not ship. The refused count in that paragraph is 59, not 67 — count it from
+  `commands -o json`, as the paragraph itself says.
+- It still cites inventory-preload as the case `DeduplicateVersioned`'s
+  base-suppression rule was written for. `DeduplicateVersioned` is out of the
+  pipeline; see "Corrections to earlier claims", below.
 
 ## Override tables, and their size
 

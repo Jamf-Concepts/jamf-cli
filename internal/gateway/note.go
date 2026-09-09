@@ -25,9 +25,9 @@ const transitionalNote = "The gateway still routes some endpoints its published 
 // no answer — it sends an operator to a command that is not the one they wanted.
 //
 // The table earns its place because the alternative remedy is disproportionate.
-// instanceRemedy tells an operator to provision a second credential; for these
-// three, swapping one command name is enough, and the binary they already have
-// serves it on the profile they already have.
+// instanceRemedy tells an operator to provision a second credential; where an
+// entry exists, swapping one command name is enough, and the binary they
+// already have serves it on the profile they already have.
 //
 // It cannot be allowed to go stale, and nothing in a spec drop announces that a
 // successor has moved or that a key has stopped being refused, so the guard is a
@@ -45,27 +45,37 @@ type successor struct {
 // covers itself and everything beneath it, longest key first, so one entry
 // answers for a whole resource's subcommands.
 var successors = map[string]successor{
-	// Empty, and that is the answer rather than an omission.
+	// Empty, and that is the answer rather than an omission. Every one of the
+	// refused commands this binary ships was checked for a replacement and none
+	// has one: api-roles, api-integrations, api-role-privileges,
+	// api-authentication, jamf-pro-initialization, sso-oauth-session-tokens,
+	// environment-type, macos-managed-software-updates' available-updates,
+	// classic-computer-configs, and the device actions on POST /v2/mdm/commands.
+	// The gateway publishes no substitute for any of them, so instanceRemedy is
+	// the whole of the answer there.
 	//
 	// It held one entry: `pro static-computer-groups`, the withdrawn v2 of a
 	// resource whose v3 shipped under a second command name, because a per-file
 	// spec layout named each version's file separately. Resource identity comes
-	// from the paths now, so both versions land in one resource,
+	// from the spec's paths and tags now, so both versions land in one resource,
 	// deduplicateVersionedOps keeps the v3 the gateway publishes, and there is
 	// no v2 command left to refuse or redirect. The rename removed the need for
-	// the redirect.
+	// the redirect rather than invalidating it.
 	//
-	// Deliberately not here: the standalone erase-device-computers and
-	// remove-computer-mdm-profiles resources, which were refused and which
-	// pro.go removed from the tree outright in favour of the hand-written
-	// `pro comp erase` / `remove-mdm`. Those names no longer exist either; the
-	// actions now sit inside `computer-inventory`, which pro.go removes whole.
-	// Deliberately not here: the standalone erase-device-computers and
-	// remove-computer-mdm-profiles resources. Both are refused, but pro.go
-	// removes them from the tree outright in favour of the hand-written
-	// `pro computers-inventory erase` / `remove-mdm`, so there is no command left
-	// for an operator to be refused on and nothing to point anywhere. The
-	// staleness test is what established that, by failing on the entries.
+	// Deliberately not here either: the standalone erase-device-computers and
+	// remove-computer-mdm-profiles resources. Both were refused, and pro.go
+	// removed them from the tree outright in favour of the hand-written
+	// `pro comp erase` / `remove-mdm`, so there was no command left for an
+	// operator to be refused on and nothing to point anywhere. Those names no
+	// longer exist at all now; the actions sit inside `computer-inventory`.
+	//
+	// The rendering is still exercised: internal/gateway's tests install a
+	// test-local entry, which is this package's idiom for a mechanism whose
+	// live case resolved (see generator/gateway's probedUnserved tests). What
+	// cannot be exercised from a table-independent angle is asserted through the
+	// delegation instead — internal/commands checks that the refusal, the
+	// --help caveat and the catalog all render whatever this table holds rather
+	// than composing an answer of their own.
 }
 
 // Successor returns the replacement for a refused command path — the full path
@@ -98,6 +108,34 @@ func SuccessorNote(cmdPath string) string {
 		return ""
 	}
 	return fmt.Sprintf("Use `%s` instead — %s. It ships in this binary and is served by the gateway.", command, why)
+}
+
+// InstallSuccessorForTest adds a curated entry for the duration of a test and
+// returns the undo. It exists because successors is unexported and legitimately
+// empty — the one live entry it held was retired when spec-derived resource
+// identity folded the withdrawn v2 computer-groups command into its v3 sibling —
+// while the code that renders an entry lives in three other places
+// (the runtime refusal, the --help caveat and the `commands -o json` catalog),
+// two of them in internal/commands. Without this, those two would have to skip,
+// and a skip is what let the last guard gap in this area ship: the projection
+// that copies the successor into the catalog was dead for a release with every
+// test green.
+//
+// The first parameter is *testing.T, taken as the narrowest interface that
+// satisfies it rather than by importing testing into a production package. That
+// is also what keeps this out of production use: nothing outside a test has a
+// value to pass.
+func InstallSuccessorForTest(t interface {
+	Helper()
+	Fatalf(string, ...any)
+}, refused, command, why string,
+) func() {
+	t.Helper()
+	if _, exists := successors[refused]; exists {
+		t.Fatalf("gateway: %q is a live successor entry, so a test fixture would shadow it — pick another key", refused)
+	}
+	successors[refused] = successor{Command: command, Why: why}
+	return func() { delete(successors, refused) }
 }
 
 // SuccessorTable returns the curated entries as refused path -> replacement
