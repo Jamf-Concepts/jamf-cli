@@ -733,3 +733,68 @@ func TestConfigAutoDefault_FirstProfile(t *testing.T) {
 		t.Errorf("DefaultProfile = %q, want %q (should not change when adding second profile)", reloaded.DefaultProfile, "first")
 	}
 }
+
+// TestConfigList_MisCasedFormatKeepsTheTableColumns is issue 353. The format
+// string is never normalised — output.New takes the --output value verbatim and
+// ResolveFormat returns it untouched — while Print's switch has no case for
+// "Table" and renders a table through its default arm. So a switch matching
+// "table" exactly handed the wide row type to a table renderer, and the wide
+// type is the one carrying omitempty on the fields that must always be columns.
+func TestConfigList_MisCasedFormatKeepsTheTableColumns(t *testing.T) {
+	// Three mis-casings and an unrecognised value, all of which Print renders
+	// as a table through its default arm.
+	for _, format := range []string{"Table", "TABLE", "Csv", "wibble"} {
+		t.Run(format, func(t *testing.T) {
+			out := runConfigList(t, format, configListScopeFixture)
+
+			if !strings.Contains(out, "ENVIRONMENT-ID") {
+				t.Errorf("-o %s renders a table with no ENVIRONMENT-ID column, so the scope of every platform profile is invisible:\n%s", format, out)
+			}
+			if !strings.Contains(out, "11111111-2222-3333-4444-555555555555") {
+				t.Errorf("-o %s drops the environment ID value:\n%s", format, out)
+			}
+			if !strings.Contains(out, "DEFAULT") {
+				t.Errorf("-o %s renders a table with no DEFAULT column:\n%s", format, out)
+			}
+		})
+	}
+}
+
+// json-multi is the one value that has to be narrowed while not rendering a
+// table: internal/commands/multi.go sets it as the capture format, so it writes
+// JSON on the wire and multi re-renders that JSON as a table afterwards. It is
+// therefore excluded from output.RendersStructureVerbatim, and this asserts the
+// consequence — the captured rows carry the column shape, not the wide one —
+// because a keep-set that included it would put the wide shape on a terminal by
+// way of `jamf-cli multi`.
+func TestConfigList_JSONMultiCapturesTheColumnShape(t *testing.T) {
+	out := runConfigList(t, "json-multi", configListScopeFixture)
+
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("json-multi output is not valid JSON: %v\n%s", err, out)
+	}
+	if len(rows) == 0 {
+		t.Fatal("json-multi captured no rows")
+	}
+	for _, r := range rows {
+		if _, ok := r["tenant-id"]; ok {
+			t.Errorf("json-multi carries tenant-id, so it took the wide row type: %v", r)
+		}
+		if _, ok := r["environment-id"]; !ok {
+			t.Errorf("json-multi row omits environment-id, so the column would vanish when multi renders it: %v", r)
+		}
+	}
+}
+
+// The keep-set is the point of the inversion, so it is asserted rather than
+// assumed: a format that renders a structure verbatim must still get the wide
+// row type, tenant-id included.
+func TestConfigList_StructuredFormatsStillGetTheWideRowType(t *testing.T) {
+	for _, format := range []string{"json", "yaml", "ndjson"} {
+		out := runConfigList(t, format, configListScopeFixture)
+		if !strings.Contains(out, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee") {
+			t.Errorf("-o %s dropped tenant-id, so the narrowing reached a structured format:\n%s", format, out)
+		}
+	}
+}

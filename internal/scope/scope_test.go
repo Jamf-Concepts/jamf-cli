@@ -4,11 +4,14 @@ package scope
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // ─── XML round-trip ────────────────────────────────────────────────────────────
@@ -1144,4 +1147,69 @@ func TestVerifyItemInScope_MatchesByNameIDAndUDID(t *testing.T) {
 			t.Errorf("flag --%s value %q: expected match, got none", tc.flagName, tc.input)
 		}
 	}
+}
+
+// TestOutputScope_MisCasedFormatStillFlattens is issue 353 at this call site.
+// The switch matched "table", "csv" and "plain" exactly, so any other value —
+// including a mis-cased -o Table, which Print renders as a table through its
+// default arm — took the nested ScopeXML structure to a table renderer.
+func TestOutputScope_MisCasedFormatStillFlattens(t *testing.T) {
+	s := &ScopeXML{
+		Computers: ScopeItemSlice{Items: []NamedItem{{ID: "42", Name: "lab-01"}}},
+	}
+
+	for _, format := range []string{"Table", "TABLE", "Csv", "json-multi", "wibble"} {
+		out := &captureFormatter{}
+		if err := OutputScope(out, s, "computer", format); err != nil {
+			t.Fatalf("OutputScope(-o %s): %v", format, err)
+		}
+
+		var rows []map[string]any
+		if err := json.Unmarshal(out.raw, &rows); err != nil {
+			t.Errorf("-o %s did not produce flattened rows (%v): %s", format, err, out.raw)
+			continue
+		}
+		if len(rows) != 1 {
+			t.Errorf("-o %s produced %d rows, want 1 flattened row: %s", format, len(rows), out.raw)
+			continue
+		}
+		if rows[0]["name"] != "lab-01" {
+			t.Errorf("-o %s row does not carry the flattened name: %v", format, rows[0])
+		}
+	}
+}
+
+// The keep-set still gets the nested structure, which is what the flattening is
+// narrowing away from.
+func TestOutputScope_StructuredFormatsKeepTheNestedShape(t *testing.T) {
+	s := &ScopeXML{
+		Computers: ScopeItemSlice{Items: []NamedItem{{ID: "42", Name: "lab-01"}}},
+	}
+
+	for _, format := range []string{"json", "yaml", "ndjson", "xml", "raw"} {
+		out := &captureFormatter{}
+		if err := OutputScope(out, s, "computer", format); err != nil {
+			t.Fatalf("OutputScope(-o %s): %v", format, err)
+		}
+		var obj map[string]any
+		if err := json.Unmarshal(out.raw, &obj); err != nil {
+			t.Errorf("-o %s did not produce the nested object (%v): %s", format, err, out.raw)
+			continue
+		}
+		if _, ok := obj["computers"]; !ok {
+			t.Errorf("-o %s lost the nested computers key: %s", format, out.raw)
+		}
+	}
+}
+
+// captureFormatter records the bytes OutputScope writes. It implements only the
+// method under test; the rest of registry.OutputFormatter is unreachable here.
+type captureFormatter struct {
+	registry.OutputFormatter
+	raw []byte
+}
+
+func (c *captureFormatter) PrintRaw(data []byte) error {
+	c.raw = data
+	return nil
 }

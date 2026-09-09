@@ -1837,3 +1837,29 @@ func TestPrintNDJSON_SelectProjection(t *testing.T) {
 		}
 	}
 }
+
+// TestRendersStructureVerbatim pins the keep-set, and pins the polarity that
+// the set exists to express: everything not named renders as columns, so
+// everything not named must take a command's narrowed row type. The default
+// arm is the one that was wrong at three call sites (issue 353).
+func TestRendersStructureVerbatim(t *testing.T) {
+	for _, format := range []string{"json", "yaml", "ndjson", "xml", "raw"} {
+		if !RendersStructureVerbatim(format) {
+			t.Errorf("%q is not in the keep-set, so a command would flatten a format that renders structure verbatim", format)
+		}
+	}
+
+	// Three column formats, the internal capture format, four mis-casings and
+	// an unrecognised value. Print renders a table for all but json-multi, and
+	// json-multi is JSON on the wire that multi re-renders as a table — so
+	// every one of them wants the column shape.
+	for _, format := range []string{
+		"table", "csv", "plain", "json-multi",
+		"Table", "TABLE", "JSON", "Yaml",
+		"wibble", "",
+	} {
+		if RendersStructureVerbatim(format) {
+			t.Errorf("%q is in the keep-set, so a command would hand its wide row type to a column renderer", format)
+		}
+	}
+}

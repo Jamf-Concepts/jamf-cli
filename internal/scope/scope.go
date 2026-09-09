@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -303,28 +304,35 @@ func RemoveFromScope(s *ScopeXML, singularKey, section, flagName, name string) b
 	return removeNamedItem(readScopeItems(s, section, flagName), name)
 }
 
-// OutputScope writes the scope to the output formatter. For table/csv/plain formats
-// it flattens the scope into rows; for json/yaml it outputs the full structure.
+// OutputScope writes the scope to the output formatter. The column formats get
+// the scope flattened into rows; json, yaml, ndjson, xml and raw get the full
+// structure.
+//
+// The keep-set is named and the flattened shape is the default, rather than the
+// other way round, because the format string is not normalised: this used to
+// match "table", "csv" and "plain" exactly, so any other value — a mis-cased
+// -o Table, or the internal json-multi that means JSON on the wire and a table
+// on the screen — took the nested structure to a table renderer. See
+// output.RendersStructureVerbatim.
 func OutputScope(out registry.OutputFormatter, s *ScopeXML, singularKey, format string) error {
-	switch format {
-	case "table", "csv", "plain":
-		rows := FlattenScope(s, singularKey)
-		if len(rows) == 0 {
-			fmt.Fprintln(os.Stderr, "Scope is empty")
-			return nil
-		}
-		data, err := json.Marshal(rows)
-		if err != nil {
-			return err
-		}
-		return out.PrintRaw(data)
-	default:
+	if output.RendersStructureVerbatim(format) {
 		data, err := json.Marshal(s)
 		if err != nil {
 			return err
 		}
 		return out.PrintRaw(data)
 	}
+
+	rows := FlattenScope(s, singularKey)
+	if len(rows) == 0 {
+		fmt.Fprintln(os.Stderr, "Scope is empty")
+		return nil
+	}
+	data, err := json.Marshal(rows)
+	if err != nil {
+		return err
+	}
+	return out.PrintRaw(data)
 }
 
 // FlattenScope converts a ScopeXML into a flat list of rows for table output.
