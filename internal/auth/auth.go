@@ -594,3 +594,25 @@ func (p *PlatformOAuth2Provider) Refresh(ctx context.Context) (string, error) {
 func (p *PlatformOAuth2Provider) Name() string {
 	return "platform"
 }
+
+// VerifyOAuth2Credentials performs a one-shot client-credentials exchange
+// against a Jamf Pro instance and reports whether the pair is usable.
+//
+// It deliberately calls exchangeToken rather than GetToken: GetToken consults
+// the on-disk token cache first, which is keyed on (baseURL, clientID) and not
+// on the secret — so a stale cached token for the same client ID would report a
+// wrong secret as valid. Nothing is cached, so verification cannot leave a
+// token behind for a pair the caller then declines to save.
+func VerifyOAuth2Credentials(ctx context.Context, baseURL, clientID, clientSecret string) error {
+	_, _, err := NewOAuth2Provider(baseURL, clientID, clientSecret).exchangeToken(ctx)
+	return err
+}
+
+// VerifyPlatformCredentials is the platform gateway twin of
+// VerifyOAuth2Credentials. The scope is not sent during a token exchange — the
+// gateway resolves it per request from a header — so this establishes that the
+// credentials are valid and says nothing about whether the scope level is.
+func VerifyPlatformCredentials(ctx context.Context, baseURL, clientID, clientSecret string, scope Scope) error {
+	_, _, err := NewPlatformOAuth2Provider(baseURL, clientID, clientSecret, scope).exchangeToken(ctx)
+	return err
+}
