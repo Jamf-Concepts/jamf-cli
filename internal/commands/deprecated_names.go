@@ -185,13 +185,13 @@ var deprecatedNames = map[string]deprecatedName{
 // would shadow it, because applyDeprecatedNames runs before applyAliases and a
 // real command beats an alias in cobra.
 var withdrawnNames = map[string]string{
-	"remote-administration-configurations": "the bare `/preview/remote-administration-configurations` collection is no longer ingested; the family under it ships as `pro team-viewer-remote-administrations`",
+	"remote-administration-configurations": "the bare `/preview/remote-administration-configurations` collection is no longer ingested; the family under it ships as `pro team-viewer-remote-administration`",
 	"servers":                              "`/settings/issueTomcatSslCertificate` was an unversioned legacy endpoint with no replacement in the versioned API",
 	// Not a withdrawal but a handwritten replacement, which lands here for the
 	// same reason: pro.go removes the generated resource outright, so there is
 	// no command to alias to. The handwritten one targets by --serial/--name/
 	// --group and confirms, where the generated one took an <id>.
-	"redeploy-jamf-management-frameworks": "the redeploy action moved to `pro computers-inventory redeploy-framework` (aliased `comp`), which targets by serial, name or group",
+	"redeploy-jamf-management-frameworks": "the redeploy action moved to `pro computer-inventory redeploy-framework` (aliased `comp`), which targets by serial, name or group",
 }
 
 // applyDeprecatedNames wires the old names onto the tree: a rename or merge

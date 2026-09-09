@@ -262,3 +262,45 @@ func TestProWiringNamesCommandsThatShip(t *testing.T) {
 	}
 	t.Logf("checked %d wiring targets", seen)
 }
+
+// A withdrawal message points the caller somewhere, and pointing them at a
+// command that does not exist is worse than the bare "unknown command" it
+// replaced — it reads as authoritative.
+//
+// Both messages were stale when this was written: they named
+// `pro team-viewer-remote-administrations` and
+// `pro computers-inventory redeploy-framework`, the pre-rename forms. Prose is
+// exactly what a rename does not update.
+func TestWithdrawnNameMessagesNameCommandsThatShip(t *testing.T) {
+	src, err := os.ReadFile("deprecated_names.go")
+	if err != nil {
+		t.Fatalf("reading deprecated_names.go: %v", err)
+	}
+	start := strings.Index(string(src), "var withdrawnNames = map[string]string{")
+	if start < 0 {
+		t.Fatal("withdrawnNames is gone; delete this guard with it")
+	}
+	block := string(src)[start:]
+	if end := strings.Index(block, "\n}\n"); end > 0 {
+		block = block[:end]
+	}
+
+	root := NewRootCmd("test", "test", "test", "test")
+	quoted := regexp.MustCompile("`(pro [a-z0-9 -]+)`")
+	found := 0
+	for _, m := range quoted.FindAllStringSubmatch(block, -1) {
+		found++
+		args := strings.Fields(m[1])[1:] // drop the binary-relative "pro"
+		cmd, _, err := root.Find(append([]string{"pro"}, args...))
+		if err != nil || cmd == nil || cmd.CommandPath() != "jamf-cli "+m[1] {
+			got := "not found"
+			if cmd != nil {
+				got = cmd.CommandPath()
+			}
+			t.Errorf("a withdrawal message names `%s`, which resolves to %q", m[1], got)
+		}
+	}
+	if found == 0 {
+		t.Error("no command names found in the withdrawal messages; the pattern stopped matching")
+	}
+}
