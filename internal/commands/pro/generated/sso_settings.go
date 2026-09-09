@@ -7,12 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
@@ -29,19 +27,14 @@ func NewSsoSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newSsoSettingsGetCmd(ctx))
 	cmd.AddCommand(newSsoSettingsUpdateCmd(ctx))
-	cmd.AddCommand(newSsoSettingsDeleteCmd(ctx))
 	cmd.AddCommand(newSsoSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newSsoSettingsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newSsoSettingsCertCmd(ctx))
-	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
-	cmd.AddCommand(newSsoSettingsParseCmd(ctx))
-	cmd.AddCommand(newSsoSettingsUpdateCertCmd(ctx))
-	cmd.AddCommand(newSsoSettingsCreateCertCmd(ctx))
-	cmd.AddCommand(newSsoSettingsDependenciesCmd(ctx))
-	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
 	cmd.AddCommand(newSsoSettingsFailoverCmd(ctx))
 	cmd.AddCommand(newSsoSettingsGenerateCmd(ctx))
-	cmd.AddCommand(newSsoSettingsV3MetadataDownloadCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDependenciesCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
+	cmd.AddCommand(NewSsoSettingsCertCmd(ctx))
 
 	return cmd
 }
@@ -225,84 +218,6 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			"configurationType=", "enrollmentSsoConfig.managementHint=", "enrollmentSsoForAccountDrivenEnrollmentEnabled=", "groupEnrollmentAccessEnabled=", "groupEnrollmentAccessName=", "oidcSettings.jamfIdAuthenticationEnabled=", "oidcSettings.userMapping=", "oidcSettings.usernameAttributeClaimMapping=", "samlSettings.entityId=", "samlSettings.federationMetadataFile=", "samlSettings.groupAttributeName=", "samlSettings.groupRdnKey=", "samlSettings.idpProviderType=", "samlSettings.idpUrl=", "samlSettings.metadataFileName=", "samlSettings.metadataSource=", "samlSettings.otherProviderTypeName=", "samlSettings.sessionTimeout=", "samlSettings.tokenExpirationDisabled=", "samlSettings.userAttributeEnabled=", "samlSettings.userAttributeName=", "samlSettings.userMapping=", "ssoBypassAllowed=", "ssoEnabled=", "ssoForEnrollmentEnabled=", "ssoForMacOsSelfServiceEnabled=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-	return cmd
-}
-
-func newSsoSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete the currently configured certificate used by SSO",
-		Long:  "Deletes the currently configured certificate used by SSO.",
-		Example: `  # Delete the sso-settings (with confirmation)
-  jamf-cli pro sso-settings delete
-
-  # Delete without confirmation prompt
-  jamf-cli pro sso-settings delete --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Confirmation for destructive action
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete\n")
-				return nil
-			}
-			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete. Type 'yes' to confirm: ")
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			// Destructive cooldown enforcement
-			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
-				return err
-			}
-
-			// Build request path
-			path := "/v2/sso/cert"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				cooldown.Record(ctx.ProfileName)
-				fmt.Fprintln(os.Stderr, "Deleted successfully")
-				return nil
-			}
-
-			err = ctx.Output.PrintResponse(resp)
-			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				cooldown.Record(ctx.ProfileName)
-			}
-			return err
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	return cmd
 }
 
@@ -520,19 +435,19 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "cert",
-		Short:       "Retrieve the certificate currently configured for use with SSO",
-		Long:        "Retrieves the certificate currently configured for use with SSO.",
+		Use:         "failover",
+		Short:       "Retrieve the current failover settings",
+		Long:        "Retrieve the current failover settings",
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/sso/cert"
+			path := "/v1/sso/failover"
 
 			// Build query string
 			var queryParts []string
@@ -554,210 +469,19 @@ func newSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagSaveTo string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "download",
-		Short: "Download the certificate currently configured for use with Jamf Pro's SSO configuration",
-		Long:  "Downloads the certificate currently configured for use with Jamf Pro's SSO configuration",
-		Example: `  # Save to file
-  jamf-cli pro sso-settings download -O output.bin
-
-  # Pipe to stdout
-  jamf-cli pro sso-settings download > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			reqCtx = registry.WithAccept(reqCtx, "*/*")
-
-			// Build request path
-			path := "/v2/sso/cert/download"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if flagSaveTo != "" {
-				f, err := os.Create(flagSaveTo)
-				if err != nil {
-					return fmt.Errorf("opening output file: %w", err)
-				}
-				defer f.Close()
-				n, err := io.Copy(f, resp.Body)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
-				return nil
-			}
-			_, err = io.Copy(os.Stdout, resp.Body)
-			return err
-		},
-	}
-
-	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	return cmd
-}
-
-func newSsoSettingsParseCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "parse",
-		Short:       "Parse the certificate to get details about certificate type and keys needed to upload certificate file",
-		Long:        "Parse the certificate to get details about certificate type and keys needed to upload certificate file.",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "keystoreFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
-  "keystoreFileName": "keystore.p12",
-  "keystorePassword": "***"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v2/sso/cert/parse"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
-func newSsoSettingsUpdateCertCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "update-cert",
-		Short:       "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider",
-		Long:        "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider.",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "key": "",
-  "keys": [
-    {
-      "id": "1",
-      "valid": true
-    }
-  ],
-  "keystoreFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
-  "keystoreFileName": "keystore.p12",
-  "keystorePassword": "***",
-  "keystoreSetupType": "UPLOADED",
-  "password": "***",
-  "type": "PKCS12"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v2/sso/cert"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
-func newSsoSettingsCreateCertCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsGenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "create-cert",
-		Short:       "Jamf Pro will generate a new certificate and use it to sign SSO",
-		Long:        "Jamf Pro will generate a new certificate and use it to sign SSO requests to the identity provider.",
+		Use:         "generate",
+		Short:       "Regenerates failover url",
+		Long:        "Regenerates failover url, by changing failover key to new one, and returns new failover settings",
 		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/sso/cert"
+			path := "/v1/sso/failover/generate"
 
 			// Build query string
 			var queryParts []string
@@ -881,105 +605,20 @@ func newSsoSettingsDisableCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSettingsFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "failover",
-		Short:       "Retrieve the current failover settings",
-		Long:        "Retrieve the current failover settings",
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/sso/failover"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newSsoSettingsGenerateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "generate",
-		Short:       "Regenerates failover url",
-		Long:        "Regenerates failover url, by changing failover key to new one, and returns new failover settings",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/sso/failover/generate"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newSsoSettingsV3MetadataDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "v-3-metadata-download",
+		Use:   "download",
 		Short: "Download the Jamf Pro SAML metadata file",
 		Long:  "Download the Jamf Pro SAML metadata file",
 		Example: `  # Save to file
-  jamf-cli pro sso-settings v-3-metadata-download -O output.bin
+  jamf-cli pro sso-settings download -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro sso-settings v-3-metadata-download > output.bin`,
+  jamf-cli pro sso-settings download > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

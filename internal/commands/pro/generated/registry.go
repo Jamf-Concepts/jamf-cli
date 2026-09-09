@@ -167,6 +167,37 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewVolumePurchasingSubscriptionsCmd(ctx))
 }
 
+// NestedResourceCommands returns a constructor per nested sub-resource, keyed on
+// the command path it is reachable at beneath `pro`.
+//
+// It exists for the deprecation redirect. A retired resource name is kept alive
+// as a cobra alias, and an alias is a name on one command, so it can only ever
+// point at a direct child of `pro`. Four retired names — the four spec files
+// whose paths are now sub-resources — need to reach two tokens deep, and
+// pointing them at the parent instead is not merely imprecise:
+// `pro self-service-settings get` worked before the nesting and would answer
+// `unknown command` after it.
+//
+// So internal/commands builds a second instance of the nested subtree under the
+// old name. A constructor rather than the assembled command, because the same
+// *cobra.Command cannot have two parents — AddCommand reparents it, which would
+// break CommandPath, --help and usage for whichever registration came first.
+// Calling the constructor again is what makes the redirect incapable of
+// drifting from the command it redirects to.
+func NestedResourceCommands() map[string]func(*registry.CLIContext) *cobra.Command {
+	return map[string]func(*registry.CLIContext) *cobra.Command{
+		"activation-code organization-name":             NewActivationCodeOrganizationNameCmd,
+		"app-installers global-settings":                NewAppInstallersGlobalSettingsCmd,
+		"csa token":                                     NewCsaTokenCmd,
+		"enrollment adue-session-token-settings":        NewEnrollmentAdueSessionTokenSettingsCmd,
+		"local-admin-password settings":                 NewLocalAdminPasswordSettingsCmd,
+		"managed-software-updates-plans feature-toggle": NewManagedSoftwareUpdatesPlansFeatureToggleCmd,
+		"self-service settings":                         NewSelfServiceSettingsCmd,
+		"self-service-plus settings":                    NewSelfServicePlusSettingsCmd,
+		"sso-settings cert":                             NewSsoSettingsCertCmd,
+	}
+}
+
 // renderDocumentedStatus handles a non-2xx response that the spec documents as a
 // result of the operation rather than a failure of it (see
 // documentedStatusResults in generator/parser/parser.go): the body is what the

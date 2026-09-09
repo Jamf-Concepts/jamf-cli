@@ -4,7 +4,6 @@ package generated
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -24,10 +23,8 @@ func NewLocalAdminPasswordCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newLocalAdminPasswordUpdateCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordHistoryCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordPendingRotationsCmd(ctx))
-	cmd.AddCommand(newLocalAdminPasswordSettingsCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordAuditCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordAccountHistoryCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordPasswordCmd(ctx))
@@ -36,115 +33,8 @@ func NewLocalAdminPasswordCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newLocalAdminPasswordPasswordByGuidCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordAccountsCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordSetPasswordCmd(ctx))
+	cmd.AddCommand(NewLocalAdminPasswordSettingsCmd(ctx))
 
-	return cmd
-}
-
-func newLocalAdminPasswordUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-		flagSet      []string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update settings for LAPS.",
-		Long:  "Update settings for LAPS.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  autoDeployEnabled                            boolean\n  autoRotateEnabled                            boolean\n  autoRotateExpirationTime                     integer\n  passwordRotationTime                         integer\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
-		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro local-admin-password update --set field=value
-
-  # Update from a file
-  jamf-cli pro local-admin-password update --from-file local-admin-password.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Local Admin Password Settings", "jamf:api": "pro", "jamf:gateway-privileges": "local-admin-passwords:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "autoDeployEnabled": false,
-  "autoRotateEnabled": false,
-  "autoRotateExpirationTime": 7776000,
-  "passwordRotationTime": 3600
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v2/local-admin-password/settings"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			if len(flagSet) > 0 {
-				// --set: fetch current state, drop read-only / server-computed fields,
-				// merge the caller's changes, and PUT the full record back. Fields not
-				// named in --set keep their current values.
-				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
-				if ferr != nil {
-					return ferr
-				}
-				current := map[string]any{}
-				if len(existing) > 0 {
-					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current local-admin-password for --set: %w", err)
-					}
-				}
-				(&fieldFilter{fields: map[string]*fieldFilter{"autoDeployEnabled": nil, "autoRotateEnabled": nil, "autoRotateExpirationTime": nil, "passwordRotationTime": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"autoDeployEnabled": "boolean", "autoRotateEnabled": "boolean", "autoRotateExpirationTime": "integer", "passwordRotationTime": "integer"})
-				if serr != nil {
-					return serr
-				}
-				setMap := map[string]any{}
-				if err := json.Unmarshal(setDoc, &setMap); err != nil {
-					return err
-				}
-				deepMergeJSON(current, setMap)
-				merged, merr := json.Marshal(current)
-				if merr != nil {
-					return merr
-				}
-				normalized = merged
-				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
-					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
-				}
-			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
-	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{
-			"autoDeployEnabled=", "autoRotateEnabled=", "autoRotateExpirationTime=", "passwordRotationTime=",
-		}, cobra.ShellCompDirectiveNoSpace
-	})
 	return cmd
 }
 
@@ -199,40 +89,6 @@ func newLocalAdminPasswordPendingRotationsCmd(ctx *registry.CLIContext) *cobra.C
 
 			// Build request path
 			path := "/v2/local-admin-password/pending-rotations"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newLocalAdminPasswordSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "settings",
-		Short:       "Get the current LAPS settings.",
-		Long:        "Return information about the current LAPS settings.",
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment,Update Local Admin Password Settings", "jamf:api": "pro", "jamf:gateway-privileges": "local-admin-passwords:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/local-admin-password/settings"
 
 			// Build query string
 			var queryParts []string

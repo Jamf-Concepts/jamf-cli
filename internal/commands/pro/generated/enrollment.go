@@ -30,12 +30,11 @@ func NewEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentHistoryCmd(ctx))
 	cmd.AddCommand(newEnrollmentAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newEnrollmentHistoryExportCmd(ctx))
-	cmd.AddCommand(newEnrollmentAdueSessionTokenSettingsCmd(ctx))
-	cmd.AddCommand(newEnrollmentUpdateAdueSessionTokenSettingsCmd(ctx))
 	cmd.AddCommand(newEnrollmentFilteredLanguageCodesCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguageCodesCmd(ctx))
 	cmd.AddCommand(newEnrollmentAccessManagementCmd(ctx))
 	cmd.AddCommand(newEnrollmentCreateAccessManagementCmd(ctx))
+	cmd.AddCommand(NewEnrollmentAdueSessionTokenSettingsCmd(ctx))
 
 	return cmd
 }
@@ -576,102 +575,6 @@ func newEnrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*script*\"")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	return cmd
-}
-
-func newEnrollmentAdueSessionTokenSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "adue-session-token-settings",
-		Short:       "Retrieve the Account Driven User Enrollment Session Token Settings",
-		Long:        "Retrieve the Account Driven User Enrollment Session Token Settings",
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/adue-session-token-settings"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newEnrollmentUpdateAdueSessionTokenSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "update-adue-session-token-settings",
-		Short:       "Update Account Driven User Enrollment Session Token Settings.",
-		Long:        "Update the Account Driven User Enrollment Session Token Settings object.",
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "enabled": false,
-  "expirationIntervalDays": 1,
-  "expirationIntervalSeconds": 86400
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v1/adue-session-token-settings"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 

@@ -29,7 +29,7 @@ func NewActivationCodeCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newActivationCodeHistoryCmd(ctx))
 	cmd.AddCommand(newActivationCodeAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newActivationCodeHistoryExportCmd(ctx))
-	cmd.AddCommand(newActivationCodePatchCmd(ctx))
+	cmd.AddCommand(NewActivationCodeOrganizationNameCmd(ctx))
 
 	return cmd
 }
@@ -436,90 +436,5 @@ func newActivationCodeHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	return cmd
-}
-
-func newActivationCodePatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-		flagSet      []string
-		fromFile     string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "patch",
-		Short: "Updates Organization Name",
-		Long:  "Updates Organization Name in Jamf Pro.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  organizationName                             string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
-		Example: `  # Update a field
-  jamf-cli pro activation-code patch --set field=value`,
-		Annotations: map[string]string{"jamf:privileges": "Update License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "organizationName": "Your Organization Name"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v1/activation-code/organization-name"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			// PATCH: --set flags take priority; fall back to --from-file or stdin
-			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
-			var normalized []byte
-			switch {
-			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, map[string]string{"organizationName": "string"})
-				if err != nil {
-					return err
-				}
-				normalized = data
-			case fromFile != "":
-				data, err := os.ReadFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading input file: %w", err)
-				}
-				normalized = data
-			default:
-				stat, _ := os.Stdin.Stat()
-				if (stat.Mode() & os.ModeCharDevice) == 0 {
-					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-					if err != nil {
-						return fmt.Errorf("reading stdin: %w", err)
-					}
-					normalized = raw
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
-	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{
-			"organizationName=",
-		}, cobra.ShellCompDirectiveNoSpace
-	})
 	return cmd
 }

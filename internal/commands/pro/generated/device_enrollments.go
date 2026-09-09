@@ -1440,7 +1440,7 @@ If not, a new resource is created.`,
 				bodyPath := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(newID), 1)
 				bodyResp, err := ctx.Client.Do(reqCtx, "PUT", bodyPath, bytes.NewReader(data))
 				if err != nil {
-					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe device-enrollment exists but is unnamed; to recover run: jamf-cli device-enrollments update %s --from-file <body.json>", newID, err, newID)
+					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe device-enrollment exists but is unnamed; to recover run: jamf-cli pro device-enrollments update %s --from-file <body.json>", newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created device-enrollment %q (id: %s)\n", name, newID)
