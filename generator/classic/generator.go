@@ -1668,11 +1668,13 @@ type classicBodySpec struct {
 // Only the classic update commands need this: create takes no positional and
 // apply keys off the body's own name. The modern Pro update escapes it by having
 // a --name alternative, which makes its validator MaximumNArgs(1), where a
-// classic resource with no name lookup is ExactArgs(1). That escape does not
-// extend to the whole modern generator: it emits no relaxation of its own, so a
-// patch or an x-action under a path parameter with no name lookup still cannot
-// reach its own scaffold. unreachableScaffoldLeaves in
-// internal/commands/positional_args_test.go counts those.
+// classic resource with no name lookup is ExactArgs(1). The rest of the modern
+// generator does not escape it and had no relaxation until issue 363, so a patch
+// or an x-action under a path parameter with no name lookup could not reach its
+// own scaffold at all; resourceTemplate now emits the same floor-only shape
+// inline. TestScaffoldKeepsTheDeclaredPositionalCeiling in
+// internal/commands/positional_args_test.go holds all three generators to both
+// ends of it.
 func classicScaffoldArgs(scaffold *bool, inner cobra.PositionalArgs) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if scaffold != nil && *scaffold {
