@@ -211,7 +211,18 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		},
 		"exampleText": func(r *Resource, op *Operation) string {
 			bin := "jamf-cli pro"
-			resourceName := r.Name
+			// CmdPath, not Name: a nested sub-resource is invoked as
+			// `pro sso-settings cert get`, and an example naming only the last
+			// token documents a command that does not exist —
+			// TestEveryExampleInvocationNamesACommandThatExists is the guard.
+			resourceName := r.CmdPath()
+			// And a filename is not an invocation. Two examples build one out
+			// of the resource's name, and CmdPath carries a space, so
+			// `--from-file app-installers global-settings.json` reads as a flag
+			// value plus a stray positional — refused by the leaf's own
+			// validator, which is what TestNoExampleDocumentsAnUndeclared
+			// Positional caught.
+			fileStem := r.FileBase()
 			nameSingular := r.NameSingular
 			switch op.Name {
 			case "list":
@@ -277,7 +288,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 							fmt.Sprintf("Replace %s from a full JSON document", resourceName),
 							`.field = "value"`,
 							fmt.Sprintf("%s %s update", bin, resourceName)),
-						fmt.Sprintf("  # Update from a file\n  %s %s update --from-file %s.json", bin, resourceName, resourceName),
+						fmt.Sprintf("  # Update from a file\n  %s %s update --from-file %s.json", bin, resourceName, fileStem),
 					)
 				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
@@ -371,7 +382,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					bin, resourceName, bin, resourceName, bin, resourceName)
 			case "export":
 				return fmt.Sprintf("  # Export %s to CSV\n  %s %s export --out-file %s.csv",
-					resourceName, bin, resourceName, resourceName)
+					resourceName, bin, resourceName, fileStem)
 			default:
 				if opHasBinaryResponse(op) {
 					// Mirror the Use line: emit a placeholder for every path
@@ -792,7 +803,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		return "", fmt.Errorf("parsing template: %w", err)
 	}
 
-	filename := safeFilename(resource.Name)
+	// FileBase, not Name: three sub-resources are called `settings`, and one
+	// file per resource is what the stale-file prune in generator/main.go
+	// assumes.
+	filename := safeFilename(resource.FileBase())
 	outPath := filepath.Join(g.outputDir, filename)
 
 	f, err := os.Create(outPath)
@@ -813,6 +827,16 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 // GenerateRegistry generates the registry file that registers all commands
 func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
 	tmpl, err := template.New("registry").Funcs(template.FuncMap{
+		"nestedResources": func(resources []*Resource) []*Resource {
+			var out []*Resource
+			for _, r := range FlattenResources(resources) {
+				if r.Parent != "" {
+					out = append(out, r)
+				}
+			}
+			sort.Slice(out, func(i, j int) bool { return out[i].CmdPath() < out[j].CmdPath() })
+			return out
+		},
 		"anyHasGroupSupport": func(resources []*Resource) bool {
 			for _, r := range resources {
 				if r.GroupsClassicPath != "" {
@@ -1484,6 +1508,9 @@ func resourceGetOp(r *Resource) *Operation {
 // --help taught a line answering `unknown command "get"`, and two more have a
 // get of a different arity than the example assumed, so the head was refused by
 // its own validator. Both halves have to be runnable.
+// CmdPath rather than Name throughout the example builders below: a nested
+// sub-resource is invoked as `pro sso-settings cert get`, and an example naming
+// only its last token documents a command that does not exist.
 func getPipeBlock(r *Resource, bin, comment, jq, write string) string {
 	op := resourceGetOp(r)
 	if op == nil {
@@ -1493,7 +1520,7 @@ func getPipeBlock(r *Resource, bin, comment, jq, write string) string {
 	for i := range pathParams(op.Parameters) {
 		ids += fmt.Sprintf(" %d", i+1)
 	}
-	return fmt.Sprintf("  # %s\n  %s %s get%s -o json | jq '%s' | %s", comment, bin, r.Name, ids, jq, write)
+	return fmt.Sprintf("  # %s\n  %s %s get%s -o json | jq '%s' | %s", comment, bin, r.CmdPath(), ids, jq, write)
 }
 
 // getByNamePipeBlock is getPipeBlock addressing the resource by name rather than
@@ -1503,7 +1530,7 @@ func getByNamePipeBlock(r *Resource, bin, comment, jq, write string) string {
 	if op == nil || !opHasNameLookup(op, r) {
 		return ""
 	}
-	return fmt.Sprintf("  # %s\n  %s %s get --name \"Example\" -o json | jq '%s' | %s", comment, bin, r.Name, jq, write)
+	return fmt.Sprintf("  # %s\n  %s %s get --name \"Example\" -o json | jq '%s' | %s", comment, bin, r.CmdPath(), jq, write)
 }
 
 // joinExampleBlocks joins the blocks that rendered, so one that did not leaves
@@ -1524,23 +1551,23 @@ func patchExampleText(r *Resource, op *Operation) string {
 	if !hasPathParam(op.Path) {
 		// Singleton PATCH — no ID
 		return joinExampleBlocks(
-			fmt.Sprintf("  # Update a field\n  %s %s patch --set field=value", bin, r.Name),
+			fmt.Sprintf("  # Update a field\n  %s %s patch --set field=value", bin, r.CmdPath()),
 			getPipeBlock(r, bin, "Update using JSON", `.field = "value"`,
-				fmt.Sprintf("%s %s patch", bin, r.Name)),
+				fmt.Sprintf("%s %s patch", bin, r.CmdPath())),
 		)
 	}
 	var base strings.Builder
 	fmt.Fprintf(&base, "  # Update a field by ID\n  %s %s patch 1 --set general.managed=true\n\n  # Update multiple fields\n  %s %s patch 1 --set field1=value1 --set field2=value2",
-		bin, r.Name, bin, r.Name)
+		bin, r.CmdPath(), bin, r.CmdPath())
 	if patchHasLookup(r) {
 		fmt.Fprintf(&base, "\n\n  # Update by name\n  %s %s patch --name \"Example\" --set general.managed=true",
-			bin, r.Name)
+			bin, r.CmdPath())
 		for _, lf := range r.LookupFields {
 			fmt.Fprintf(&base, "\n\n  # Update by %s\n  %s %s patch --%s <value> --set general.managed=true",
-				lf.Flag, bin, r.Name, lf.Flag)
+				lf.Flag, bin, r.CmdPath(), lf.Flag)
 		}
 	}
-	fmt.Fprintf(&base, "\n\n  # Patch from a file\n  %s %s patch 1 --from-file changes.json", bin, r.Name)
+	fmt.Fprintf(&base, "\n\n  # Patch from a file\n  %s %s patch 1 --from-file changes.json", bin, r.CmdPath())
 	return base.String()
 }
 
@@ -2017,12 +2044,12 @@ import (
 {{- end }}
 )
 
-// New{{ .GoName }}Cmd creates the {{ .Name }} command group
+// New{{ .GoName }}Cmd creates the {{ .CmdPath }} command group
 func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{ .Name }}",
-		Short: "Manage {{ .Name }}",
-		Long:  ` + "`" + `Manage {{ .Name }} in Jamf Pro.` + "`" + `,
+		Short: "Manage {{ .CmdPath }}",
+		Long:  ` + "`" + `Manage {{ .CmdPath }} in Jamf Pro.` + "`" + `,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 {{ range dedupeOps (sortOps .Operations) }}
@@ -2030,6 +2057,9 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- if shouldGenerateApply . }}
 	cmd.AddCommand(new{{ .GoName }}ApplyCmd(ctx))
+{{- end }}
+{{- range .SubResources }}
+	cmd.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
 
 	return cmd
@@ -3136,19 +3166,19 @@ The {{ .NameField }} field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.` + "`" + `,
 		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a JSON file
-  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.json
+  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json
 
   # Apply a {{ .NameSingular }} from a YAML file
-  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.yaml
+  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.yaml
 
   # Apply from stdin
-  cat {{ .NameSingular }}.json | jamf-cli pro {{ .Name }} apply
+  cat {{ .NameSingular }}.json | jamf-cli pro {{ .CmdPath }} apply
 
   # Apply without replacement confirmation
-  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.json --yes
+  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json --yes
 
   # Preview what would happen
-  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.json --dry-run` + "`" + `,
+  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json --dry-run` + "`" + `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -3269,7 +3299,7 @@ If not, a new resource is created.` + "`" + `,
 				bodyPath := strings.Replace("{{ applyUpdatePath .Operations }}", "{{ applyUpdatePathParam .Operations }}", url.PathEscape(newID), 1)
 				bodyResp, err := ctx.Client.Do(reqCtx, "{{ applyUpdateMethod .Operations }}", bodyPath, bytes.NewReader(data))
 				if err != nil {
-					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe {{ .NameSingular }} exists but is unnamed; to recover run: jamf-cli {{ .Name }} update %s --from-file <body.json>", newID, err, newID)
+					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe {{ .NameSingular }} exists but is unnamed; to recover run: jamf-cli pro {{ .CmdPath }} update %s --from-file <body.json>", newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q (id: %s)\n", name, newID)
@@ -3428,6 +3458,31 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 {{- range . }}
 	root.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
+}
+
+// NestedResourceCommands returns a constructor per nested sub-resource, keyed on
+// the command path it is reachable at beneath ` + "`" + `pro` + "`" + `.
+//
+// It exists for the deprecation redirect. A retired resource name is kept alive
+// as a cobra alias, and an alias is a name on one command, so it can only ever
+// point at a direct child of ` + "`" + `pro` + "`" + `. Four retired names — the four spec files
+// whose paths are now sub-resources — need to reach two tokens deep, and
+// pointing them at the parent instead is not merely imprecise:
+// ` + "`" + `pro self-service-settings get` + "`" + ` worked before the nesting and would answer
+// ` + "`" + `unknown command` + "`" + ` after it.
+//
+// So internal/commands builds a second instance of the nested subtree under the
+// old name. A constructor rather than the assembled command, because the same
+// *cobra.Command cannot have two parents — AddCommand reparents it, which would
+// break CommandPath, --help and usage for whichever registration came first.
+// Calling the constructor again is what makes the redirect incapable of
+// drifting from the command it redirects to.
+func NestedResourceCommands() map[string]func(*registry.CLIContext) *cobra.Command {
+	return map[string]func(*registry.CLIContext) *cobra.Command{
+{{- range nestedResources . }}
+		"{{ .CmdPath }}": New{{ .GoName }}Cmd,
+{{- end }}
+	}
 }
 
 // renderDocumentedStatus handles a non-2xx response that the spec documents as a
