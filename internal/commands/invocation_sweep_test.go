@@ -42,10 +42,17 @@ const invocationBaselineFile = "testdata/pro-invocations-before-nesting.tsv"
 //     **0** — so a script piping it into jq gets usage text and no error. Three
 //     invocations did that, and a resolution-only sweep called all three fine.
 //
-// So each row records `leaf`, `group` or `gone`, and the current shape has to
-// match. Any drift in either direction fails: a `gone` row that starts working
-// is a name coming back, and a `leaf` row that stops is a command going away.
-// Both belong in CHANGELOG.md's migration table, and neither reports itself.
+// So each row records `leaf`, `group`, `refused` or `gone`, and the current
+// shape has to match. Any drift in either direction fails: a `gone` row that
+// starts working is a name coming back, and a `leaf` row that stops is a
+// command going away. Both belong in CHANGELOG.md's migration table, and
+// neither reports itself.
+//
+// `refused` is the strongest of the four and is what movedInvocations produces:
+// the path resolves to a stub that refuses and names where the operation went.
+// It is deliberately not folded into `gone` — a row moving from `refused` back
+// to `gone` is the pointer being lost, which is the whole value of the table,
+// and a resolution-only check reads the two as identical.
 //
 // Do not probe by running the command with a bogus flag: cobra reports the flag
 // error before the unknown subcommand, which reported 0 broken when 61 were.
@@ -87,7 +94,7 @@ func TestEveryFormerInvocationKeepsItsShape(t *testing.T) {
 	// The three transitions that make this guard worth running. Asserted so a
 	// baseline regenerated without them — the easy way to make a failure go
 	// away — fails instead.
-	for _, transition := range []string{"leaf->gone", "leaf->group"} {
+	for _, transition := range []string{"leaf->gone", "leaf->group", "leaf->refused"} {
 		if counts[transition] == 0 {
 			t.Errorf("no %s row survives, so the baseline no longer records the shape changes it exists for", transition)
 		}
@@ -98,8 +105,8 @@ func TestEveryFormerInvocationKeepsItsShape(t *testing.T) {
 			"CHANGELOG.md's migration table together, or restore the command:\n  %s",
 			len(drifted), invocationBaselineFile, strings.Join(drifted, "\n  "))
 	}
-	t.Logf("%d former invocations checked: %d migrated away, %d became groups",
-		total, counts["leaf->gone"], counts["leaf->group"])
+	t.Logf("%d former invocations checked: %d migrated away, %d refused with a pointer, %d became groups",
+		total, counts["leaf->gone"], counts["leaf->refused"], counts["leaf->group"])
 }
 
 // invocationShape reports what a command path resolves to today.
@@ -115,6 +122,12 @@ func invocationShape(root *cobra.Command, invocation string) string {
 	}
 	if cmd.HasSubCommands() {
 		return "group"
+	}
+	if isMovedStub(cmd) {
+		// Resolves, but only to say where the operation went. Reporting this as
+		// `leaf` would mean a restored command and a refusal stub read the
+		// same, which is the distinction the `refused` rows exist to hold.
+		return "refused"
 	}
 	return "leaf"
 }

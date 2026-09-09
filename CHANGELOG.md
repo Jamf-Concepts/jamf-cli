@@ -30,7 +30,7 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
   `specs/` holds one normalised document (`JamfProAPI.yaml`) instead of 165 carved-up
   ones.
 
-- **163 resources became 135**: 40 renamed, 24 merged, 13 split. The names now match
+- **163 resources became 135**: 38 renamed, 24 merged, 13 split. The names now match
   what the Jamf Pro API reference calls these resources. Ten were outright bugs the
   filenames had baked in — eight double plurals (`csas`, `slasas`, `oidcs`,
   `cloud-informations`, `inventory-informations`, `jamf-pro-informations`,
@@ -39,23 +39,49 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
   (`patch-titles` held a single POST accepting a disclaimer; `dss-proxies` held
   `/v1/dss-declarations/{id}`).
 
-- **Every former resource name still works until 2027-03-09.** 102 of them resolve to
+  **`pro users` and `pro patch-policies` keep their names**, and both were briefly on
+  the renamed list. A resource whose paths carry two tags has to be named by one of
+  them, and the tag was being taken from whichever of its paths sorted last — which
+  named the `/v1/users` CRUD after two `recalculate` actions tagged `smart-user-groups`,
+  and `/v2/patch-policies` after its own logs sub-path. A merged root is named by the
+  tag of its own root collection now, so `pro users list` and `pro patch-policies list`
+  are the canonical names they always were. `pro user-smart-groups` and
+  `pro patch-policy-logs` are the aliases, both resources having folded into the one
+  they act on, and every verb from each survives under its new parent unchanged.
+
+- **Every former resource name still works until 2027-03-09.** 100 of them resolve to
   their replacement and print a warning naming it; 3 refuse with an explanation
   because their endpoints are no longer ingested (`pro servers`,
   `pro remote-administration-configurations`,
   `pro redeploy-jamf-management-frameworks`). The warning is not silenced by `--quiet`
   or `--no-hints`. After that date the build fails until the aliases are deleted, so
-  they cannot rot silently.
+  they cannot rot silently — and 60 days ahead of it a weekly scheduled build starts
+  failing instead, so the removal PR gets written rather than discovered.
+
+  `pro jcds` is the one former name that is **not** on the expiring list. It is a
+  curated short alias now, along with `pro jcds-files` for the half the sub-resource
+  split gave a command of its own — 37 characters is not a name anyone types.
 
 #### 43 invocations an alias cannot cover — the operation name moved too
 
 An alias maps one resource name to one replacement. Where a resource **split**, or
 where an operation's name is derived from a path segment that now sits under a
 different resource, the resource alias resolves and the subcommand then does not
-exist. These 43 renames have no migration route but this table — the endpoint is
-unchanged in every case, so only the command name moved. The subsections after it
-cover the rest: 7 endpoints that are no longer ingested at all, 3 `apply` commands
-that were never expressible, and 3 paths that became command *groups*.
+exist. The endpoint is unchanged in every case, so only the command name moved.
+
+**All 43 answer at runtime with the new invocation named**, in place of cobra's
+`unknown command`, and both spellings of each reach it — the old resource name through
+its alias, and the new one directly. `pro schedulers triggers` and `pro scheduler
+triggers` both report that the operation moved and name `pro scheduler-jobs triggers`.
+Exit code 2, the same as every other command that does not exist: what a caller is
+missing here is not a classification but the pointer, and a second exit code for one
+class would only make a wrapper script harder to write. Two old invocations collapse
+onto `pro enrollment list`, whose endpoints went to different places, so that one names
+both. The refusals retire with the aliases on 2027-03-09.
+
+The subsections after this one cover the rest: 7 endpoints that are no longer ingested
+at all, 3 `apply` commands that were never expressible, and 3 paths that became command
+*groups*.
 
 | was | is now | endpoint |
 |---|---|---|
@@ -220,8 +246,14 @@ data. A script piping one of these into `jq` gets help.
 | `pro managed-software-updates-plans feature-toggle` | the `… feature-toggle` group | `pro managed-software-updates-plans feature-toggle get` |
 
 A parent that prints help on exit 0 is this CLI's convention everywhere — `pro
-categories` does it too — so these are not made to fail; what changed is that these
-three specific paths used to be leaves.
+categories` does it too — so a bare invocation still does exactly that; what changed is
+that these three specific paths used to be leaves.
+
+**An invocation that asked for data is refused instead.** Where `--output`, `--field`,
+`--select` or `--out-file` reaches one of the three, it exits 2 naming the leaf rather
+than printing help at 0 — so `pro csas token -o json | jq -r .value` fails at the CLI
+with the answer in it, instead of feeding jq a usage message. A bare `pro csa token`,
+and a typo beneath it, are unchanged.
 
 #### 3 `apply` commands are gone, and none of them worked
 
@@ -420,18 +452,21 @@ in hand.
   `disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`,
   `clear-restrictions-password`, `delete-user`, `log-out-user`, `unlock-user-account`,
   `apply-redemption-code`, `refresh-cellular-plans`, `request-mirroring`, `stop-mirroring`
-  and `settings`; `pro computers-inventory` loses `lock`, `restart`, `shutdown`,
+  and `settings`; `pro computer-inventory` loses `lock`, `restart`, `shutdown`,
   `enable-remote-desktop`, `disable-remote-desktop`, `set-recovery-lock`,
   `set-auto-admin-password` and `settings`. The gateway's published API declares GET on
   those paths but not POST, so the refusal is per method rather than per resource.
   `pro comp erase` and `pro comp remove-mdm` are hand-written and are **not** affected.
-  The other 43 are `pro api-integrations` (7), `pro classic-computer-configs` (7),
-  `pro api-roles` (6), `pro authentications` (6),
-  `pro static-computer-groups` (6, use `pro computer-groups-static-groups`),
-  `pro api-roles-privileges` (2), `pro policy-properties` (2), `pro systems` (2),
-  and one each of `pro database-connections`, `pro environment-type`,
-  `pro mac-os-managed-software-updates`, `pro mdm-commands commands` and
-  `pro oauth-token-sessions`.
+  The other 35 are `pro api-integrations` (7), `pro classic-computer-configs` (7),
+  `pro api-authentication` (6), `pro api-roles` (6),
+  `pro jamf-pro-initialization` (3), `pro api-role-privileges` (2), and one each of
+  `pro environment-type`, `pro macos-managed-software-updates`, `pro mdm commands` and
+  `pro sso-oauth-session-tokens`. That is 59 in total rather than the 67 this file
+  recorded before spec-derived naming, and the gateway un-refused none of them: six were
+  `pro static-computer-groups`, the withdrawn v2 command, which stops existing when every
+  version of an endpoint lands in one resource, and two were `pro policy-properties`,
+  whose unversioned legacy twin `/settings/obj/policyProperties` is no longer ingested at
+  all while the `/v1/policy-properties` it shared a tag with is published.
   `jamf-cli commands -o json | jq -r '.[] | select(.gateway=="unserved") | .command'`
   reports the current list for the binary in hand. `JAMF_CLI_ALLOW_UNPUBLISHED=1` downgrades
   an *unpublished* refusal to a stderr warning and sends the request anyway — a stopgap for

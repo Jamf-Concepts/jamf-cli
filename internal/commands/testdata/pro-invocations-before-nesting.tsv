@@ -11,7 +11,7 @@
 # help text instead of data. Recorded here and in CHANGELOG.md's migration table.
 pro access-managements	group	group
 pro access-managements access-management	leaf	leaf
-pro access-managements list	leaf	gone
+pro access-managements list	leaf	refused
 pro account-driven-user-enrollment-session-token-settings	group	group
 pro account-driven-user-enrollment-session-token-settings get	leaf	leaf
 pro account-driven-user-enrollment-session-token-settings update	leaf	leaf
@@ -25,7 +25,7 @@ pro activation-codes	group	group
 pro activation-codes add-history-note	leaf	leaf
 pro activation-codes history	leaf	leaf
 pro activation-codes history-export	leaf	leaf
-pro activation-codes patch	leaf	gone
+pro activation-codes patch	leaf	refused
 pro activation-codes update	leaf	leaf
 pro adcs-settings	group	group
 pro adcs-settings add-history-note	leaf	leaf
@@ -69,7 +69,7 @@ pro api-roles get	leaf	leaf
 pro api-roles list	leaf	leaf
 pro api-roles update	leaf	leaf
 pro api-roles-privileges	group	group
-pro api-roles-privileges api-role-privileges	leaf	gone
+pro api-roles-privileges api-role-privileges	leaf	refused
 pro api-roles-privileges search	leaf	leaf
 pro apns-client-push-status	group	group
 pro apns-client-push-status apns-client-push-status	leaf	gone
@@ -105,13 +105,13 @@ pro app-installers	group	group
 pro app-installers get	leaf	leaf
 pro app-requests	group	group
 pro app-requests apply	leaf	gone
-pro app-requests create	leaf	gone
-pro app-requests delete	leaf	gone
+pro app-requests create	leaf	refused
+pro app-requests delete	leaf	refused
 pro app-requests get	leaf	leaf
-pro app-requests list	leaf	gone
-pro app-requests settings	leaf	gone
+pro app-requests list	leaf	refused
+pro app-requests settings	leaf	refused
 pro app-requests update	leaf	leaf
-pro app-requests update-settings	leaf	gone
+pro app-requests update-settings	leaf	refused
 pro audit	leaf	leaf
 pro auth	group	group
 pro auth token	leaf	leaf
@@ -560,7 +560,7 @@ pro cloud-azures update	leaf	leaf
 pro cloud-distribution-points	group	group
 pro cloud-distribution-points action	leaf	leaf
 pro cloud-distribution-points add-history-note	leaf	leaf
-pro cloud-distribution-points cloud-distribution-point	leaf	gone
+pro cloud-distribution-points cloud-distribution-point	leaf	refused
 pro cloud-distribution-points create	leaf	leaf
 pro cloud-distribution-points delete	leaf	leaf
 pro cloud-distribution-points files	leaf	leaf
@@ -636,8 +636,8 @@ pro computer-groups-static-groups get	leaf	leaf
 pro computer-groups-static-groups list	leaf	leaf
 pro computer-groups-static-groups update	leaf	leaf
 pro computer-inventory-collection-settings	group	group
-pro computer-inventory-collection-settings create	leaf	gone
-pro computer-inventory-collection-settings delete	leaf	gone
+pro computer-inventory-collection-settings create	leaf	refused
+pro computer-inventory-collection-settings delete	leaf	refused
 pro computer-inventory-collection-settings list	leaf	leaf
 pro computer-inventory-collection-settings patch	leaf	leaf
 pro computer-prestage-scopes	group	group
@@ -687,7 +687,7 @@ pro computers-inventory view-recovery-lock-password	leaf	leaf
 pro country-codes	group	group
 pro country-codes list	leaf	leaf
 pro csas	group	group
-pro csas delete	leaf	gone
+pro csas delete	leaf	refused
 pro csas tenant-id	leaf	leaf
 pro csas token	leaf	group
 pro dashboards	group	group
@@ -797,23 +797,23 @@ pro enrollment-customizations upload	leaf	gone
 pro enrollment-languages	group	group
 pro enrollment-languages delete	leaf	leaf
 pro enrollment-languages delete-multiple	leaf	leaf
-pro enrollment-languages filtered-language-codes	leaf	gone
+pro enrollment-languages filtered-language-codes	leaf	refused
 pro enrollment-languages get	leaf	leaf
-pro enrollment-languages language-codes	leaf	gone
+pro enrollment-languages language-codes	leaf	refused
 pro enrollment-languages list	leaf	leaf
 pro enrollment-languages update	leaf	leaf
 pro enrollment-settings	group	group
 pro enrollment-settings add-history-note	leaf	leaf
 pro enrollment-settings apply	leaf	gone
-pro enrollment-settings create	leaf	gone
-pro enrollment-settings delete	leaf	gone
-pro enrollment-settings enrollment	leaf	gone
+pro enrollment-settings create	leaf	refused
+pro enrollment-settings delete	leaf	refused
+pro enrollment-settings enrollment	leaf	refused
 pro enrollment-settings get	leaf	leaf
 pro enrollment-settings history	leaf	leaf
 pro enrollment-settings history-export	leaf	leaf
-pro enrollment-settings list	leaf	gone
+pro enrollment-settings list	leaf	refused
 pro enrollment-settings update	leaf	leaf
-pro enrollment-settings update-enrollment	leaf	gone
+pro enrollment-settings update-enrollment	leaf	refused
 pro environment-type	group	group
 pro environment-type get	leaf	leaf
 pro group-tools	group	group
@@ -834,7 +834,7 @@ pro gsx-connection patch	leaf	leaf
 pro gsx-connection test	leaf	leaf
 pro gsx-connection update	leaf	leaf
 pro health-checks	group	group
-pro health-checks health-check	leaf	gone
+pro health-checks health-check	leaf	refused
 pro health-checks health-status	leaf	leaf
 pro icons	group	group
 pro icons download	leaf	leaf
@@ -867,9 +867,9 @@ pro jamf-connect-deployment-tasks tasks	leaf	leaf
 pro jamf-connects	group	group
 pro jamf-connects add-history-note	leaf	leaf
 pro jamf-connects history	leaf	leaf
-pro jamf-connects jamf-connect	leaf	gone
+pro jamf-connects jamf-connect	leaf	refused
 pro jamf-connects list	leaf	leaf
-pro jamf-connects update	leaf	gone
+pro jamf-connects update	leaf	refused
 pro jamf-packages	group	group
 pro jamf-packages list	leaf	leaf
 pro jamf-pro-informations	group	group
@@ -900,11 +900,11 @@ pro jamf-remote-assist-session-histories export	leaf	leaf
 pro jamf-remote-assist-session-histories get	leaf	leaf
 pro jamf-remote-assist-session-histories list	leaf	leaf
 pro jcds	group	group
-pro jcds delete	leaf	gone
+pro jcds delete	leaf	refused
 pro jcds download	leaf	leaf
-pro jcds files	leaf	gone
-pro jcds get	leaf	gone
-pro jcds list	leaf	gone
+pro jcds files	leaf	refused
+pro jcds get	leaf	refused
+pro jcds list	leaf	refused
 pro jcds refresh-inventory	leaf	leaf
 pro jcds renew-credentials	leaf	leaf
 pro jcds sync	leaf	leaf
@@ -926,15 +926,15 @@ pro local-admin-passwords password-by-guid	leaf	leaf
 pro local-admin-passwords pending-rotations	leaf	leaf
 pro local-admin-passwords set-password	leaf	leaf
 pro local-admin-passwords settings	leaf	group
-pro local-admin-passwords update	leaf	gone
+pro local-admin-passwords update	leaf	refused
 pro locales	group	group
 pro locales list	leaf	leaf
 pro log-flushings	group	group
-pro log-flushings delete	leaf	gone
-pro log-flushings get	leaf	gone
+pro log-flushings delete	leaf	refused
+pro log-flushings get	leaf	refused
 pro log-flushings list	leaf	leaf
-pro log-flushings log-flushing	leaf	gone
-pro log-flushings task	leaf	gone
+pro log-flushings log-flushing	leaf	refused
+pro log-flushings task	leaf	refused
 pro login-customization	group	group
 pro login-customization get	leaf	leaf
 pro login-customization update	leaf	leaf
@@ -948,7 +948,7 @@ pro managed-software-updates available-updates	leaf	leaf
 pro managed-software-updates get	leaf	leaf
 pro managed-software-updates update-statuses	leaf	leaf
 pro managed-software-updates-plans	group	group
-pro managed-software-updates-plans abandon	leaf	gone
+pro managed-software-updates-plans abandon	leaf	refused
 pro managed-software-updates-plans apply	leaf	gone
 pro managed-software-updates-plans create	leaf	leaf
 pro managed-software-updates-plans declarations	leaf	leaf
@@ -956,8 +956,8 @@ pro managed-software-updates-plans events	leaf	leaf
 pro managed-software-updates-plans feature-toggle	leaf	group
 pro managed-software-updates-plans get	leaf	leaf
 pro managed-software-updates-plans list	leaf	leaf
-pro managed-software-updates-plans status	leaf	gone
-pro managed-software-updates-plans update	leaf	gone
+pro managed-software-updates-plans status	leaf	refused
+pro managed-software-updates-plans update	leaf	refused
 pro mdm-commands	group	group
 pro mdm-commands blank-push	leaf	leaf
 pro mdm-commands commands	leaf	leaf
@@ -965,7 +965,7 @@ pro mdm-commands list	leaf	leaf
 pro mdm-renewals	group	group
 pro mdm-renewals delete	leaf	leaf
 pro mdm-renewals get	leaf	leaf
-pro mdm-renewals patch	leaf	gone
+pro mdm-renewals patch	leaf	refused
 pro mobile-device-apps	group	group
 pro mobile-device-apps reinstall-app-config	leaf	leaf
 pro mobile-device-enrollment-profiles	group	group
@@ -1155,8 +1155,8 @@ pro platform-devices user	leaf	leaf
 pro platform-users	group	group
 pro platform-users devices	leaf	leaf
 pro policy-properties	group	group
-pro policy-properties policy-properties	leaf	gone
-pro policy-properties update-policy-properties	leaf	gone
+pro policy-properties policy-properties	leaf	refused
+pro policy-properties update-policy-properties	leaf	refused
 pro reenrollment	group	group
 pro reenrollment add-history-note	leaf	leaf
 pro reenrollment get	leaf	leaf
@@ -1192,8 +1192,8 @@ pro rules	group	group
 pro rules list	leaf	leaf
 pro schedulers	group	group
 pro schedulers list	leaf	leaf
-pro schedulers summary	leaf	gone
-pro schedulers triggers	leaf	gone
+pro schedulers summary	leaf	refused
+pro schedulers triggers	leaf	refused
 pro scripts	group	group
 pro scripts add-history-note	leaf	leaf
 pro scripts apply	leaf	leaf
@@ -1222,8 +1222,8 @@ pro self-service-branding-macos list	leaf	leaf
 pro self-service-branding-macos update	leaf	leaf
 pro self-service-plus	group	group
 pro self-service-plus enabled	leaf	leaf
-pro self-service-plus get	leaf	gone
-pro self-service-plus update	leaf	gone
+pro self-service-plus get	leaf	refused
+pro self-service-plus update	leaf	refused
 pro self-service-settings	group	group
 pro self-service-settings add-history-note	leaf	leaf
 pro self-service-settings get	leaf	leaf
@@ -1250,7 +1250,7 @@ pro smtp-server test	leaf	leaf
 pro smtp-server update	leaf	leaf
 pro sso-failovers	group	group
 pro sso-failovers generate	leaf	leaf
-pro sso-failovers list	leaf	gone
+pro sso-failovers list	leaf	refused
 pro sso-settings	group	group
 pro sso-settings add-history-note	leaf	leaf
 pro sso-settings dependencies	leaf	leaf
@@ -1260,7 +1260,7 @@ pro sso-settings get	leaf	leaf
 pro sso-settings history	leaf	leaf
 pro sso-settings update	leaf	leaf
 pro sso-settings-cert	group	group
-pro sso-settings-cert cert	leaf	gone
+pro sso-settings-cert cert	leaf	refused
 pro sso-settings-cert delete	leaf	leaf
 pro sso-settings-cert download	leaf	leaf
 pro sso-settings-cert get	leaf	leaf

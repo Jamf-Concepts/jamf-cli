@@ -246,7 +246,7 @@ var proGroupMap = map[string]string{
 	"volume-purchasing-locations":         groupAppsPatching,
 	"ebooks":                              groupAppsPatching,
 	"patch-management-accept-disclaimer":  groupAppsPatching,
-	"patch-policy-logs":                   groupAppsPatching,
+	"patch-policies":                      groupAppsPatching,
 	"patch-software-title-configurations": groupAppsPatching,
 
 	// Distribution & JCDS — package storage / cloud distribution point /
@@ -289,8 +289,8 @@ var proGroupMap = map[string]string{
 	// Users & Groups — *end-user* records: people assigned to managed devices,
 	// their session state, and the smart/static groups admins build to scope
 	// policies. Distinct from Jamf Pro admin accounts (Admin Accounts group).
-	"smart-user-groups": groupUsers,
-	"user-sessions":     groupUsers,
+	"users":         groupUsers,
+	"user-sessions": groupUsers,
 	// /v1/user/change-password and /v1/user/preferences are the *calling*
 	// account's own, not an end-user record — groupUsers' comment above draws
 	// exactly that line. Path grouping merged the two former resources

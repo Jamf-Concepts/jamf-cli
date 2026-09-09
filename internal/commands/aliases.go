@@ -30,6 +30,13 @@ var commandAliases = map[string][]string{
 	// computer-groups-smart-groups replaced smart-computer-groups in 11.28.0; keep the old name
 	// as an alias so existing scripts don't break.
 	"computer-groups-smart-groups": {"smart-computer-groups"},
+
+	// The sub-resource split gave `/v1/jcds/files` a command of its own, at 37
+	// characters. Its parent still answers to `jcds` — but only as a
+	// deprecatedNames alias, which expires — so the abbreviation everyone
+	// actually types needs to be a curated one on both halves.
+	"jamf-cloud-distribution-service":       {"jcds"},
+	"jamf-cloud-distribution-service-files": {"jcds-files"},
 }
 
 // rootAliases maps root-level command names to short aliases.
@@ -42,16 +49,32 @@ var rootAliases = map[string][]string{
 func applyAliases(parent *cobra.Command) {
 	for _, cmd := range parent.Commands() {
 		if aliases, ok := commandAliases[cmd.Name()]; ok {
-			cmd.Aliases = append(cmd.Aliases, aliases...)
+			cmd.Aliases = appendNewAliases(cmd.Aliases, aliases)
 		}
 	}
+}
+
+// appendNewAliases adds each alias the command does not already answer to.
+//
+// applyDeprecatedNames runs first and appends aliases of its own, so two tables
+// can name one alias — `jcds` did, from both. A duplicate resolves fine and
+// then prints twice in the `Aliases:` line of --help and twice in the
+// `commands -o json` catalog, which reads as a defect in the listing rather
+// than in a table. TestNoCommandAnswersToAnAliasTwice is the guard.
+func appendNewAliases(have, add []string) []string {
+	for _, a := range add {
+		if !slicesContains(have, a) {
+			have = append(have, a)
+		}
+	}
+	return have
 }
 
 // applyRootAliases applies aliases to root-level commands.
 func applyRootAliases(root *cobra.Command) {
 	for _, cmd := range root.Commands() {
 		if aliases, ok := rootAliases[cmd.Name()]; ok {
-			cmd.Aliases = append(cmd.Aliases, aliases...)
+			cmd.Aliases = appendNewAliases(cmd.Aliases, aliases)
 		}
 	}
 }

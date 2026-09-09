@@ -95,7 +95,11 @@ func ParseMonolith(doc *openapi3.T) ([]*Resource, error) {
 
 	tagged := make([]TaggedPath, 0, len(paths))
 	for _, p := range paths {
-		tagged = append(tagged, TaggedPath{Path: p, Tag: BaseTag(firstTagOf(tagsByPath[p]))})
+		tag, err := soleBaseTagOf(p, tagsByPath[p])
+		if err != nil {
+			return nil, err
+		}
+		tagged = append(tagged, TaggedPath{Path: p, Tag: tag})
 	}
 
 	var resources []*Resource
@@ -689,12 +693,59 @@ func LoadDocuments(paths []string) (resources []*Resource, notes []string, err e
 	return resources, notes, nil
 }
 
-// firstTagOf returns the first tag in a path's tag list, or "" when it declares
-// none. A path with no tag groups by its path root alone, which is the same
-// answer the tag would have given for a tag nothing else shares.
-func firstTagOf(tags []string) string {
-	if len(tags) == 0 {
-		return ""
+// soleBaseTagOf returns the one base tag a path's operations carry, or "" when
+// it declares none. A path with no tag groups by its path root alone, which is
+// the same answer the tag would have given for a tag nothing else shares.
+//
+// It is an error for a path's methods to declare different base tags, and that
+// refusal is the load-bearing part. "No path carries two different tags" is not
+// an observation about the current document — it is the premise the whole
+// grouping rests on, since the tag bounds what may be grouped together and a
+// path is assigned to exactly one group. Nothing downstream can express a path
+// belonging to two.
+//
+// Taking the first tag instead was silent in the way that costs most. A drop
+// tagging `GET /v3/foo` as `foo` and `PATCH /v3/foo` as `foo-management` would
+// pick one by sorted-method order, TestParseMonolith_LosesNoEndpoint would
+// still count every endpoint, and the command tree would reorganise as a diff
+// that reads like a plausible rename. Zero paths in the 11.31.1 monolith
+// disagree, so this refuses nothing today and refuses the next drop that would
+// have moved commands without saying so.
+//
+// The `-preview` suffix is stripped before comparing, because folding a preview
+// endpoint into the resource it previews is exactly what BaseTag is for: `foo`
+// and `foo-preview` on one path are one tag, not a disagreement.
+func soleBaseTagOf(path string, tags []string) (string, error) {
+	base := ""
+	var seen []string
+	for _, t := range tags {
+		b := BaseTag(t)
+		if b == "" {
+			continue
+		}
+		if base == "" {
+			base = b
+		}
+		if b != base && !slicesContainsString(seen, b) {
+			seen = append(seen, b)
+		}
 	}
-	return tags[0]
+	if len(seen) > 0 {
+		all := append([]string{base}, seen...)
+		sort.Strings(all)
+		return "", fmt.Errorf(
+			"path %s declares more than one base tag (%s): the tag decides which resource a path joins, so a path carrying two cannot be grouped",
+			path, strings.Join(all, ", "))
+	}
+	return base, nil
+}
+
+// slicesContainsString reports whether xs holds x.
+func slicesContainsString(xs []string, x string) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
+	}
+	return false
 }

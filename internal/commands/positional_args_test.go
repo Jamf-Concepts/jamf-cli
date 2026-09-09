@@ -113,7 +113,20 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 
 	seenUnbounded := map[string]bool{}
 	documented, unwrapped := 0, 0
+	stubs := 0
 	for _, l := range leaves {
+		if isMovedStub(l.cmd) {
+			// A movedInvocations refusal stub takes whatever it is given and
+			// answers that the invocation no longer exists. Its arity is not a
+			// contract — the command it stands in for is gone, so inventing a
+			// placeholder in its Use would document a positional nothing
+			// reads, and clamping it would answer `pro csa delete 5` with
+			// "takes no positional arguments" instead of naming where the
+			// operation went. TestEveryMovedInvocationRefusesAndNamesIts-
+			// Replacement is what holds these to their own contract.
+			stubs++
+			continue
+		}
 		count, variadic := declaredPositionals(l.cmd.Use, l.cmd.Name())
 		if reason, listed := unboundedPositionalLeaves[l.path]; listed {
 			seenUnbounded[l.path] = true
@@ -194,6 +207,14 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 
 	if unwrapped > 0 {
 		t.Errorf("%d zero-arity leaves carry refuseStrayPositionals unwrapped: guardStrayPositionals must run before classifyArgsErrors in NewRootCmd", unwrapped)
+	}
+
+	// The exemption above is only sound while every skipped leaf really is a
+	// stub, so the count has to match the table it comes from. A stub that
+	// stopped being registered, or a real leaf that grew the stub's Short,
+	// would otherwise leave this walk quietly skipping commands.
+	if want := len(movedInvocations) + movedAliasSpellings(); stubs != want {
+		t.Errorf("skipped %d refusal stub(s), want %d — a movedInvocations entry lost its stub, or a real leaf is being skipped", stubs, want)
 	}
 
 	if len(leaves) < 700 {
@@ -1073,4 +1094,15 @@ func TestSetPairSplitIgnoresAnUnsuppliedDefault(t *testing.T) {
 	if !setPairSplitByASpace(cmd) {
 		t.Error("a supplied element with no \"=\" is the split-pair signature and was missed")
 	}
+}
+
+// movedAliasSpellings counts the extra stubs registered under a nested-alias
+// spelling of a movedInvocations key, which are the same refusal reachable by a
+// second path.
+func movedAliasSpellings() int {
+	n := 0
+	for key := range movedInvocations {
+		n += len(movedKeySpellings(key)) - 1
+	}
+	return n
 }

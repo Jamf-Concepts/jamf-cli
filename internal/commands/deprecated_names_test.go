@@ -75,6 +75,58 @@ func TestDeprecatedNamesExpiryFiresOnTheDate(t *testing.T) {
 	}
 }
 
+// The advance signal, and the one test in this repo that is meant to fail
+// before anything is wrong.
+//
+// The hard guard above fires once, on whatever pull request happens to run CI
+// on or after the removal date — and the work it forces is a real PR, not a
+// one-line deletion. Go has no warning level for a test, so the notice is a
+// separate failing test run **only from the scheduled workflow**: it never
+// blocks a pull request, and it turns the weekly build red 60 days out with the
+// list of what has to go.
+//
+// Skipped unless JAMF_CLI_EXPIRY_NOTICE is set, which .github/workflows/
+// expiry-notice.yaml is the only thing that sets. Do not add it to `make test`.
+func TestDeprecatedNamesExpiryNotice(t *testing.T) {
+	if os.Getenv("JAMF_CLI_EXPIRY_NOTICE") == "" {
+		t.Skip("advance notice runs from the scheduled workflow only; set JAMF_CLI_EXPIRY_NOTICE to run it")
+	}
+	expiring, left := deprecatedNamesExpiring(time.Now())
+	if !expiring {
+		t.Logf("%s is %d days away; nothing to start yet", deprecatedNamesRemovedAfter, int(left.Hours()/24))
+		return
+	}
+	t.Errorf("the deprecated `pro` resource names expire on %s, in %d days — open the removal PR now.\n"+
+		"It deletes deprecated_names.go, moved_invocations.go, their wiring in pro.go and root.go, their tests, "+
+		"and generator/parser/testdata/endpoints-before-path-grouping.tsv: %d resource aliases, %d nested aliases, "+
+		"%d withdrawn stubs, %d moved invocations and %d former-leaf groups.",
+		deprecatedNamesRemovedAfter, int(left.Hours()/24),
+		len(deprecatedNames), len(nestedAliases), len(withdrawnNames), len(movedInvocations), len(formerLeafGroups))
+}
+
+// The notice window is what the test above turns on, so it is exercised the
+// same way the deadline is: a window that never opens would make the notice
+// permanently silent, which is the failure it exists to prevent.
+func TestDeprecatedNamesNoticeWindowOpensSixtyDaysAhead(t *testing.T) {
+	deadline, err := time.Parse(time.DateOnly, deprecatedNamesRemovedAfter)
+	if err != nil {
+		t.Fatalf("deprecatedNamesRemovedAfter is not a date: %v", err)
+	}
+	if expiring, _ := deprecatedNamesExpiring(deadline.Add(-deprecatedNamesNoticePeriod - 24*time.Hour)); expiring {
+		t.Error("opened the notice window a day before it should")
+	}
+	if expiring, left := deprecatedNamesExpiring(deadline.Add(-deprecatedNamesNoticePeriod + 24*time.Hour)); !expiring {
+		t.Error("did not open the notice window inside the period")
+	} else if days := int(left.Hours() / 24); days != 59 {
+		t.Errorf("reported %d days left, want 59", days)
+	}
+	// Past the date the hard guard is the one with something to say, so the
+	// notice goes quiet rather than adding a second failure for one cause.
+	if expiring, _ := deprecatedNamesExpiring(deadline.Add(48 * time.Hour)); expiring {
+		t.Error("still noticing after the deadline; deprecatedNamesExpired owns that case")
+	}
+}
+
 // Every replacement has to name a command that ships, and every old name has to
 // have stopped being one — an entry for a name still in use would make cobra
 // ambiguous, and one pointing nowhere is a redirect into a wall.

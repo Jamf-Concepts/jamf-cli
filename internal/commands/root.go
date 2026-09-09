@@ -1094,6 +1094,11 @@ in the config file. It never runs in CI, when output is piped, or under
 	// instead of silently printing help and exiting 0.
 	guardUnknownSubcommands(cmd)
 
+	// After that walk, not before: it wraps the RunE guardUnknownSubcommands
+	// installs, and a group parent made runnable first would be skipped there —
+	// losing the "did you mean" refusal for a typo beneath it.
+	guardFormerLeafGroups(cmd)
+
 	// cobra supplies no default Args validator, so a leaf that takes only flags
 	// accepts any positional and discards it. Refuse it instead.
 	guardStrayPositionals(cmd)

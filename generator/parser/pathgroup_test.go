@@ -11,6 +11,50 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// groupUntagged runs the shipped grouping over paths that declare no tag.
+//
+// The six rules below are about the *path* half of the hybrid — which run of
+// literal segments is a root — and an untagged path exercises exactly that: it
+// is bounded by its own root, so no tag folds anything and the answer is the
+// path rule alone. They used to call GroupPathsByCollection, a path-only
+// entry point nothing in the pipeline invoked, so they read as coverage of the
+// shipped rule and were coverage of a retired one. That function is gone.
+func groupUntagged(paths []string) []*PathGroup {
+	tagged := make([]TaggedPath, 0, len(paths))
+	for _, p := range paths {
+		tagged = append(tagged, TaggedPath{Path: p})
+	}
+	return GroupPathsByTagAndCollection(tagged)
+}
+
+// groupLive runs the shipped grouping over every committed path, with its tag.
+func groupLive(t *testing.T) []*PathGroup {
+	t.Helper()
+	tagsOf := livePathTags(t)
+	tagged := make([]TaggedPath, 0, len(tagsOf))
+	for _, p := range keysOfSlices(tagsOf) {
+		if !KeepPath(p, tagsOf[p]) {
+			continue
+		}
+		tag, err := soleBaseTagOf(p, tagsOf[p])
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		tagged = append(tagged, TaggedPath{Path: p, Tag: tag})
+	}
+	return GroupPathsByTagAndCollection(tagged)
+}
+
+// keysOfSlices returns a map's keys, sorted.
+func keysOfSlices(m map[string][]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // namesOf renders a grouping as "name: path path path" lines for comparison.
 func namesOf(groups []*PathGroup) map[string]string {
 	out := map[string]string{}
@@ -24,8 +68,8 @@ func namesOf(groups []*PathGroup) map[string]string {
 // the "answers as a collection itself" test, `download` becomes a resource
 // because `/v1/icon/download/{id}` gives it a parameter child — and five thin
 // resources appear for what are plainly operations.
-func TestGroupPathsByCollection_ActionWithAnIDIsNotAResource(t *testing.T) {
-	got := namesOf(GroupPathsByCollection([]string{
+func TestPathRootRule_ActionWithAnIDIsNotAResource(t *testing.T) {
+	got := namesOf(groupUntagged([]string{
 		"/v1/icon/{id}",
 		"/v1/icon/download/{id}",
 		"/v1/icon",
@@ -38,8 +82,8 @@ func TestGroupPathsByCollection_ActionWithAnIDIsNotAResource(t *testing.T) {
 // A sub-collection that answers as a collection *and* has items of its own is a
 // resource in its own right. This is the computer-groups case: three resources
 // under one path prefix, where today three separate spec filenames decide it.
-func TestGroupPathsByCollection_SubCollectionIsAResource(t *testing.T) {
-	got := namesOf(GroupPathsByCollection([]string{
+func TestPathRootRule_SubCollectionIsAResource(t *testing.T) {
+	got := namesOf(groupUntagged([]string{
 		"/v1/computer-groups",
 		"/v2/computer-groups/static-groups",
 		"/v2/computer-groups/static-groups/{id}",
@@ -58,7 +102,7 @@ func TestGroupPathsByCollection_SubCollectionIsAResource(t *testing.T) {
 	}
 	// v2 and v3 static-groups are the same resource, not two. Which version
 	// wins is deduplicateVersionedOps' decision, per version-stripped path.
-	if got := len(GroupPathsByCollection([]string{
+	if got := len(groupUntagged([]string{
 		"/v2/computer-groups/static-groups",
 		"/v3/computer-groups/static-groups",
 		"/v2/computer-groups/static-groups/{id}",
@@ -69,8 +113,8 @@ func TestGroupPathsByCollection_SubCollectionIsAResource(t *testing.T) {
 }
 
 // A no-parameter sub-path is an operation, not a resource.
-func TestGroupPathsByCollection_UnparameterisedSubPathIsAnOperation(t *testing.T) {
-	got := namesOf(GroupPathsByCollection([]string{
+func TestPathRootRule_UnparameterisedSubPathIsAnOperation(t *testing.T) {
+	got := namesOf(groupUntagged([]string{
 		"/v1/computers-inventory",
 		"/v1/computers-inventory/filevault",
 		"/v1/computers-inventory/{id}",
@@ -85,8 +129,8 @@ func TestGroupPathsByCollection_UnparameterisedSubPathIsAnOperation(t *testing.T
 // This is the property that makes the endpoint-version family a fact about the
 // paths rather than about a filename's `-vN` suffix — the mis-keying that cost
 // the CLI its v4 computer-inventory endpoints cannot be expressed here.
-func TestGroupPathsByCollection_OneGroupSpansEveryVersion(t *testing.T) {
-	groups := GroupPathsByCollection([]string{
+func TestPathRootRule_OneGroupSpansEveryVersion(t *testing.T) {
+	groups := groupUntagged([]string{
 		"/v1/computers-inventory",
 		"/v2/computers-inventory",
 		"/v3/computers-inventory",
@@ -102,16 +146,23 @@ func TestGroupPathsByCollection_OneGroupSpansEveryVersion(t *testing.T) {
 
 // A top-level collection is its own resource even with nothing beneath it, so
 // two unrelated depth-1 paths do not get folded together by a shared filename.
-func TestGroupPathsByCollection_TopLevelCollectionIsAlwaysARoot(t *testing.T) {
-	got := namesOf(GroupPathsByCollection([]string{"/v1/health-check", "/v1/health-status"}))
+//
+// This is also boundKey's guard. Neither root is CRUD-shaped and neither
+// prefixes the other, so resolveRootsWithinBound's no-survivor fallback would
+// fold both into the largest — and with untagged paths pooled under one empty
+// tag they share a bound, so `health-status` would come out as part of a
+// `health-check` resource. Bounding an untagged path by its own root is what
+// keeps them two.
+func TestPathRootRule_TopLevelCollectionIsAlwaysARoot(t *testing.T) {
+	got := namesOf(groupUntagged([]string{"/v1/health-check", "/v1/health-status"}))
 	if len(got) != 2 {
 		t.Errorf("want 2 groups, got %v", keysOf(got))
 	}
 }
 
 // A path with no version segment still groups.
-func TestGroupPathsByCollection_UnversionedPath(t *testing.T) {
-	got := namesOf(GroupPathsByCollection([]string{"/ldap/groups", "/ldap/servers"}))
+func TestPathRootRule_UnversionedPath(t *testing.T) {
+	got := namesOf(groupUntagged([]string{"/ldap/groups", "/ldap/servers"}))
 	if _, ok := got["ldap"]; !ok {
 		t.Errorf("want ldap, got %v", keysOf(got))
 	}
@@ -126,7 +177,7 @@ func TestGroupPathsByCollection_UnversionedPath(t *testing.T) {
 // the path when the tag is shared or absent.
 func TestPathGroupNameOverridesAllMatchALiveGroup(t *testing.T) {
 	derived := map[string]bool{}
-	for _, g := range GroupPathsByCollection(livePaths(t)) {
+	for _, g := range groupLive(t) {
 		derived[strings.Join(g.Root, "-")] = true
 	}
 	tagsOf := livePathTags(t)
@@ -150,10 +201,19 @@ func TestPathGroupNameOverridesAllMatchALiveGroup(t *testing.T) {
 // failure this rules out is the one the retired file-based layout produced when
 // it was pointed at an incomplete tree — 73 operations silently unreachable,
 // with the generator exiting 0.
-func TestGroupPathsByCollection_CoversEveryPathExactlyOnce(t *testing.T) {
-	paths := livePaths(t)
+func TestPathRootRule_CoversEveryPathExactlyOnce(t *testing.T) {
+	tagsOf := livePathTags(t)
+	var paths []string
+	for _, p := range keysOfSlices(tagsOf) {
+		if KeepPath(p, tagsOf[p]) {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) == 0 {
+		t.Fatal("every committed path was dropped; this test cannot pass vacuously")
+	}
 	seen := map[string]int{}
-	for _, g := range GroupPathsByCollection(paths) {
+	for _, g := range groupLive(t) {
 		if g.Name == "" {
 			t.Errorf("group with root %v derived an empty name for %v", g.Root, g.Paths)
 		}
@@ -170,23 +230,6 @@ func TestGroupPathsByCollection_CoversEveryPathExactlyOnce(t *testing.T) {
 			t.Errorf("%s reaches %d resources", p, seen[p])
 		}
 	}
-}
-
-// livePaths returns every path the committed spec documents declare.
-//
-// Read off the documents rather than through ParseSpec, because ParseSpec
-// applies filterToCanonicalPrefix — which exists to keep one file's unrelated
-// endpoints out of one resource, and over a whole consolidated document would
-// discard most of it. What these tests need is the raw path set.
-func livePaths(t *testing.T) []string {
-	t.Helper()
-	tagsOf := livePathTags(t)
-	out := make([]string, 0, len(tagsOf))
-	for p := range tagsOf {
-		out = append(out, p)
-	}
-	sort.Strings(out)
-	return out
 }
 
 func keysOf(m map[string]string) []string {

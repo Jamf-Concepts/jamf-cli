@@ -62,10 +62,12 @@ type deprecatedName struct {
 //     likely reaching for. Marked below; the other half has to be found by name.
 //
 // An old name that is *still* a live resource name gets no entry, however its
-// endpoints were redistributed: `enrollment-languages`, `jcds` and
+// endpoints were redistributed: `enrollment-languages` and
 // `computer-inventory-collection-settings` each kept their name for one half of
 // a split, so they resolve without help and an alias for them would make cobra
-// ambiguous.
+// ambiguous. `jcds` gets no entry for the neighbouring reason — it is a
+// *curated* alias in commandAliases, and so permanent rather than expiring;
+// naming it here too would append the alias twice, once from each table.
 //
 // Generated from a diff of the resource sets either side of the change, then
 // reviewed. TestDeprecatedNamesPointAtCommandsThatShip is what keeps it honest.
@@ -126,7 +128,6 @@ var deprecatedNames = map[string]deprecatedName{
 	"jamf-protect-deployment-tasks":          {Now: "jamf-protect"},
 	"jamf-protect-plans":                     {Now: "jamf-protect"},
 	"jamf-remote-assist-session-histories":   {Now: "jamf-remote-assist"},
-	"jcds":                                   {Now: "jamf-cloud-distribution-service"}, // split: the other half keeps its own name
 	"last-logins":                            {Now: "last-login"},
 	"ldap-rs":                                {Now: "ldap"},
 	"local-admin-passwords":                  {Now: "local-admin-password"},
@@ -145,7 +146,7 @@ var deprecatedNames = map[string]deprecatedName{
 	"onboarding-configuration":               {Now: "onboarding"},
 	"onboardings":                            {Now: "onboarding"},
 	"package-deployments":                    {Now: "mdm"},
-	"patch-policies":                         {Now: "patch-policy-logs"},
+	"patch-policy-logs":                      {Now: "patch-policies"},
 	"patch-titles":                           {Now: "patch-management"},
 	"reenrollment":                           {Now: "re-enrollment"},
 	"remove-computer-mdm-profiles":           {Now: "computer-inventory"},
@@ -163,8 +164,7 @@ var deprecatedNames = map[string]deprecatedName{
 	"team-viewer-remote-administrations":     {Now: "team-viewer-remote-administration"},
 	"user-accounts":                          {Now: "accounts"},
 	"user-preferences":                       {Now: "jamf-pro-user-account-settings"},
-	"user-smart-groups":                      {Now: "smart-user-groups"},
-	"users":                                  {Now: "smart-user-groups"},
+	"user-smart-groups":                      {Now: "users"},
 	"venafis":                                {Now: "venafi"},
 	"vpp-locations":                          {Now: "volume-purchasing-locations"},
 	"vpp-subscriptions":                      {Now: "volume-purchasing-subscriptions"},
@@ -247,6 +247,11 @@ func applyDeprecatedNames(pro *cobra.Command, ctx *registry.CLIContext) {
 		byName[sub.Name()] = sub
 	}
 	applyNestedAliases(pro, ctx)
+	// After the nested aliases, because a moved invocation's key may name a
+	// path that only exists once those are registered (`sso-settings cert
+	// cert` reaches the certificate sub-resource), and before the resource
+	// aliases, so a key resolves against the real command names.
+	applyMovedInvocations(pro)
 	for old, dep := range deprecatedNames {
 		target, ok := byName[dep.Now]
 		if !ok {
@@ -469,6 +474,39 @@ func deprecatedNamesExpired(now time.Time) (bool, []string) {
 		names = append(names, old)
 	}
 	return true, names
+}
+
+// deprecatedNamesNoticePeriod is how long before the removal date the scheduled
+// build starts failing, to put the removal PR on someone's list while there is
+// still time to write it.
+//
+// The date-based guard beside it is the right forcing function and it fires
+// once, on whatever PR happens to run CI on or after the day — and the work it
+// forces is a real PR, not a one-line deletion. There is no way to raise a
+// warning from a Go test, so the advance signal is a *separate* failing test
+// run only from the scheduled workflow: it never blocks a pull request, and it
+// turns the weekly build red 60 days out.
+const deprecatedNamesNoticePeriod = 60 * 24 * time.Hour
+
+// deprecatedNamesExpiring reports whether the removal date is inside the notice
+// period, and how long is left.
+//
+// Distinct from deprecatedNamesExpired, which answers "are they past due". This
+// answers "is it time to start", and it is deliberately false once the date has
+// passed — at that point the hard guard is the one with something to say.
+func deprecatedNamesExpiring(now time.Time) (bool, time.Duration) {
+	deadline, err := time.Parse(time.DateOnly, deprecatedNamesRemovedAfter)
+	if err != nil {
+		// An unparseable date is handled by deprecatedNamesExpired, which
+		// reports it as expired outright. Saying nothing here avoids two
+		// failures for one typo.
+		return false, 0
+	}
+	left := deadline.Sub(now)
+	if left <= 0 || left > deprecatedNamesNoticePeriod {
+		return false, left
+	}
+	return true, left
 }
 
 // slicesContains is a local helper so this file needs no extra import.

@@ -18,28 +18,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSmartUserGroupsCmd creates the smart-user-groups command group
-func NewSmartUserGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewUsersCmd creates the users command group
+func NewUsersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "smart-user-groups",
-		Short:       "Manage smart-user-groups",
-		Long:        `Manage smart-user-groups in Jamf Pro.`,
+		Use:         "users",
+		Short:       "Manage users",
+		Long:        `Manage users in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newSmartUserGroupsListCmd(ctx))
-	cmd.AddCommand(newSmartUserGroupsGetCmd(ctx))
-	cmd.AddCommand(newSmartUserGroupsCreateCmd(ctx))
-	cmd.AddCommand(newSmartUserGroupsUpdateCmd(ctx))
-	cmd.AddCommand(newSmartUserGroupsDeleteCmd(ctx))
-	cmd.AddCommand(newSmartUserGroupsRecalculateCmd(ctx))
-	cmd.AddCommand(newSmartUserGroupsRecalculateSmartGroupsCmd(ctx))
-	cmd.AddCommand(newSmartUserGroupsApplyCmd(ctx))
+	cmd.AddCommand(newUsersListCmd(ctx))
+	cmd.AddCommand(newUsersGetCmd(ctx))
+	cmd.AddCommand(newUsersCreateCmd(ctx))
+	cmd.AddCommand(newUsersUpdateCmd(ctx))
+	cmd.AddCommand(newUsersDeleteCmd(ctx))
+	cmd.AddCommand(newUsersRecalculateCmd(ctx))
+	cmd.AddCommand(newUsersRecalculateSmartGroupsCmd(ctx))
+	cmd.AddCommand(newUsersApplyCmd(ctx))
 
 	return cmd
 }
 
-func newSmartUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -54,11 +54,11 @@ func newSmartUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Retrieve users with pagination and filtering",
 		Long:  "Retrieves a paginated list of users with optional filtering and sorting.",
-		Example: `  # List all smart-user-groups
-  jamf-cli pro smart-user-groups list
+		Example: `  # List all users
+  jamf-cli pro users list
 
-  # List smart-user-groups and extract IDs
-  jamf-cli pro smart-user-groups list --field id`,
+  # List users and extract IDs
+  jamf-cli pro users list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read User", "jamf:api": "pro", "jamf:gateway-privileges": "users:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -201,7 +201,7 @@ func newSmartUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSmartUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPlatform bool
 		flagName     string
@@ -211,14 +211,14 @@ func newSmartUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Retrieve a user by ID",
 		Long:  "Retrieves a single user by their ID.",
-		Example: `  # Get a smart-user-group by ID
-  jamf-cli pro smart-user-groups get 1
+		Example: `  # Get a user by ID
+  jamf-cli pro users get 1
 
-  # Get a smart-user-group by name
-  jamf-cli pro smart-user-groups get --name "Example"
+  # Get a user by name
+  jamf-cli pro users get --name "Example"
 
-  # Get a smart-user-group and output as YAML
-  jamf-cli pro smart-user-groups get 1 -o yaml`,
+  # Get a user and output as YAML
+  jamf-cli pro users get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read User", "jamf:api": "pro", "jamf:gateway-privileges": "users:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -264,12 +264,12 @@ func newSmartUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagPlatform, "platform", false, "Optional. Return platform identifiers instead of internal identifiers when set to true.")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-user-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	return cmd
 }
 
-func newSmartUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPlatform bool
 		flagScaffold bool
@@ -279,14 +279,14 @@ func newSmartUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create a new user in inventory",
 		Long:  "Creates a new user in the inventory.",
-		Example: `  # Show the JSON template for creating a smart-user-group
-  jamf-cli pro smart-user-groups create --scaffold
+		Example: `  # Show the JSON template for creating a user
+  jamf-cli pro users create --scaffold
 
-  # Create a smart-user-group from JSON
-  echo '{"name":"Example"}' | jamf-cli pro smart-user-groups create
+  # Create a user from JSON
+  echo '{"name":"Example"}' | jamf-cli pro users create
 
-  # Get a smart-user-group, modify it, and create a copy
-  jamf-cli pro smart-user-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro smart-user-groups create`,
+  # Get a user, modify it, and create a copy
+  jamf-cli pro users get 1 -o json | jq '.name = "Copy"' | jamf-cli pro users create`,
 		Annotations: map[string]string{"jamf:privileges": "Create User", "jamf:api": "pro", "jamf:gateway-privileges": "users:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -349,7 +349,7 @@ func newSmartUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSmartUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
@@ -362,16 +362,16 @@ func newSmartUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a user in inventory",
 		Long:  "Updates an existing user in the inventory by ID.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  customPhotoUrl                               string\n  email                                        string\n  enableCustomPhotoUrl                         boolean\n  managedAppleId                               string\n  phone                                        string\n  position                                     string\n  realname                                     string\n  username                                     string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro smart-user-groups update 1 --set field=value
+  jamf-cli pro users update 1 --set field=value
 
-  # Replace a smart-user-group from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro smart-user-groups update 1
+  # Replace a user from JSON
+  echo '{"name":"Updated"}' | jamf-cli pro users update 1
 
   # Update by name
-  jamf-cli pro smart-user-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro smart-user-groups update --name "Example"
+  jamf-cli pro users get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro users update --name "Example"
 
-  # Get a smart-user-group, modify, and update
-  jamf-cli pro smart-user-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro smart-user-groups update 1`,
+  # Get a user, modify, and update
+  jamf-cli pro users get 1 -o json | jq '.name = "New Name"' | jamf-cli pro users update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update User", "jamf:api": "pro", "jamf:gateway-privileges": "users:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -430,7 +430,7 @@ func newSmartUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current smart-user-group for --set: %w", err)
+						return fmt.Errorf("parsing current user for --set: %w", err)
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"customPhotoUrl": nil, "email": nil, "enableCustomPhotoUrl": nil, "managedAppleId": nil, "phone": nil, "position": nil, "realname": nil, "username": nil}}).apply(current)
@@ -477,7 +477,7 @@ func newSmartUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-user-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -488,7 +488,7 @@ func newSmartUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -500,14 +500,14 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a user from inventory",
 		Long:  "Deletes a user from the inventory by ID.",
-		Example: `  # Delete a smart-user-group (with confirmation)
-  jamf-cli pro smart-user-groups delete 1
+		Example: `  # Delete a user (with confirmation)
+  jamf-cli pro users delete 1
 
   # Delete by name
-  jamf-cli pro smart-user-groups delete --name "Example" --yes
+  jamf-cli pro users delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli pro smart-user-groups delete 1 --yes`,
+  jamf-cli pro users delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete User", "jamf:api": "pro", "jamf:gateway-privileges": "users:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -541,7 +541,7 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no smart-user-group found matching %q", entry)
+							return fmt.Errorf("no user found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -560,7 +560,7 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-user-group %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete user %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -568,7 +568,7 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d smart-user-groups. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d users. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -584,7 +584,7 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v1/users/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete smart-user-group %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete user %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -593,18 +593,18 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete smart-user-group %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete user %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted smart-user-group %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted user %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "smart-user-groups deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "users deletes")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -617,7 +617,7 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no smart-user-group found with username %q", flagName)
+					return fmt.Errorf("no user found with username %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -630,9 +630,9 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-user-group %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete user %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-user-group %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete user %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -642,9 +642,9 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete smart-user-group %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete user %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete smart-user-group %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete user %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -693,14 +693,14 @@ func newSmartUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-user-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }
 
-func newSmartUserGroupsRecalculateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersRecalculateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -767,12 +767,12 @@ func newSmartUserGroupsRecalculateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-user-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	return cmd
 }
 
-func newSmartUserGroupsRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -839,12 +839,12 @@ func newSmartUserGroupsRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *cobr
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-user-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	return cmd
 }
 
-func newSmartUserGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUsersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile     string
 		flagYes      bool
@@ -854,27 +854,27 @@ func newSmartUserGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "apply",
-		Short:       "Create or replace a smart-user-group by name",
+		Short:       "Create or replace a user by name",
 		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "users:create,users:read,users:update"},
-		Long: `Create or replace a smart-user-group. Reads JSON or YAML from --from-file or stdin.
+		Long: `Create or replace a user. Reads JSON or YAML from --from-file or stdin.
 
 The username field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a smart-user-group from a JSON file
-  jamf-cli pro smart-user-groups apply --from-file smart-user-group.json
+		Example: `  # Apply a user from a JSON file
+  jamf-cli pro users apply --from-file user.json
 
-  # Apply a smart-user-group from a YAML file
-  jamf-cli pro smart-user-groups apply --from-file smart-user-group.yaml
+  # Apply a user from a YAML file
+  jamf-cli pro users apply --from-file user.yaml
 
   # Apply from stdin
-  cat smart-user-group.json | jamf-cli pro smart-user-groups apply
+  cat user.json | jamf-cli pro users apply
 
   # Apply without replacement confirmation
-  jamf-cli pro smart-user-groups apply --from-file smart-user-group.json --yes
+  jamf-cli pro users apply --from-file user.json --yes
 
   # Preview what would happen
-  jamf-cli pro smart-user-groups apply --from-file smart-user-group.json --dry-run`,
+  jamf-cli pro users apply --from-file user.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {
@@ -919,7 +919,7 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create smart-user-group %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create user %q\n", name)
 					return nil
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/users", bytes.NewReader(data))
@@ -927,20 +927,20 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created smart-user-group %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created user %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace smart-user-group %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace user %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("smart-user-group %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("user %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "smart-user-group %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "user %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -954,7 +954,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced smart-user-group %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced user %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

@@ -18,30 +18,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPatchPolicyLogsCmd creates the patch-policy-logs command group
-func NewPatchPolicyLogsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewPatchPoliciesCmd creates the patch-policies command group
+func NewPatchPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "patch-policy-logs",
-		Short:       "Manage patch-policy-logs",
-		Long:        `Manage patch-policy-logs in Jamf Pro.`,
+		Use:         "patch-policies",
+		Short:       "Manage patch-policies",
+		Long:        `Manage patch-policies in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newPatchPolicyLogsListCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsDeleteCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsPolicyDetailsCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsDashboardCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsCreateDashboardCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsLogsCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsEligibleRetryCountCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsRetryCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsRetryAllCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsDetailsCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesListCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesDeleteCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesPolicyDetailsCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesDashboardCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesCreateDashboardCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesLogsCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesEligibleRetryCountCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesRetryCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesRetryAllCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesDetailsCmd(ctx))
 
 	return cmd
 }
 
-func newPatchPolicyLogsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -55,11 +55,11 @@ func newPatchPolicyLogsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Retrieve Patch Policies",
 		Long:  "Retrieves a list of patch policies.",
-		Example: `  # List all patch-policy-logs
-  jamf-cli pro patch-policy-logs list
+		Example: `  # List all patch-policies
+  jamf-cli pro patch-policies list
 
-  # List patch-policy-logs and extract IDs
-  jamf-cli pro patch-policy-logs list --field id`,
+  # List patch-policies and extract IDs
+  jamf-cli pro patch-policies list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -198,7 +198,7 @@ func newPatchPolicyLogsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -210,14 +210,14 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Remove a patch policy from the dashboard",
 		Long:  "Removes a patch policy from the dashboard.",
-		Example: `  # Delete a patch-policy-log (with confirmation)
-  jamf-cli pro patch-policy-logs delete 1
+		Example: `  # Delete a patch-policy (with confirmation)
+  jamf-cli pro patch-policies delete 1
 
   # Delete by name
-  jamf-cli pro patch-policy-logs delete --name "Example" --yes
+  jamf-cli pro patch-policies delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli pro patch-policy-logs delete 1 --yes`,
+  jamf-cli pro patch-policies delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -251,7 +251,7 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no patch-policy-log found matching %q", entry)
+							return fmt.Errorf("no patch-policy found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -270,7 +270,7 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy-log %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -278,7 +278,7 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d patch-policy-logs. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d patch-policies. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -294,7 +294,7 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v2/patch-policies/{id}/dashboard", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete patch-policy-log %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete patch-policy %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -303,18 +303,18 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete patch-policy-log %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete patch-policy %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted patch-policy-log %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted patch-policy %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "patch-policy-logs deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "patch-policies deletes")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -327,7 +327,7 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no patch-policy-log found with name %q", flagName)
+					return fmt.Errorf("no patch-policy found with name %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -340,9 +340,9 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy-log %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy-log %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -352,9 +352,9 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete patch-policy-log %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete patch-policy %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete patch-policy-log %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete patch-policy %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -403,14 +403,14 @@ func newPatchPolicyLogsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy-log by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }
 
-func newPatchPolicyLogsPolicyDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesPolicyDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -562,7 +562,7 @@ func newPatchPolicyLogsPolicyDetailsCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newPatchPolicyLogsDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -612,12 +612,12 @@ func newPatchPolicyLogsDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy-log by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
 
 	return cmd
 }
 
-func newPatchPolicyLogsCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -684,12 +684,12 @@ func newPatchPolicyLogsCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy-log by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
 
 	return cmd
 }
 
-func newPatchPolicyLogsLogsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -857,12 +857,12 @@ func newPatchPolicyLogsLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Policy Logs collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: deviceId, deviceName, statusCode, statusDate, attemptNumber, ignoredForPatchPolicyId. This param can be combined with paging and sorting.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy-log by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
 
 	return cmd
 }
 
-func newPatchPolicyLogsEligibleRetryCountCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesEligibleRetryCountCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -912,12 +912,12 @@ func newPatchPolicyLogsEligibleRetryCountCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy-log by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
 
 	return cmd
 }
 
-func newPatchPolicyLogsRetryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
@@ -995,12 +995,12 @@ func newPatchPolicyLogsRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy-log by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
 
 	return cmd
 }
 
-func newPatchPolicyLogsRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -1067,12 +1067,12 @@ func newPatchPolicyLogsRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy-log by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
 
 	return cmd
 }
 
-func newPatchPolicyLogsDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

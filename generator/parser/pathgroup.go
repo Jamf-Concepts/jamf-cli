@@ -3,7 +3,6 @@
 package parser
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -41,76 +40,15 @@ type PathGroup struct {
 	Root []string
 	// Paths are the document paths assigned to this group, sorted.
 	Paths []string
-	// Tag is the OpenAPI tag every path in the group carries, with any
-	// `-preview` suffix removed. It is the resource's name unless the tag
-	// covers more than one group.
+	// Tag is the OpenAPI tag that names the group, with any `-preview` suffix
+	// removed. It is the resource's name unless the tag covers more than one
+	// group. Not every path in the group need carry it: a root can hold paths
+	// from two tags, and groupTag decides which one names the resource.
 	Tag string
 	// Versions are the API versions the group's paths are served at. A group
 	// spanning several is normal and is not itself a consolidation event —
 	// deduplicateVersionedOps decides that per version-stripped path shape.
 	Versions []int
-}
-
-// GroupPathsByCollection assigns every path to the resource that owns it.
-//
-// A path belongs to the longest *root* that prefixes it, where a root is a run
-// of literal segments that is either
-//
-//   - one segment deep — a top-level collection is always its own resource,
-//     even when nothing hangs off it; or
-//   - deeper, and both answers as a path itself *and* has a `{param}` child.
-//
-// The second condition is what separates a sub-collection from an action that
-// happens to take an id. `computer-groups/smart-groups` answers as a collection
-// and has `{id}` beneath it, so it is a resource. `icon/download` has
-// `{id}` beneath it and does *not* answer as a collection, so `download` stays
-// an operation on `icon` — without that test, five thin resources appear
-// (`icon-download`, `jcds-files`, `scheduler-jobs`, `log-flushing-task`,
-// `health-status`) for what are plainly operations.
-//
-// Everything deeper than the root becomes part of the operation's name, which
-// is the job the templates already do from Operation.Path.
-func GroupPathsByCollection(paths []string) []*PathGroup {
-	exact, withParamChild := classifyPrefixes(paths)
-
-	isRoot := func(prefix []string) bool {
-		if len(prefix) == 0 {
-			return false
-		}
-		if len(prefix) == 1 {
-			return true
-		}
-		key := strings.Join(prefix, "/")
-		return exact[key] && withParamChild[key]
-	}
-
-	byRoot := map[string]*PathGroup{}
-	for _, p := range paths {
-		version, segs := splitVersionSegment(p)
-		root := longestRoot(segs, isRoot)
-		key := strings.Join(root, "/")
-		g := byRoot[key]
-		if g == nil {
-			g = &PathGroup{Root: root}
-			byRoot[key] = g
-		}
-		g.Paths = append(g.Paths, p)
-		if !containsInt(g.Versions, version) {
-			g.Versions = append(g.Versions, version)
-		}
-	}
-
-	mergeRoots(byRoot)
-
-	out := make([]*PathGroup, 0, len(byRoot))
-	for _, g := range byRoot {
-		sort.Strings(g.Paths)
-		sort.Ints(g.Versions)
-		g.Name = groupName(g.Root)
-		out = append(out, g)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
 }
 
 // mergeRoots folds one group's paths into another's, for the case where two

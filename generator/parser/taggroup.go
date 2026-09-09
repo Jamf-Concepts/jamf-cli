@@ -28,13 +28,21 @@ import (
 //     collision the generator has no way to resolve.
 //
 // So the tag constrains and the path decides: a tag never splits into unrelated
-// resources, and a path root never merges two tags. Names come from the path,
-// which keeps the biggest resources on the names they already ship under.
+// resources, and the path root is the boundary inside one. Names come from the
+// tag, which is the section heading the API reference publishes.
+//
+// A path root *can* merge two tags, and eight do — rootOf is computed from the
+// whole document and never reads the tag, and resolveRootsWithinTag folds roots
+// only inside one tag, so nothing stops two tags computing the same root
+// string. That is the correct grouping (a recalculate action on `/v1/users/{id}`
+// belongs with the user CRUD it acts on) and it means one of the tags has to
+// name the group. groupTag decides, and it is not free: taking whichever path
+// sorted last named three of the eight wrongly.
 //
 // Tags are a sound signal here rather than a convenient one: no path in the
-// document carries two different tags, so the grouping is unambiguous, and
-// `-preview` is a suffix on an otherwise ordinary tag rather than a family of
-// its own.
+// document may carry two different base tags — enforced by ParseMonolith, since
+// the whole design rests on it — and `-preview` is a suffix on an otherwise
+// ordinary tag rather than a family of its own.
 
 // previewTagSuffix is stripped so a preview endpoint joins the resource it is a
 // preview of, instead of naming a resource of its own.
@@ -81,31 +89,35 @@ func GroupPathsByTagAndCollection(paths []TaggedPath) []*PathGroup {
 		return exact[key] && withParamChild[key]
 	}
 
-	// Root per path, then the roots each tag holds.
+	// Root per path, then the roots each bound holds.
 	rootOf := make(map[string]string, len(all))
-	rootsByTag := map[string]map[string]bool{}
+	boundOf := make(map[string]string, len(all))
+	rootsByBound := map[string]map[string]bool{}
 	for _, p := range all {
 		_, segs := splitVersionSegment(p)
 		root := strings.Join(longestRoot(segs, isRoot), "/")
 		rootOf[p] = root
-		if rootsByTag[tagOf[p]] == nil {
-			rootsByTag[tagOf[p]] = map[string]bool{}
+		bound := boundKey(tagOf[p], root)
+		boundOf[p] = bound
+		if rootsByBound[bound] == nil {
+			rootsByBound[bound] = map[string]bool{}
 		}
-		rootsByTag[tagOf[p]][root] = true
+		rootsByBound[bound][root] = true
 	}
 
-	// Within a tag, decide which roots survive as resources and where the rest go.
-	target := map[string]string{} // tag+"\x00"+root -> surviving root
-	for tag, roots := range rootsByTag {
-		for from, to := range resolveRootsWithinTag(roots, exact, withParamChild, rootOf, all, tagOf, tag) {
-			target[tag+"\x00"+from] = to
+	// Within a bound, decide which roots survive as resources and where the
+	// rest go.
+	target := map[string]string{} // bound+"\x00"+root -> surviving root
+	for bound, roots := range rootsByBound {
+		for from, to := range resolveRootsWithinBound(roots, exact, withParamChild, rootOf, all, boundOf, bound) {
+			target[bound+"\x00"+from] = to
 		}
 	}
 
 	byRoot := map[string]*PathGroup{}
 	for _, p := range all {
 		root := rootOf[p]
-		if to, ok := target[tagOf[p]+"\x00"+root]; ok {
+		if to, ok := target[boundOf[p]+"\x00"+root]; ok {
 			root = to
 		}
 		version, _ := splitVersionSegment(p)
@@ -115,13 +127,18 @@ func GroupPathsByTagAndCollection(paths []TaggedPath) []*PathGroup {
 			byRoot[root] = g
 		}
 		g.Paths = append(g.Paths, p)
-		g.Tag = tagOf[p]
 		if !containsInt(g.Versions, version) {
 			g.Versions = append(g.Versions, version)
 		}
 	}
 
 	mergeRoots(byRoot)
+	// After the merge, so a group's tag is decided from every path it finally
+	// holds. mergeRoots moves paths between groups and cannot re-derive a tag
+	// assigned before it ran.
+	for _, g := range byRoot {
+		g.Tag = groupTag(g.Root, g.Paths, tagOf)
+	}
 	nameFromTags(byRoot)
 
 	out := make([]*PathGroup, 0, len(byRoot))
@@ -134,32 +151,120 @@ func GroupPathsByTagAndCollection(paths []TaggedPath) []*PathGroup {
 	return out
 }
 
-// resolveRootsWithinTag returns the roots of one tag that must be folded into
-// another, as from → to. A root absent from the result survives as its own
+// boundKey returns the key that bounds which roots may be folded together: the
+// tag, or the root itself when the path declares no tag.
+//
+// Untagged paths must not share one bound. The tag is what says two roots are
+// the same resource, and "no tag" says nothing — so pooling every untagged path
+// under the empty string hands resolveRootsWithinBound a set of unrelated roots
+// and its no-survivor fallback folds them all into the largest one.
+// `/v1/health-check` and `/v1/health-status` would come out as a single
+// `health-check` resource holding both, which is the finding-1 failure again in
+// a different key: a shared key merging things nothing declared to be together.
+//
+// No path in the 11.31.1 monolith is untagged, so this is a guard against a
+// drop rather than a fix for today. It is written as a bound rather than a
+// refusal because an untagged path is a perfectly ingestible endpoint — it just
+// groups by its own root, which is the answer with no tag to improve on it.
+func boundKey(tag, root string) string {
+	if tag != "" {
+		return "tag:" + tag
+	}
+	return "root:" + root
+}
+
+// groupTag picks the tag that names a group, for the case where the group holds
+// paths from more than one.
+//
+// The group's own root collection decides. That path *is* the resource, where
+// every other path in the group is a sub-path of it or an action on it — so
+// `/v1/users`, tagged `users`, names the resource holding user CRUD, and the
+// two `recalculate` actions tagged `smart-user-groups` do not. Failing a root
+// collection, the most frequent tag: the sub-path majority speaking for a group
+// no path answers as the collection of.
+//
+// This replaces last-write-wins over a sorted path list, which named a group
+// after whichever of its tags sorted last. Three of the eight merged groups in
+// the 11.31.1 monolith took a wrong name that way, and two of the three shipped
+// a name that contradicted every string the commands under it printed:
+//
+//   - `/v1/users` CRUD shipped as `pro smart-user-groups`, on the strength of
+//     two recalculate actions, with an `apply` that resolved a name against the
+//     user collection and deleted and recreated a **user record**.
+//   - `/v2/patch-policies` shipped as `pro patch-policy-logs`, whose own `list`
+//     is "Retrieve Patch Policies".
+//
+// A merge is not itself a defect, so this is a naming rule and not a refusal —
+// see the note above. What would be a defect is a merge nobody chose deciding
+// the name by sort order, and TestMergedTagGroupsAreNamedByTheirRootCollection
+// is the guard against that returning.
+func groupTag(root, paths []string, tagOf map[string]string) string {
+	rootKey := strings.Join(root, "/")
+
+	all := map[string]int{}
+	atRoot := map[string]int{}
+	for _, p := range paths {
+		tag := tagOf[p]
+		all[tag]++
+		if _, segs := splitVersionSegment(p); strings.Join(segs, "/") == rootKey {
+			atRoot[tag]++
+		}
+	}
+	if tag := mostFrequentTag(atRoot); tag != "" {
+		return tag
+	}
+	return mostFrequentTag(all)
+}
+
+// mostFrequentTag returns the most frequent non-empty tag, the
+// lexicographically first of them when several tie.
+//
+// Ties are broken by name rather than left to map order, because the result
+// names a command: an unstable answer would move a resource's name between two
+// runs of `make generate` with no change to the document.
+//
+// The empty tag is skipped rather than counted. A path declaring no tag groups
+// by its root alone and has no name to contribute, so counting it could only
+// suppress a real tag that a group's other paths do carry.
+func mostFrequentTag(count map[string]int) string {
+	best, bestN := "", 0
+	for _, tag := range sortedKeys(count) {
+		if tag == "" {
+			continue
+		}
+		if count[tag] > bestN {
+			best, bestN = tag, count[tag]
+		}
+	}
+	return best
+}
+
+// resolveRootsWithinBound returns the roots of one bound that must be folded
+// into another, as from → to. A root absent from the result survives as its own
 // resource.
 //
 // A root survives when it is CRUD-shaped — it answers as a collection *and* has
-// a `{param}` child — or when it is a path prefix of another root in the tag,
+// a `{param}` child — or when it is a path prefix of another root in the bound,
 // which makes it the parent collection rather than a stray. Everything else
 // folds into the surviving root it shares the longest path prefix with, or into
-// the tag's largest survivor when it shares none.
+// the bound's largest survivor when it shares none.
 //
 // The two conditions are what keep both failure modes out. Requiring CRUD shape
 // is what stops `/v1/computer-inventory/{id}/erase` becoming a resource beside
 // the computer inventory it acts on. Exempting a prefix is what stops
 // `GET /v1/computer-groups` — the listing of *all* groups — being swallowed by
 // whichever of smart-groups or static-groups happened to be largest.
-func resolveRootsWithinTag(
+func resolveRootsWithinBound(
 	roots map[string]bool,
-	exact, withParamChild map[string]bool,
+	exact, hasParamChild map[string]bool,
 	rootOf map[string]string,
 	all []string,
-	tagOf map[string]string,
-	tag string,
+	boundOf map[string]string,
+	bound string,
 ) map[string]string {
 	opCount := map[string]int{}
 	for _, p := range all {
-		if tagOf[p] == tag {
+		if boundOf[p] == bound {
 			opCount[rootOf[p]]++
 		}
 	}
@@ -181,11 +286,11 @@ func resolveRootsWithinTag(
 
 	var survivors []string
 	for _, r := range names {
-		if (exact[r] && withParamChild[r]) || isPrefixOfAnother(r) {
+		if (exact[r] && hasParamChild[r]) || isPrefixOfAnother(r) {
 			survivors = append(survivors, r)
 		}
 	}
-	// A tag whose every root is a bare action or lookup still has to produce a
+	// A bound whose every root is a bare action or lookup still has to produce a
 	// resource; the largest root is it.
 	if len(survivors) == 0 {
 		best := names[0]
