@@ -23,48 +23,9 @@ func NewSelfServicePlusCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newSelfServicePlusGetCmd(ctx))
 	cmd.AddCommand(newSelfServicePlusUpdateCmd(ctx))
 	cmd.AddCommand(newSelfServicePlusEnabledCmd(ctx))
-
-	return cmd
-}
-
-func newSelfServicePlusGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get Self Service Plus settings.",
-		Long:  "Get Self Service Plus settings.",
-		Example: `  # Get self-service-plus
-  jamf-cli pro self-service-plus get
-
-  # Get self-service-plus and output as YAML
-  jamf-cli pro self-service-plus get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/self-service-plus/settings"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.AddCommand(newSelfServicePlusSettingsCmd(ctx))
 
 	return cmd
 }
@@ -81,9 +42,6 @@ func newSelfServicePlusUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Save Self Service Plus settings.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  enabled                                      boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro self-service-plus update --set field=value
-
-  # Replace self-service-plus from a full JSON document
-  jamf-cli pro self-service-plus get -o json | jq '.field = "value"' | jamf-cli pro self-service-plus update
 
   # Update from a file
   jamf-cli pro self-service-plus update --from-file self-service-plus.json`,
@@ -190,6 +148,40 @@ func newSelfServicePlusEnabledCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/self-service-plus/feature-toggle/enabled"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newSelfServicePlusSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "settings",
+		Short:       "Get Self Service Plus settings.",
+		Long:        "Get Self Service Plus settings.",
+		Annotations: map[string]string{"jamf:privileges": "Read Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/self-service-plus/settings"
 
 			// Build query string
 			var queryParts []string

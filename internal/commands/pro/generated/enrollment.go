@@ -25,6 +25,8 @@ func NewEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newEnrollmentGetCmd(ctx))
+	cmd.AddCommand(newEnrollmentUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentHistoryCmd(ctx))
 	cmd.AddCommand(newEnrollmentAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newEnrollmentHistoryExportCmd(ctx))
@@ -32,11 +34,210 @@ func NewEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentUpdateAdueSessionTokenSettingsCmd(ctx))
 	cmd.AddCommand(newEnrollmentFilteredLanguageCodesCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguageCodesCmd(ctx))
-	cmd.AddCommand(newEnrollmentEnrollmentCmd(ctx))
-	cmd.AddCommand(newEnrollmentUpdateEnrollmentCmd(ctx))
 	cmd.AddCommand(newEnrollmentAccessManagementCmd(ctx))
 	cmd.AddCommand(newEnrollmentCreateAccessManagementCmd(ctx))
 
+	return cmd
+}
+
+func newEnrollmentGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "Get Enrollment object and Re-enrollment settings",
+		Long:  "Gets Enrollment object and re-enrollment settings.",
+		Example: `  # Get enrollment
+  jamf-cli pro enrollment get
+
+  # Get enrollment and output as YAML
+  jamf-cli pro enrollment get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v4/enrollment"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update Enrollment object",
+		Long:  "Update enrollment object. Regarding the 'developerCertificateIdentity',\nif this object is omitted, the certificate will not be deleted from Jamf Pro.\nThe 'identityKeystore' is the entire cert file as a base64 encoded string. The\n'md5Sum' field is not required in the PUT request, but is calculated and returned\nin the response.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountDrivenDeviceIosEnrollmentEnabled      boolean\n  accountDrivenDeviceMacosEnrollmentEnabled    boolean\n  accountDrivenDeviceVisionosEnrollmentEnabled boolean\n  accountDrivenUserEnrollmentEnabled           boolean\n  accountDrivenUserVisionosEnrollmentEnabled   boolean\n  allowSshOnlyManagementAccount                boolean\n  createManagementAccount                      boolean\n  developerCertificateIdentity.filename        string\n  developerCertificateIdentity.identityKeystore string\n  developerCertificateIdentity.keystorePassword string\n  developerCertificateIdentityDetails.serialNumber string\n  developerCertificateIdentityDetails.subject  string\n  ensureSshRunning                             boolean\n  flushExtensionAttributes                     boolean\n  flushLocationHistoryInformation              boolean\n  flushLocationInformation                     boolean\n  flushMdmCommandsOnReenroll                   string\n  flushPolicyHistory                           boolean\n  flushSoftwareUpdatePlans                     boolean\n  hideManagementAccount                        boolean\n  installSingleProfile                         boolean\n  iosEnterpriseEnrollmentEnabled               boolean\n  iosPersonalEnrollmentEnabled                 boolean\n  launchSelfService                            boolean\n  macOsEnterpriseEnrollmentEnabled             boolean\n  maidUsernameMergeEnabled                     boolean\n  managementUsername                           string\n  mdmSigningCertificate.filename               string\n  mdmSigningCertificate.identityKeystore       string\n  mdmSigningCertificate.keystorePassword       string\n  mdmSigningCertificateDetails.serialNumber    string\n  mdmSigningCertificateDetails.subject         string\n  restrictReenrollment                         boolean\n  signQuickAdd                                 boolean\n  signingMdmProfileEnabled                     boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  developerCertificateIdentity                 object\n  developerCertificateIdentityDetails          object\n  mdmSigningCertificate                        object\n  mdmSigningCertificateDetails                 object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro enrollment update --set field=value
+
+  # Replace enrollment from a full JSON document
+  jamf-cli pro enrollment get -o json | jq '.field = "value"' | jamf-cli pro enrollment update
+
+  # Update from a file
+  jamf-cli pro enrollment update --from-file enrollment.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "accountDrivenDeviceIosEnrollmentEnabled": false,
+  "accountDrivenDeviceMacosEnrollmentEnabled": false,
+  "accountDrivenDeviceVisionosEnrollmentEnabled": false,
+  "accountDrivenUserEnrollmentEnabled": false,
+  "accountDrivenUserVisionosEnrollmentEnabled": false,
+  "allowSshOnlyManagementAccount": false,
+  "createManagementAccount": false,
+  "developerCertificateIdentity": {
+    "filename": "",
+    "identityKeystore": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "keystorePassword": ""
+  },
+  "developerCertificateIdentityDetails": {
+    "serialNumber": "",
+    "subject": ""
+  },
+  "ensureSshRunning": false,
+  "flushExtensionAttributes": false,
+  "flushLocationHistoryInformation": false,
+  "flushLocationInformation": false,
+  "flushMdmCommandsOnReenroll": "",
+  "flushPolicyHistory": false,
+  "flushSoftwareUpdatePlans": false,
+  "hideManagementAccount": false,
+  "installSingleProfile": false,
+  "iosEnterpriseEnrollmentEnabled": false,
+  "iosPersonalEnrollmentEnabled": false,
+  "launchSelfService": false,
+  "macOsEnterpriseEnrollmentEnabled": false,
+  "maidUsernameMergeEnabled": false,
+  "managementUsername": "radmin",
+  "mdmSigningCertificate": {
+    "filename": "",
+    "identityKeystore": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "keystorePassword": ""
+  },
+  "mdmSigningCertificateDetails": {
+    "serialNumber": "",
+    "subject": ""
+  },
+  "restrictReenrollment": false,
+  "signQuickAdd": false,
+  "signingMdmProfileEnabled": false
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v4/enrollment"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current enrollment for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"accountDrivenDeviceIosEnrollmentEnabled": nil, "accountDrivenDeviceMacosEnrollmentEnabled": nil, "accountDrivenDeviceVisionosEnrollmentEnabled": nil, "accountDrivenUserEnrollmentEnabled": nil, "accountDrivenUserVisionosEnrollmentEnabled": nil, "allowSshOnlyManagementAccount": nil, "createManagementAccount": nil, "developerCertificateIdentity": &fieldFilter{fields: map[string]*fieldFilter{"filename": nil, "identityKeystore": nil, "keystorePassword": nil}}, "developerCertificateIdentityDetails": &fieldFilter{fields: map[string]*fieldFilter{"serialNumber": nil, "subject": nil}}, "ensureSshRunning": nil, "flushExtensionAttributes": nil, "flushLocationHistoryInformation": nil, "flushLocationInformation": nil, "flushMdmCommandsOnReenroll": nil, "flushPolicyHistory": nil, "flushSoftwareUpdatePlans": nil, "hideManagementAccount": nil, "installSingleProfile": nil, "iosEnterpriseEnrollmentEnabled": nil, "iosPersonalEnrollmentEnabled": nil, "launchSelfService": nil, "macOsEnterpriseEnrollmentEnabled": nil, "maidUsernameMergeEnabled": nil, "managementUsername": nil, "mdmSigningCertificate": &fieldFilter{fields: map[string]*fieldFilter{"filename": nil, "identityKeystore": nil, "keystorePassword": nil}}, "mdmSigningCertificateDetails": &fieldFilter{fields: map[string]*fieldFilter{"serialNumber": nil, "subject": nil}}, "restrictReenrollment": nil, "signQuickAdd": nil, "signingMdmProfileEnabled": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"accountDrivenDeviceIosEnrollmentEnabled": "boolean", "accountDrivenDeviceMacosEnrollmentEnabled": "boolean", "accountDrivenDeviceVisionosEnrollmentEnabled": "boolean", "accountDrivenUserEnrollmentEnabled": "boolean", "accountDrivenUserVisionosEnrollmentEnabled": "boolean", "allowSshOnlyManagementAccount": "boolean", "createManagementAccount": "boolean", "developerCertificateIdentity": "object", "developerCertificateIdentity.filename": "string", "developerCertificateIdentity.identityKeystore": "string", "developerCertificateIdentity.keystorePassword": "string", "developerCertificateIdentityDetails": "object", "developerCertificateIdentityDetails.serialNumber": "string", "developerCertificateIdentityDetails.subject": "string", "ensureSshRunning": "boolean", "flushExtensionAttributes": "boolean", "flushLocationHistoryInformation": "boolean", "flushLocationInformation": "boolean", "flushMdmCommandsOnReenroll": "string", "flushPolicyHistory": "boolean", "flushSoftwareUpdatePlans": "boolean", "hideManagementAccount": "boolean", "installSingleProfile": "boolean", "iosEnterpriseEnrollmentEnabled": "boolean", "iosPersonalEnrollmentEnabled": "boolean", "launchSelfService": "boolean", "macOsEnterpriseEnrollmentEnabled": "boolean", "maidUsernameMergeEnabled": "boolean", "managementUsername": "string", "mdmSigningCertificate": "object", "mdmSigningCertificate.filename": "string", "mdmSigningCertificate.identityKeystore": "string", "mdmSigningCertificate.keystorePassword": "string", "mdmSigningCertificateDetails": "object", "mdmSigningCertificateDetails.serialNumber": "string", "mdmSigningCertificateDetails.subject": "string", "restrictReenrollment": "boolean", "signQuickAdd": "boolean", "signingMdmProfileEnabled": "boolean"})
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				if !hasNestedKey(setMap, "developerCertificateIdentity.identityKeystore") {
+					fmt.Fprintf(os.Stderr, "warning: enrollment field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set developerCertificateIdentity.identityKeystore=<value> to preserve it.\n", "developerCertificateIdentity.identityKeystore")
+				}
+				if !hasNestedKey(setMap, "developerCertificateIdentity.keystorePassword") {
+					fmt.Fprintf(os.Stderr, "warning: enrollment field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set developerCertificateIdentity.keystorePassword=<value> to preserve it.\n", "developerCertificateIdentity.keystorePassword")
+				}
+				if !hasNestedKey(setMap, "mdmSigningCertificate.identityKeystore") {
+					fmt.Fprintf(os.Stderr, "warning: enrollment field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set mdmSigningCertificate.identityKeystore=<value> to preserve it.\n", "mdmSigningCertificate.identityKeystore")
+				}
+				if !hasNestedKey(setMap, "mdmSigningCertificate.keystorePassword") {
+					fmt.Fprintf(os.Stderr, "warning: enrollment field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set mdmSigningCertificate.keystorePassword=<value> to preserve it.\n", "mdmSigningCertificate.keystorePassword")
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
+			stat, _ := os.Stdin.Stat()
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"accountDrivenDeviceIosEnrollmentEnabled=", "accountDrivenDeviceMacosEnrollmentEnabled=", "accountDrivenDeviceVisionosEnrollmentEnabled=", "accountDrivenUserEnrollmentEnabled=", "accountDrivenUserVisionosEnrollmentEnabled=", "allowSshOnlyManagementAccount=", "createManagementAccount=", "developerCertificateIdentity.filename=", "developerCertificateIdentity.identityKeystore=", "developerCertificateIdentity.keystorePassword=", "developerCertificateIdentityDetails.serialNumber=", "developerCertificateIdentityDetails.subject=", "ensureSshRunning=", "flushExtensionAttributes=", "flushLocationHistoryInformation=", "flushLocationInformation=", "flushMdmCommandsOnReenroll=", "flushPolicyHistory=", "flushSoftwareUpdatePlans=", "hideManagementAccount=", "installSingleProfile=", "iosEnterpriseEnrollmentEnabled=", "iosPersonalEnrollmentEnabled=", "launchSelfService=", "macOsEnterpriseEnrollmentEnabled=", "maidUsernameMergeEnabled=", "managementUsername=", "mdmSigningCertificate.filename=", "mdmSigningCertificate.identityKeystore=", "mdmSigningCertificate.keystorePassword=", "mdmSigningCertificateDetails.serialNumber=", "mdmSigningCertificateDetails.subject=", "restrictReenrollment=", "signQuickAdd=", "signingMdmProfileEnabled=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
@@ -539,142 +740,6 @@ func newEnrollmentLanguageCodesCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	return cmd
-}
-
-func newEnrollmentEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "enrollment",
-		Short:       "Get Enrollment object and Re-enrollment settings",
-		Long:        "Gets Enrollment object and re-enrollment settings.",
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v4/enrollment"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newEnrollmentUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "update-enrollment",
-		Short:       "Update Enrollment object",
-		Long:        "Update enrollment object. Regarding the 'developerCertificateIdentity', if this object is omitted, the certificate will not be deleted from Jamf Pro. The 'identityKeystore' is the entire cert file as a base64 encoded string. The 'md5Sum' field is not required in the PUT request, but is calculated and returned in the response.",
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "accountDrivenDeviceIosEnrollmentEnabled": false,
-  "accountDrivenDeviceMacosEnrollmentEnabled": false,
-  "accountDrivenDeviceVisionosEnrollmentEnabled": false,
-  "accountDrivenUserEnrollmentEnabled": false,
-  "accountDrivenUserVisionosEnrollmentEnabled": false,
-  "allowSshOnlyManagementAccount": false,
-  "createManagementAccount": false,
-  "developerCertificateIdentity": {
-    "filename": "",
-    "identityKeystore": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
-    "keystorePassword": ""
-  },
-  "developerCertificateIdentityDetails": {
-    "serialNumber": "",
-    "subject": ""
-  },
-  "ensureSshRunning": false,
-  "flushExtensionAttributes": false,
-  "flushLocationHistoryInformation": false,
-  "flushLocationInformation": false,
-  "flushMdmCommandsOnReenroll": "",
-  "flushPolicyHistory": false,
-  "flushSoftwareUpdatePlans": false,
-  "hideManagementAccount": false,
-  "installSingleProfile": false,
-  "iosEnterpriseEnrollmentEnabled": false,
-  "iosPersonalEnrollmentEnabled": false,
-  "launchSelfService": false,
-  "macOsEnterpriseEnrollmentEnabled": false,
-  "maidUsernameMergeEnabled": false,
-  "managementUsername": "radmin",
-  "mdmSigningCertificate": {
-    "filename": "",
-    "identityKeystore": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
-    "keystorePassword": ""
-  },
-  "mdmSigningCertificateDetails": {
-    "serialNumber": "",
-    "subject": ""
-  },
-  "restrictReenrollment": false,
-  "signQuickAdd": false,
-  "signingMdmProfileEnabled": false
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v4/enrollment"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 

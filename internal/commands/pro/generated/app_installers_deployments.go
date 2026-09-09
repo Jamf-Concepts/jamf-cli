@@ -27,20 +27,178 @@ func NewAppInstallersDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newAppInstallersDeploymentsListCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsGetCmd(ctx))
+	cmd.AddCommand(newAppInstallersDeploymentsCreateCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsUpdateCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsDeleteCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsHistoryCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsExportCmd(ctx))
-	cmd.AddCommand(newAppInstallersDeploymentsCreateDeploymentsCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsComputersCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsInstallationRetryCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsInstallationRetryByComputerIdCmd(ctx))
-	cmd.AddCommand(newAppInstallersDeploymentsDeploymentsCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsInstallationSummaryCmd(ctx))
 	cmd.AddCommand(newAppInstallersDeploymentsVersionUpdateCmd(ctx))
+	cmd.AddCommand(newAppInstallersDeploymentsApplyCmd(ctx))
 
+	return cmd
+}
+
+func newAppInstallersDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Read App Installer deployments summary",
+		Long:  "Read App Installer deployments summary.  **Required Permissions:** 'applications:read'",
+		Example: `  # List all app-installers-deployments
+  jamf-cli pro app-installers-deployments list
+
+  # List app-installers-deployments and extract IDs
+  jamf-cli pro app-installers-deployments list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/app-installers/deployments"
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/app-installers/deployments"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				prog.Stop()
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:desc")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: 'id', 'name', 'app.deployedVersion', 'app.bundleId', 'deploymentType', 'updateBehavior', 'app.versionAction'. Example: name==\"*appInstaller*\"")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
 }
 
@@ -104,6 +262,100 @@ func newAppInstallersDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-deployment by name")
 
+	return cmd
+}
+
+func newAppInstallersDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new App Installer deployment",
+		Long:  "Create a new App Installer deployment. The deployment has a specific app version and might be scoped to a smart group.  **Required Permissions:** 'applications:create'",
+		Example: `  # Show the JSON template for creating a app-installers-deployment
+  jamf-cli pro app-installers-deployments create --scaffold
+
+  # Create a app-installers-deployment from JSON
+  echo '{"name":"Example"}' | jamf-cli pro app-installers-deployments create
+
+  # Get a app-installers-deployment, modify it, and create a copy
+  jamf-cli pro app-installers-deployments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro app-installers-deployments create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:create"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "appTitleId": "2",
+  "categoryId": "1",
+  "deploymentType": "INSTALL_AUTOMATICALLY",
+  "enabled": false,
+  "installPredefinedConfigProfiles": false,
+  "name": "Jamf Connect for IT",
+  "notificationSettings": {
+    "completeMessage": null,
+    "deadline": null,
+    "deadlineMessage": null,
+    "notificationInterval": null,
+    "notificationMessage": null,
+    "quitDelay": null,
+    "relaunch": null,
+    "suppress": null
+  },
+  "selfServiceSettings": {
+    "categories": null,
+    "description": null,
+    "forceViewDescription": false,
+    "includeInComplianceCategory": false,
+    "includeInFeaturedCategory": false
+  },
+  "siteId": "1",
+  "smartGroupId": "1",
+  "triggerAdminNotifications": false,
+  "updateBehavior": "AUTOMATIC"
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/app-installers/deployments"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 
@@ -861,92 +1113,6 @@ func newAppInstallersDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newAppInstallersDeploymentsCreateDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "create-deployments",
-		Short:       "Create a new App Installer deployment",
-		Long:        "Create a new App Installer deployment. The deployment has a specific app version and might be scoped to a smart group.  **Required Permissions:** 'applications:create'",
-		Annotations: map[string]string{"jamf:privileges": "Create Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:create"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "appTitleId": "2",
-  "categoryId": "1",
-  "deploymentType": "INSTALL_AUTOMATICALLY",
-  "enabled": false,
-  "installPredefinedConfigProfiles": false,
-  "name": "Jamf Connect for IT",
-  "notificationSettings": {
-    "completeMessage": null,
-    "deadline": null,
-    "deadlineMessage": null,
-    "notificationInterval": null,
-    "notificationMessage": null,
-    "quitDelay": null,
-    "relaunch": null,
-    "suppress": null
-  },
-  "selfServiceSettings": {
-    "categories": null,
-    "description": null,
-    "forceViewDescription": false,
-    "includeInComplianceCategory": false,
-    "includeInFeaturedCategory": false
-  },
-  "siteId": "1",
-  "smartGroupId": "1",
-  "triggerAdminNotifications": false,
-  "updateBehavior": "AUTOMATIC"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v1/app-installers/deployments"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
 func newAppInstallersDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
@@ -1281,158 +1447,6 @@ func newAppInstallersDeploymentsInstallationRetryByComputerIdCmd(ctx *registry.C
 	return cmd
 }
 
-func newAppInstallersDeploymentsDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagPage     int
-		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
-	)
-
-	cmd := &cobra.Command{
-		Use:         "deployments",
-		Short:       "Read App Installer deployments summary",
-		Long:        "Read App Installer deployments summary.  **Required Permissions:** 'applications:read'",
-		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/app-installers/deployments"
-
-			// Build query string
-			var queryParts []string
-			if flagPage != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
-			}
-			if flagPageSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
-			}
-			if len(flagSort) > 0 {
-				for _, v := range flagSort {
-					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
-				}
-			}
-			if flagFilter != "" {
-				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
-				// Initialised empty, not nil — a nil slice marshals to "null", so
-				// "list --all" on an empty collection used to answer "null" where
-				// the single-page path answers "[]".
-				allResults := []json.RawMessage{}
-				prog := ctx.Output.PaginationProgress()
-				defer prog.Stop()
-				reqCtx = spinner.WithSuppressed(reqCtx)
-				pageNum := 0
-				pageSize := 100
-
-				for {
-					// Build page-specific query
-					pagePath := "/v1/app-installers/deployments"
-					var pageQuery []string
-					// Carry forward non-pagination query params
-					for _, qp := range queryParts {
-						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
-							pageQuery = append(pageQuery, qp)
-						}
-					}
-					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
-					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
-					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
-
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
-					if err != nil {
-						return err
-					}
-
-					body, err := io.ReadAll(resp.Body)
-					resp.Body.Close()
-					if err != nil {
-						return err
-					}
-
-					// Parse pagination response: {"totalCount": N, "results": [...]}
-					var pageResp struct {
-						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
-					}
-					if err := json.Unmarshal(body, &pageResp); err != nil {
-						// Not a paginated response; output as-is
-						return ctx.Output.PrintRaw(body)
-					}
-
-					allResults = append(allResults, pageResp.Results...)
-					prog.Update(len(allResults), pageResp.TotalCount)
-
-					// Check limit
-					if flagLimit > 0 && len(allResults) >= flagLimit {
-						allResults = allResults[:flagLimit]
-						break
-					}
-
-					// Check if we've fetched everything
-					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
-						break
-					}
-
-					pageNum++
-				}
-
-				prog.Stop()
-
-				// Output combined results as JSON array
-				combined, err := json.MarshalIndent(allResults, "", "  ")
-				if err != nil {
-					return err
-				}
-				return ctx.Output.PrintRaw(combined)
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if ctx.Output.Format() == "ndjson" {
-				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
-				if ndjsonErr != nil {
-					return ndjsonErr
-				}
-				var ndjsonWrap struct {
-					Results []json.RawMessage `json:"results"`
-				}
-				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
-					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
-					if marshalErr != nil {
-						return marshalErr
-					}
-					return ctx.Output.PrintRaw(arr)
-				}
-				return ctx.Output.PrintRaw(ndjsonBody)
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:desc")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: 'id', 'name', 'app.deployedVersion', 'app.bundleId', 'deploymentType', 'updateBehavior', 'app.versionAction'. Example: name==\"*appInstaller*\"")
-	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
-	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-	return cmd
-}
-
 func newAppInstallersDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
@@ -1564,6 +1578,148 @@ func newAppInstallersDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobr
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-deployment by name")
+
+	return cmd
+}
+
+func newAppInstallersDeploymentsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:         "apply",
+		Short:       "Create or replace a app-installers-deployment by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "applications:create,applications:read,applications:update"},
+		Long: `Create or replace a app-installers-deployment. Reads JSON or YAML from --from-file or stdin.
+
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a app-installers-deployment from a JSON file
+  jamf-cli pro app-installers-deployments apply --from-file app-installers-deployment.json
+
+  # Apply a app-installers-deployment from a YAML file
+  jamf-cli pro app-installers-deployments apply --from-file app-installers-deployment.yaml
+
+  # Apply from stdin
+  cat app-installers-deployment.json | jamf-cli pro app-installers-deployments apply
+
+  # Apply without replacement confirmation
+  jamf-cli pro app-installers-deployments apply --from-file app-installers-deployment.json --yes
+
+  # Preview what would happen
+  jamf-cli pro app-installers-deployments apply --from-file app-installers-deployment.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "appTitleId": "2",
+  "categoryId": "1",
+  "deploymentType": "INSTALL_AUTOMATICALLY",
+  "enabled": false,
+  "installPredefinedConfigProfiles": false,
+  "name": "Jamf Connect for IT",
+  "notificationSettings": {
+    "completeMessage": null,
+    "deadline": null,
+    "deadlineMessage": null,
+    "notificationInterval": null,
+    "notificationMessage": null,
+    "quitDelay": null,
+    "relaunch": null,
+    "suppress": null
+  },
+  "selfServiceSettings": {
+    "categories": null,
+    "description": null,
+    "forceViewDescription": false,
+    "includeInComplianceCategory": false,
+    "includeInFeaturedCategory": false
+  },
+  "siteId": "1",
+  "smartGroupId": "1",
+  "triggerAdminNotifications": false,
+  "updateBehavior": "AUTOMATIC"
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create app-installers-deployment %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/app-installers/deployments", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created app-installers-deployment %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace app-installers-deployment %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("app-installers-deployment %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "app-installers-deployment %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/app-installers/deployments/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced app-installers-deployment %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

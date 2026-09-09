@@ -127,10 +127,10 @@ func buildResourceFromGroup(group *PathGroup, ops []*Operation, schemas, represe
 	idField := detectIDField(schemas, ops)
 
 	reclassifyMisannotatedCreates(ops)
-	renameSingletonRootGet(ops)
+	renameSingletonRootGet(ops, group.Root)
 	ops = deduplicateVersionedOps(ops)
 	ops = pairCollectionBulkActions(ops)
-	resolveNoParamConflicts(ops)
+	resolveNoParamConflicts(ops, group.Root)
 	disambiguateSameTerminalOps(ops)
 
 	if len(ops) == 0 {

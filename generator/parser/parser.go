@@ -673,7 +673,7 @@ func ParseLoadedSpec(doc *openapi3.T, specPath string) ([]*Resource, error) {
 	//     non-list sibling GET (e.g. /singleton/download lacking x-action in
 	//     the monolith) collides with the root as "list" and both get
 	//     renamed to their terminal segments, hiding the canonical get op.
-	renameSingletonRootGet(allOps)
+	renameSingletonRootGet(allOps, nil)
 	// 1. Drop lower-version duplicates: when the same path exists at multiple API
 	//    versions in one spec (e.g. /v2/foo and /v3/foo), keep only the highest.
 	allOps = deduplicateVersionedOps(allOps)
@@ -684,7 +684,7 @@ func ParseLoadedSpec(doc *openapi3.T, specPath string) ([]*Resource, error) {
 	// 2. Rename no-param sub-path ops that would otherwise collide with another
 	//    op of the same name (e.g. GET /settings competing with GET /pending-rotations
 	//    for the "list" name — settings becomes "settings").
-	resolveNoParamConflicts(allOps)
+	resolveNoParamConflicts(allOps, nil)
 	// 3. Disambiguate ops that share the same terminal segment but differ in
 	//    path-param count (e.g. /{username}/audit vs /{username}/{guid}/audit).
 	disambiguateSameTerminalOps(allOps)
@@ -1405,7 +1405,19 @@ func compareAPIVersions(path1, path2 string) int {
 // Example: GET /settings + PUT /settings competing in a resource that also has
 // GET /pending-rotations — both are "list"/"update" duplicates. GET /settings
 // becomes "settings" and (if PUT /settings also conflicts) "update-settings".
-func resolveNoParamConflicts(ops []*Operation) {
+// isResourceRootPath reports whether a version-stripped path is exactly the
+// resource's own root — the literal segments the grouping derived the resource
+// from. An empty root (the per-file ParseSpec path and the platform parser,
+// neither of which has a group) matches nothing, so those paths keep the naming
+// they had.
+func isResourceRootPath(strippedPath string, root []string) bool {
+	if len(root) == 0 {
+		return false
+	}
+	return strippedPath == "/"+strings.Join(root, "/")
+}
+
+func resolveNoParamConflicts(ops []*Operation, resourceRoot []string) {
 	// Identify canonical collection paths: no-param paths with a /{param} child.
 	isCanonical := make(map[string]bool)
 	for _, op := range ops {
@@ -1424,6 +1436,35 @@ func resolveNoParamConflicts(ops []*Operation) {
 				isCanonical[op.Path] = true
 				break
 			}
+		}
+	}
+	// A resource's own root endpoint is canonical too, even with no /{param}
+	// child beneath it. Without this the rename below fires on *both* sides of a
+	// collision and the primary endpoint loses its plain verb to a terminal path
+	// segment, which reads as a stutter: `pro sso-settings sso` for GET /v3/sso
+	// beside `cert` for /v2/sso/cert, and `pro enrollment enrollment` beside
+	// `language-codes`. 15 resources and 19 operations were affected, and
+	// `platform audit audit` was the same defect fixed by hand with an override.
+	//
+	// It did not arise while a resource was one spec file per path root, because
+	// there was no collision to resolve — /v3/sso, /v2/sso/cert and
+	// /v1/sso/failover were three resources with a clean get/update each. Tag
+	// grouping merges them, so the rule that decides which one keeps the verb has
+	// to be stated.
+	//
+	// Marked from the group's declared root and nothing else. Deriving it from
+	// the collision group instead — the shallowest colliding path, or the one
+	// every other sits beneath — got three separate cases wrong, each recorded in
+	// TestNoParamRootKeepsThePlainVerb: `pro ldap list` returned LDAP *groups*
+	// because /v1/ldap/groups was the shallowest and no GET /v1/ldap exists;
+	// `pro certificate-authority list` returned the one active CA for the same
+	// reason; and it was group-dependent, so `PUT /v3/sso` lost `update` the
+	// moment the singleton rename took its GET out of the `list` group and left
+	// the PUT with no exemption. The root is a fact about the resource, not about
+	// which operations happen to collide.
+	for _, op := range ops {
+		if !hasPathParam(op.Path) && isResourceRootPath(stripVersionSegments(op.Path), resourceRoot) {
+			isCanonical[op.Path] = true
 		}
 	}
 
@@ -2262,16 +2303,20 @@ func inferOperationName(path, method string, isAction bool) string {
 // siblings anywhere in the resource) and renames that path's root GET from
 // "list" to "get". Must run before resolveNoParamConflicts so the root GET
 // is excluded from "list"-collision rename logic.
-func renameSingletonRootGet(ops []*Operation) {
-	for _, op := range ops {
-		if hasPathParam(op.Path) {
-			return
-		}
-	}
+func renameSingletonRootGet(ops []*Operation, resourceRoot []string) {
+	// Judged per path. It used to return early if *any* operation on the
+	// resource carried a path parameter, which was true only while one spec file
+	// meant one path root: a settings-style resource had no {id} anywhere. A
+	// tag-merged resource always has one — /v1/jamf-protect is a singleton with
+	// GET, PUT and DELETE on it, and the same resource carries
+	// /v1/jamf-protect/deployments/{id}/tasks — so the whole rename was skipped
+	// and the singleton's read shipped as `list`. Same for
+	// /v1/cloud-distribution-point. This is the third mechanism to hold "the
+	// resource is one path root"; see noParamRoots and reclassifyMisannotatedCreates.
 	getPaths := map[string]*Operation{}
 	putPaths := map[string]bool{}
 	for _, op := range ops {
-		if op.Method == "GET" && !op.IsList && op.Name == "list" {
+		if op.Method == "GET" && !op.IsList && op.Name == "list" && !hasPathParam(op.Path) {
 			getPaths[op.Path] = op
 		}
 		if op.Method == "PUT" {
@@ -2279,10 +2324,37 @@ func renameSingletonRootGet(ops []*Operation) {
 		}
 	}
 	for path, op := range getPaths {
-		if putPaths[path] {
+		// Restricted to the resource's own root, for the reason the function's
+		// name says: it is the *root* GET that a same-path PUT makes a singleton.
+		// Without the restriction any GET+PUT sub-path took `get`, so
+		// /v2/local-admin-password/settings became `pro local-admin-password get`
+		// — a plain verb pointing at the settings object while the resource's
+		// other reads sit beside it — and its sibling `pending-rotations` fell
+		// out of the collision group and took `list`.
+		if !isResourceRootPath(stripVersionSegments(path), resourceRoot) {
+			continue
+		}
+		// A PUT on the same path is the singleton signal, but only when the path
+		// is not also a collection: a bulk-replace PUT on /v1/x beside
+		// GET /v1/x/{id} would otherwise make the collection read a `get`.
+		if putPaths[path] && !hasParamChildOp(path, ops) {
 			op.Name = "get"
 		}
 	}
+}
+
+// hasParamChildOp reports whether any operation sits at path plus a single
+// {param} segment — the test for "this path is a collection".
+func hasParamChildOp(path string, ops []*Operation) bool {
+	for _, op := range ops {
+		if !strings.HasPrefix(op.Path, path+"/{") {
+			continue
+		}
+		if !strings.Contains(op.Path[len(path)+1:], "/") {
+			return true
+		}
+	}
+	return false
 }
 
 // reclassifyMisannotatedCreates finds collection-root POSTs that were tagged
@@ -2302,9 +2374,20 @@ func reclassifyMisannotatedCreates(ops []*Operation) {
 		if op.Method != "POST" || !op.IsAction {
 			continue
 		}
-		if !isCollectionRootPath(op.Path) {
+		// A parameterised path is never a collection root, whatever else is true
+		// of it: POST /v1/computers-inventory/{id}/attachments is an action on
+		// one computer.
+		if strings.Contains(op.Path, "{") {
 			continue
 		}
+		// The /{param} child is the whole test. isCollectionRootPath also
+		// required the path to be a single segment after the version, which was
+		// true while one spec file meant one path root and is not true now — a
+		// tag-grouped resource's own collection sits as deep as the API puts it.
+		// So POST /v1/log-flushing/task and POST /v1/jcds/files kept the
+		// terminal-segment names `task` and `files` while their siblings had a
+		// clean get/delete beneath /{id}, which is the same "the resource root is
+		// one segment" assumption that cost `pro sso-settings get` its name.
 		if !siblings[op.Path] {
 			continue
 		}

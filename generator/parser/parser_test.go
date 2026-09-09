@@ -1915,7 +1915,7 @@ func TestResolveNoParamConflicts(t *testing.T) {
 			{Name: "list", Method: "GET", Path: "/v2/resource/settings"},
 			{Name: "list", Method: "GET", Path: "/v2/resource/pending-rotations"},
 		}
-		resolveNoParamConflicts(ops)
+		resolveNoParamConflicts(ops, nil)
 		names := map[string]bool{}
 		for _, op := range ops {
 			names[op.Name] = true
@@ -1931,7 +1931,7 @@ func TestResolveNoParamConflicts(t *testing.T) {
 			{Name: "get", Method: "GET", Path: "/v2/resource/{id}"},
 			{Name: "list", Method: "GET", Path: "/v2/resource/sub-path"},
 		}
-		resolveNoParamConflicts(ops)
+		resolveNoParamConflicts(ops, nil)
 		// /v2/resource has a /{id} child → canonical → stays "list"
 		// /v2/resource/sub-path → renamed to "sub-path"
 		var canonical, renamed string

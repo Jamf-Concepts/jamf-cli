@@ -12,7 +12,7 @@ type SpecSource struct {
 // Sources lists every spec file consumed when this package was generated.
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
-	{File: "specs/AppInstallers.yaml", SHA256: "859facb6b0e3f4b353e410ee510b2b1309b980d6517842bc0b5ac3416425a0b6"},
+	{File: "specs/AppInstallers.yaml", SHA256: "43da30ccfc609ba004d716afbce42d5702eae3257bb59c15e61bf60acad3e3a5"},
 	{File: "specs/JamfProAPI.yaml", SHA256: "5eedfff46eedd68158d5750b83e71fc08d3998242bf19f075ceec8015bab3f1f"},
 	{File: "specs/classic/resources.yaml", SHA256: "cddfa3ff6f8539ec9c7d8ea5b3fef3275ba77d211921d55c01274974fe15d69c"},
 }

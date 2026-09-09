@@ -27,22 +27,204 @@ func NewSsoSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newSsoSettingsGetCmd(ctx))
+	cmd.AddCommand(newSsoSettingsUpdateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDeleteCmd(ctx))
 	cmd.AddCommand(newSsoSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newSsoSettingsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newSsoSettingsCertCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
-	cmd.AddCommand(newSsoSettingsCreateCertCmd(ctx))
-	cmd.AddCommand(newSsoSettingsUpdateCertCmd(ctx))
-	cmd.AddCommand(newSsoSettingsFailoverCmd(ctx))
 	cmd.AddCommand(newSsoSettingsParseCmd(ctx))
-	cmd.AddCommand(newSsoSettingsSsoCmd(ctx))
-	cmd.AddCommand(newSsoSettingsUpdateSsoCmd(ctx))
+	cmd.AddCommand(newSsoSettingsUpdateCertCmd(ctx))
+	cmd.AddCommand(newSsoSettingsCreateCertCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDependenciesCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
-	cmd.AddCommand(newSsoSettingsCertCmd(ctx))
+	cmd.AddCommand(newSsoSettingsFailoverCmd(ctx))
 	cmd.AddCommand(newSsoSettingsGenerateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsV3MetadataDownloadCmd(ctx))
 
+	return cmd
+}
+
+func newSsoSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "Retrieve the current Single Sign On configuration settings",
+		Long:  "Retrieves the current Single Sign On configuration settings",
+		Example: `  # Get sso-settings
+  jamf-cli pro sso-settings get
+
+  # Get sso-settings and output as YAML
+  jamf-cli pro sso-settings get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v3/sso"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Updates the current Single Sign On configuration settings",
+		Long:  "Updates the current Single Sign On configuration settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  configurationType                            string\n  enrollmentSsoConfig.managementHint           string\n  enrollmentSsoForAccountDrivenEnrollmentEnabled boolean\n  groupEnrollmentAccessEnabled                 boolean\n  groupEnrollmentAccessName                    string\n  oidcSettings.jamfIdAuthenticationEnabled     boolean\n  oidcSettings.userMapping                     string\n  oidcSettings.usernameAttributeClaimMapping   string\n  samlSettings.entityId                        string\n  samlSettings.federationMetadataFile          string\n  samlSettings.groupAttributeName              string\n  samlSettings.groupRdnKey                     string\n  samlSettings.idpProviderType                 string\n  samlSettings.idpUrl                          string\n  samlSettings.metadataFileName                string\n  samlSettings.metadataSource                  string\n  samlSettings.otherProviderTypeName           string\n  samlSettings.sessionTimeout                  integer\n  samlSettings.tokenExpirationDisabled         boolean\n  samlSettings.userAttributeEnabled            boolean\n  samlSettings.userAttributeName               string\n  samlSettings.userMapping                     string\n  ssoBypassAllowed                             boolean\n  ssoEnabled                                   boolean\n  ssoForEnrollmentEnabled                      boolean\n  ssoForMacOsSelfServiceEnabled                boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  enrollmentSsoConfig                          object\n  enrollmentSsoConfig.hosts                    array\n  oidcSettings                                 object\n  samlSettings                                 object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro sso-settings update --set field=value
+
+  # Replace sso-settings from a full JSON document
+  jamf-cli pro sso-settings get -o json | jq '.field = "value"' | jamf-cli pro sso-settings update
+
+  # Update from a file
+  jamf-cli pro sso-settings update --from-file sso-settings.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "configurationType": "SAML",
+  "enrollmentSsoConfig": {
+    "hosts": [
+      "dev-12324233.okta.com",
+      "example.okta.com"
+    ],
+    "managementHint": ""
+  },
+  "enrollmentSsoForAccountDrivenEnrollmentEnabled": false,
+  "groupEnrollmentAccessEnabled": false,
+  "groupEnrollmentAccessName": "",
+  "oidcSettings": {
+    "jamfIdAuthenticationEnabled": false,
+    "userMapping": "USERNAME",
+    "usernameAttributeClaimMapping": "EMAIL"
+  },
+  "samlSettings": {
+    "entityId": "saml/metadata",
+    "federationMetadataFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "groupAttributeName": "",
+    "groupRdnKey": "",
+    "idpProviderType": "ADFS",
+    "idpUrl": "https://example.idp.com/app/id/sso/saml/metadata",
+    "metadataFileName": "if MetadataSource is set to URL, remove this field",
+    "metadataSource": "URL",
+    "otherProviderTypeName": "",
+    "sessionTimeout": 0,
+    "tokenExpirationDisabled": false,
+    "userAttributeEnabled": false,
+    "userAttributeName": "",
+    "userMapping": "USERNAME"
+  },
+  "ssoBypassAllowed": false,
+  "ssoEnabled": false,
+  "ssoForEnrollmentEnabled": false,
+  "ssoForMacOsSelfServiceEnabled": false
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v3/sso"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current sso-settings for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"configurationType": nil, "enrollmentSsoConfig": &fieldFilter{fields: map[string]*fieldFilter{"hosts": nil, "managementHint": nil}}, "enrollmentSsoForAccountDrivenEnrollmentEnabled": nil, "groupEnrollmentAccessEnabled": nil, "groupEnrollmentAccessName": nil, "oidcSettings": &fieldFilter{fields: map[string]*fieldFilter{"jamfIdAuthenticationEnabled": nil, "userMapping": nil, "usernameAttributeClaimMapping": nil}}, "samlSettings": &fieldFilter{fields: map[string]*fieldFilter{"entityId": nil, "federationMetadataFile": nil, "groupAttributeName": nil, "groupRdnKey": nil, "idpProviderType": nil, "idpUrl": nil, "metadataFileName": nil, "metadataSource": nil, "otherProviderTypeName": nil, "sessionTimeout": nil, "tokenExpirationDisabled": nil, "userAttributeEnabled": nil, "userAttributeName": nil, "userMapping": nil}}, "ssoBypassAllowed": nil, "ssoEnabled": nil, "ssoForEnrollmentEnabled": nil, "ssoForMacOsSelfServiceEnabled": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"configurationType": "string", "enrollmentSsoConfig": "object", "enrollmentSsoConfig.hosts": "array", "enrollmentSsoConfig.managementHint": "string", "enrollmentSsoForAccountDrivenEnrollmentEnabled": "boolean", "groupEnrollmentAccessEnabled": "boolean", "groupEnrollmentAccessName": "string", "oidcSettings": "object", "oidcSettings.jamfIdAuthenticationEnabled": "boolean", "oidcSettings.userMapping": "string", "oidcSettings.usernameAttributeClaimMapping": "string", "samlSettings": "object", "samlSettings.entityId": "string", "samlSettings.federationMetadataFile": "string", "samlSettings.groupAttributeName": "string", "samlSettings.groupRdnKey": "string", "samlSettings.idpProviderType": "string", "samlSettings.idpUrl": "string", "samlSettings.metadataFileName": "string", "samlSettings.metadataSource": "string", "samlSettings.otherProviderTypeName": "string", "samlSettings.sessionTimeout": "integer", "samlSettings.tokenExpirationDisabled": "boolean", "samlSettings.userAttributeEnabled": "boolean", "samlSettings.userAttributeName": "string", "samlSettings.userMapping": "string", "ssoBypassAllowed": "boolean", "ssoEnabled": "boolean", "ssoForEnrollmentEnabled": "boolean", "ssoForMacOsSelfServiceEnabled": "boolean"})
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
+			stat, _ := os.Stdin.Stat()
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"configurationType=", "enrollmentSsoConfig.managementHint=", "enrollmentSsoForAccountDrivenEnrollmentEnabled=", "groupEnrollmentAccessEnabled=", "groupEnrollmentAccessName=", "oidcSettings.jamfIdAuthenticationEnabled=", "oidcSettings.userMapping=", "oidcSettings.usernameAttributeClaimMapping=", "samlSettings.entityId=", "samlSettings.federationMetadataFile=", "samlSettings.groupAttributeName=", "samlSettings.groupRdnKey=", "samlSettings.idpProviderType=", "samlSettings.idpUrl=", "samlSettings.metadataFileName=", "samlSettings.metadataSource=", "samlSettings.otherProviderTypeName=", "samlSettings.sessionTimeout=", "samlSettings.tokenExpirationDisabled=", "samlSettings.userAttributeEnabled=", "samlSettings.userAttributeName=", "samlSettings.userMapping=", "ssoBypassAllowed=", "ssoEnabled=", "ssoForEnrollmentEnabled=", "ssoForMacOsSelfServiceEnabled=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
@@ -338,6 +520,40 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "cert",
+		Short:       "Retrieve the certificate currently configured for use with SSO",
+		Long:        "Retrieves the certificate currently configured for use with SSO.",
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/sso/cert"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
@@ -395,19 +611,29 @@ func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSettingsCreateCertCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+func newSsoSettingsParseCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
-		Use:         "create-cert",
-		Short:       "Jamf Pro will generate a new certificate and use it to sign SSO",
-		Long:        "Jamf Pro will generate a new certificate and use it to sign SSO requests to the identity provider.",
+		Use:         "parse",
+		Short:       "Parse the certificate to get details about certificate type and keys needed to upload certificate file",
+		Long:        "Parse the certificate to get details about certificate type and keys needed to upload certificate file.",
 		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "keystoreFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+  "keystoreFileName": "keystore.p12",
+  "keystorePassword": "***"
+}`, ctx.Output.Format())
+			}
+
 			// Build request path
-			path := "/v2/sso/cert"
+			path := "/v2/sso/cert/parse"
 
 			// Build query string
 			var queryParts []string
@@ -443,6 +669,7 @@ func newSsoSettingsCreateCertCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 
@@ -518,63 +745,19 @@ func newSsoSettingsUpdateCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSettingsFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsCreateCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "failover",
-		Short:       "Retrieve the current failover settings",
-		Long:        "Retrieve the current failover settings",
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/sso/failover"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newSsoSettingsParseCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "parse",
-		Short:       "Parse the certificate to get details about certificate type and keys needed to upload certificate file",
-		Long:        "Parse the certificate to get details about certificate type and keys needed to upload certificate file.",
+		Use:         "create-cert",
+		Short:       "Jamf Pro will generate a new certificate and use it to sign SSO",
+		Long:        "Jamf Pro will generate a new certificate and use it to sign SSO requests to the identity provider.",
 		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "keystoreFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
-  "keystoreFileName": "keystore.p12",
-  "keystorePassword": "***"
-}`, ctx.Output.Format())
-			}
-
 			// Build request path
-			path := "/v2/sso/cert/parse"
+			path := "/v2/sso/cert"
 
 			// Build query string
 			var queryParts []string
@@ -610,136 +793,6 @@ func newSsoSettingsParseCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
-func newSsoSettingsSsoCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "sso",
-		Short:       "Retrieve the current Single Sign On configuration settings",
-		Long:        "Retrieves the current Single Sign On configuration settings",
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v3/sso"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newSsoSettingsUpdateSsoCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "update-sso",
-		Short:       "Updates the current Single Sign On configuration settings",
-		Long:        "Updates the current Single Sign On configuration settings",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "configurationType": "SAML",
-  "enrollmentSsoConfig": {
-    "hosts": [
-      "dev-12324233.okta.com",
-      "example.okta.com"
-    ],
-    "managementHint": ""
-  },
-  "enrollmentSsoForAccountDrivenEnrollmentEnabled": false,
-  "groupEnrollmentAccessEnabled": false,
-  "groupEnrollmentAccessName": "",
-  "oidcSettings": {
-    "jamfIdAuthenticationEnabled": false,
-    "userMapping": "USERNAME",
-    "usernameAttributeClaimMapping": "EMAIL"
-  },
-  "samlSettings": {
-    "entityId": "saml/metadata",
-    "federationMetadataFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
-    "groupAttributeName": "",
-    "groupRdnKey": "",
-    "idpProviderType": "ADFS",
-    "idpUrl": "https://example.idp.com/app/id/sso/saml/metadata",
-    "metadataFileName": "if MetadataSource is set to URL, remove this field",
-    "metadataSource": "URL",
-    "otherProviderTypeName": "",
-    "sessionTimeout": 0,
-    "tokenExpirationDisabled": false,
-    "userAttributeEnabled": false,
-    "userAttributeName": "",
-    "userMapping": "USERNAME"
-  },
-  "ssoBypassAllowed": false,
-  "ssoEnabled": false,
-  "ssoForEnrollmentEnabled": false,
-  "ssoForMacOsSelfServiceEnabled": false
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v3/sso"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 
@@ -828,19 +881,19 @@ func newSsoSettingsDisableCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "cert",
-		Short:       "Retrieve the certificate currently configured for use with SSO",
-		Long:        "Retrieves the certificate currently configured for use with SSO.",
+		Use:         "failover",
+		Short:       "Retrieve the current failover settings",
+		Long:        "Retrieve the current failover settings",
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/sso/cert"
+			path := "/v1/sso/failover"
 
 			// Build query string
 			var queryParts []string

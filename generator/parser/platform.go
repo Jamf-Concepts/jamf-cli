@@ -103,9 +103,9 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		ops := byTag[tag]
 		// Apply standard post-processing.
 		reclassifyMisannotatedCreates(ops)
-		renameSingletonRootGet(ops)
+		renameSingletonRootGet(ops, nil)
 		ops = deduplicateVersionedOps(ops)
-		resolveNoParamConflicts(ops)
+		resolveNoParamConflicts(ops, nil)
 		disambiguateSameTerminalOps(ops)
 		// Overrides are applied last, after the derivation passes, because an
 		// override is the final word on a name. Applying them earlier let a

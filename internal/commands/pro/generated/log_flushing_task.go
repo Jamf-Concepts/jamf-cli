@@ -27,8 +27,8 @@ func NewLogFlushingTaskCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newLogFlushingTaskListCmd(ctx))
 	cmd.AddCommand(newLogFlushingTaskGetCmd(ctx))
+	cmd.AddCommand(newLogFlushingTaskCreateCmd(ctx))
 	cmd.AddCommand(newLogFlushingTaskDeleteCmd(ctx))
-	cmd.AddCommand(newLogFlushingTaskTaskCmd(ctx))
 
 	return cmd
 }
@@ -132,6 +132,76 @@ func newLogFlushingTaskGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up log-flushing-task by name")
 
+	return cmd
+}
+
+func newLogFlushingTaskCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Queue a log flushing task",
+		Long:  "Queue a log flushing task",
+		Example: `  # Show the JSON template for creating a log-flushing-task
+  jamf-cli pro log-flushing-task create --scaffold
+
+  # Create a log-flushing-task from JSON
+  echo '{"name":"Example"}' | jamf-cli pro log-flushing-task create
+
+  # Get a log-flushing-task, modify it, and create a copy
+  jamf-cli pro log-flushing-task get -o json | jq '.name = "Copy"' | jamf-cli pro log-flushing-task create`,
+		Annotations: map[string]string{"jamf:privileges": "Update Retention Policy", "jamf:api": "pro", "jamf:gateway-privileges": "retention-policy:update"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "qualifier": "policy",
+  "retentionPeriod": 3,
+  "retentionPeriodUnit": "MONTH"
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/log-flushing/task"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 
@@ -344,67 +414,5 @@ func newLogFlushingTaskDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
-	return cmd
-}
-
-func newLogFlushingTaskTaskCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "task",
-		Short:       "Queue a log flushing task",
-		Long:        "Queue a log flushing task",
-		Annotations: map[string]string{"jamf:privileges": "Update Retention Policy", "jamf:api": "pro", "jamf:gateway-privileges": "retention-policy:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "qualifier": "policy",
-  "retentionPeriod": 3,
-  "retentionPeriodUnit": "MONTH"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v1/log-flushing/task"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }

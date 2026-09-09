@@ -27,17 +27,56 @@ func NewCloudDistributionPointCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newCloudDistributionPointListCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointCreateCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointDeleteCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointHistoryCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newCloudDistributionPointCloudDistributionPointCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointPatchCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointActionCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointFilesCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointRefreshInventoryCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointTestConnectionCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointUploadCapabilityCmd(ctx))
+
+	return cmd
+}
+
+func newCloudDistributionPointListCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Get the cloud distribution point Details.",
+		Long:  "Retrieves the details of the cloud distribution point. The distribution point exists only when a content delivery network (CDN) is configured, such as Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3) or Akamai(AKAMAI). If the **cdnType** is **NONE** the response will be NONE empty CDP object, indicating no distribution point is set up.",
+		Example: `  # List all cloud-distribution-point
+  jamf-cli pro cloud-distribution-point list
+
+  # List cloud-distribution-point and extract IDs
+  jamf-cli pro cloud-distribution-point list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/cloud-distribution-point"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }
@@ -409,40 +448,6 @@ func newCloudDistributionPointAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
-func newCloudDistributionPointCloudDistributionPointCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "cloud-distribution-point",
-		Short:       "Get the cloud distribution point Details.",
-		Long:        "Retrieves the details of the cloud distribution point. The distribution point exists only when a content delivery network (CDN) is configured, such as Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3) or Akamai(AKAMAI). If the **cdnType** is **NONE** the response will be NONE empty CDP object, indicating no distribution point is set up.",
-		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/cloud-distribution-point"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
 	return cmd
 }
 

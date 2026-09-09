@@ -27,8 +27,8 @@ func NewJamfCloudDistributionServiceFilesCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.AddCommand(newJamfCloudDistributionServiceFilesListCmd(ctx))
 	cmd.AddCommand(newJamfCloudDistributionServiceFilesGetCmd(ctx))
+	cmd.AddCommand(newJamfCloudDistributionServiceFilesCreateCmd(ctx))
 	cmd.AddCommand(newJamfCloudDistributionServiceFilesDeleteCmd(ctx))
-	cmd.AddCommand(newJamfCloudDistributionServiceFilesFilesCmd(ctx))
 
 	return cmd
 }
@@ -131,6 +131,65 @@ func newJamfCloudDistributionServiceFilesGetCmd(ctx *registry.CLIContext) *cobra
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-cloud-distribution-service-file by name")
+
+	return cmd
+}
+
+func newJamfCloudDistributionServiceFilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Initiate an upload to the Jamf Cloud Distribution Service",
+		Long:  "Creates a temporary record and returns the credentials and information needed for uploading the file to the Jamf Cloud Distribution Service.",
+		Example: `  # Show the JSON template for creating a jamf-cloud-distribution-service-file
+  jamf-cli pro jamf-cloud-distribution-service-files create --scaffold
+
+  # Create a jamf-cloud-distribution-service-file from JSON
+  echo '{"name":"Example"}' | jamf-cli pro jamf-cloud-distribution-service-files create
+
+  # Get a jamf-cloud-distribution-service-file, modify it, and create a copy
+  jamf-cli pro jamf-cloud-distribution-service-files get 1 -o json | jq '.name = "Copy"' | jamf-cli pro jamf-cloud-distribution-service-files create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:create"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/jcds/files"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }
@@ -343,57 +402,6 @@ func newJamfCloudDistributionServiceFilesDeleteCmd(ctx *registry.CLIContext) *co
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-cloud-distribution-service-file by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
-	return cmd
-}
-
-func newJamfCloudDistributionServiceFilesFilesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "files",
-		Short:       "Initiate an upload to the Jamf Cloud Distribution Service",
-		Long:        "Creates a temporary record and returns the credentials and information needed for uploading the file to the Jamf Cloud Distribution Service.",
-		Annotations: map[string]string{"jamf:privileges": "Create Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:create"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/jcds/files"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 
 	return cmd
 }

@@ -27,16 +27,212 @@ func NewJamfProtectCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newJamfProtectListCmd(ctx))
+	cmd.AddCommand(newJamfProtectGetCmd(ctx))
 	cmd.AddCommand(newJamfProtectCreateCmd(ctx))
 	cmd.AddCommand(newJamfProtectUpdateCmd(ctx))
 	cmd.AddCommand(newJamfProtectDeleteCmd(ctx))
 	cmd.AddCommand(newJamfProtectHistoryCmd(ctx))
 	cmd.AddCommand(newJamfProtectAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newJamfProtectJamfProtectCmd(ctx))
 	cmd.AddCommand(newJamfProtectTasksCmd(ctx))
 	cmd.AddCommand(newJamfProtectRetryCmd(ctx))
-	cmd.AddCommand(newJamfProtectPlansCmd(ctx))
 	cmd.AddCommand(newJamfProtectSyncCmd(ctx))
+
+	return cmd
+}
+
+func newJamfProtectListCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile",
+		Long:  "Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile",
+		Example: `  # List all jamf-protect
+  jamf-cli pro jamf-protect list
+
+  # List jamf-protect and extract IDs
+  jamf-cli pro jamf-protect list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/jamf-protect/plans"
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/jamf-protect/plans"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				prog.Stop()
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the 'sort' query param is not duplicated for each sort criterion, e.g., ...&sort=name:asc,date:desc. Fields that can be sorted: status, updated")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter results. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: status, updated, version This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	return cmd
+}
+
+func newJamfProtectGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "Jamf Protect integration settings",
+		Long:  "Jamf Protect integration settings",
+		Example: `  # Get jamf-protect
+  jamf-cli pro jamf-protect get
+
+  # Get jamf-protect and output as YAML
+  jamf-cli pro jamf-protect get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings,Read Jamf Protect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/jamf-protect"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }
@@ -54,7 +250,10 @@ func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro jamf-protect create --scaffold
 
   # Create a jamf-protect from JSON
-  echo '{"name":"Example"}' | jamf-cli pro jamf-protect create`,
+  echo '{"name":"Example"}' | jamf-cli pro jamf-protect create
+
+  # Get a jamf-protect, modify it, and create a copy
+  jamf-cli pro jamf-protect get -o json | jq '.name = "Copy"' | jamf-cli pro jamf-protect create`,
 		Annotations: map[string]string{"jamf:privileges": "Update Jamf Protect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -120,6 +319,9 @@ func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Jamf Protect integration settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  autoInstall                                  boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro jamf-protect update --set field=value
+
+  # Replace jamf-protect from a full JSON document
+  jamf-cli pro jamf-protect get -o json | jq '.field = "value"' | jamf-cli pro jamf-protect update
 
   # Update from a file
   jamf-cli pro jamf-protect update --from-file jamf-protect.json`,
@@ -505,40 +707,6 @@ func newJamfProtectAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJamfProtectJamfProtectCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "jamf-protect",
-		Short:       "Jamf Protect integration settings",
-		Long:        "Jamf Protect integration settings",
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings,Read Jamf Protect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/jamf-protect"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
 func newJamfProtectTasksCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
@@ -766,158 +934,6 @@ func newJamfProtectRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
-func newJamfProtectPlansCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagPage     int
-		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
-	)
-
-	cmd := &cobra.Command{
-		Use:         "plans",
-		Short:       "Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile",
-		Long:        "Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile",
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/jamf-protect/plans"
-
-			// Build query string
-			var queryParts []string
-			if flagPage != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
-			}
-			if flagPageSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
-			}
-			if len(flagSort) > 0 {
-				for _, v := range flagSort {
-					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
-				}
-			}
-			if flagFilter != "" {
-				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
-				// Initialised empty, not nil — a nil slice marshals to "null", so
-				// "list --all" on an empty collection used to answer "null" where
-				// the single-page path answers "[]".
-				allResults := []json.RawMessage{}
-				prog := ctx.Output.PaginationProgress()
-				defer prog.Stop()
-				reqCtx = spinner.WithSuppressed(reqCtx)
-				pageNum := 0
-				pageSize := 100
-
-				for {
-					// Build page-specific query
-					pagePath := "/v1/jamf-protect/plans"
-					var pageQuery []string
-					// Carry forward non-pagination query params
-					for _, qp := range queryParts {
-						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
-							pageQuery = append(pageQuery, qp)
-						}
-					}
-					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
-					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
-					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
-
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
-					if err != nil {
-						return err
-					}
-
-					body, err := io.ReadAll(resp.Body)
-					resp.Body.Close()
-					if err != nil {
-						return err
-					}
-
-					// Parse pagination response: {"totalCount": N, "results": [...]}
-					var pageResp struct {
-						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
-					}
-					if err := json.Unmarshal(body, &pageResp); err != nil {
-						// Not a paginated response; output as-is
-						return ctx.Output.PrintRaw(body)
-					}
-
-					allResults = append(allResults, pageResp.Results...)
-					prog.Update(len(allResults), pageResp.TotalCount)
-
-					// Check limit
-					if flagLimit > 0 && len(allResults) >= flagLimit {
-						allResults = allResults[:flagLimit]
-						break
-					}
-
-					// Check if we've fetched everything
-					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
-						break
-					}
-
-					pageNum++
-				}
-
-				prog.Stop()
-
-				// Output combined results as JSON array
-				combined, err := json.MarshalIndent(allResults, "", "  ")
-				if err != nil {
-					return err
-				}
-				return ctx.Output.PrintRaw(combined)
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if ctx.Output.Format() == "ndjson" {
-				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
-				if ndjsonErr != nil {
-					return ndjsonErr
-				}
-				var ndjsonWrap struct {
-					Results []json.RawMessage `json:"results"`
-				}
-				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
-					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
-					if marshalErr != nil {
-						return marshalErr
-					}
-					return ctx.Output.PrintRaw(arr)
-				}
-				return ctx.Output.PrintRaw(ndjsonBody)
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the 'sort' query param is not duplicated for each sort criterion, e.g., ...&sort=name:asc,date:desc. Fields that can be sorted: status, updated")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter results. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: status, updated, version This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
-	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
-	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
 }
 

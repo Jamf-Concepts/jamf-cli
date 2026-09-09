@@ -19,19 +19,24 @@ func NewApiRolePrivilegesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newApiRolePrivilegesApiRolePrivilegesCmd(ctx))
+	cmd.AddCommand(newApiRolePrivilegesListCmd(ctx))
 	cmd.AddCommand(newApiRolePrivilegesSearchCmd(ctx))
 
 	return cmd
 }
 
-func newApiRolePrivilegesApiRolePrivilegesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiRolePrivilegesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "api-role-privileges",
-		Short:       "Get the current Jamf API Role Privileges",
-		Long:        "Get role privileges",
+		Use:   "list",
+		Short: "Get the current Jamf API Role Privileges",
+		Long:  "Get role privileges",
+		Example: `  # List all api-role-privileges
+  jamf-cli pro api-role-privileges list
+
+  # List api-role-privileges and extract IDs
+  jamf-cli pro api-role-privileges list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

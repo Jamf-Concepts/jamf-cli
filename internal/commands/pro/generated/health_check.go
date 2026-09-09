@@ -18,19 +18,24 @@ func NewHealthCheckCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newHealthCheckHealthCheckCmd(ctx))
+	cmd.AddCommand(newHealthCheckListCmd(ctx))
 	cmd.AddCommand(newHealthCheckHealthStatusCmd(ctx))
 
 	return cmd
 }
 
-func newHealthCheckHealthCheckCmd(ctx *registry.CLIContext) *cobra.Command {
+func newHealthCheckListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "health-check",
-		Short:       "Get Jamf Pro API status",
-		Long:        "Get Jamf Pro API status. Which response codes might be returned in error states will depend on the specific state encountered.",
+		Use:   "list",
+		Short: "Get Jamf Pro API status",
+		Long:  "Get Jamf Pro API status. Which response codes might be returned in error states will depend on the specific state encountered.",
+		Example: `  # List all health-check
+  jamf-cli pro health-check list
+
+  # List health-check and extract IDs
+  jamf-cli pro health-check list --field id`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

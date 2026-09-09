@@ -1068,7 +1068,6 @@ paths:
       summary: Read App Installer deployments summary
       tags:
         - app-installers
-      x-action: true
       x-required-privileges:
         - Read Mac Applications
     post:
@@ -1100,7 +1099,6 @@ paths:
       summary: Create a new App Installer deployment
       tags:
         - app-installers
-      x-action: true
       x-jamf-expected-status: 201
       x-required-privileges:
         - Create Mac Applications
@@ -1780,7 +1778,6 @@ paths:
       summary: Get a list of all App Titles available in the App Installers system
       tags:
         - app-installers
-      x-action: true
       x-required-privileges:
         - Read Mac Applications
   /v1/app-installers/titles/{id}:

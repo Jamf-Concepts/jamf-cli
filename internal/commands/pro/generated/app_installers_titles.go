@@ -23,82 +23,14 @@ func NewAppInstallersTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newAppInstallersTitlesListCmd(ctx))
 	cmd.AddCommand(newAppInstallersTitlesGetCmd(ctx))
-	cmd.AddCommand(newAppInstallersTitlesTitlesCmd(ctx))
 	cmd.AddCommand(newAppInstallersTitlesVersionsCmd(ctx))
 
 	return cmd
 }
 
-func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagVersion string
-		flagName    string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "get [<id>]",
-		Short: "Get details about App Title version available in the App Installers system",
-		Long:  "Get details about App Title version available in the App Installers system. The version is specified by a query parameter, if missing the newest version is returned.  **Required Permissions:** 'applications:read'",
-		Example: `  # Get a app-installers-title by ID
-  jamf-cli pro app-installers-titles get 1
-
-  # Get a app-installers-title by name
-  jamf-cli pro app-installers-titles get --name "Example"
-
-  # Get a app-installers-title and output as YAML
-  jamf-cli pro app-installers-titles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Build request path
-			path := "/v1/app-installers/titles/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-
-			// Build query string
-			var queryParts []string
-			if flagVersion != "" {
-				queryParts = append(queryParts, "version="+url.QueryEscape(flagVersion))
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&flagVersion, "version", "", "Allow requesting specific app installer version")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-title by name")
-
-	return cmd
-}
-
-func newAppInstallersTitlesTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAppInstallersTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -109,9 +41,14 @@ func newAppInstallersTitlesTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:         "titles",
-		Short:       "Get a list of all App Titles available in the App Installers system",
-		Long:        "Get a list of all App Titles available in the App Installers system. App Title is used as a definition for App Installer.  **Required Permissions:** 'applications:read'",
+		Use:   "list",
+		Short: "Get a list of all App Titles available in the App Installers system",
+		Long:  "Get a list of all App Titles available in the App Installers system. App Title is used as a definition for App Installer.  **Required Permissions:** 'applications:read'",
+		Example: `  # List all app-installers-titles
+  jamf-cli pro app-installers-titles list
+
+  # List app-installers-titles and extract IDs
+  jamf-cli pro app-installers-titles list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -247,6 +184,74 @@ func newAppInstallersTitlesTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, titleName, publisher, version. Example: titleName==\"*appInstaller*\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	return cmd
+}
+
+func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagVersion string
+		flagName    string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
+		Short: "Get details about App Title version available in the App Installers system",
+		Long:  "Get details about App Title version available in the App Installers system. The version is specified by a query parameter, if missing the newest version is returned.  **Required Permissions:** 'applications:read'",
+		Example: `  # Get a app-installers-title by ID
+  jamf-cli pro app-installers-titles get 1
+
+  # Get a app-installers-title by name
+  jamf-cli pro app-installers-titles get --name "Example"
+
+  # Get a app-installers-title and output as YAML
+  jamf-cli pro app-installers-titles get 1 -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/app-installers/titles/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagVersion != "" {
+				queryParts = append(queryParts, "version="+url.QueryEscape(flagVersion))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagVersion, "version", "", "Allow requesting specific app installer version")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-title by name")
+
 	return cmd
 }
 
