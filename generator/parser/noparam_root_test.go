@@ -37,14 +37,35 @@ func TestNoParamRootKeepsThePlainVerb(t *testing.T) {
 		"sso-settings": {
 			"GET /v3/sso":          "get",
 			"PUT /v3/sso":          "update",
-			"GET /v2/sso/cert":     "cert",
 			"GET /v1/sso/failover": "failover",
+			// Was `v-3-metadata-download`, disambiguated against the
+			// certificate's own `download`. Taking the certificate out of the
+			// resource removes the collision, so the better name falls out.
+			"GET /v3/sso/metadata/download": "download",
+		},
+		// `/v2/sso/cert` is independently writable, so it is a sub-resource of
+		// its own now and its verbs are plain — see subresource.go. Asserted
+		// here rather than moved out, because the property this test pins is
+		// the same one: the *resource's* root keeps the plain verb, and the
+		// resource a path belongs to is what the split changed.
+		"sso-settings cert": {
+			"GET /v2/sso/cert":          "get",
+			"PUT /v2/sso/cert":          "update",
+			"DELETE /v2/sso/cert":       "delete",
+			"POST /v2/sso/cert":         "create",
+			"GET /v2/sso/cert/download": "download",
+			"POST /v2/sso/cert/parse":   "parse",
 		},
 		"enrollment": {
-			"GET /v4/enrollment":                  "get",
-			"PUT /v4/enrollment":                  "update",
-			"GET /v3/enrollment/language-codes":   "language-codes",
-			"GET /v1/adue-session-token-settings": "adue-session-token-settings",
+			"GET /v4/enrollment":                "get",
+			"PUT /v4/enrollment":                "update",
+			"GET /v3/enrollment/language-codes": "language-codes",
+		},
+		// The sub-resource outside its parent's root subtree, which is the
+		// shape a root-relative test cannot see.
+		"enrollment adue-session-token-settings": {
+			"GET /v1/adue-session-token-settings": "get",
+			"PUT /v1/adue-session-token-settings": "update",
 		},
 		"ldap": {
 			"GET /v1/ldap/groups":       "groups",
@@ -53,13 +74,14 @@ func TestNoParamRootKeepsThePlainVerb(t *testing.T) {
 		},
 	}
 	got := map[string]map[string]string{}
-	for _, r := range parseCommittedSpecs(t) {
-		if _, interesting := want[r.Name]; !interesting {
+	for _, r := range FlattenResources(parseCommittedSpecs(t)) {
+		key := r.QualifiedName()
+		if _, interesting := want[key]; !interesting {
 			continue
 		}
-		got[r.Name] = map[string]string{}
+		got[key] = map[string]string{}
 		for _, op := range r.Operations {
-			got[r.Name][op.Method+" "+op.Path] = op.Name
+			got[key][op.Method+" "+op.Path] = op.Name
 		}
 	}
 	for res, eps := range want {

@@ -103,7 +103,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		ops := byTag[tag]
 		// Apply standard post-processing.
 		reclassifyMisannotatedCreates(ops)
-		renameSingletonRootGet(ops, nil)
+		renameSingletonRootGet(ops, nil, false)
 		ops = deduplicateVersionedOps(ops)
 		resolveNoParamConflicts(ops, nil)
 		disambiguateSameTerminalOps(ops)

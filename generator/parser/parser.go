@@ -80,18 +80,44 @@ func applyDocumentedStatusResults(op *Operation) {
 // ApplyNameOverrides corrects resource names that auto-pluralization got wrong.
 // Must be called after DeduplicateVersioned.
 func ApplyNameOverrides(resources []*Resource) {
-	for _, r := range resources {
-		if preferred, ok := resourceNameOverrides[r.Name]; ok {
-			r.Name = preferred
-			r.NameSingular = singularize(preferred)
-			r.GoName = strcase.ToCamel(preferred)
+	for _, r := range FlattenResources(resources) {
+		preferred, ok := resourceNameOverrides[r.QualifiedName()]
+		if !ok {
+			continue
+		}
+		// A parent's children key on its name, so renaming it has to carry them
+		// with it — otherwise QualifiedName answers for a resource that no
+		// longer exists and every table keyed on it silently misses. No entry
+		// renames a resource with sub-resources today; this is here because a
+		// stale Parent is unobservable, not because it is currently reachable.
+		for _, sub := range r.SubResources {
+			sub.Parent = preferred
+		}
+		r.Name = preferred
+		r.NameSingular = singularize(preferred)
+		r.GoName = goNameOf(r)
+		for _, sub := range r.Flatten()[1:] {
+			sub.GoName = goNameOf(sub)
 		}
 	}
+}
+
+// goNameOf derives the Go identifier from the resource's qualified name, which
+// is what keeps a sub-resource's constructor unique: three of them are called
+// `settings`, and `SelfServiceSettings` and `LocalAdminPasswordSettings` have to
+// be different functions in one package.
+func goNameOf(r *Resource) string {
+	return strcase.ToCamel(strings.ReplaceAll(r.QualifiedName(), " ", "-"))
 }
 
 // resourceLookupFields maps canonical resource names to their alternate identifier
 // fields for patch-by-name commands. Keyed by the final canonical resource name
 // (after DeduplicateVersioned and ApplyNameOverrides).
+//
+// As with every resource-keyed table in this file, the key is the resource's
+// **qualified** name — Resource.QualifiedName — so a nested sub-resource is
+// reachable as `sso-settings cert` rather than shadowing whichever top-level
+// resource happens to share its last token.
 var resourceLookupFields = map[string][]LookupField{
 	"computer-inventory": {
 		// hardware.serialNumber lives in the HARDWARE section, which the default
@@ -118,11 +144,11 @@ var resourceGroupPaths = map[string]string{
 // ApplyLookupFields sets LookupFields and GroupsClassicPath on resources.
 // Must be called after DeduplicateVersioned so resource names are canonical.
 func ApplyLookupFields(resources []*Resource) {
-	for _, r := range resources {
-		if fields, ok := resourceLookupFields[r.Name]; ok {
+	for _, r := range FlattenResources(resources) {
+		if fields, ok := resourceLookupFields[r.QualifiedName()]; ok {
 			r.LookupFields = fields
 		}
-		if path, ok := resourceGroupPaths[r.Name]; ok {
+		if path, ok := resourceGroupPaths[r.QualifiedName()]; ok {
 			r.GroupsClassicPath = path
 		}
 	}
@@ -173,8 +199,8 @@ var resourceFileFields = map[string][]FileField{
 // ApplyFileFields sets FileFields on resources listed in resourceFileFields.
 // Must be called after DeduplicateVersioned/ApplyNameOverrides so names are canonical.
 func ApplyFileFields(resources []*Resource) {
-	for _, r := range resources {
-		if fields, ok := resourceFileFields[r.Name]; ok {
+	for _, r := range FlattenResources(resources) {
+		if fields, ok := resourceFileFields[r.QualifiedName()]; ok {
 			r.FileFields = fields
 		}
 	}
@@ -202,8 +228,8 @@ type OpPathMethod struct {
 // Must be called after DeduplicateVersioned/ApplyNameOverrides so resource names
 // are canonical.
 func ApplyCreateOpOverrides(resources []*Resource) {
-	for _, r := range resources {
-		target, ok := resourceCreateOpOverrides[r.Name]
+	for _, r := range FlattenResources(resources) {
+		target, ok := resourceCreateOpOverrides[r.QualifiedName()]
 		if !ok {
 			continue
 		}
@@ -229,8 +255,8 @@ var resourceUpdateTokenOpOverrides = map[string]OpPathMethod{
 // the resource's Operations slice and records it on r.UpdateTokenOp. The main update
 // command then composes a token PUT + a body PUT based on which flags are supplied.
 func ApplyUpdateTokenOpOverrides(resources []*Resource) {
-	for _, r := range resources {
-		target, ok := resourceUpdateTokenOpOverrides[r.Name]
+	for _, r := range FlattenResources(resources) {
+		target, ok := resourceUpdateTokenOpOverrides[r.QualifiedName()]
 		if !ok {
 			continue
 		}
@@ -360,8 +386,8 @@ var resourceListDetailPathOverrides = map[string]string{
 // endpoint and injects a section query parameter. Must be called after
 // ApplyNameOverrides and before ApplyTableColumns.
 func ApplyListDetailPaths(resources []*Resource) {
-	for _, r := range resources {
-		detailPath, ok := resourceListDetailPathOverrides[r.Name]
+	for _, r := range FlattenResources(resources) {
+		detailPath, ok := resourceListDetailPathOverrides[r.QualifiedName()]
 		if !ok {
 			continue
 		}
@@ -425,8 +451,8 @@ var resourceGetDetailPathOverrides = map[string]struct {
 // filtering (e.g. mobile-devices), the get path is swapped outright.
 // Must be called after ApplyNameOverrides.
 func ApplyGetDetailPaths(resources []*Resource) {
-	for _, r := range resources {
-		override, ok := resourceGetDetailPathOverrides[r.Name]
+	for _, r := range FlattenResources(resources) {
+		override, ok := resourceGetDetailPathOverrides[r.QualifiedName()]
 		if !ok {
 			continue
 		}
@@ -500,11 +526,11 @@ func ApplyGetDetailPaths(resources []*Resource) {
 // ApplyTableColumns sets TableColumns and DefaultSections on resources that have
 // preferred column configuration. Must be called after ApplyNameOverrides.
 func ApplyTableColumns(resources []*Resource) {
-	for _, r := range resources {
-		if cols, ok := resourceTableColumns[r.Name]; ok {
+	for _, r := range FlattenResources(resources) {
+		if cols, ok := resourceTableColumns[r.QualifiedName()]; ok {
 			r.TableColumns = cols
 		}
-		if sections, ok := resourceDefaultSections[r.Name]; ok {
+		if sections, ok := resourceDefaultSections[r.QualifiedName()]; ok {
 			r.DefaultSections = sections
 		}
 	}
@@ -514,17 +540,17 @@ func ApplyTableColumns(resources []*Resource) {
 // auto-detection heuristics got wrong. Must be called after ApplyNameOverrides
 // so resource names are in their final canonical form.
 func ApplyNameFieldOverrides(resources []*Resource) {
-	for _, r := range resources {
-		if field, ok := resourceNameFieldOverrides[r.Name]; ok {
+	for _, r := range FlattenResources(resources) {
+		if field, ok := resourceNameFieldOverrides[r.QualifiedName()]; ok {
 			r.NameField = field
 		}
-		if field, ok := resourceIDFieldOverrides[r.Name]; ok {
+		if field, ok := resourceIDFieldOverrides[r.QualifiedName()]; ok {
 			r.IDField = field
 		}
-		if path, ok := resourceNameLookupPathOverrides[r.Name]; ok {
+		if path, ok := resourceNameLookupPathOverrides[r.QualifiedName()]; ok {
 			r.NameLookupPath = path
 		}
-		if idField, ok := resourceNameLookupIDFieldOverrides[r.Name]; ok {
+		if idField, ok := resourceNameLookupIDFieldOverrides[r.QualifiedName()]; ok {
 			r.NameLookupIDField = idField
 		}
 	}
@@ -673,7 +699,7 @@ func ParseLoadedSpec(doc *openapi3.T, specPath string) ([]*Resource, error) {
 	//     non-list sibling GET (e.g. /singleton/download lacking x-action in
 	//     the monolith) collides with the root as "list" and both get
 	//     renamed to their terminal segments, hiding the canonical get op.
-	renameSingletonRootGet(allOps, nil)
+	renameSingletonRootGet(allOps, nil, false)
 	// 1. Drop lower-version duplicates: when the same path exists at multiple API
 	//    versions in one spec (e.g. /v2/foo and /v3/foo), keep only the highest.
 	allOps = deduplicateVersionedOps(allOps)
@@ -1417,7 +1443,7 @@ func isResourceRootPath(strippedPath string, root []string) bool {
 	return strippedPath == "/"+strings.Join(root, "/")
 }
 
-func resolveNoParamConflicts(ops []*Operation, resourceRoot []string) {
+func resolveNoParamConflicts(ops []*Operation, resourceRoot []string) map[string]bool {
 	// Identify canonical collection paths: no-param paths with a /{param} child.
 	isCanonical := make(map[string]bool)
 	for _, op := range ops {
@@ -1526,6 +1552,69 @@ func resolveNoParamConflicts(ops []*Operation, resourceRoot []string) {
 			}
 			op.Name = seg
 		}
+	}
+
+	return isCanonical
+}
+
+// renameLoneNonCanonicalList renames a no-param GET still holding `list` on a
+// path that is neither the resource's root nor a collection with a /{param}
+// child, whether or not anything collided with it.
+//
+// The renames in resolveNoParamConflicts are collision-driven, which was enough
+// only by accident: a resource carrying two such GETs had them compete, and
+// both were renamed to their terminal segment. Split an independently-writable
+// sub-path out and the survivor is alone, so nothing collides and the plain
+// `list` stays — on an endpoint that is not the resource's collection.
+// `pro csa list` returned the CSA tenant id, `pro self-service-plus list` the
+// feature-toggle enabled flag and `pro local-admin-password list` the pending
+// rotations, each of which had shipped under its terminal segment before the
+// split.
+//
+// **Called only for a resource the split touched**, and that is a scope rather
+// than a rule. The same shape exists on six resources the split does not go
+// near — `pro conditional-access list` returns a device-compliance feature
+// toggle, `pro m2m list` a tenant id, `pro macos-managed-software-updates list`
+// the available updates, `pro scheduler list` a job summary,
+// `pro sso-oauth-session-tokens list` the session tokens and
+// `pro jamf-protect list` the Jamf Protect plans — and every one of those has
+// shipped under `list` for as long as the command has existed. Renaming them
+// is defensible and is not this change: it would be seven breaking renames of
+// unrelated commands smuggled in on a change about nesting, with no alias
+// mechanism, and the six are recorded as known defects instead. What this must
+// do is not *introduce* an eighth, which is what taking a sub-path out from
+// under a colliding sibling does.
+//
+// A collision was never what made the name wrong, so it is not what the rename
+// keys on. The exemptions are unchanged: the resource's own root keeps `list`,
+// and so does a collection path with a /{param} child — plus one more: a
+// terminal segment a sibling operation already answers to is left alone, so a
+// rename cannot repurpose a name a sibling already holds.
+//
+// **Not called for a singleton**, and that ordering is the whole of its safety:
+// renameSingletonListToGet claims the shortest no-param GET as the singleton's
+// `get` and renames the rest to their terminal segments, so for a singleton it
+// already does this job — against a root the singleton rule chooses rather than
+// the group's. Running this first stole `pro app-request get` and
+// `pro service-discovery-enrollment get`, two resources whose whole object sits
+// one segment below their root, leaving them as `settings` and
+// `well-known-settings` with no plain read at all.
+func renameLoneNonCanonicalList(ops []*Operation, isCanonical map[string]bool) {
+	taken := map[string]bool{}
+	for _, op := range ops {
+		taken[op.Name] = true
+	}
+	for _, op := range ops {
+		if op.Method != "GET" || op.Name != "list" || hasPathParam(op.Path) || isCanonical[op.Path] {
+			continue
+		}
+		parts := strings.Split(op.Path, "/")
+		seg := strcase.ToKebab(parts[len(parts)-1])
+		if taken[seg] {
+			continue
+		}
+		taken[seg] = true
+		op.Name = seg
 	}
 }
 
@@ -2298,12 +2387,87 @@ func inferOperationName(path, method string, isAction bool) string {
 	}
 }
 
+// renameRootActionVerbs gives the resource's own root endpoint a plain verb,
+// undoing the terminal-segment naming inferOperationName applies to an
+// `x-action` operation.
+//
+// inferOperationName reads a literal terminal segment as the name of an action,
+// which is right for `POST /v1/computers/{id}/erase` and wrong when the segment
+// *is* the resource: `GET`/`PUT /v1/app-installers/global-settings` are the
+// global settings' read and replace, and they arrived named `global-settings`
+// and — after disambiguateSameTerminalOps broke the resulting collision —
+// `update-global-settings`. `POST /v2/sso/cert` arrived as `cert`, so the
+// certificate's create read as a noun and shipped as `sso-settings cert cert`.
+//
+// This is the same mis-annotation reclassifyMisannotatedCreates corrects for a
+// collection POST, one level out: a path is an action's path only relative to
+// some resource, and the resource moved. It could not arise while one spec file
+// meant one path root — a sub-path was its own resource, and its root was a
+// single segment that x-action is never stamped on — and it is the fourth pass
+// in this file that had to learn a resource's root is not always one segment.
+//
+// It fires only on a root the API declares **separately writable**: a root
+// carrying PUT, PATCH or DELETE. That is deliberately the same test
+// subResourceRoots applies, because it is the same question — is the thing at
+// this path an object with a lifecycle, or a command endpoint — and one answer
+// for both is one fewer rule to disagree with itself.
+//
+// The two endpoints it must not touch are why the test is that and not a
+// response code. `POST /v1/slasa` (GET+POST, 204) accepts the software licence
+// agreement and `POST /v2/patch-management-accept-disclaimer` (POST alone, 202)
+// accepts a disclaimer; inferOperationName's own comment names both as the case
+// its terminal-segment naming exists for. Neither root is writable, so neither
+// is reached. A 201 test would have excluded them and also excluded
+// `POST /v2/sso/cert`, which answers 200; a response-body test would have
+// admitted any action that reports a result.
+//
+// reclassifyMisannotatedCreates still owns the collection POSTs — `/v1/accounts`,
+// `/v1/api-roles`, `/v1/jcds/files`, `/v1/log-flushing/task` — which it reaches
+// by their `/{param}` sibling, a signal a settings root does not have.
+func renameRootActionVerbs(ops []*Operation, resourceRoot []string) {
+	writableRoot := false
+	for _, op := range ops {
+		if hasPathParam(op.Path) || !isResourceRootPath(stripVersionSegments(op.Path), resourceRoot) {
+			continue
+		}
+		if subResourceWriteMethods[op.Method] {
+			writableRoot = true
+			break
+		}
+	}
+	if !writableRoot {
+		return
+	}
+	for _, op := range ops {
+		if !op.IsAction || hasPathParam(op.Path) {
+			continue
+		}
+		if !isResourceRootPath(stripVersionSegments(op.Path), resourceRoot) {
+			continue
+		}
+		switch op.Method {
+		case "GET":
+			// "list" rather than "get": renameSingletonRootGet runs next and is
+			// what decides between them, from the same-path PUT.
+			op.Name = "list"
+		case "POST":
+			op.Name = "create"
+		case "PUT":
+			op.Name = "update"
+		case "PATCH":
+			op.Name = "patch"
+		case "DELETE":
+			op.Name = "delete"
+		}
+	}
+}
+
 // renameSingletonRootGet detects the classic singleton/settings pattern
 // (non-paginated GET + PUT on the same non-param path, with no path-parameter
 // siblings anywhere in the resource) and renames that path's root GET from
 // "list" to "get". Must run before resolveNoParamConflicts so the root GET
 // is excluded from "list"-collision rename logic.
-func renameSingletonRootGet(ops []*Operation, resourceRoot []string) {
+func renameSingletonRootGet(ops []*Operation, resourceRoot []string, acceptDelete bool) {
 	// Judged per path. It used to return early if *any* operation on the
 	// resource carried a path parameter, which was true only while one spec file
 	// meant one path root: a settings-style resource had no {id} anywhere. A
@@ -2314,13 +2478,29 @@ func renameSingletonRootGet(ops []*Operation, resourceRoot []string) {
 	// /v1/cloud-distribution-point. This is the third mechanism to hold "the
 	// resource is one path root"; see noParamRoots and reclassifyMisannotatedCreates.
 	getPaths := map[string]*Operation{}
-	putPaths := map[string]bool{}
+	// A DELETE counts alongside a PUT when acceptDelete is set, because the
+	// signal is that the API lets you write the thing at this path separately —
+	// the same test subResourceRoots applies. `GET`+`DELETE /v1/csa/token` is
+	// one object you can read and revoke and cannot replace, and reading it as
+	// a collection ships `pro csa token list` for a single token.
+	//
+	// acceptDelete is set only for a resource the sub-resource split touched,
+	// which is a scope rather than a rule: `/v1/cloud-distribution-point` is
+	// the same shape and has shipped as `list` for as long as the command has
+	// existed, and renaming it here would be a breaking rename of an unrelated
+	// command smuggled in on a change about nesting. It is recorded as a known
+	// defect instead.
+	//
+	// detectSingleton deliberately still requires GET+PUT: this decides a verb,
+	// where that decides NameSingular and whether `apply` is suppressed, and a
+	// read-and-revoke object is not a settings object.
+	writablePaths := map[string]bool{}
 	for _, op := range ops {
 		if op.Method == "GET" && !op.IsList && op.Name == "list" && !hasPathParam(op.Path) {
 			getPaths[op.Path] = op
 		}
-		if op.Method == "PUT" {
-			putPaths[op.Path] = true
+		if op.Method == "PUT" || (acceptDelete && op.Method == "DELETE") {
+			writablePaths[op.Path] = true
 		}
 	}
 	for path, op := range getPaths {
@@ -2337,7 +2517,7 @@ func renameSingletonRootGet(ops []*Operation, resourceRoot []string) {
 		// A PUT on the same path is the singleton signal, but only when the path
 		// is not also a collection: a bulk-replace PUT on /v1/x beside
 		// GET /v1/x/{id} would otherwise make the collection read a `get`.
-		if putPaths[path] && !hasParamChildOp(path, ops) {
+		if writablePaths[path] && !hasParamChildOp(path, ops) {
 			op.Name = "get"
 		}
 	}

@@ -69,8 +69,12 @@ func resourceKeyedOverrides() map[string]any {
 // nobody thinks to, which is why this is asserted rather than reviewed.
 func TestEveryResourceKeyedOverrideNamesALiveResource(t *testing.T) {
 	live := map[string]bool{}
-	for _, r := range parseCommittedSpecs(t) {
-		live[r.Name] = true
+	for _, r := range FlattenResources(parseCommittedSpecs(t)) {
+		// Qualified, because that is the key the tables use — a nested
+		// sub-resource is reachable as `sso-settings cert`, and keying on the
+		// bare `cert` would let an entry shadow whichever top-level resource
+		// shared its last token.
+		live[r.QualifiedName()] = true
 	}
 	if len(live) == 0 {
 		t.Fatal("no resources parsed, so this test would pass vacuously")
@@ -107,8 +111,12 @@ func TestEveryResourceKeyedOverrideNamesALiveResource(t *testing.T) {
 // is the failure mode the guard exists to remove one level down.
 func TestResourceKeyedOverrideListIsComplete(t *testing.T) {
 	live := map[string]bool{}
-	for _, r := range parseCommittedSpecs(t) {
-		live[r.Name] = true
+	for _, r := range FlattenResources(parseCommittedSpecs(t)) {
+		// Qualified, because that is the key the tables use — a nested
+		// sub-resource is reachable as `sso-settings cert`, and keying on the
+		// bare `cert` would let an entry shadow whichever top-level resource
+		// shared its last token.
+		live[r.QualifiedName()] = true
 	}
 	listed := resourceKeyedOverrides()
 

@@ -126,11 +126,78 @@ func buildResourceFromGroup(group *PathGroup, ops []*Operation, schemas, represe
 	nameField := detectNameField(representations)
 	idField := detectIDField(schemas, ops)
 
+	// The sub-resource split comes first, and everything after it is per
+	// partition. The passes below reason about siblings — which no-param GET
+	// keeps `list`, which path is the root, which version of a path shape wins
+	// — so running them over the parent's whole op list is what produced the
+	// verbs that read as the parent's and were not. See subresource.go.
+	//
+	// It happens here rather than in GroupPathsByTagAndCollection because the
+	// rule is about the *methods* a sub-path declares, and the group carries
+	// paths. Operations are the narrowest thing that answers it, which also
+	// makes the rule directly testable rather than only observable through a
+	// command name.
+	subRoots := subResourceRoots(group.Root, ops)
+	ownOps, subOps := partitionSubResourceOps(subRoots, ops)
+
+	// split says this resource is inside the change's blast radius — a parent
+	// that gained a sub-resource, or a sub-resource itself. Two naming rules
+	// below are scoped to it, so a resource the split does not touch keeps
+	// every name it shipped with. See renameLoneNonCanonicalList.
+	split := len(subRoots) > 0
+
+	resource := buildResourceShell(group.Root, group.Name, ownOps, schemas, nameField, idField, tagDescriptions, split)
+	if resource == nil {
+		return nil
+	}
+
+	for _, subPath := range subRoots {
+		name := subResourceName(group.Root, subPath)
+		sub := buildResourceShell(splitPathSegments(subPath), name, subOps[subPath], schemas, nameField, idField, tagDescriptions, true)
+		if sub == nil {
+			continue
+		}
+		sub.Parent = resource.Name
+		// The Go identifier has to be unique across the whole generated
+		// package, and a sub-resource's own name is not: `settings` names three
+		// of them. Qualifying it is also what keeps the generated filename
+		// unique — see Resource.FileBase.
+		sub.GoName = goNameOf(sub)
+		resource.SubResources = append(resource.SubResources, sub)
+	}
+	return resource
+}
+
+// buildResourceShell runs the per-resource passes over one partition's
+// operations and assembles the Resource.
+//
+// Shared by the parent and every sub-resource, because a sub-resource wants
+// exactly these passes against its own root: `GET /v2/sso/cert` becomes `get`
+// rather than `list` only because renameSingletonRootGet is re-run with
+// ["sso","cert"] as the root, and `GET /v2/sso/cert/download` becomes
+// `download` only because the singleton rename then reaches it. Reusing the
+// pipeline is the point — a hand-rolled naming rule for sub-resources would be
+// a fourth place encoding "the resource is one path root", which is the trap
+// this branch hit three times.
+func buildResourceShell(root []string, name string, ops []*Operation, schemas map[string]*Schema, nameField, idField string, tagDescriptions map[string]string, split bool) *Resource {
 	reclassifyMisannotatedCreates(ops)
-	renameSingletonRootGet(ops, group.Root)
+	renameRootActionVerbs(ops, root)
+	renameSingletonRootGet(ops, root, split)
 	ops = deduplicateVersionedOps(ops)
 	ops = pairCollectionBulkActions(ops)
-	resolveNoParamConflicts(ops, group.Root)
+	canonical := resolveNoParamConflicts(ops, root)
+	// Singleton-ness is a fact about paths and methods, so it can be decided
+	// here — before any further renaming — and it has to be, because the sweep
+	// below must run ahead of disambiguateSameTerminalOps: a rename that
+	// introduces a collision after the pass that resolves collisions ships two
+	// subcommands with one name.
+	singleton := detectSingleton(ops)
+	if split && !singleton {
+		// renameSingletonListToGet already does this job for a singleton, and
+		// does it against the root the singleton rule picks rather than the
+		// group's. See renameLoneNonCanonicalList.
+		renameLoneNonCanonicalList(ops, canonical)
+	}
 	disambiguateSameTerminalOps(ops)
 
 	if len(ops) == 0 {
@@ -138,7 +205,8 @@ func buildResourceFromGroup(group *PathGroup, ops []*Operation, schemas, represe
 	}
 
 	resource := &Resource{
-		Description: tagDescriptions[group.Name],
+		Description: tagDescriptions[name],
+		Root:        root,
 		Operations:  ops,
 		Schemas:     schemas,
 		NameField:   nameField,
@@ -148,17 +216,46 @@ func buildResourceFromGroup(group *PathGroup, ops []*Operation, schemas, represe
 	// The name is the path's, verbatim — no pluralization. A collection path is
 	// already plural where the API means it to be, so pluralizing it is what
 	// produced `apns-client-push-statuss`, `ddm-statuss`, `csas` and `slasas`.
-	resource.Name = group.Name
-	resource.NameSingular = singularize(group.Name)
-	resource.GoName = strcase.ToCamel(group.Name)
+	resource.Name = name
+	resource.NameSingular = singularize(name)
+	resource.GoName = strcase.ToCamel(name)
 
-	if detectSingleton(ops) {
+	if singleton {
 		resource.IsSingleton = true
-		resource.NameSingular = group.Name
+		resource.NameSingular = name
 		renameSingletonListToGet(resource)
 	}
 	resource.HasVersionLock = detectVersionLock(ops)
 	return resource
+}
+
+// partitionSubResourceOps splits a group's operations into the parent's own and
+// one bucket per sub-resource root.
+//
+// Deepest root first, so a nested sub-path claims its operations before an
+// ancestor can — subResourceRoots already refuses a candidate inside another,
+// but the assignment must not depend on that for its correctness.
+func partitionSubResourceOps(subRoots []string, ops []*Operation) (own []*Operation, byRoot map[string][]*Operation) {
+	byRoot = map[string][]*Operation{}
+	ordered := append([]string(nil), subRoots...)
+	sort.Slice(ordered, func(i, j int) bool {
+		return strings.Count(ordered[i], "/") > strings.Count(ordered[j], "/")
+	})
+	for _, op := range ops {
+		claimed := ""
+		for _, sub := range ordered {
+			if inSubtree(sub, op) {
+				claimed = sub
+				break
+			}
+		}
+		if claimed == "" {
+			own = append(own, op)
+			continue
+		}
+		byRoot[claimed] = append(byRoot[claimed], op)
+	}
+	return own, byRoot
 }
 
 // renameSingletonListToGet renames a singleton's root "list" operation to

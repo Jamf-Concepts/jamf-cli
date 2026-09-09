@@ -117,7 +117,11 @@ func parseCommittedSpecs(t *testing.T) []*Resource {
 func TestParseMonolith_LosesNoEndpoint(t *testing.T) {
 	after := map[string]bool{}
 	for _, r := range parseCommittedSpecs(t) {
-		for _, op := range r.Operations {
+		// AllOperations, because "reachable" is about the endpoint and not
+		// about how many tokens deep the command sits: nine sub-paths are now
+		// nested sub-resources, and reading only r.Operations reported all 28
+		// of their endpoints as lost.
+		for _, op := range r.AllOperations() {
 			after[endpointShape(op.Method, op.Path)] = true
 		}
 	}
@@ -173,7 +177,7 @@ func droppedByPolicy(shape string) bool {
 func TestParseMonolith_RestoresEndpointsTheFileLayoutHid(t *testing.T) {
 	reachable := map[string]bool{}
 	for _, r := range parseCommittedSpecs(t) {
-		for _, op := range r.Operations {
+		for _, op := range r.AllOperations() {
 			reachable[op.Method+" "+op.Path] = true
 		}
 	}
@@ -214,9 +218,12 @@ func TestParseMonolith_ScopesSchemasToTheResource(t *testing.T) {
 	var widest int
 	var widestName string
 	byPath := map[string]*Resource{}
-	for _, r := range resources {
+	// Flattened: a nested sub-resource inherits its parent's closure, and its
+	// operations still have to resolve to a resource that can detect a name or
+	// id field.
+	for _, r := range FlattenResources(resources) {
 		if len(r.Schemas) > widest {
-			widest, widestName = len(r.Schemas), r.Name
+			widest, widestName = len(r.Schemas), r.QualifiedName()
 		}
 		for _, op := range r.Operations {
 			byPath[op.Method+" "+op.Path] = r
