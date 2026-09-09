@@ -47,19 +47,21 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
   or `--no-hints`. After that date the build fails until the aliases are deleted, so
   they cannot rot silently.
 
-#### 36 invocations an alias cannot cover — the operation name moved too
+#### 43 invocations an alias cannot cover — the operation name moved too
 
 An alias maps one resource name to one replacement. Where a resource **split**, or
 where an operation's name is derived from a path segment that now sits under a
 different resource, the resource alias resolves and the subcommand then does not
-exist. These 36 have no migration route but this table — the endpoint is unchanged in
-every case, so only the command name moved:
+exist. These 43 renames have no migration route but this table — the endpoint is
+unchanged in every case, so only the command name moved. The subsections after it
+cover the rest: 7 endpoints that are no longer ingested at all, 3 `apply` commands
+that were never expressible, and 3 paths that became command *groups*.
 
 | was | is now | endpoint |
 |---|---|---|
 | `pro access-managements list` | `pro enrollment access-management` | `GET /v4/enrollment/access-management` |
+| `pro activation-codes patch` | `pro activation-code organization-name patch` | `PATCH /v1/activation-code/organization-name` |
 | `pro api-roles-privileges api-role-privileges` | `pro api-role-privileges list` | `GET /v1/api-role-privileges` |
-| `pro app-installer-global-settings update` | `pro app-installers update-global-settings` | `PUT /v1/app-installers/global-settings` |
 | `pro app-requests create` | `pro app-request-form-input-fields create` | `POST /v1/app-request/form-input-fields` |
 | `pro app-requests delete` | `pro app-request-form-input-fields delete` | `DELETE /v1/app-request/form-input-fields/{id}` |
 | `pro app-requests list` | `pro app-request-form-input-fields list` | `GET /v1/app-request/form-input-fields` |
@@ -68,6 +70,7 @@ every case, so only the command name moved:
 | `pro cloud-distribution-points cloud-distribution-point` | `pro cloud-distribution-point list` | `GET /v1/cloud-distribution-point` |
 | `pro computer-inventory-collection-settings create` | `pro computer-inventory-collection-settings-custom-path create` | `POST /v2/computer-inventory-collection-settings/custom-path` |
 | `pro computer-inventory-collection-settings delete` | `pro computer-inventory-collection-settings-custom-path delete` | `DELETE /v2/computer-inventory-collection-settings/custom-path/{id}` |
+| `pro csas delete` | `pro csa token delete` | `DELETE /v1/csa/token` |
 | `pro enrollment-languages filtered-language-codes` | `pro enrollment filtered-language-codes` | `GET /v3/enrollment/filtered-language-codes` |
 | `pro enrollment-languages language-codes` | `pro enrollment language-codes` | `GET /v3/enrollment/language-codes` |
 | `pro enrollment-settings create` | `pro enrollment-access-groups create` | `POST /v3/enrollment/access-groups` |
@@ -82,17 +85,23 @@ every case, so only the command name moved:
 | `pro jcds files` | `pro jamf-cloud-distribution-service-files create` | `POST /v1/jcds/files` |
 | `pro jcds get` | `pro jamf-cloud-distribution-service-files get` | `GET /v1/jcds/files/{fileName}` |
 | `pro jcds list` | `pro jamf-cloud-distribution-service-files list` | `GET /v1/jcds/files` |
+| `pro local-admin-passwords update` | `pro local-admin-password settings update` | `PUT /v2/local-admin-password/settings` |
 | `pro log-flushings delete` | `pro log-flushing-task delete` | `DELETE /v1/log-flushing/task/{id}` |
 | `pro log-flushings get` | `pro log-flushing-task get` | `GET /v1/log-flushing/task/{id}` |
 | `pro log-flushings log-flushing` | `pro log-flushing list` | `GET /v1/log-flushing` |
 | `pro log-flushings task` | `pro log-flushing-task create` | `POST /v1/log-flushing/task` |
+| `pro managed-software-updates-plans abandon` | `pro managed-software-updates-plans feature-toggle abandon` | `POST /v1/managed-software-updates/plans/feature-toggle/abandon` |
+| `pro managed-software-updates-plans status` | `pro managed-software-updates-plans feature-toggle status` | `GET /v1/managed-software-updates/plans/feature-toggle/status` |
+| `pro managed-software-updates-plans update` | `pro managed-software-updates-plans feature-toggle update` | `PUT /v1/managed-software-updates/plans/feature-toggle` |
 | `pro mdm-renewals patch` | `pro mdm-renewal-device-common-details patch` | `PATCH /v1/mdm-renewal/device-common-details` |
 | `pro policy-properties policy-properties` | `pro policy-properties get` | `GET /v1/policy-properties` |
 | `pro policy-properties update-policy-properties` | `pro policy-properties update` | `PUT /v1/policy-properties` |
 | `pro schedulers summary` | `pro scheduler list` | `GET /v1/scheduler/summary` |
 | `pro schedulers triggers` | `pro scheduler-jobs triggers` | `GET /v1/scheduler/jobs/{jobKey}/triggers` |
-| `pro self-service-plus get` | `pro self-service-plus settings` | `GET /v1/self-service-plus/settings` |
+| `pro self-service-plus get` | `pro self-service-plus settings get` | `GET /v1/self-service-plus/settings` |
+| `pro self-service-plus update` | `pro self-service-plus settings update` | `PUT /v1/self-service-plus/settings` |
 | `pro sso-failovers list` | `pro sso-settings failover` | `GET /v1/sso/failover` |
+| `pro sso-settings-cert cert` | `pro sso-settings cert create` | `POST /v2/sso/cert` |
 
 #### 7 endpoints are no longer ingested
 
@@ -131,11 +140,104 @@ operation on the resource carried a path parameter — which a merged resource a
 has.
 
 Where a sub-path gives up a plain verb to the resource root, the sub-path is named
-after its segment: `pro sso-settings get`/`update` are `GET`/`PUT /v3/sso`, and the
-certificate is `cert`/`create-cert`/`update-cert`. One rough edge remains: a verb
-that collides with nothing keeps the plain name even on a sub-path, so
-`pro sso-settings delete` is `DELETE /v2/sso/cert` — it deletes the SSO certificate,
-not the configuration.
+after its segment: `pro sso-settings get`/`update` are `GET`/`PUT /v3/sso`. A verb
+that collides with *nothing*, though, keeps the plain name even on a sub-path — see
+the next section, which is what that cost and how it is fixed.
+
+#### Independently-writable sub-paths are commands of their own
+
+A tag can cover several path roots, and the grouping merges them into one resource.
+That is right for the resource's identity and wrong for its verbs: an
+independently-writable sub-path flattened into its parent produces a plain CRUD verb
+that silently belongs to the sub-path, and because a lone verb collides with nothing,
+no naming pass reached it.
+
+Three examples of what that cost, all live before this change:
+
+- **`pro sso-settings delete` sent `DELETE /v2/sso/cert`.** It deleted the SSO
+  certificate, not the SSO configuration its name names. `download` and `parse`
+  belonged to the certificate too.
+- **`pro managed-software-updates-plans update` sent
+  `PUT /v1/managed-software-updates/plans/feature-toggle`** on a resource whose
+  `list`, `get` and `create` are real plan CRUD — so the one verb in the set that
+  mutated pointed at a different object entirely.
+- **`pro csa delete` deleted the CSA token.**
+
+**The rule is derived from the spec.** A sub-path that carries `PUT`, `PATCH` or
+`DELETE` on the sub-path *itself* is a separately-writable object and becomes a
+command of its own; a `POST`-only sub-path is an append or a command submission and
+stays flat. Measured over the committed document that admits **nine** sub-paths and
+refuses every other one, including all 18 GET+POST `/history` pairs — by the rule,
+not by a `history` special case. One further condition: a sub-path holding *every*
+operation in its group does not split, because there is no sibling verb for the plain
+one to be confused with (`pro app-request get` and
+`pro service-discovery-enrollment get` stay as they are).
+
+| new command | endpoint |
+|---|---|
+| `pro activation-code organization-name` | `/v1/activation-code/organization-name` |
+| `pro app-installers global-settings` | `/v1/app-installers/global-settings` |
+| `pro csa token` | `/v1/csa/token` |
+| `pro enrollment adue-session-token-settings` | `/v1/adue-session-token-settings` |
+| `pro local-admin-password settings` | `/v2/local-admin-password/settings` |
+| `pro managed-software-updates-plans feature-toggle` | `/v1/managed-software-updates/plans/feature-toggle` |
+| `pro self-service settings` | `/v1/self-service/settings` |
+| `pro self-service-plus settings` | `/v1/self-service-plus/settings` |
+| `pro sso-settings cert` | `/v2/sso/cert` |
+
+Their verbs are plain again, so `pro sso-settings cert get|create|update|delete` and
+`pro sso-settings cert download|parse`. Every moved invocation is in the table above.
+
+**Four retired resource names now redirect two tokens deep.** A cobra alias is a name
+on one command, so it can only resolve to a direct child of `pro`; these four are
+registered as hidden second instances of the nested subtree, built from the same
+generated constructor so the redirect cannot drift from what it redirects to. Each
+warns and works: `pro sso-settings-cert`, `pro app-installer-global-settings`,
+`pro self-service-settings`, `pro account-driven-user-enrollment-session-token-settings`.
+`pro self-service-settings get` in particular resolved *correctly* before the nesting
+and would have answered `unknown command "get"` after it.
+
+**Two silent meaning changes are repaired by this, both introduced by the rename
+above and neither visible to a test that only checks that a command resolves:**
+
+- `pro sso-settings download` sent `GET /v3/sso/metadata/download` — the SAML metadata
+  — before the rename and `GET /v2/sso/cert/download` after it, because the
+  certificate's `download` won the collision and the metadata download was
+  disambiguated away to `v-3-metadata-download`. It sends the SAML metadata again, and
+  the certificate is at `pro sso-settings cert download`.
+- `pro sso-settings delete` no longer exists rather than deleting the certificate.
+
+#### 3 paths became command groups — help text at exit 0
+
+The sharpest edge of the rename, because the failure is silent in the worst way: the
+path still resolves, still exits **0**, and prints usage text where it used to return
+data. A script piping one of these into `jq` gets help.
+
+| was (returned data) | is now | the data is at |
+|---|---|---|
+| `pro csas token` | the `pro csa token` group | `pro csa token get` |
+| `pro local-admin-passwords settings` | the `pro local-admin-password settings` group | `pro local-admin-password settings get` |
+| `pro managed-software-updates-plans feature-toggle` | the `… feature-toggle` group | `pro managed-software-updates-plans feature-toggle get` |
+
+A parent that prints help on exit 0 is this CLI's convention everywhere — `pro
+categories` does it too — so these are not made to fail; what changed is that these
+three specific paths used to be leaves.
+
+#### 3 `apply` commands are gone, and none of them worked
+
+`apply` is synthesized from a resource's `list`, `create` and `update`. Where a
+resource split, those three no longer co-reside, so it is no longer generated:
+`pro app-requests apply`, `pro enrollment-settings apply` and
+`pro managed-software-updates-plans apply`.
+
+The last is worth stating plainly, because it was **destructive rather than merely
+absent**. `/v1/managed-software-updates/plans` publishes a collection `POST` and a
+`{id}` `GET` and no update at all, so the only `PUT` the resource carried was the
+feature toggle's — and `apply` composed it. Given the name of an existing plan it
+resolved the name to an id and then `PUT` the plan document at
+`/v1/managed-software-updates/plans/feature-toggle`, replacing the tenant's managed
+software update feature toggle. There is no plan update endpoint to point a working
+`apply` at; use `create`.
 
 #### Also fixed by the same change
 
