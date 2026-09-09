@@ -148,15 +148,13 @@ func liveModernResourcesWithGatewayVerdicts(t *testing.T) []*Resource {
 	if err != nil || len(specs) == 0 {
 		t.Fatalf("no specs found under %s: %v", specsDir, err)
 	}
-	var resources []*Resource
-	for _, s := range specs {
-		parsed, err := ParseSpec(s)
-		if err != nil {
-			continue // a spec this generator cannot parse is not this test's subject
-		}
-		resources = append(resources, parsed...)
+	// The same entry point generator/main.go uses. No DeduplicateVersioned pass
+	// to replay: a version family is decided inside a resource now, per path
+	// shape, rather than between resources named after files.
+	resources, _, err := LoadDocuments(specs)
+	if err != nil {
+		t.Fatalf("parsing %s: %v", specsDir, err)
 	}
-	resources = DeduplicateVersioned(resources)
 	ApplyNameOverrides(resources)
 	ApplyListDetailPaths(resources)
 	ApplyGetDetailPaths(resources)

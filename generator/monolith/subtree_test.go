@@ -280,7 +280,14 @@ func TestExtractSubtreeInlinesOnlyTheClosure(t *testing.T) {
 	if _, ok := schemas["Unreachd"]; ok {
 		t.Error("a schema nothing references was inlined")
 	}
-	if _, err := os.Stat(filepath.Join(dir, LibraryFilename)); err == nil {
-		t.Error("a shared library was written; these files must be self-contained")
+	// Self-contained: every $ref resolves inside this document. Asserted on the
+	// references rather than on the absence of a library filename, which is the
+	// property that actually matters and outlived the shared-library layout.
+	data, err := os.ReadFile(filepath.Join(dir, "Thing.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), ".yaml#") {
+		t.Error("an external $ref survived; this document must resolve on its own")
 	}
 }

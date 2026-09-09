@@ -46,15 +46,14 @@ var buildGatewayOps = sync.OnceValues(func() ([]gatewayOp, error) {
 	if err != nil || len(specs) == 0 {
 		return nil, fmt.Errorf("no specs found under %s: %w", specsDir, err)
 	}
-	var resources []*parser.Resource
-	for _, s := range specs {
-		parsed, err := parser.ParseSpec(s)
-		if err != nil {
-			continue // a spec this generator cannot parse is not this test's subject
-		}
-		resources = append(resources, parsed...)
+	// The same entry point generator/main.go uses: every document merged, then
+	// resources derived from the paths. There is no DeduplicateVersioned pass to
+	// replay any more — a version family is decided inside a resource now, per
+	// path shape, rather than between resources named after files.
+	resources, _, err := parser.LoadDocuments(specs)
+	if err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", specsDir, err)
 	}
-	resources = parser.DeduplicateVersioned(resources)
 	parser.ApplyNameOverrides(resources)
 	parser.ApplyListDetailPaths(resources)
 	parser.ApplyGetDetailPaths(resources)

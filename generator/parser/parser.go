@@ -594,6 +594,16 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 // already: routing that through ParseSpec re-read and re-unmarshalled the same
 // temp file, and cached it in specLoader under a path the caller then deletes.
 func ParseLoadedSpec(doc *openapi3.T, specPath string) ([]*Resource, error) {
+	// A document with no info block is not an OpenAPI spec, and saying so beats
+	// dereferencing it. doc.Info is read unguarded further down, so any other
+	// YAML handed to this function was a SIGSEGV with a Go stack trace in place
+	// of an error naming the file. A `specs/*.yaml` glob is easy to widen by
+	// accident — filepath.Match's `*` matches a leading dot, so metadata living
+	// beside the specs is caught by it.
+	if doc == nil || doc.Info == nil {
+		return nil, fmt.Errorf("%s declares no OpenAPI info block; it is not a spec", filepath.Base(specPath))
+	}
+
 	// Extract resource name from filename (e.g., "Building.yaml" -> "buildings")
 	baseName := filepath.Base(specPath)
 	baseName = strings.TrimSuffix(baseName, filepath.Ext(baseName))
