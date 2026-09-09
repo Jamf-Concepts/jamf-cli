@@ -148,8 +148,8 @@ func liveModernResourcesWithGatewayVerdicts(t *testing.T) []*Resource {
 	if err != nil || len(specs) == 0 {
 		t.Fatalf("no specs found under %s: %v", specsDir, err)
 	}
-	// The same entry point generator/main.go uses. No DeduplicateVersioned pass
-	// to replay: a version family is decided inside a resource now, per path
+	// The same entry point generator/main.go uses. No cross-resource version
+	// pass to replay: a version family is decided inside a resource now, per path
 	// shape, rather than between resources named after files.
 	resources, _, err := LoadDocuments(specs)
 	if err != nil {

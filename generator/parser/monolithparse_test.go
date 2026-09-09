@@ -167,8 +167,8 @@ func droppedByPolicy(shape string) bool {
 //
 // Note what is deliberately *not* claimed here. An earlier version of this test
 // asserted that `PUT /v1/inventory-preload/{id}` was a lost capability being
-// restored, on the grounds that DeduplicateVersioned suppressed the base
-// resource and v2 declared no `/v2/inventory-preload/{id}`. That was wrong: v2
+// restored, on the grounds that the cross-resource version pass suppressed the
+// base resource and v2 declared no `/v2/inventory-preload/{id}`. That was wrong: v2
 // moved every record operation under `records/`, so the update lives at
 // `PUT /v2/inventory-preload/records/{id}` and is served. The v1 family is
 // withdrawn from the gateway and fully superseded, and parser.droppedPaths

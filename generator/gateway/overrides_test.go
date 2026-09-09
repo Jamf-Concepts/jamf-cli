@@ -47,8 +47,8 @@ var buildGatewayOps = sync.OnceValues(func() ([]gatewayOp, error) {
 		return nil, fmt.Errorf("no specs found under %s: %w", specsDir, err)
 	}
 	// The same entry point generator/main.go uses: every document merged, then
-	// resources derived from the paths. There is no DeduplicateVersioned pass to
-	// replay any more — a version family is decided inside a resource now, per
+	// resources derived from the paths. There is no cross-resource version pass
+	// to replay any more — a version family is decided inside a resource now, per
 	// path shape, rather than between resources named after files.
 	resources, _, err := parser.LoadDocuments(specs)
 	if err != nil {

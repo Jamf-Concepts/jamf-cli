@@ -203,7 +203,7 @@ func main() {
 	// the name of the file the path was filed under — see parser.ParseMonolith
 	// for what that filename used to decide, and what reading it cost.
 	//
-	// There is no DeduplicateVersioned pass any more. Every version of a path
+	// There is no cross-resource version pass any more. Every version of a path
 	// lands in one resource by construction, and deduplicateVersionedOps picks
 	// the highest per path shape inside it, so a resource family is a fact about
 	// the paths rather than about a filename's `-vN` suffix.

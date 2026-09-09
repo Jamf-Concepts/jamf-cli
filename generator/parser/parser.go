@@ -19,8 +19,8 @@ import (
 )
 
 // resourceNameOverrides maps auto-generated canonical names to preferred CLI names,
-// for cases where auto-pluralization produces unnatural results. Applied after
-// DeduplicateVersioned by ApplyNameOverrides.
+// for cases where auto-pluralization produces unnatural results. Applied by
+// ApplyNameOverrides.
 var resourceNameOverrides = map[string]string{
 	// "computers-inventory" pluralizes to "computers-inventories" via the -y→-ies
 	// rule, but the Jamf API path (/v3/computers-inventory) treats "inventory" as a
@@ -78,7 +78,6 @@ func applyDocumentedStatusResults(op *Operation) {
 }
 
 // ApplyNameOverrides corrects resource names that auto-pluralization got wrong.
-// Must be called after DeduplicateVersioned.
 func ApplyNameOverrides(resources []*Resource) {
 	for _, r := range FlattenResources(resources) {
 		preferred, ok := resourceNameOverrides[r.QualifiedName()]
@@ -112,7 +111,7 @@ func goNameOf(r *Resource) string {
 
 // resourceLookupFields maps canonical resource names to their alternate identifier
 // fields for patch-by-name commands. Keyed by the final canonical resource name
-// (after DeduplicateVersioned and ApplyNameOverrides).
+// (after ApplyNameOverrides).
 //
 // As with every resource-keyed table in this file, the key is the resource's
 // **qualified** name — Resource.QualifiedName — so a nested sub-resource is
@@ -142,7 +141,7 @@ var resourceGroupPaths = map[string]string{
 }
 
 // ApplyLookupFields sets LookupFields and GroupsClassicPath on resources.
-// Must be called after DeduplicateVersioned so resource names are canonical.
+// Must be called after ApplyNameOverrides so resource names are canonical.
 func ApplyLookupFields(resources []*Resource) {
 	for _, r := range FlattenResources(resources) {
 		if fields, ok := resourceLookupFields[r.QualifiedName()]; ok {
@@ -197,7 +196,7 @@ var resourceFileFields = map[string][]FileField{
 }
 
 // ApplyFileFields sets FileFields on resources listed in resourceFileFields.
-// Must be called after DeduplicateVersioned/ApplyNameOverrides so names are canonical.
+// Must be called after ApplyNameOverrides so names are canonical.
 func ApplyFileFields(resources []*Resource) {
 	for _, r := range FlattenResources(resources) {
 		if fields, ok := resourceFileFields[r.QualifiedName()]; ok {
@@ -225,8 +224,7 @@ type OpPathMethod struct {
 
 // ApplyCreateOpOverrides renames operations listed in resourceCreateOpOverrides to
 // "create" so the generator emits them as the resource's canonical create command.
-// Must be called after DeduplicateVersioned/ApplyNameOverrides so resource names
-// are canonical.
+// Must be called after ApplyNameOverrides so resource names are canonical.
 func ApplyCreateOpOverrides(resources []*Resource) {
 	for _, r := range FlattenResources(resources) {
 		target, ok := resourceCreateOpOverrides[r.QualifiedName()]
@@ -431,7 +429,7 @@ var resourceGetDetailPathOverrides = map[string]struct {
 	//
 	// Version-pinned by hand, so it has to move with the resource: the gateway's
 	// published 11.31.0 spec carries v4 alone, and this table kept `get` on the
-	// withdrawn /v3 detail path after DeduplicateVersioned started serving v4.
+	// withdrawn /v3 detail path after the resource started serving v4.
 	"computer-inventory": {
 		DetailPath: "/v4/computers-inventory-detail/{id}",
 	},
@@ -2757,132 +2755,6 @@ func findUniqueIDProperty(schemas map[string]*Schema) string {
 		}
 	}
 	return ""
-}
-
-// versionedName matches CLI resource names with a version suffix, e.g. "inventory-preload-v-2s"
-// or "mobile-device-prestages-v-3s". Captures the base part and the version number.
-var versionedName = regexp.MustCompile(`^(.*)-v-(\d+)s?$`)
-
-// DeduplicateVersioned consolidates multi-version resources so each resource group
-// surfaces as a single command using the latest API version.
-//
-// When multiple spec files cover the same resource at different API versions
-// (e.g. MobileDevicePrestagesV2.yaml + MobileDevicePrestagesV3.yaml), the generator
-// produces commands like "mobile-device-prestages-v-2s" and "mobile-device-prestages-v-3s".
-// This function:
-//   - Detects versioned resource names via the "-v-{N}s" suffix pattern
-//   - For each version family, keeps only the highest version
-//   - Renames the winning resource to the clean canonical name (no version suffix)
-//   - Suppresses any non-versioned base resource that the versioned family supersedes
-//
-// A resource whose *name* carries no version suffix is not therefore the older
-// one, and assuming it was cost the CLI its newest computer inventory endpoint.
-// ComputersInventory.yaml declares both /v1 and /v4 computers-inventory, so the
-// within-file deduplication leaves one resource named "computers-inventories"
-// serving v4 — while ComputersInventoryV2.yaml and ComputersInventoryV3.yaml
-// name theirs "computers-inventory-v-2s" and "-v-3s". The suffix rule read the
-// v4 resource as the legacy base and suppressed it, so every
-// `pro computers-inventory` command sent /v3 and the two v4-only operations
-// (erase, remove-mdm-profile) never became commands at all. Nothing failed: v3
-// answers, and the gateway published all four versions.
-//
-// The gateway's published spec is what exposed it. Its 11.31.0 drop now carries
-// v4 alone — v1, v2 and v3 are withdrawn — so the version this CLI happened to
-// send became the one refused before a request is sent, and the version it had
-// all along became the only one served. So the family is ranked by the API
-// version each resource actually serves, read off its operation paths, with the
-// name suffix only telling us which resources are in the family.
-func DeduplicateVersioned(resources []*Resource) []*Resource {
-	type entry struct {
-		res     *Resource
-		version int
-	}
-
-	// First pass: find each version family's highest version.
-	latest := make(map[string]entry) // canonical name → highest version entry
-	for _, r := range resources {
-		m := versionedName.FindStringSubmatch(r.Name)
-		if m == nil {
-			continue
-		}
-		base := m[1]
-		ver, _ := strconv.Atoi(m[2])
-		canonical := pluralize(base)
-		if cur, ok := latest[canonical]; !ok || ver > cur.version {
-			latest[canonical] = entry{res: r, version: ver}
-		}
-	}
-
-	if len(latest) == 0 {
-		return resources
-	}
-
-	// Build set of canonical names that have at least one versioned sibling.
-	hasVersioned := make(map[string]bool, len(latest))
-	for name := range latest {
-		hasVersioned[name] = true
-	}
-
-	// Let the non-versioned base compete on the version it serves. Only the
-	// bases of an existing family are considered, so a resource with no
-	// versioned sibling is untouched.
-	for _, r := range resources {
-		if versionedName.MatchString(r.Name) {
-			continue
-		}
-		cur, ok := latest[r.Name]
-		if !ok {
-			continue
-		}
-		if v := resourceAPIVersion(r); v > cur.version {
-			latest[r.Name] = entry{res: r, version: v}
-		}
-	}
-
-	// Second pass: emit only keepers, renaming the winner to the canonical name.
-	result := make([]*Resource, 0, len(resources))
-	for _, r := range resources {
-		m := versionedName.FindStringSubmatch(r.Name)
-		if m != nil {
-			canonical := pluralize(m[1])
-			win := latest[canonical]
-			if win.res != r {
-				continue // older version — drop
-			}
-			// Rename winner to clean canonical name (strip version suffix).
-			r.Name = canonical
-			r.NameSingular = singularize(canonical)
-			r.GoName = strcase.ToCamel(canonical)
-			result = append(result, r)
-			continue
-		}
-		// Non-versioned resource: suppress if a versioned family covers the same
-		// name — unless it is the family's own winner, which is the case when it
-		// serves the highest API version.
-		if hasVersioned[r.Name] && latest[r.Name].res != r {
-			continue
-		}
-		result = append(result, r)
-	}
-	return result
-}
-
-// resourceAPIVersion is the API version a resource actually serves, read off its
-// operation paths rather than off its name.
-//
-// The highest one it carries, because deduplicateVersionedOps has already
-// dropped every endpoint a newer version displaced: an operation left at a lower
-// version is one the newer version never replaced — inventory-preload keeps
-// /inventory-preload/history/notes with no v2 equivalent — not evidence that the
-// resource as a whole is older.
-func resourceAPIVersion(r *Resource) int {
-	highest := 0
-	for _, op := range r.Operations {
-		if v := apiVersionRank(op.Path); v > highest {
-			highest = v
-		}
-	}
-	return highest
 }
 
 // isDestructiveAction returns true for operations that modify/delete data

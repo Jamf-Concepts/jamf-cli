@@ -569,10 +569,10 @@ func TestHandWrittenPathsAreServed(t *testing.T) {
 // that to a warning: the backup then exits 0 while silently missing every
 // object of that resource.
 //
-// DeduplicateVersioned cannot catch it either. It keys a family on a "V<n>"
-// name suffix, so `static-computer-groups` (v2) and `computer-groups-static-groups`
-// (v3) are never treated as the same family and both survive — picking between
-// them is pro_resources.go's job.
+// Version consolidation cannot catch it either. It happens inside one resource,
+// per version-stripped path shape, and these are two different path roots
+// (`/v2/computer-groups/static-groups` and `/v3/…`) reached under one tag — so
+// picking between them is pro_resources.go's job.
 func TestBackupResourcePathsAreServed(t *testing.T) {
 	manifest := loadCoverageManifest(t)
 
