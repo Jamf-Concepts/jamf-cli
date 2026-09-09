@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
@@ -29,18 +30,18 @@ func NewDeviceEnrollmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newDeviceEnrollmentsListCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsGetCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentsCreateCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsUpdateCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsDeleteCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsHistoryCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newDeviceEnrollmentsUploadTokenCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsSyncsCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentsPublicKeyCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsDevicesCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsDisownCmd(ctx))
-	cmd.AddCommand(newDeviceEnrollmentsPublicKeyCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsSyncsByIdCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentsLatestCmd(ctx))
-	cmd.AddCommand(newDeviceEnrollmentsUploadTokenByIdCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentsApplyCmd(ctx))
 
 	return cmd
 }
@@ -260,22 +261,133 @@ func newDeviceEnrollmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newDeviceEnrollmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold  bool
+		flagTokenFile string
+
+		flagRename string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a Device Enrollment Instance with the supplied Token",
+		Long:  "Creates a device enrollment instance with the supplied token.",
+		Example: `  # Show the JSON template for creating a device-enrollment
+  jamf-cli pro device-enrollments create --scaffold
+
+  # Create a device-enrollment from JSON
+  echo '{"name":"Example"}' | jamf-cli pro device-enrollments create
+
+  # Get a device-enrollment, modify it, and create a copy
+  jamf-cli pro device-enrollments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro device-enrollments create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:create"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "encodedToken": "VTI5dFpTQnlZVzVrYjIwZ1ltbDBJRzltSUhSbGVIUWdkRzhnZFhObElHRnVaQ0J6WldVZ2FXWWdZVzU1YjI1bElHRmpkSFZoYkd4NUlIUnlhV1Z6SUhSdklHUmxZMjlrWlNCcGRBPT0=",
+  "tokenFileName": "Acme MDM Token"
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/device-enrollments/upload-token"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "encodedToken", Encoding: "base64", CompanionField: "tokenFileName", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagRename != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var renameID string
+				respBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+				_ = resp.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading upload response: %w", readErr)
+				}
+				var postResp map[string]any
+				if err := json.Unmarshal(respBytes, &postResp); err == nil {
+					if v, ok := postResp["id"].(string); ok {
+						renameID = v
+					} else if v, ok := postResp["id"].(float64); ok {
+						renameID = strconv.FormatFloat(v, 'f', -1, 64)
+					}
+				}
+				if renameID == "" {
+					return fmt.Errorf("upload succeeded but response did not include id; cannot apply --name")
+				}
+				renameURL := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(renameID), 1)
+				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, "name", flagRename); err != nil {
+					return fmt.Errorf("upload succeeded (id %s) but rename failed: %w", renameID, err)
+				}
+				showResp, showErr := ctx.Client.Do(reqCtx, "GET", renameURL, nil)
+				if showErr != nil {
+					return fmt.Errorf("rename succeeded but refetch failed: %w", showErr)
+				}
+				defer showResp.Body.Close()
+				return ctx.Output.PrintResponse(showResp)
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
+
+	cmd.Flags().StringVar(&flagRename, "name", "", "Canonical name to apply to the device-enrollment via a follow-up PUT to /v1/device-enrollments/{id} (this endpoint's body has no name field)")
+	return cmd
+}
+
 func newDeviceEnrollmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
 
-		flagSet []string
+		flagTokenFile string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a Device Enrollment Instance with the supplied id",
-		Long:  "Updates a Device Enrollment Instance with the supplied id\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  name                                         string\n  siteId                                       string\n  supervisionIdentityId                        string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
-		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro device-enrollments update 1 --set field=value
-
-  # Replace a device-enrollment from JSON
+		Long:  "Updates a Device Enrollment Instance with the supplied id",
+		Example: `  # Replace a device-enrollment from JSON
   echo '{"name":"Updated"}' | jamf-cli pro device-enrollments update 1
 
   # Update by name
@@ -325,41 +437,8 @@ func newDeviceEnrollmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			if len(flagSet) > 0 {
-				// --set: fetch current state, drop read-only / server-computed fields,
-				// merge the caller's changes, and PUT the full record back. Fields not
-				// named in --set keep their current values.
-				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
-				if ferr != nil {
-					return ferr
-				}
-				current := map[string]any{}
-				if len(existing) > 0 {
-					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current device-enrollment for --set: %w", err)
-					}
-				}
-				(&fieldFilter{fields: map[string]*fieldFilter{"name": nil, "siteId": nil, "supervisionIdentityId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"name": "string", "siteId": "string", "supervisionIdentityId": "string"})
-				if serr != nil {
-					return serr
-				}
-				setMap := map[string]any{}
-				if err := json.Unmarshal(setDoc, &setMap); err != nil {
-					return err
-				}
-				deepMergeJSON(current, setMap)
-				merged, merr := json.Marshal(current)
-				if merr != nil {
-					return merr
-				}
-				normalized = merged
-				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
-					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
-				}
-			}
 			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -369,8 +448,41 @@ func newDeviceEnrollmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 			}
+			// File fields for this resource route to /v1/device-enrollments/{id}/upload-token via a
+			// separate PUT below, not this endpoint's body. Strip them from stdin
+			// input so the main PUT never carries token payload keys.
+			if len(normalized) > 0 {
+				var stripErr error
+				normalized, stripErr = removeJSONFields(normalized, "encodedToken", "tokenFileName")
+				if stripErr != nil {
+					return stripErr
+				}
+			}
 			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
+			}
+			// Composite update: --token-file routes to /v1/device-enrollments/{id}/upload-token;
+			// body fields go to /v1/device-enrollments/{id}. At least one input is required.
+			if len(normalized) == 0 && flagTokenFile == "" {
+				return fmt.Errorf("nothing to update: provide --from-file, stdin body, or --token-file")
+			}
+			if flagTokenFile != "" {
+				tokenBody, tbErr := injectFileFields(nil, []fileFieldSpec{
+					{FilePath: flagTokenFile, Field: "encodedToken", Encoding: "base64", CompanionField: "tokenFileName", NameFallback: "none", NameField: "name"},
+				})
+				if tbErr != nil {
+					return tbErr
+				}
+				tokenPath := strings.Replace("/v1/device-enrollments/{id}/upload-token", "{id}", url.PathEscape(resolvedID), 1)
+				tokenResp, tokenErr := ctx.Client.Do(reqCtx, "PUT", tokenPath, bytes.NewReader(tokenBody))
+				if tokenErr != nil {
+					return tokenErr
+				}
+				if len(normalized) == 0 {
+					defer tokenResp.Body.Close()
+					return ctx.Output.PrintResponse(tokenResp)
+				}
+				_ = tokenResp.Body.Close()
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -385,12 +497,8 @@ func newDeviceEnrollmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-enrollment by name")
 
-	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
-	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{
-			"name=", "siteId=", "supervisionIdentityId=",
-		}, cobra.ShellCompDirectiveNoSpace
-	})
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
+
 	return cmd
 }
 
@@ -864,67 +972,6 @@ func newDeviceEnrollmentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newDeviceEnrollmentsUploadTokenCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:         "upload-token",
-		Short:       "Create a Device Enrollment Instance with the supplied Token",
-		Long:        "Creates a device enrollment instance with the supplied token.",
-		Annotations: map[string]string{"jamf:privileges": "Create Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:create"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "encodedToken": "VTI5dFpTQnlZVzVrYjIwZ1ltbDBJRzltSUhSbGVIUWdkRzhnZFhObElHRnVaQ0J6WldVZ2FXWWdZVzU1YjI1bElHRmpkSFZoYkd4NUlIUnlhV1Z6SUhSdklHUmxZMjlrWlNCcGRBPT0=",
-  "tokenFileName": "Acme MDM Token"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v1/device-enrollments/upload-token"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
 func newDeviceEnrollmentsSyncsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
@@ -956,6 +1003,63 @@ func newDeviceEnrollmentsSyncsCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	return cmd
+}
+
+func newDeviceEnrollmentsPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "public-key",
+		Short: "Retrieve the Jamf Pro Device Enrollment public key",
+		Long:  "Retrieve the Jamf Pro device enrollment public key",
+		Example: `  # Save to file
+  jamf-cli pro device-enrollments public-key -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro device-enrollments public-key > output.bin`,
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			// Build request path
+			path := "/v1/device-enrollments/public-key"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	return cmd
 }
 
@@ -1097,63 +1201,6 @@ func newDeviceEnrollmentsDisownCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceEnrollmentsPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagSaveTo string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "public-key",
-		Short: "Retrieve the Jamf Pro Device Enrollment public key",
-		Long:  "Retrieve the Jamf Pro device enrollment public key",
-		Example: `  # Save to file
-  jamf-cli pro device-enrollments public-key -O output.bin
-
-  # Pipe to stdout
-  jamf-cli pro device-enrollments public-key > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			reqCtx = registry.WithAccept(reqCtx, "*/*")
-
-			// Build request path
-			path := "/v1/device-enrollments/public-key"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if flagSaveTo != "" {
-				f, err := os.Create(flagSaveTo)
-				if err != nil {
-					return fmt.Errorf("opening output file: %w", err)
-				}
-				defer f.Close()
-				n, err := io.Copy(f, resp.Body)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
-				return nil
-			}
-			_, err = io.Copy(os.Stdout, resp.Body)
-			return err
-		},
-	}
-
-	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	return cmd
-}
-
 func newDeviceEnrollmentsSyncsByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
@@ -1264,21 +1311,42 @@ func newDeviceEnrollmentsLatestCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceEnrollmentsUploadTokenByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDeviceEnrollmentsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagScaffold bool
-		flagName     string
+		fromFile      string
+		flagYes       bool
+		flagDryRun    bool
+		flagScaffold  bool
+		flagTokenFile string
+
+		flagBodyName string
 	)
 
 	cmd := &cobra.Command{
-		Use:         "upload-token-by-id [<id>]",
-		Short:       "Update a Device Enrollment Instance with the supplied Token",
-		Long:        "Updates a device enrollment instance with the supplied token.",
-		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:update"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
+		Use:         "apply",
+		Short:       "Create or replace a device-enrollment by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:create,device-enrollment-program-instances:read,device-enrollment-program-instances:update"},
+		Long: `Create or replace a device-enrollment. Reads JSON or YAML from --from-file or stdin.
 
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a device-enrollment from a JSON file
+  jamf-cli pro device-enrollments apply --from-file device-enrollment.json
+
+  # Apply a device-enrollment from a YAML file
+  jamf-cli pro device-enrollments apply --from-file device-enrollment.yaml
+
+  # Apply from stdin
+  cat device-enrollment.json | jamf-cli pro device-enrollments apply
+
+  # Apply without replacement confirmation
+  jamf-cli pro device-enrollments apply --from-file device-enrollment.json --yes
+
+  # Preview what would happen
+  jamf-cli pro device-enrollments apply --from-file device-enrollment.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "encodedToken": "VTI5dFpTQnlZVzVrYjIwZ1ltbDBJRzltSUhSbGVIUWdkRzhnZFhObElHRnVaQ0J6WldVZ2FXWWdZVzU1YjI1bElHRmpkSFZoYkd4NUlIUnlhV1Z6SUhSdklHUmxZMjlrWlNCcGRBPT0=",
@@ -1286,61 +1354,152 @@ func newDeviceEnrollmentsUploadTokenByIdCmd(ctx *registry.CLIContext) *cobra.Com
 }`, ctx.Output.Format())
 			}
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			anyFileFlag := flagTokenFile != ""
+			if err != nil && !anyFileFlag {
+				return err
 			}
-
-			// Build request path
-			path := "/v1/device-enrollments/{id}/upload-token"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
+			err = nil
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
 				if err != nil {
 					return err
 				}
 			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
+			data, err = setBodyStringField(data, "name", flagBodyName)
+			if err != nil {
+				return err
 			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			// Composite flow: file fields route to /v1/device-enrollments/{id}/upload-token (on update)
+			// or are combined with the create body (on create). Build a separate token
+			// body so the main PUT to /v1/device-enrollments/{id} only carries
+			// DeviceEnrollmentInstance-schema fields.
+			var tokenBody []byte
+			if flagTokenFile != "" {
+				tb, tbErr := injectFileFields(nil, []fileFieldSpec{
+					{FilePath: flagTokenFile, Field: "encodedToken", Encoding: "base64", CompanionField: "tokenFileName", NameFallback: "none", NameField: "name"},
+				})
+				if tbErr != nil {
+					return tbErr
+				}
+				tokenBody = tb
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+			// Strip file-field keys from the main body so the follow-up PUT never
+			// re-sends token payload (which belongs to /v1/device-enrollments/{id}/upload-token).
+			data, err = removeJSONFields(data, "encodedToken", "tokenFileName")
+			if err != nil {
+				return err
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create device-enrollment %q\n", name)
+					return nil
+				}
+				if len(tokenBody) == 0 {
+					return fmt.Errorf("cannot create device-enrollment %q: --token-file is required", name)
+				}
+				postResp, err := ctx.Client.Do(reqCtx, "POST", "/v1/device-enrollments/upload-token", bytes.NewReader(tokenBody))
+				if err != nil {
+					return err
+				}
+				postBytes, readErr := io.ReadAll(io.LimitReader(postResp.Body, 10<<20))
+				_ = postResp.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading create response: %w", readErr)
+				}
+				var postDecoded map[string]any
+				var newID string
+				if jerr := json.Unmarshal(postBytes, &postDecoded); jerr == nil {
+					if v, ok := postDecoded["id"].(string); ok {
+						newID = v
+					} else if v, ok := postDecoded["id"].(float64); ok {
+						newID = strconv.FormatFloat(v, 'f', -1, 64)
+					}
+				}
+				if newID == "" {
+					return fmt.Errorf("create succeeded but response did not include id")
+				}
+				// Follow-up: PUT main body to apply name/other DeviceEnrollmentInstance fields.
+				bodyPath := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(newID), 1)
+				bodyResp, err := ctx.Client.Do(reqCtx, "PUT", bodyPath, bytes.NewReader(data))
+				if err != nil {
+					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe device-enrollment exists but is unnamed; to recover run: jamf-cli device-enrollments update %s --from-file <body.json>", newID, err, newID)
+				}
+				defer bodyResp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created device-enrollment %q (id: %s)\n", name, newID)
+				return ctx.Output.PrintResponse(bodyResp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace device-enrollment %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("device-enrollment %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "device-enrollment %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(id), 1)
+			var tokenResp *http.Response
+			if len(tokenBody) > 0 {
+				tokenPath := strings.Replace("/v1/device-enrollments/{id}/upload-token", "{id}", url.PathEscape(id), 1)
+				tr, tokenErr := ctx.Client.Do(reqCtx, "PUT", tokenPath, bytes.NewReader(tokenBody))
+				if tokenErr != nil {
+					return tokenErr
+				}
+				tokenResp = tr
+			}
+			if len(data) == 0 && tokenResp != nil {
+				// Only the token was replaced — return its response.
+				defer tokenResp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Replaced device-enrollment token %q (id: %s)\n", name, id)
+				return ctx.Output.PrintResponse(tokenResp)
+			}
+			if tokenResp != nil {
+				_ = tokenResp.Body.Close()
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
-
+			fmt.Fprintf(os.Stderr, "Replaced device-enrollment %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-enrollment by name")
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
+
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the device-enrollment (sets the body's name field)")
 
 	return cmd
 }

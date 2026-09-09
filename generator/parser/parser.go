@@ -93,7 +93,7 @@ func ApplyNameOverrides(resources []*Resource) {
 // fields for patch-by-name commands. Keyed by the final canonical resource name
 // (after DeduplicateVersioned and ApplyNameOverrides).
 var resourceLookupFields = map[string][]LookupField{
-	"computers-inventory": {
+	"computer-inventory": {
 		// hardware.serialNumber lives in the HARDWARE section, which the default
 		// (GENERAL) response omits — request it so filterResultsByName can verify
 		// the match rather than trusting the server's RSQL filter blindly. udid and
@@ -112,7 +112,7 @@ var resourceLookupFields = map[string][]LookupField{
 // resourceGroupPaths maps canonical resource names to the Classic API group list
 // path (without /JSSResource/ prefix) for --group flag support on delete.
 var resourceGroupPaths = map[string]string{
-	"computers-inventory": "computergroups",
+	"computer-inventory": "computergroups",
 }
 
 // ApplyLookupFields sets LookupFields and GroupsClassicPath on resources.
@@ -147,7 +147,7 @@ var resourceFileFields = map[string][]FileField{
 		Desc:         "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)",
 		NameFallback: "keep-ext",
 	}},
-	"vpp-locations": {{
+	"volume-purchasing-locations": {{
 		Flag:  "token-file",
 		Field: "serviceToken",
 		// .vpptoken files are already a base64-encoded JSON blob; Jamf expects
@@ -158,7 +158,7 @@ var resourceFileFields = map[string][]FileField{
 		NameFallback: "none",
 		NameFlag:     true,
 	}},
-	"device-enrollment-instances": {{
+	"device-enrollments": {{
 		Flag:              "token-file",
 		Field:             "encodedToken",
 		Encoding:          "base64",
@@ -188,7 +188,7 @@ func ApplyFileFields(resources []*Resource) {
 var resourceCreateOpOverrides = map[string]OpPathMethod{
 	// Jamf Pro has no POST /v1/device-enrollments; creation goes through the
 	// token-upload action endpoint.
-	"device-enrollment-instances": {Path: "/v1/device-enrollments/upload-token", Method: "POST"},
+	"device-enrollments": {Path: "/v1/device-enrollments/upload-token", Method: "POST"},
 }
 
 // OpPathMethod is a (path, method) pair used to identify an operation for overrides.
@@ -222,7 +222,7 @@ func ApplyCreateOpOverrides(resources []*Resource) {
 // not produce its own subcommand) and attached to r.UpdateTokenOp, and the update/
 // apply templates route the resource's file-field flag to it.
 var resourceUpdateTokenOpOverrides = map[string]OpPathMethod{
-	"device-enrollment-instances": {Path: "/v1/device-enrollments/{id}/upload-token", Method: "PUT"},
+	"device-enrollments": {Path: "/v1/device-enrollments/{id}/upload-token", Method: "PUT"},
 }
 
 // ApplyUpdateTokenOpOverrides detaches the configured auxiliary token-update op from
@@ -253,7 +253,7 @@ func ApplyUpdateTokenOpOverrides(resources []*Resource) {
 // field (e.g. groupName) but also exposes a plain "name" field that wins.
 var resourceNameFieldOverrides = map[string]string{
 	// Jamf Pro list endpoint requires "general.name" not "name".
-	"computers-inventory": "general.name",
+	"computer-inventory": "general.name",
 	// Groups list endpoint requires "groupName"; plain "name" field wins the
 	// heuristic but is not a filterable field on this endpoint.
 	"groups": "groupName",
@@ -262,14 +262,14 @@ var resourceNameFieldOverrides = map[string]string{
 	// responses, so both filter lookups and backup file naming fail silently.
 	"mobile-device-groups-smart-groups":  "groupName",
 	"mobile-device-groups-static-groups": "groupName",
-	// mdm-commands is a command log, not a name-addressable resource. The
+	// The mdm resource is a command log, not a name-addressable resource. The
 	// detector otherwise picks up `userName` from action payload schemas
 	// (DeleteUserCommand, UnlockUserAccountCommand) that live in the same
 	// spec as request bodies. Force-clear it.
-	"mdm-commands": "",
-	// inventory-preloads records are keyed by serialNumber, not a "name" field.
+	"mdm": "",
+	// inventory-preload records are keyed by serialNumber, not a "name" field.
 	// Override so --name lookups and backup file naming both use serial number.
-	"inventory-preloads": "serialNumber",
+	"inventory-preload-records": "serialNumber",
 	// App Installer titles carry titleName, and the published spec marks it
 	// readOnly — correctly, being a Jamf catalogue entry nobody writes — so
 	// detectNameField skips it and the detector falls back to a plain "name"
@@ -280,7 +280,7 @@ var resourceNameFieldOverrides = map[string]string{
 	// re-fetch path in lookupMatchingIDs, where the field name is the whole
 	// match — get --name reported "no resource found" for every one of the 363
 	// titles.
-	"app-installer-titles": "titleName",
+	"app-installers-titles": "titleName",
 }
 
 // resourceNameLookupPathOverrides maps resource names to an alternate list path
@@ -319,7 +319,7 @@ var resourceIDFieldOverrides = map[string]string{
 // columns for table/csv/plain output instead of the generic alphabetical selection.
 // JSON/YAML output is unaffected.
 var resourceTableColumns = map[string][]TableColumn{
-	"computers-inventory": {
+	"computer-inventory": {
 		{Field: "id", Label: "id"},
 		{Field: "general.name", Label: "name"},
 		{Field: "hardware.serialNumber", Label: "serial"},
@@ -343,8 +343,8 @@ var resourceTableColumns = map[string][]TableColumn{
 // values for list commands. When set, the generated list command fetches these
 // sections by default to ensure table output has the necessary data.
 var resourceDefaultSections = map[string][]string{
-	"computers-inventory": {"GENERAL", "HARDWARE", "OPERATING_SYSTEM"},
-	"mobile-devices":      {"GENERAL", "HARDWARE"},
+	"computer-inventory": {"GENERAL", "HARDWARE", "OPERATING_SYSTEM"},
+	"mobile-devices":     {"GENERAL", "HARDWARE"},
 }
 
 // resourceListDetailPathOverrides maps canonical resource names to a detail list
@@ -406,7 +406,7 @@ var resourceGetDetailPathOverrides = map[string]struct {
 	// Version-pinned by hand, so it has to move with the resource: the gateway's
 	// published 11.31.0 spec carries v4 alone, and this table kept `get` on the
 	// withdrawn /v3 detail path after DeduplicateVersioned started serving v4.
-	"computers-inventory": {
+	"computer-inventory": {
 		DetailPath: "/v4/computers-inventory-detail/{id}",
 	},
 	// /v2/mobile-devices/{id} returns basic info;

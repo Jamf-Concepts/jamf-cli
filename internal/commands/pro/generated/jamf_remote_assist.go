@@ -216,7 +216,7 @@ func newJamfRemoteAssistGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "fieldName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

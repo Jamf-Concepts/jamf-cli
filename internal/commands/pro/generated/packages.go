@@ -227,7 +227,7 @@ func newPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -432,7 +432,7 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -572,7 +572,7 @@ func newPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "name", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -650,12 +650,12 @@ func newPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no package found with name %q", flagName)
+					return fmt.Errorf("no package found with packageName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -864,7 +864,7 @@ func newPackagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1038,7 +1038,7 @@ func newPackagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1268,7 +1268,7 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1387,7 +1387,7 @@ func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1455,7 +1455,7 @@ func newPackagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "packages:create,packages:read,packages:update"},
 		Long: `Create or replace a package. Reads JSON or YAML from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The packageName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a package from a JSON file
@@ -1525,14 +1525,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "packageName")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "packageName", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "name", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", name, noInput)
 			if err != nil {
 				return err
 			}

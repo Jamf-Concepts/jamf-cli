@@ -105,7 +105,8 @@ func ParseMonolith(doc *openapi3.T) ([]*Resource, error) {
 			groupOps = append(groupOps, opsByPath[p]...)
 		}
 		schemas := schemasReachableFrom(doc, named, group.Paths, raw)
-		r := buildResourceFromGroup(group, groupOps, schemas, tagDescriptions)
+		representations := representationSchemas(doc, named, group.Paths)
+		r := buildResourceFromGroup(group, groupOps, schemas, representations, tagDescriptions)
 		if r != nil {
 			resources = append(resources, r)
 		}
@@ -121,8 +122,8 @@ func ParseMonolith(doc *openapi3.T) ([]*Resource, error) {
 // pairing and name disambiguation all reason about siblings, and a document-wide
 // pass would have unrelated resources competing for the same operation name —
 // which is what the per-file boundary used to provide for free.
-func buildResourceFromGroup(group *PathGroup, ops []*Operation, schemas map[string]*Schema, tagDescriptions map[string]string) *Resource {
-	nameField := detectNameField(schemas)
+func buildResourceFromGroup(group *PathGroup, ops []*Operation, schemas, representations map[string]*Schema, tagDescriptions map[string]string) *Resource {
+	nameField := detectNameField(representations)
 	idField := detectIDField(schemas, ops)
 
 	reclassifyMisannotatedCreates(ops)
@@ -232,6 +233,56 @@ func tagDescriptionsOf(doc *openapi3.T) map[string]string {
 // schemas, so handing them a document-wide map makes them answer from an
 // unrelated resource's fields.
 func schemasReachableFrom(doc *openapi3.T, named map[string]*openapi3.SchemaRef, paths []string, raw map[string]*openapi3.Operation) map[string]*Schema {
+	return closeOver(doc, named, paths, func(*openapi3.Operation) bool { return false })
+}
+
+// representationSchemas is schemasReachableFrom restricted to the operations
+// that represent the resource — everything except an `x-action: true` payload.
+//
+// An action's body is a command, not a representation: it says what to do to
+// the resource, and its fields are the arguments. Handing those to
+// detectNameField makes an argument compete to be the resource's name field,
+// which is a category error that has now cost two separate defects.
+//
+// The first is recorded in resourceNameFieldOverrides' own comment: the mdm
+// command log picked up `userName` from DeleteUserCommand and
+// UnlockUserAccountCommand, and was force-cleared by hand. The second arrived
+// with the merged document, where one components map means the $ref closure
+// reaches the shared `ExportField{fieldName}` body of every `/export` action.
+// /v1/packages gained a second typed candidate and fell back to a plain "name"
+// that the endpoint refuses to filter on — 400 INVALID_FIELD, naming
+// packageName among the fields it does accept — so `--name` and `apply` both
+// failed outright; /v2/jamf-remote-assist/session had `fieldName` as its only
+// candidate and filtered on that.
+//
+// Excluding the payloads is the fix rather than naming the schemas, because the
+// property that disqualifies them is which operation they serve. Nothing about
+// `ExportField` distinguishes it from `AccountUser`, whose `username` is the
+// correct answer for /v1/accounts — both are a schema named after the field's
+// own prefix — so a rule reading only the schema map cannot separate them, and
+// one keyed on the resource name gets /v1/accounts wrong.
+//
+// detectIDField keeps the full closure: it matches a property against the get
+// operation's path parameter, so a foreign schema contributes nothing unless it
+// happens to carry that exact identifier, and an action's body legitimately
+// does carry the resource's id.
+func representationSchemas(doc *openapi3.T, named map[string]*openapi3.SchemaRef, paths []string) map[string]*Schema {
+	return closeOver(doc, named, paths, isActionOperation)
+}
+
+// isActionOperation reports whether an operation is declared `x-action: true`.
+func isActionOperation(op *openapi3.Operation) bool {
+	action, ok := op.Extensions["x-action"]
+	if !ok {
+		return false
+	}
+	b, ok := action.(bool)
+	return ok && b
+}
+
+// closeOver seeds the transitive $ref closure from every operation on paths for
+// which skip is false.
+func closeOver(doc *openapi3.T, named map[string]*openapi3.SchemaRef, paths []string, skip func(*openapi3.Operation) bool) map[string]*Schema {
 	seeds := map[string]bool{}
 	for _, p := range paths {
 		item := doc.Paths.Map()[p]
@@ -239,7 +290,7 @@ func schemasReachableFrom(doc *openapi3.T, named map[string]*openapi3.SchemaRef,
 			continue
 		}
 		for _, op := range item.Operations() {
-			if op == nil {
+			if op == nil || skip(op) {
 				continue
 			}
 			collectOperationRefs(op, seeds)

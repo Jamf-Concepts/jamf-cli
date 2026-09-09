@@ -2173,7 +2173,7 @@ func TestApplyNameOverrides(t *testing.T) {
 
 func TestApplyNameFieldOverrides(t *testing.T) {
 	resources := []*Resource{
-		{Name: "computers-inventory", NameField: "name", IDField: "id"},
+		{Name: "computer-inventory", NameField: "name", IDField: "id"},
 		{Name: "groups", NameField: "name", IDField: "id"},
 		{Name: "buildings", NameField: "name", IDField: "id"},
 	}
@@ -2184,7 +2184,7 @@ func TestApplyNameFieldOverrides(t *testing.T) {
 		wantName string
 		wantID   string
 	}{
-		{"computers-inventory", "general.name", "id"},
+		{"computer-inventory", "general.name", "id"},
 		{"groups", "groupName", "groupPlatformId"},
 		{"buildings", "name", "id"}, // unaffected
 	}
@@ -2201,13 +2201,13 @@ func TestApplyNameFieldOverrides(t *testing.T) {
 
 func TestApplyCreateOpOverrides(t *testing.T) {
 	// Resource matching the override map: sub-path POST should be renamed to "create".
-	target := resourceCreateOpOverrides["device-enrollment-instances"]
+	target := resourceCreateOpOverrides["device-enrollments"]
 	if target.Path == "" {
-		t.Fatal("resourceCreateOpOverrides missing device-enrollment-instances entry")
+		t.Fatal("resourceCreateOpOverrides missing device-enrollments entry")
 	}
 
 	r := &Resource{
-		Name: "device-enrollment-instances",
+		Name: "device-enrollments",
 		Operations: []*Operation{
 			{Name: "list", Method: "GET", Path: "/v1/device-enrollments"},
 			{Name: "upload-token", Method: target.Method, Path: target.Path},
@@ -2246,15 +2246,15 @@ func TestApplyCreateOpOverrides(t *testing.T) {
 }
 
 func TestApplyUpdateTokenOpOverrides(t *testing.T) {
-	target := resourceUpdateTokenOpOverrides["device-enrollment-instances"]
+	target := resourceUpdateTokenOpOverrides["device-enrollments"]
 	if target.Path == "" {
-		t.Fatal("resourceUpdateTokenOpOverrides missing device-enrollment-instances entry")
+		t.Fatal("resourceUpdateTokenOpOverrides missing device-enrollments entry")
 	}
 
 	tokenOp := &Operation{Name: "upload-token-by-id", Method: target.Method, Path: target.Path}
 	updateOp := &Operation{Name: "update", Method: "PUT", Path: "/v1/device-enrollments/{id}"}
 	r := &Resource{
-		Name: "device-enrollment-instances",
+		Name: "device-enrollments",
 		Operations: []*Operation{
 			{Name: "list", Method: "GET", Path: "/v1/device-enrollments"},
 			updateOp,

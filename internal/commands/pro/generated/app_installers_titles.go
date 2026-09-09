@@ -57,7 +57,7 @@ func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -269,7 +269,7 @@ func newAppInstallersTitlesVersionsCmd(ctx *registry.CLIContext) *cobra.Command 
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "name", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

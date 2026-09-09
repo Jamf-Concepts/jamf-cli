@@ -264,7 +264,10 @@ func newVolumePurchasingLocationsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newVolumePurchasingLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagScaffold bool
+		flagScaffold  bool
+		flagTokenFile string
+
+		flagBodyName string
 	)
 
 	cmd := &cobra.Command{
@@ -318,6 +321,20 @@ func newVolumePurchasingLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 					return err
 				}
 			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = setBodyStringField(normalized, "name", flagBodyName)
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "serviceToken", Encoding: "raw", CompanionField: "", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
 			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
@@ -332,6 +349,9 @@ func newVolumePurchasingLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim")
+
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the volume-purchasing-location (sets the body's name field)")
 	return cmd
 }
 
@@ -811,6 +831,8 @@ func newVolumePurchasingLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Comma
 		flagSet      []string
 		fromFile     string
 		flagName     string
+
+		flagTokenFile string
 	)
 
 	cmd := &cobra.Command{
@@ -898,6 +920,17 @@ func newVolumePurchasingLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Comma
 					normalized = raw
 				}
 			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body. When no other body input is
+			// given, injectFileFields constructs a minimal merge-patch from the file
+			// alone.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "serviceToken", Encoding: "raw", CompanionField: "", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
 			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
@@ -920,6 +953,8 @@ func newVolumePurchasingLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Comma
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up volume-purchasing-location by name")
+
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim")
 
 	return cmd
 }
@@ -1243,10 +1278,13 @@ func newVolumePurchasingLocationsRevokeLicensesCmd(ctx *registry.CLIContext) *co
 
 func newVolumePurchasingLocationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile     string
-		flagYes      bool
-		flagDryRun   bool
-		flagScaffold bool
+		fromFile      string
+		flagYes       bool
+		flagDryRun    bool
+		flagScaffold  bool
+		flagTokenFile string
+
+		flagBodyName string
 	)
 
 	cmd := &cobra.Command{
@@ -1288,14 +1326,26 @@ If not, a new resource is created.`,
 			// Read input (JSON or YAML). When file flags are present, empty input
 			// is OK — the file-field injector constructs a minimal body.
 			data, err := readApplyInput(fromFile)
-			if err != nil {
+			anyFileFlag := flagTokenFile != ""
+			if err != nil && !anyFileFlag {
 				return err
 			}
+			err = nil
 			if len(data) > 0 {
 				data, err = normalizeInputToJSON(data)
 				if err != nil {
 					return err
 				}
+			}
+			data, err = setBodyStringField(data, "name", flagBodyName)
+			if err != nil {
+				return err
+			}
+			data, err = injectFileFields(data, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "serviceToken", Encoding: "raw", CompanionField: "", NameFallback: "none", NameField: "name"},
+			})
+			if err != nil {
+				return err
 			}
 
 			// Extract name from JSON input
@@ -1359,6 +1409,9 @@ If not, a new resource is created.`,
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim")
+
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the volume-purchasing-location (sets the body's name field)")
 
 	return cmd
 }
