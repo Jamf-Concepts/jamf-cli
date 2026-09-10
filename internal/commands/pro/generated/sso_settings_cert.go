@@ -280,7 +280,7 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete\n")
+				fmt.Fprintf(os.Stderr, "Would delete this cert\n")
 				return nil
 			}
 			if !flagYes {
@@ -288,7 +288,7 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete this cert. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

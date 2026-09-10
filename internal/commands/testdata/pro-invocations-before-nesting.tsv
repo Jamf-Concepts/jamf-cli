@@ -1003,7 +1003,7 @@ pro mobile-device-inventory-details list	leaf	leaf
 pro mobile-device-inventory-details paired-devices	leaf	leaf
 pro mobile-device-prestage-scopes	group	group
 pro mobile-device-prestage-scopes create-scope	leaf	leaf
-pro mobile-device-prestage-scopes delete-multiple	leaf	leaf
+pro mobile-device-prestage-scopes delete-multiple	leaf	refused
 pro mobile-device-prestage-scopes list	leaf	leaf
 pro mobile-device-prestage-scopes scope	leaf	leaf
 pro mobile-device-prestage-scopes update-scope	leaf	leaf
@@ -1017,7 +1017,7 @@ pro mobile-device-prestages apply	leaf	leaf
 pro mobile-device-prestages attachments	leaf	leaf
 pro mobile-device-prestages create	leaf	leaf
 pro mobile-device-prestages delete	leaf	leaf
-pro mobile-device-prestages delete-multiple	leaf	leaf
+pro mobile-device-prestages delete-multiple	leaf	refused
 pro mobile-device-prestages get	leaf	leaf
 pro mobile-device-prestages history	leaf	leaf
 pro mobile-device-prestages list	leaf	leaf

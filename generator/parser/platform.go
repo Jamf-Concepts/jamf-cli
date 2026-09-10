@@ -106,7 +106,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		renameSingletonRootGet(ops, nil, false)
 		ops = deduplicateVersionedOps(ops)
 		resolveNoParamConflicts(ops, nil)
-		disambiguateSameTerminalOps(ops)
+		disambiguateSameTerminalOps(ops, nil)
 		// Overrides are applied last, after the derivation passes, because an
 		// override is the final word on a name. Applying them earlier let a
 		// pass overwrite one silently: two no-param GETs under the audit tag

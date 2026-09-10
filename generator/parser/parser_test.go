@@ -1802,13 +1802,62 @@ func TestResolveNoParamConflicts(t *testing.T) {
 	})
 }
 
+// buildDisambiguatedName names the loser of a collision from the parts of its
+// path that differ from the winner's, and a version segment was one of them:
+// `/v2/mobile-device-prestages/{id}/scope/delete-multiple` came out as
+// `v-2-scope-delete-multiple`.
+//
+// **No live collision reaches this today** — the root-less qualification branch
+// in disambiguateSameTerminalOps answers the one shape that used to produce a
+// version-leaking name, and disabling this skip leaves the generated surface
+// byte-identical. It is kept, and tested here directly rather than through the
+// specs, because a version segment names no resource and is never a correct
+// part of a command name: the rule is worth stating where names are built, and
+// TestNoCommandNameCarriesAnAPIVersion is the guard that actually watches the
+// shipped surface.
+func TestBuildDisambiguatedNameSkipsTheVersionSegment(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		longer  string
+		shorter string
+		want    string
+	}{
+		{
+			name:    "a version beside a real difference contributes nothing",
+			longer:  "/v2/mobile-device-prestages/{id}/scope/delete-multiple",
+			shorter: "/v3/mobile-device-prestages/{id}/attachments/delete-multiple",
+			want:    "scope-delete-multiple",
+		},
+		{
+			name:    "same version, unchanged",
+			longer:  "/v1/thing/{id}/scope/purge",
+			shorter: "/v1/thing/{id}/attachments/purge",
+			want:    "scope-purge",
+		},
+		{
+			name:    "a version-only difference has nothing to add, so the name is unchanged and the caller's fallback decides",
+			longer:  "/v2/thing/{id}/purge",
+			shorter: "/v1/thing/{id}/purge",
+			want:    "purge",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base := lastPathSeg(tc.shorter)
+			got := buildDisambiguatedName(base, tc.longer, tc.shorter, map[string]bool{base: true})
+			if got != tc.want {
+				t.Errorf("buildDisambiguatedName(%q, %q, %q) = %q, want %q", base, tc.longer, tc.shorter, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDisambiguateSameTerminalOps(t *testing.T) {
 	t.Run("audit vs audit-by-guid", func(t *testing.T) {
 		ops := []*Operation{
 			{Name: "audit", Method: "GET", Path: "/v2/laps/{id}/account/{username}/audit"},
 			{Name: "audit", Method: "GET", Path: "/v2/laps/{id}/account/{username}/{guid}/audit"},
 		}
-		disambiguateSameTerminalOps(ops)
+		disambiguateSameTerminalOps(ops, nil)
 		if ops[0].Name != "audit" {
 			t.Errorf("shorter path name = %q, want audit", ops[0].Name)
 		}
@@ -1823,7 +1872,7 @@ func TestDisambiguateSameTerminalOps(t *testing.T) {
 			{Name: "history", Method: "GET", Path: "/v2/laps/{id}/account/{username}/history"},
 			{Name: "history", Method: "GET", Path: "/v2/laps/{id}/account/{username}/{guid}/history"},
 		}
-		disambiguateSameTerminalOps(ops)
+		disambiguateSameTerminalOps(ops, nil)
 		names := map[string]string{}
 		for _, op := range ops {
 			names[op.Path] = op.Name
@@ -1844,7 +1893,7 @@ func TestDisambiguateSameTerminalOps(t *testing.T) {
 			{Name: "mappings", Method: "GET", Path: "/v2/resource/{id}/mappings"},
 			{Name: "mappings", Method: "PUT", Path: "/v2/resource/{id}/mappings"},
 		}
-		disambiguateSameTerminalOps(ops)
+		disambiguateSameTerminalOps(ops, nil)
 		if ops[0].Name != "mappings" {
 			t.Errorf("GET name = %q, want mappings", ops[0].Name)
 		}

@@ -150,6 +150,12 @@ func droppedByPolicy(shape string) bool {
 		"/preview/remote-administration-configurations",
 		"/settings/issueTomcatSslCertificate",
 		"/settings/obj/policyProperties",
+		// The deprecated v1 erase and unmanage actions. Their v4 successors
+		// are reached under a different collection spelling
+		// (`computers-inventory`), so the shapes do not match and the loss is
+		// real by this test's measure — the capability is not. See droppedPaths.
+		"/computer-inventory/{id}/erase",
+		"/computer-inventory/{id}/remove-mdm-profile",
 	} {
 		if strings.HasSuffix(shape, " "+p) {
 			return true

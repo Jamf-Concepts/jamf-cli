@@ -4,7 +4,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -53,48 +52,49 @@ type movedInvocation struct {
 // keeps that true: it fails when a key names a command that exists (the entry
 // would shadow it) or a replacement names one that does not.
 var movedInvocations = map[string]movedInvocation{
-	"activation-code patch":                             {Now: []string{"activation-code organization-name patch"}},                       // PATCH /v1/activation-code/organization-name
-	"api-role-privileges api-role-privileges":           {Now: []string{"api-role-privileges list"}},                                      // GET /v1/api-role-privileges
-	"app-request create":                                {Now: []string{"app-request-form-input-fields create"}},                          // POST /v1/app-request/form-input-fields
-	"app-request delete":                                {Now: []string{"app-request-form-input-fields delete"}},                          // DELETE /v1/app-request/form-input-fields/{id}
-	"app-request list":                                  {Now: []string{"app-request-form-input-fields list"}},                            // GET /v1/app-request/form-input-fields
-	"app-request settings":                              {Now: []string{"app-request get"}},                                               // GET /v1/app-request/settings
-	"app-request update-settings":                       {Now: []string{"app-request update"}},                                            // PUT /v1/app-request/settings
-	"cloud-distribution-point cloud-distribution-point": {Now: []string{"cloud-distribution-point list"}},                                 // GET /v1/cloud-distribution-point
-	"computer-inventory-collection-settings create":     {Now: []string{"computer-inventory-collection-settings-custom-path create"}},     // POST /v2/computer-inventory-collection-settings/custom-path
-	"computer-inventory-collection-settings delete":     {Now: []string{"computer-inventory-collection-settings-custom-path delete"}},     // DELETE /v2/computer-inventory-collection-settings/custom-path/{id}
-	"csa delete":                                        {Now: []string{"csa token delete"}},                                              // DELETE /v1/csa/token
-	"enrollment create":                                 {Now: []string{"enrollment-access-groups create"}},                               // POST /v3/enrollment/access-groups
-	"enrollment delete":                                 {Now: []string{"enrollment-access-groups delete"}},                               // DELETE /v3/enrollment/access-groups/{id}
-	"enrollment enrollment":                             {Now: []string{"enrollment get"}},                                                // GET /v4/enrollment
-	"enrollment list":                                   {Now: []string{"enrollment access-management", "enrollment-access-groups list"}}, // GET /v4/enrollment/access-management, GET /v3/enrollment/access-groups
-	"enrollment update-enrollment":                      {Now: []string{"enrollment update"}},                                             // PUT /v4/enrollment
-	"enrollment-languages filtered-language-codes":      {Now: []string{"enrollment filtered-language-codes"}},                            // GET /v3/enrollment/filtered-language-codes
-	"enrollment-languages language-codes":               {Now: []string{"enrollment language-codes"}},                                     // GET /v3/enrollment/language-codes
-	"health-check health-check":                         {Now: []string{"health-check list"}},                                             // GET /v1/health-check
-	"jamf-cloud-distribution-service delete":            {Now: []string{"jamf-cloud-distribution-service-files delete"}},                  // DELETE /v1/jcds/files/{fileName}
-	"jamf-cloud-distribution-service files":             {Now: []string{"jamf-cloud-distribution-service-files create"}},                  // POST /v1/jcds/files
-	"jamf-cloud-distribution-service get":               {Now: []string{"jamf-cloud-distribution-service-files get"}},                     // GET /v1/jcds/files/{fileName}
-	"jamf-cloud-distribution-service list":              {Now: []string{"jamf-cloud-distribution-service-files list"}},                    // GET /v1/jcds/files
-	"jamf-connect jamf-connect":                         {Now: []string{"jamf-connect list"}},                                             // GET /v1/jamf-connect
-	"jamf-connect update":                               {Now: []string{"jamf-connect-config-profiles update"}},                           // PUT /v1/jamf-connect/config-profiles/{id}
-	"local-admin-password update":                       {Now: []string{"local-admin-password settings update"}},                          // PUT /v2/local-admin-password/settings
-	"log-flushing delete":                               {Now: []string{"log-flushing-task delete"}},                                      // DELETE /v1/log-flushing/task/{id}
-	"log-flushing get":                                  {Now: []string{"log-flushing-task get"}},                                         // GET /v1/log-flushing/task/{id}
-	"log-flushing log-flushing":                         {Now: []string{"log-flushing list"}},                                             // GET /v1/log-flushing
-	"log-flushing task":                                 {Now: []string{"log-flushing-task create"}},                                      // POST /v1/log-flushing/task
-	"managed-software-updates-plans abandon":            {Now: []string{"managed-software-updates-plans feature-toggle abandon"}},         // POST /v1/managed-software-updates/plans/feature-toggle/abandon
-	"managed-software-updates-plans status":             {Now: []string{"managed-software-updates-plans feature-toggle status"}},          // GET /v1/managed-software-updates/plans/feature-toggle/status
-	"managed-software-updates-plans update":             {Now: []string{"managed-software-updates-plans feature-toggle update"}},          // PUT /v1/managed-software-updates/plans/feature-toggle
-	"mdm-renewal patch":                                 {Now: []string{"mdm-renewal-device-common-details patch"}},                       // PATCH /v1/mdm-renewal/device-common-details
-	"policy-properties policy-properties":               {Now: []string{"policy-properties get"}},                                         // GET /v1/policy-properties
-	"policy-properties update-policy-properties":        {Now: []string{"policy-properties update"}},                                      // PUT /v1/policy-properties
-	"scheduler summary":                                 {Now: []string{"scheduler list"}},                                                // GET /v1/scheduler/summary
-	"scheduler triggers":                                {Now: []string{"scheduler-jobs triggers"}},                                       // GET /v1/scheduler/jobs/{jobKey}/triggers
-	"self-service-plus get":                             {Now: []string{"self-service-plus settings get"}},                                // GET /v1/self-service-plus/settings
-	"self-service-plus update":                          {Now: []string{"self-service-plus settings update"}},                             // PUT /v1/self-service-plus/settings
-	"sso-settings cert cert":                            {Now: []string{"sso-settings cert create"}},                                      // POST /v2/sso/cert
-	"sso-settings list":                                 {Now: []string{"sso-settings failover"}},                                         // GET /v1/sso/failover
+	"activation-code patch":                             {Now: []string{"activation-code organization-name patch"}},                                                              // PATCH /v1/activation-code/organization-name
+	"api-role-privileges api-role-privileges":           {Now: []string{"api-role-privileges list"}},                                                                             // GET /v1/api-role-privileges
+	"app-request create":                                {Now: []string{"app-request-form-input-fields create"}},                                                                 // POST /v1/app-request/form-input-fields
+	"app-request delete":                                {Now: []string{"app-request-form-input-fields delete"}},                                                                 // DELETE /v1/app-request/form-input-fields/{id}
+	"app-request list":                                  {Now: []string{"app-request-form-input-fields list"}},                                                                   // GET /v1/app-request/form-input-fields
+	"app-request settings":                              {Now: []string{"app-request get"}},                                                                                      // GET /v1/app-request/settings
+	"app-request update-settings":                       {Now: []string{"app-request update"}},                                                                                   // PUT /v1/app-request/settings
+	"cloud-distribution-point cloud-distribution-point": {Now: []string{"cloud-distribution-point list"}},                                                                        // GET /v1/cloud-distribution-point
+	"computer-inventory-collection-settings create":     {Now: []string{"computer-inventory-collection-settings-custom-path create"}},                                            // POST /v2/computer-inventory-collection-settings/custom-path
+	"computer-inventory-collection-settings delete":     {Now: []string{"computer-inventory-collection-settings-custom-path delete"}},                                            // DELETE /v2/computer-inventory-collection-settings/custom-path/{id}
+	"csa delete":                                        {Now: []string{"csa token delete"}},                                                                                     // DELETE /v1/csa/token
+	"enrollment create":                                 {Now: []string{"enrollment-access-groups create"}},                                                                      // POST /v3/enrollment/access-groups
+	"enrollment delete":                                 {Now: []string{"enrollment-access-groups delete"}},                                                                      // DELETE /v3/enrollment/access-groups/{id}
+	"enrollment enrollment":                             {Now: []string{"enrollment get"}},                                                                                       // GET /v4/enrollment
+	"enrollment list":                                   {Now: []string{"enrollment access-management", "enrollment-access-groups list"}},                                        // GET /v4/enrollment/access-management, GET /v3/enrollment/access-groups
+	"enrollment update-enrollment":                      {Now: []string{"enrollment update"}},                                                                                    // PUT /v4/enrollment
+	"enrollment-languages filtered-language-codes":      {Now: []string{"enrollment filtered-language-codes"}},                                                                   // GET /v3/enrollment/filtered-language-codes
+	"enrollment-languages language-codes":               {Now: []string{"enrollment language-codes"}},                                                                            // GET /v3/enrollment/language-codes
+	"health-check health-check":                         {Now: []string{"health-check list"}},                                                                                    // GET /v1/health-check
+	"jamf-cloud-distribution-service delete":            {Now: []string{"jamf-cloud-distribution-service-files delete"}},                                                         // DELETE /v1/jcds/files/{fileName}
+	"jamf-cloud-distribution-service files":             {Now: []string{"jamf-cloud-distribution-service-files create"}},                                                         // POST /v1/jcds/files
+	"jamf-cloud-distribution-service get":               {Now: []string{"jamf-cloud-distribution-service-files get"}},                                                            // GET /v1/jcds/files/{fileName}
+	"jamf-cloud-distribution-service list":              {Now: []string{"jamf-cloud-distribution-service-files list"}},                                                           // GET /v1/jcds/files
+	"jamf-connect jamf-connect":                         {Now: []string{"jamf-connect list"}},                                                                                    // GET /v1/jamf-connect
+	"jamf-connect update":                               {Now: []string{"jamf-connect-config-profiles update"}},                                                                  // PUT /v1/jamf-connect/config-profiles/{id}
+	"local-admin-password update":                       {Now: []string{"local-admin-password settings update"}},                                                                 // PUT /v2/local-admin-password/settings
+	"log-flushing delete":                               {Now: []string{"log-flushing-task delete"}},                                                                             // DELETE /v1/log-flushing/task/{id}
+	"log-flushing get":                                  {Now: []string{"log-flushing-task get"}},                                                                                // GET /v1/log-flushing/task/{id}
+	"log-flushing log-flushing":                         {Now: []string{"log-flushing list"}},                                                                                    // GET /v1/log-flushing
+	"log-flushing task":                                 {Now: []string{"log-flushing-task create"}},                                                                             // POST /v1/log-flushing/task
+	"managed-software-updates-plans abandon":            {Now: []string{"managed-software-updates-plans feature-toggle abandon"}},                                                // POST /v1/managed-software-updates/plans/feature-toggle/abandon
+	"managed-software-updates-plans status":             {Now: []string{"managed-software-updates-plans feature-toggle status"}},                                                 // GET /v1/managed-software-updates/plans/feature-toggle/status
+	"managed-software-updates-plans update":             {Now: []string{"managed-software-updates-plans feature-toggle update"}},                                                 // PUT /v1/managed-software-updates/plans/feature-toggle
+	"mdm-renewal patch":                                 {Now: []string{"mdm-renewal-device-common-details patch"}},                                                              // PATCH /v1/mdm-renewal/device-common-details
+	"mobile-device-prestages delete-multiple":           {Now: []string{"mobile-device-prestages attachments-delete-multiple", "mobile-device-prestages scope-delete-multiple"}}, // POST /v3/mobile-device-prestages/{id}/attachments/delete-multiple, POST /v2/mobile-device-prestages/{id}/scope/delete-multiple
+	"policy-properties policy-properties":               {Now: []string{"policy-properties get"}},                                                                                // GET /v1/policy-properties
+	"policy-properties update-policy-properties":        {Now: []string{"policy-properties update"}},                                                                             // PUT /v1/policy-properties
+	"scheduler summary":                                 {Now: []string{"scheduler list"}},                                                                                       // GET /v1/scheduler/summary
+	"scheduler triggers":                                {Now: []string{"scheduler-jobs triggers"}},                                                                              // GET /v1/scheduler/jobs/{jobKey}/triggers
+	"self-service-plus get":                             {Now: []string{"self-service-plus settings get"}},                                                                       // GET /v1/self-service-plus/settings
+	"self-service-plus update":                          {Now: []string{"self-service-plus settings update"}},                                                                    // PUT /v1/self-service-plus/settings
+	"sso-settings cert cert":                            {Now: []string{"sso-settings cert create"}},                                                                             // POST /v2/sso/cert
+	"sso-settings list":                                 {Now: []string{"sso-settings failover"}},                                                                                // GET /v1/sso/failover
 }
 
 // formerLeafGroups are the three commands that returned data before the
@@ -195,7 +195,7 @@ func guardDeprecatedNameVerbMoves(root *cobra.Command) {
 			// classicScaffoldArgs makes for --scaffold.
 			innerArgs := leaf.Args
 			leaf.Args = func(cmd *cobra.Command, args []string) error {
-				if resourceTokenAfter(os.Args, productToken(cmd)) == typed {
+				if typedResourceToken(cmd) == typed {
 					return nil
 				}
 				if innerArgs == nil {
@@ -204,7 +204,7 @@ func guardDeprecatedNameVerbMoves(root *cobra.Command) {
 				return innerArgs(cmd, args)
 			}
 			leaf.RunE = func(cmd *cobra.Command, args []string) error {
-				if err := refuseMovedVerb(resourceTokenAfter(os.Args, productToken(cmd)), typed, live, calledVerb, wanted); err != nil {
+				if err := refuseMovedVerb(typedResourceToken(cmd), typed, live, calledVerb, wanted); err != nil {
 					return err
 				}
 				if inner == nil {

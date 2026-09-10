@@ -490,3 +490,56 @@ var plainVerbsOutsideTheirRoot = map[string]string{
 	// `all-delete` and so on — not plain verbs, and nothing for this guard to
 	// allow.
 }
+
+// The two destructive device actions must be one operation each, on the served
+// version, because `pro.go` suppresses them by name.
+//
+// `/v1/computer-inventory/{id}/erase` and `/v4/computers-inventory/{id}/erase`
+// are the same endpoint at two path *shapes* — v4 renamed the collection
+// segment — so deduplicateVersionedOps, which keys on the shape, kept both. The
+// deprecated v1 pair took the plain names, `pro.go` suppressed *those* in favour
+// of the hand-written commands, and the served v4 pair shipped beside them
+// without the `--confirm-destructive` gate the hand-written pair require for a
+// bulk destructive operation. A second path to a fleet-wide Mac wipe, behind one
+// fewer flag.
+//
+// The v1 pair is dropped at ingest (KeepPath), and this is the pin: it fails if
+// an ingest brings the deprecated shape back, or if the surviving operation
+// moves off the name `pro.go` keys on, either of which reproduces the defect.
+// The suppression itself is guarded by TestProWiringResolvesEveryNameItUses,
+// which cannot see this — both keys matched, they just matched the wrong
+// operations.
+func TestTheDestructiveComputerActionsAreOneOperationEachOnTheServedVersion(t *testing.T) {
+	want := map[string]string{
+		"erase":              "/v4/computers-inventory/{id}/erase",
+		"remove-mdm-profile": "/v4/computers-inventory/{id}/remove-mdm-profile",
+	}
+	var resource *Resource
+	for _, r := range FlattenResources(parseCommittedSpecs(t)) {
+		if r.QualifiedName() == "computer-inventory" {
+			resource = r
+			break
+		}
+	}
+	if resource == nil {
+		t.Fatal("no computer-inventory resource — this pin names a resource the generator no longer produces")
+	}
+	found := map[string][]string{}
+	for _, op := range resource.Operations {
+		if _, ok := want[op.Name]; !ok {
+			continue
+		}
+		found[op.Name] = append(found[op.Name], op.Method+" "+op.Path)
+	}
+	for name, path := range want {
+		got := found[name]
+		switch {
+		case len(got) == 0:
+			t.Errorf("computer-inventory ships no %q operation; `pro.go` suppresses that name in favour of the hand-written command, so a rename leaves the generated one shipping", name)
+		case len(got) > 1:
+			t.Errorf("computer-inventory has %d %q operations (%v) — one keeps the name `pro.go` suppresses and the rest ship beside the hand-written command", len(got), name, got)
+		case got[0] != "POST "+path:
+			t.Errorf("computer-inventory %q sends %s, want POST %s — the deprecated version is withdrawn from the gateway", name, got[0], path)
+		}
+	}
+}

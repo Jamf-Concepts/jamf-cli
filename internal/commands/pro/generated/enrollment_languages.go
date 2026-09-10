@@ -660,7 +660,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-multiple\n")
+				fmt.Fprintf(os.Stderr, "Would run \"delete-multiple\" on this enrollment-language\n")
 				return nil
 			}
 			if !flagYes {
@@ -668,7 +668,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on this enrollment-language. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

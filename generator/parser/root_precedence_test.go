@@ -97,7 +97,7 @@ func TestDisambiguateSameTerminalOpsSeparatesThreeMethodsOnOnePath(t *testing.T)
 	for _, op := range ops[1:] {
 		op.Name = "scope"
 	}
-	disambiguateSameTerminalOps(ops)
+	disambiguateSameTerminalOps(ops, nil)
 
 	want := map[string]string{
 		"GET /v2/computer-prestages/scope":       "scope",

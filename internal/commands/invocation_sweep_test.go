@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -155,4 +156,49 @@ func verbMovedUnderThisSpelling(invocation string) bool {
 	}
 	_, moved := moves[tokens[2]]
 	return moved
+}
+
+// A version segment in a command name is what spec-derived naming exists to
+// remove. Three names carried one before this guard —
+// `pro computer-inventory v-4-computers-inventory-erase`,
+// `v-4-computers-inventory-remove-mdm-profile` and
+// `pro mobile-device-prestages v-2-scope-delete-multiple` — and `main` carried
+// none, so the naming change introduced them.
+//
+// They are not cosmetic. This repo's own history is that a name carrying
+// version information is how the CLI came to send `/v3/computers-inventory`
+// while `/v4` was the served version; and the two computer-inventory names were
+// the served v4 destructive actions shipping beside the hand-written pair that
+// exists to replace them, because `pro.go` suppresses by name.
+//
+// Written against the whole assembled tree rather than against the Pro
+// generator, because a name is a name whichever generator emitted it.
+func TestNoCommandNameCarriesAnAPIVersion(t *testing.T) {
+	// A `vN` or `v-N` token anywhere in a command name. `-v-4-` is what
+	// strcase.ToKebab makes of a `v4` path segment; the unhyphenated form is
+	// what a name assembled without it would carry.
+	version := regexp.MustCompile(`(^|-)v-?[0-9]+(-|$)`)
+
+	root := NewRootCmd("test", "none", "none", "none")
+	var walk func(*cobra.Command, string)
+	checked := 0
+	walk = func(cmd *cobra.Command, path string) {
+		for _, c := range cmd.Commands() {
+			if c.Name() == "help" || c.Name() == "completion" {
+				continue
+			}
+			checked++
+			if version.MatchString(c.Name()) {
+				t.Errorf("`%s %s` carries an API version in its command name — "+
+					"a version segment names no resource, and a name that encodes one is how this CLI "+
+					"came to send a superseded endpoint version",
+					path, c.Name())
+			}
+			walk(c, path+" "+c.Name())
+		}
+	}
+	walk(root, "jamf-cli")
+	if checked < 1500 {
+		t.Fatalf("only %d command names examined — the walk is not reaching the shipped surface", checked)
+	}
 }

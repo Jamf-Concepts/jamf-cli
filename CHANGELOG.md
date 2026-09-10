@@ -62,14 +62,14 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
   curated short alias now, along with `pro jcds-files` for the half the sub-resource
   split gave a command of its own — 37 characters is not a name anyone types.
 
-#### 46 invocations an alias cannot cover — the operation name moved too
+#### 48 invocations an alias cannot cover — the operation name moved too
 
 An alias maps one resource name to one replacement. Where a resource **split**, or
 where an operation's name is derived from a path segment that now sits under a
 different resource, the resource alias resolves and the subcommand then does not
 exist. The endpoint is unchanged in every case, so only the command name moved.
 
-**All 46 answer at runtime with the new invocation named**, in place of cobra's
+**All 48 answer at runtime with the new invocation named**, in place of cobra's
 `unknown command`, and both spellings of each reach it — the old resource name through
 its alias, and the new one directly. `pro schedulers triggers` and `pro scheduler
 triggers` both report that the operation moved and name `pro scheduler-jobs triggers`.
@@ -77,13 +77,16 @@ Exit code 2, the same as every other command that does not exist: what a caller 
 missing here is not a classification but the pointer, and a second exit code for one
 class would only make a wrapper script harder to write. Two old invocations collapse
 onto `pro enrollment list`, whose endpoints went to different places, so that one names
-both. Three of the 46 are a verb whose *meaning* moved rather than its name —
+both. `pro mobile-device-prestages delete-multiple` and
+`pro mobile-device-prestage-scopes delete-multiple` collapse onto one path the same
+way, and also name both. Three of the 48 are a verb whose *meaning* moved rather than
+its name —
 `create`, `update` and `delete` under `pro enrollment-customization-panels`, which
 resolve to a live command that addresses the customization instead of the panel, so
-they are refused where the other 43 would have got `unknown command`. The refusals
+they are refused where the other 45 would have got `unknown command`. The refusals
 retire with the aliases on 2027-03-09.
 
-The subsections after this one cover the rest: 7 endpoints that are no longer ingested
+The subsections after this one cover the rest: 9 endpoints that are no longer ingested
 at all, 3 `apply` commands that were never expressible, and 3 paths that became command
 *groups*.
 
@@ -124,6 +127,8 @@ at all, 3 `apply` commands that were never expressible, and 3 paths that became 
 | `pro managed-software-updates-plans status` | `pro managed-software-updates-plans feature-toggle status` | `GET /v1/managed-software-updates/plans/feature-toggle/status` |
 | `pro managed-software-updates-plans update` | `pro managed-software-updates-plans feature-toggle update` | `PUT /v1/managed-software-updates/plans/feature-toggle` |
 | `pro mdm-renewals patch` | `pro mdm-renewal-device-common-details patch` | `PATCH /v1/mdm-renewal/device-common-details` |
+| `pro mobile-device-prestage-scopes delete-multiple` | `pro mobile-device-prestages scope-delete-multiple` | `POST /v2/mobile-device-prestages/{id}/scope/delete-multiple` |
+| `pro mobile-device-prestages delete-multiple` | `pro mobile-device-prestages attachments-delete-multiple` | `POST /v3/mobile-device-prestages/{id}/attachments/delete-multiple` |
 | `pro policy-properties policy-properties` | `pro policy-properties get` | `GET /v1/policy-properties` |
 | `pro policy-properties update-policy-properties` | `pro policy-properties update` | `PUT /v1/policy-properties` |
 | `pro schedulers summary` | `pro scheduler list` | `GET /v1/scheduler/summary` |
@@ -133,7 +138,7 @@ at all, 3 `apply` commands that were never expressible, and 3 paths that became 
 | `pro sso-failovers list` | `pro sso-settings failover` | `GET /v1/sso/failover` |
 | `pro sso-settings-cert cert` | `pro sso-settings cert create` | `POST /v2/sso/cert` |
 
-#### 7 endpoints are no longer ingested
+#### 9 endpoints are no longer ingested
 
 - `GET`/`POST`/`PUT`/`DELETE /v1/inventory-preload{,/{id}}` (5) — v1 is withdrawn from
   the gateway's published API *and* fully superseded: v2 moved every record operation
@@ -146,6 +151,11 @@ at all, 3 `apply` commands that were never expressible, and 3 paths that became 
   surface the gateway publishes.
 - `POST /settings/issueTomcatSslCertificate` — unversioned legacy with no replacement
   in the versioned API.
+- `POST /v1/computer-inventory/{id}/{erase,remove-mdm-profile}` (2) — the
+  inventory-preload case with the noun changed: declared `deprecated` upstream,
+  withdrawn from the gateway, and superseded by `/v4/computers-inventory/{id}/…`,
+  which spells the collection segment differently. See the section below for what
+  keeping them cost.
 
 #### Operation names on a merged resource
 
@@ -335,6 +345,54 @@ The surviving 16 drops are pinned in
 that are not simple collisions between sub-paths. A new one fails the build; a
 root operation losing its name to a sub-path's fails it outright.
 
+#### No command name carries an API version
+
+Three did. Two operations whose derived names collide are separated by the parts
+of their paths that differ, and that included the version segment — so
+`/v2/mobile-device-prestages/{id}/scope/delete-multiple` came out as
+`v-2-scope-delete-multiple`. A version in a command name is the thing this
+change exists to remove: it is how the CLI came to send `/v3` while `/v4` was
+the served version.
+
+A version segment names no resource and no longer enters a name. Where a
+collision is between two sub-paths and **neither** addresses the resource's own
+root, no operation has a claim on the plain verb and each is qualified by the
+thing it acts on:
+
+| was | now | endpoint |
+|---|---|---|
+| `pro mobile-device-prestages delete-multiple` | `pro mobile-device-prestages attachments-delete-multiple` | `POST /v3/mobile-device-prestages/{id}/attachments/delete-multiple` |
+| `pro mobile-device-prestage-scopes delete-multiple` | `pro mobile-device-prestages scope-delete-multiple` | `POST /v2/mobile-device-prestages/{id}/scope/delete-multiple` |
+
+Both old invocations refuse and name both replacements, since they collapse onto
+one path after alias resolution and went to different places. The bare
+`delete-multiple` deleting attachments on one prestage resource while its
+computer-prestage sibling's removed scope is also gone with it.
+
+#### The two v4 device actions take their own names, and the deprecated v1 pair is dropped
+
+`POST /v1/computer-inventory/{id}/erase` and `remove-mdm-profile` are declared
+`deprecated` upstream and withdrawn from the gateway; `POST
+/v4/computers-inventory/{id}/…` serves both and is published. They are the same
+endpoint at two path *shapes* — v4 renamed the collection segment from
+`computer-inventory` to `computers-inventory` — so version consolidation, which
+matches on the shape, saw two unrelated endpoints and kept both.
+
+The deprecated pair took the plain `erase` and `remove-mdm-profile` names, which
+had three consequences. The served pair came out as
+`v-4-computers-inventory-erase` and `v-4-computers-inventory-remove-mdm-profile`.
+`pro.go` suppresses a generated `erase`/`remove-mdm-profile` in favour of the
+hand-written pair that targets by serial, name or group — so it suppressed the
+*deprecated* operations and the served twins shipped beside `pro comp erase` and
+`pro comp remove-mdm`, without the `--confirm-destructive` gate the hand-written
+pair require for a bulk destructive operation. And those two paths are the only
+ones in the document whose collection segment is singular, so they alone decided
+the resource's own name.
+
+The v1 pair is now dropped at ingest, the same way inventory-preload v1 already
+was and for the same reason. `main` shipped neither (both were suppressed there
+too, as whole resources), so no capability moves.
+
 #### Also fixed by the same change
 
 - `pro computer-groups` was registered twice — the generated registry called
@@ -343,6 +401,45 @@ root operation losing its name to a sub-path's fails it outright.
   identity comes from the paths now, so there is one subtree.
 - `GET /v1/branding-images/download/{id}` was unreachable: the old per-file filter
   discarded it with a warning on every generate. It ships as `pro branding download`.
+- **A stale wiring key is now a build failure rather than an extra command.** The
+  three helpers that wire hand-written commands onto generated parents keyed on
+  names and answered a stale key by doing nothing — so a suppression left the
+  generated command in place and a replacement was added beside it. Every miss is
+  recorded and a test fails on a non-empty record, which found two more dead keys
+  the rename had left (`apply` and `get-by-name` on the former `jamf-protects` and
+  `jamf-protect-deployment-tasks`); both are removed.
+
+### Fixed — a destructive `x-action` no longer sends `DELETE`, or describes itself as a delete
+
+- **`--from-file` and `--group` on a destructive action sent the wrong HTTP
+  method.** The bulk block is shared by a plain `delete` and by an `x-action` that
+  happens to be destructive, and it hardcoded `DELETE`. So
+  `pro mobile-device-groups erase --from-file ids.txt` sent
+  `DELETE /v2/mobile-device-groups/{id}/erase` — a `POST`-only endpoint — and
+  reported `Deleted` for each entry. It sends the operation's own method now.
+  Present in `v1.28.0` and earlier.
+
+- **Confirmation prompts named the wrong action.** The bulk prompt said it would
+  "delete N <resource>", which for an erase reads as removing inventory records
+  rather than wiping devices, and the single-item prompt interpolated the raw
+  operation name into the sentence. A `DELETE` still reads `This will delete …`;
+  anything else quotes its own action — `This will run "erase" on mobile-device-group
+  "…" (id: …)`. There is no English verb for `remove-mdm-profile`, and inventing one
+  is how a prompt comes to describe a different action from the one it performs. The
+  `--from-file` and `--group` help text and the `[dry-run]` lines follow the same rule.
+
+### Fixed — the deprecation warning fires wherever a global flag is placed
+
+- **A flag between the product token and the resource token silenced both the
+  deprecation warning and the moved-verb refusal.** The resource token was read out
+  of `argv` by treating anything not starting with `-` as the resource, so
+  `jamf-cli pro -p ci-svc icons get 1` read the profile name as the resource. Cobra
+  does not require a global flag before the subcommand and `-p` is the documented way
+  to select a profile, so that is an ordinary invocation — and for it, the migration
+  signal the whole 2027-03-09 window rests on was absent for all 100 retired names,
+  and `pro -p … enrollment-customization-panels update 1 2` got cobra's bare arity
+  error instead of the refusal naming its replacement. Whether a flag consumes the
+  next argument is now asked of the command's own flag set, by cobra's rules.
 
 
 ### Breaking — `--file` is renamed to `--from-file` on Platform and Security Cloud writes

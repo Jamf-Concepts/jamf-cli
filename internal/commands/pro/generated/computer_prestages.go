@@ -928,7 +928,7 @@ func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Comm
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-prestage %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"delete-multiple\" on computer-prestage %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -936,7 +936,7 @@ func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Comm
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computer-prestages. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on %d computer-prestages. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -950,9 +950,9 @@ func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Comm
 				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("/v2/computer-prestages/{id}/scope/delete-multiple", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete computer-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "run \"delete-multiple\" on computer-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -961,18 +961,18 @@ func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Comm
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete computer-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"delete-multiple\" on computer-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted computer-prestage %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Ran \"delete-multiple\" on computer-prestage %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "computer-prestages deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "computer-prestages delete-multiple actions")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -998,9 +998,9 @@ func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete-multiple computer-prestage %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"delete-multiple\" on computer-prestage %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete-multiple computer-prestage %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"delete-multiple\" on computer-prestage %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -1010,9 +1010,9 @@ func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Comm
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple computer-prestage %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on computer-prestage %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple computer-prestage %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on computer-prestage %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -1088,7 +1088,7 @@ func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"delete-multiple\" on (one per line, # comments ignored)")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")

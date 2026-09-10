@@ -436,7 +436,7 @@ func newJamfProtectDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete\n")
+				fmt.Fprintf(os.Stderr, "Would delete this jamf-protect\n")
 				return nil
 			}
 			if !flagYes {
@@ -444,7 +444,7 @@ func newJamfProtectDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete this jamf-protect. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

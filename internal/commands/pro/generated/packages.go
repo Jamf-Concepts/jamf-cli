@@ -765,7 +765,7 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-multiple\n")
+				fmt.Fprintf(os.Stderr, "Would run \"delete-multiple\" on this package\n")
 				return nil
 			}
 			if !flagYes {
@@ -773,7 +773,7 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on this package. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1503,9 +1503,9 @@ func newPackagesManifestDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would manifest-delete package %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete package %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would manifest-delete package %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete package %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -1515,9 +1515,9 @@ func newPackagesManifestDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will manifest-delete package %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete package %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will manifest-delete package %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete package %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)

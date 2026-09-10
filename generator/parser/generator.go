@@ -163,6 +163,50 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"dedupeOps":      dedupeOperations,
 		"escapeQuotes":   escapeQuotes,
 		"isDestructive":  func(op *Operation) bool { return op.IsDestructive },
+		// The destructive bulk and confirmation blocks are shared by a plain
+		// DELETE and by an x-action that happens to be destructive, and they
+		// used to word every message as a delete and send every bulk request
+		// as one. Both halves were wrong for an action.
+		//
+		// The method was a correctness bug, not a wording one:
+		// `pro mobile-device-groups erase --from-file ids.txt` sent
+		// `DELETE /v2/mobile-device-groups/{id}/erase` — a POST-only endpoint —
+		// and reported "Deleted" for each. The wording was its own defect: the
+		// group path said it would "delete N computer-inventory", which reads
+		// as removing inventory records rather than wiping Macs, and the single
+		// path interpolated the raw operation name into the sentence, so a
+		// disambiguated name came out as "This will
+		// v-4-computers-inventory-erase computer-inventory".
+		//
+		// So an action names itself and is quoted rather than conjugated: there
+		// is no English verb for `remove-mdm-profile`, and inventing one is how
+		// a confirmation prompt comes to describe a different action from the
+		// one it is about to perform.
+		"actionMethod": func(op *Operation) string { return op.Method },
+		"actionPhrase": func(op *Operation) string {
+			if op.Method == "DELETE" {
+				return "delete"
+			}
+			return `run \"` + op.Name + `\" on`
+		},
+		"actionPhraseTitle": func(op *Operation) string {
+			if op.Method == "DELETE" {
+				return "Delete"
+			}
+			return `Run \"` + op.Name + `\" on`
+		},
+		"actionPhrasePast": func(op *Operation) string {
+			if op.Method == "DELETE" {
+				return "Deleted"
+			}
+			return `Ran \"` + op.Name + `\" on`
+		},
+		"actionNoun": func(op *Operation) string {
+			if op.Method == "DELETE" {
+				return "deletes"
+			}
+			return op.Name + " actions"
+		},
 		"opAnnotations": func(op *Operation) string {
 			var pairs []string
 			if op.IsDestructive {
@@ -2278,7 +2322,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -2286,7 +2330,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }}. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} %d {{ $.Name }}. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -2300,9 +2344,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					resp, err := ctx.Client.Do(reqCtx, "{{ actionMethod . }}", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2311,18 +2355,18 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "{{ actionPhrasePast . }} {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} {{ actionNoun . }}")
 			}
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
@@ -2344,7 +2388,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				noInputGrp, _ := cmd.Flags().GetBool("no-input")
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} id: %s (from group %q)\n", e.id, flagGroup)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} id: %s (from group %q)\n", e.id, flagGroup)
 					}
 					return nil
 				}
@@ -2352,7 +2396,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					if noInputGrp {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} %d {{ $.Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -2366,9 +2410,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					resp, err := ctx.Client.Do(reqCtx, "{{ actionMethod . }}", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} id %s failed: %v\n", e.id, err)
+						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} id %s failed: %v\n", e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2377,25 +2421,25 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} id %s failed: HTTP %d\n", e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} id: %s\n", e.id)
+					fmt.Fprintf(os.Stderr, "{{ actionPhrasePast . }} {{ $.NameSingular }} id: %s\n", e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} {{ actionNoun . }}")
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would {{ .Name }}{{ if hasPathParam .Path }} resource %s{{ end }}\n"{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
+				fmt.Fprintf(os.Stderr, "Would {{ actionPhrase . }}{{ if hasPathParam .Path }} resource %s{{ else }} this {{ $.NameSingular }}{{ end }}\n"{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
 				return nil
 			}
 			if !flagYes {
@@ -2403,7 +2447,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }}{{ if hasPathParam .Path }} resource %s{{ end }}. Type 'yes' to confirm: "{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
+				fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }}{{ if hasPathParam .Path }} resource %s{{ else }} this {{ $.NameSingular }}{{ end }}. Type 'yes' to confirm: "{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -2500,9 +2544,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ .Name }} {{ $.NameSingular }} %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ .Name }} {{ $.NameSingular }} %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -2512,9 +2556,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }} {{ $.NameSingular }} %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }} {{ $.NameSingular }} %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} {{ $.NameSingular }} %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -3076,10 +3120,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to {{ actionPhrase . }} (one per line, # comments ignored)")
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
-	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all {{ $.Name }} from a Classic API group (name or ID)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "{{ actionPhraseTitle . }} every {{ $.NameSingular }} in a Classic API group (name or ID)")
 {{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")

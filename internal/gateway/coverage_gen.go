@@ -49,8 +49,6 @@ var unserved = []Finding{
 	{Method: "POST", Path: "/pro/v1/auth/invalidate-token", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/auth/keep-alive", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/auth/token", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "POST", Path: "/pro/v1/computer-inventory/{}/erase", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "POST", Path: "/pro/v1/computer-inventory/{}/remove-mdm-profile", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "GET", Path: "/pro/v1/macos-managed-software-updates/available-updates", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/oauth/token", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "GET", Path: "/pro/v1/oauth2/session-tokens", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},

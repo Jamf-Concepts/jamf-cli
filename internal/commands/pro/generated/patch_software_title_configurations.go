@@ -1473,9 +1473,9 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would dashboard-delete patch-software-title-configuration %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would dashboard-delete patch-software-title-configuration %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -1485,9 +1485,9 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will dashboard-delete patch-software-title-configuration %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete patch-software-title-configuration %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will dashboard-delete patch-software-title-configuration %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete patch-software-title-configuration %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)

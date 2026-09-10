@@ -712,7 +712,7 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-multiple\n")
+				fmt.Fprintf(os.Stderr, "Would run \"delete-multiple\" on this building\n")
 				return nil
 			}
 			if !flagYes {
@@ -720,7 +720,7 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on this building. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

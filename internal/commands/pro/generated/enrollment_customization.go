@@ -1350,7 +1350,7 @@ func newEnrollmentCustomizationTextDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would text-delete resource %s\n", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -1358,7 +1358,7 @@ func newEnrollmentCustomizationTextDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will text-delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1582,7 +1582,7 @@ func newEnrollmentCustomizationSsoDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would sso-delete resource %s\n", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -1590,7 +1590,7 @@ func newEnrollmentCustomizationSsoDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will sso-delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1755,7 +1755,7 @@ func newEnrollmentCustomizationLdapDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would ldap-delete resource %s\n", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -1763,7 +1763,7 @@ func newEnrollmentCustomizationLdapDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will ldap-delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1923,7 +1923,7 @@ func newEnrollmentCustomizationAllDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would all-delete resource %s\n", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -1931,7 +1931,7 @@ func newEnrollmentCustomizationAllDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will all-delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

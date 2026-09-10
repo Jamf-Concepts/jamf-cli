@@ -318,6 +318,33 @@ var droppedPaths = map[string]bool{
 	"/inventory-preload/csv-template":    true,
 	"/v1/inventory-preload/csv-template": true,
 
+	// The deprecated v1 erase and unmanage actions, superseded by v4 at a
+	// path that spells the resource differently.
+	//
+	// The inventory-preload case above with the noun changed. v4 renamed the
+	// collection segment from `computer-inventory` to `computers-inventory`, so
+	// `/v1/computer-inventory/{id}/erase` and
+	// `/v4/computers-inventory/{id}/erase` are the same endpoint at two path
+	// shapes, and deduplicateVersionedOps — which keys on the shape — saw two
+	// unrelated endpoints and kept both. Upstream declares the v1 pair
+	// `deprecated: true` with an `x-deprecation-date`, the gateway withdrew
+	// them, and v4 serves both actions.
+	//
+	// Left in they were worse than absent, in three compounding ways. The
+	// deprecated pair took the plain `erase` and `remove-mdm-profile` names, so
+	// the served v4 pair came out as `v-4-computers-inventory-erase` and
+	// `v-4-computers-inventory-remove-mdm-profile` — the only version-leaking
+	// names in the binary, on the two most destructive generated commands.
+	// `pro.go` removes a generated `erase`/`remove-mdm-profile` by name in
+	// favour of the hand-written pair, so it matched the *deprecated* pair and
+	// the served twins shipped beside the hand-written commands, without the
+	// `--confirm-destructive` gate those carry for bulk. And these two are the
+	// only paths in the document whose root segment is `computer-inventory`
+	// rather than `computers-inventory`, so they alone renamed the CLI's
+	// most-used resource.
+	"/v1/computer-inventory/{id}/erase":              true,
+	"/v1/computer-inventory/{id}/remove-mdm-profile": true,
+
 	// A sub-lookup with no sibling CRUD on the base collection, so it produces
 	// a lone `groups` command with no context. Membership is already reachable
 	// through the computer-groups and mobile-device-groups resources.

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -408,7 +409,7 @@ func warnIfDeprecatedName(cmd *cobra.Command) {
 	if product == "" {
 		return
 	}
-	called := resourceTokenAfter(os.Args, product)
+	called := resourceTokenAfter(os.Args, product, visibleFlags(cmd))
 	now := ""
 	if dep, ok := deprecatedNames[called]; ok {
 		now = dep.Now
@@ -434,21 +435,114 @@ func productToken(cmd *cobra.Command) string {
 	return ""
 }
 
-// resourceTokenAfter returns the first non-flag argument following product.
-func resourceTokenAfter(args []string, product string) string {
+// resourceTokenAfter returns the resource token the caller typed — the first
+// positional argument following product — with flags removed the way cobra
+// removes them.
+//
+// The naive version of this treated any token not starting with "-" as the
+// resource, which is only right when no flag sits between the product and the
+// resource. Cobra does not require global flags before the subcommand and `-p`
+// is the documented way to select a profile, so `pro -p ci-svc icons get 1` is
+// an ordinary shape — and it answered "ci-svc". That silently switched off both
+// consumers: the deprecation warning for all 100 retired names, which is the
+// entire migration signal for the deprecation window, and the moved-verb
+// refusal, which fell back to cobra's bare arity error.
+//
+// Re-deriving arity from spelling cannot be made correct, so this does not try:
+// flags is the flag set visible where the token sits, and whether a flag
+// consumes the next argument is asked of it. The rules are cobra's stripFlags,
+// deliberately including its treatment of an *unknown* long flag as
+// value-taking — the guard has to agree with cobra about where the resource
+// token is, not about what a correct command line looks like.
+func resourceTokenAfter(args []string, product string, flags *pflag.FlagSet) string {
 	for i, a := range args {
 		if a != product {
 			continue
 		}
-		for _, next := range args[i+1:] {
-			if strings.HasPrefix(next, "-") {
-				continue
-			}
-			return next
-		}
-		return ""
+		return firstPositional(args[i+1:], flags)
 	}
 	return ""
+}
+
+// firstPositional returns the first argument that is not a flag or a flag's
+// value, or "" when there is none.
+func firstPositional(args []string, flags *pflag.FlagSet) string {
+	for len(args) > 0 {
+		s := args[0]
+		args = args[1:]
+		switch {
+		case s == "--":
+			// Everything after the terminator is positional.
+			if len(args) > 0 {
+				return args[0]
+			}
+			return ""
+		case strings.HasPrefix(s, "--") && !strings.Contains(s, "=") && !longTakesNoValue(s[2:], flags):
+			// `--flag value`: the next argument belongs to the flag.
+			if len(args) == 0 {
+				return ""
+			}
+			args = args[1:]
+		case strings.HasPrefix(s, "-") && !strings.HasPrefix(s, "--") && !strings.Contains(s, "=") && len(s) == 2 && !shortTakesNoValue(s[1:], flags):
+			// `-f value`, the shape `-p ci-svc` takes. A longer run of
+			// shorthands (`-vvv`) or one with its value attached (`-ojson`)
+			// carries no separate value argument.
+			if len(args) == 0 {
+				return ""
+			}
+			args = args[1:]
+		case s != "" && !strings.HasPrefix(s, "-"):
+			return s
+		}
+	}
+	return ""
+}
+
+// longTakesNoValue reports whether a long flag can appear without a following
+// value — a boolean, or any flag with an optional value. An unrecognised flag
+// answers false, matching cobra: it consumes the next argument.
+func longTakesNoValue(name string, flags *pflag.FlagSet) bool {
+	if flags == nil {
+		return false
+	}
+	f := flags.Lookup(name)
+	return f != nil && f.NoOptDefVal != ""
+}
+
+// shortTakesNoValue is longTakesNoValue for a single-letter shorthand.
+func shortTakesNoValue(name string, flags *pflag.FlagSet) bool {
+	if flags == nil {
+		return false
+	}
+	f := flags.ShorthandLookup(name)
+	return f != nil && f.NoOptDefVal != ""
+}
+
+// typedResourceToken is resourceTokenAfter for a resolved command, reading the
+// flag set from the command itself so the caller cannot forget to pass one.
+func typedResourceToken(cmd *cobra.Command) string {
+	product := productToken(cmd)
+	if product == "" {
+		return ""
+	}
+	return resourceTokenAfter(os.Args, product, visibleFlags(cmd))
+}
+
+// visibleFlags is every flag that can legitimately appear on the command line
+// that reached cmd: its own, and each ancestor's persistent set.
+//
+// Assembled rather than read off cmd.Flags(), which holds only the command's
+// *own* flags until cobra's unexported mergePersistentFlags has run — so a root
+// persistent flag such as --quiet or -n looked unrecognised, was treated as
+// value-taking, and ate the resource token. That is the bug this replaced,
+// reintroduced one layer down and no more visible.
+func visibleFlags(cmd *cobra.Command) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("visible", pflag.ContinueOnError)
+	for c := cmd; c != nil; c = c.Parent() {
+		fs.AddFlagSet(c.PersistentFlags())
+		fs.AddFlagSet(c.Flags())
+	}
+	return fs
 }
 
 // deprecatedNamesExpired reports whether the aliases are past their removal

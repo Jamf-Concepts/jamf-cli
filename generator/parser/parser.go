@@ -711,7 +711,7 @@ func ParseLoadedSpec(doc *openapi3.T, specPath string) ([]*Resource, error) {
 	resolveNoParamConflicts(allOps, nil)
 	// 3. Disambiguate ops that share the same terminal segment but differ in
 	//    path-param count (e.g. /{username}/audit vs /{username}/{guid}/audit).
-	disambiguateSameTerminalOps(allOps)
+	disambiguateSameTerminalOps(allOps, nil)
 
 	// Check for multi-family spec: multiple sibling collection paths in one file.
 	// Example: SelfServiceBranding.yaml has both /v1/.../branding/macos and
@@ -1622,10 +1622,16 @@ func renameLoneNonCanonicalList(ops []*Operation, isCanonical map[string]bool) {
 //
 // The shortest path keeps the base name. Longer paths receive a distinguishing
 // prefix (from extra fixed segments) and/or a "-by-{param}" suffix.
-func disambiguateSameTerminalOps(ops []*Operation) {
+func disambiguateSameTerminalOps(ops []*Operation, root []string) {
+	rootPath := ""
+	if len(root) > 0 {
+		rootPath = "/" + strings.Join(root, "/")
+	}
 	byName := make(map[string][]*Operation)
+	taken := make(map[string]bool, len(ops))
 	for _, op := range ops {
 		byName[op.Name] = append(byName[op.Name], op)
+		taken[op.Name] = true
 	}
 
 	for baseName, group := range byName {
@@ -1664,6 +1670,47 @@ func disambiguateSameTerminalOps(ops []*Operation) {
 			return oi < oj
 		})
 
+		// A plain verb belongs to the resource's own collection or its own item.
+		// When no operation in the group addresses either, none of them has a
+		// claim on it, so every one is qualified by the thing it acts on — the
+		// convention qualifyDuplicateVerbsOutsideTheRoot uses, which cannot
+		// reach this group because that pass runs after this one and sees no
+		// collision left to resolve.
+		//
+		// Without it the winner was decided by document order and the loser was
+		// named from the whole path difference, version segment included:
+		// `/v3/mobile-device-prestages/{id}/attachments/delete-multiple` kept
+		// `delete-multiple` while
+		// `/v2/mobile-device-prestages/{id}/scope/delete-multiple` came out as
+		// `v-2-scope-delete-multiple`. So one resource answered a bare
+		// `delete-multiple` with attachments while its computer-prestage
+		// sibling answered the same verb with scope, and the loser carried the
+		// API version in its command name — the thing this naming exists to
+		// remove.
+		if rootPath != "" && !anyAddressesRoot(group, rootPath) {
+			qualified := make([]string, len(group))
+			ok := true
+			for i, op := range group {
+				seg := owningNoun(op.Path, rootPath)
+				if seg == "" || seg == baseName {
+					ok = false
+					break
+				}
+				qualified[i] = seg + "-" + baseName
+				if taken[qualified[i]] {
+					ok = false
+					break
+				}
+			}
+			if ok && !hasDuplicateString(qualified) {
+				for i, op := range group {
+					op.Name = qualified[i]
+					taken[qualified[i]] = true
+				}
+				continue
+			}
+		}
+
 		// group[0] keeps baseName. Rename the rest using group[0]'s path as reference.
 		assigned := map[string]bool{baseName: true}
 		for _, op := range group[1:] {
@@ -1671,6 +1718,7 @@ func disambiguateSameTerminalOps(ops []*Operation) {
 			if op.Path == group[0].Path {
 				op.Name = methodVerbPrefix(op.Method) + baseName
 				assigned[op.Name] = true
+				taken[op.Name] = true
 				continue
 			}
 			newName := buildDisambiguatedName(baseName, op.Path, group[0].Path, assigned)
@@ -1693,8 +1741,73 @@ func disambiguateSameTerminalOps(ops []*Operation) {
 			}
 			op.Name = newName
 			assigned[newName] = true
+			taken[newName] = true
 		}
 	}
+}
+
+// owningNoun is the literal segment an operation's terminal hangs off: the last
+// segment strictly between the resource's root and that terminal.
+//
+// It returns "" when there is nothing between the two, and — the load-bearing
+// half — when that segment is a path parameter. A parameter selects *which*
+// item and says nothing about what the operation acts on, so a group whose
+// members differ only by an item selector has no noun to be qualified by and
+// keeps the `-by-{param}` naming instead. Without that clause
+// `/v1/pki/certificate-authority/{id}/der` reported `certificate-authority` and
+// `pro certificate-authority der` became `certificate-authority-der`.
+//
+// Both sides are version-stripped, because a PathGroup's root keeps a leading
+// `preview` (splitVersionSegment strips only a numeric `vN`) while
+// stripVersionSegments removes it. Comparing one against the other made the
+// root unrecognisable inside its own paths, which is how
+// `pro team-viewer-remote-administration status` came out as
+// `team-viewer-status`.
+func owningNoun(path, rootPath string) string {
+	rest, ok := strings.CutPrefix(stripVersionSegments(path), stripVersionSegments(rootPath)+"/")
+	if !ok {
+		return ""
+	}
+	segs := splitPathSegments(rest)
+	if len(segs) < 2 {
+		return ""
+	}
+	owner := segs[len(segs)-2]
+	if isPathParam(owner) {
+		return ""
+	}
+	return strcase.ToKebab(owner)
+}
+
+// isVersionSegment reports whether a path segment is an API version marker.
+func isVersionSegment(seg string) bool {
+	_, ok := apiVersionSegment(seg)
+	return ok
+}
+
+// anyAddressesRoot reports whether any operation in the group is the resource's
+// own collection or its own single item.
+func anyAddressesRoot(group []*Operation, rootPath string) bool {
+	for _, op := range group {
+		if addressesRoot(op, rootPath) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasDuplicateString reports whether a slice holds the same value twice, which
+// is what happens when two operations in a collision group act on the same
+// segment — renaming both to it would trade one collision for another.
+func hasDuplicateString(xs []string) bool {
+	seen := make(map[string]bool, len(xs))
+	for _, x := range xs {
+		if seen[x] {
+			return true
+		}
+		seen[x] = true
+	}
+	return false
 }
 
 // methodVerbPrefix is the "update-"/"create-" style prefix that separates two
@@ -1731,10 +1844,18 @@ func buildDisambiguatedName(baseName, longerPath, shorterPath string, assigned m
 	for i := 0; i < len(longerParts); i++ {
 		if i >= len(shorterParts) || longerParts[i] != shorterParts[i] {
 			seg := longerParts[i]
-			if !strings.HasPrefix(seg, "{") {
-				extraFixed = append(extraFixed, strcase.ToKebab(seg))
-			} else {
+			switch {
+			case strings.HasPrefix(seg, "{"):
 				lastExtraParam = strings.Trim(seg, "{}")
+			case isVersionSegment(seg):
+				// A version segment names no resource and belongs in no command
+				// name. Two paths differing only in version are folded by
+				// deduplicateVersionedOps long before this, so a version here
+				// is always accompanied by a real difference — and putting it
+				// in the name is how the CLI came to ship
+				// `v-2-scope-delete-multiple` for a scope action.
+			default:
+				extraFixed = append(extraFixed, strcase.ToKebab(seg))
 			}
 		}
 	}

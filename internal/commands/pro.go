@@ -3,6 +3,9 @@
 package commands
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
@@ -55,9 +58,15 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Generated Classic API commands
 	generated.RegisterClassicCommands(cmd, cliCtx)
 
-	// Suppress generated commands that don't work for singleton/sub-resource patterns (see #45)
-	removeSubcommand(cmd, []string{"jamf-protect"}, "apply")
-	removeSubcommand(cmd, []string{"jamf-protect"}, "get-by-name")
+	// Two suppressions used to sit here (#45), and the wiring guard below is
+	// what found them dead. One removed `apply` from the resource `main` calls
+	// `jamf-protects`, the other `get-by-name` from
+	// `jamf-protect-deployment-tasks`; this branch produces neither resource,
+	// and neither name is generated under the `jamf-protect` that absorbed
+	// them. It has no nameResolutionPath, so no `apply` is synthesized, and the
+	// deployment-tasks lookup ships as `pro jamf-protect tasks`. Re-keying them
+	// onto `jamf-protect` — the first pass of this branch — left two calls that
+	// resolved a parent and then removed nothing.
 
 	// Suppress generated commands duplicated by richer handwritten versions (see #39).
 	// The handwritten counterparts target by --serial/--name/--group/--from-file,
@@ -165,10 +174,61 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+// Wiring a hand-written command into the generated tree is keyed on names —
+// the parent resource's, and for a suppression the generated child's. Both
+// halves are strings the generator derives from the spec, so an upstream path
+// or tag change can stale one, and until this all three helpers answered a
+// stale key by doing nothing.
+//
+// The consequence is not a missing command, which is the failure a reader
+// expects and would notice. `removeSubcommand` leaves the generated command in
+// place, and `replaceSubcommand` adds its replacement without removing
+// anything — so a stale key ships the generated command the hand-written one
+// exists to displace, beside it, under whatever name the generator gave it.
+// That happened to `erase` and `remove-mdm-profile`: the deprecated v1 pair
+// took the plain names, so both keys matched the deprecated pair and the served
+// v4 twins shipped alongside `pro comp erase` and `pro comp remove-mdm`,
+// without the `--confirm-destructive` gate the hand-written pair carry for
+// bulk. A second path to a fleet-wide wipe, behind one fewer flag, from a
+// suppression that reported success.
+//
+// So every miss is recorded rather than discarded, and
+// TestProWiringNamesCommandsThatShip fails on a non-empty record. It is a
+// package-level map rather than a returned error because the wiring runs once
+// at startup and there is nothing useful for a CLI to do about it at that
+// point; a test is the right place to answer it. Keyed on the invocation, so
+// repeated tree builds record one entry rather than growing.
+var staleProWiring = map[string]string{}
+
+func recordStaleProWiring(op string, parentPath []string, childName string) {
+	key := op + " " + strings.Join(append([]string{"pro"}, parentPath...), " ")
+	if childName != "" {
+		key += " " + childName
+	}
+	staleProWiring[key] = childName
+}
+
+// findWiringParent resolves a parent path, recording a miss when it does not
+// resolve to the command the path names. cobra's Find falls back to the nearest
+// resolvable ancestor rather than erroring on a bad leaf, so the returned
+// command has to be checked against the path as well.
+func findWiringParent(root *cobra.Command, op string, parentPath []string, childName string) *cobra.Command {
+	parent, _, err := root.Find(parentPath)
+	if err != nil || parent == nil {
+		recordStaleProWiring(op, parentPath, childName)
+		return nil
+	}
+	if len(parentPath) > 0 && parent.Name() != parentPath[len(parentPath)-1] && !slices.Contains(parent.Aliases, parentPath[len(parentPath)-1]) {
+		recordStaleProWiring(op, parentPath, childName)
+		return nil
+	}
+	return parent
+}
+
 // addSubcommand finds a parent command by path and adds a child to it.
 func addSubcommand(root *cobra.Command, parentPath []string, child *cobra.Command) {
-	parent, _, err := root.Find(parentPath)
-	if err != nil {
+	parent := findWiringParent(root, "add", parentPath, child.Name())
+	if parent == nil {
 		return
 	}
 	parent.AddCommand(child)
@@ -176,8 +236,8 @@ func addSubcommand(root *cobra.Command, parentPath []string, child *cobra.Comman
 
 // removeSubcommand finds a parent command by path and removes a named child.
 func removeSubcommand(root *cobra.Command, parentPath []string, childName string) {
-	parent, _, err := root.Find(parentPath)
-	if err != nil {
+	parent := findWiringParent(root, "remove", parentPath, childName)
+	if parent == nil {
 		return
 	}
 	for _, child := range parent.Commands() {
@@ -186,19 +246,30 @@ func removeSubcommand(root *cobra.Command, parentPath []string, childName string
 			return
 		}
 	}
+	recordStaleProWiring("remove", parentPath, childName)
 }
 
 // replaceSubcommand finds a parent command by path and replaces a named child.
+//
+// The removal is looked up before the replacement is added, so a stale key is
+// recorded against the tree the generator produced rather than against the tree
+// this call leaves behind — where the child exists either way and a successful
+// replace is indistinguishable from an addition.
 func replaceSubcommand(root *cobra.Command, parentPath []string, childName string, replacement *cobra.Command) {
-	parent, _, err := root.Find(parentPath)
-	if err != nil {
+	parent := findWiringParent(root, "replace", parentPath, childName)
+	if parent == nil {
 		return
 	}
+	removed := false
 	for _, child := range parent.Commands() {
 		if child.Name() == childName {
 			parent.RemoveCommand(child)
+			removed = true
 			break
 		}
+	}
+	if !removed {
+		recordStaleProWiring("replace", parentPath, childName)
 	}
 	parent.AddCommand(replacement)
 }

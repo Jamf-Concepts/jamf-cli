@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // proChildren returns every resource command under `pro`, by name, including
@@ -259,6 +261,13 @@ func TestProductTokenAndResourceToken(t *testing.T) {
 		t.Errorf("productToken(root) = %q, want empty", got)
 	}
 
+	// A flag between the product token and the resource token used to yield the
+	// flag's value: `pro -p ci-svc icons get` answered "ci-svc", which silenced
+	// the deprecation warning for every retired name and left the moved-verb
+	// refusal unreachable. Cobra does not require a global flag before the
+	// subcommand, so every placement below is an ordinary invocation and each
+	// one has to answer the same.
+	flags := visibleFlags(found)
 	for _, tc := range []struct {
 		args []string
 		want string
@@ -266,10 +275,29 @@ func TestProductTokenAndResourceToken(t *testing.T) {
 		{[]string{"jamf-cli", "pro", "icons", "get", "1"}, "icons"},
 		{[]string{"jamf-cli", "-p", "prof", "pro", "icons", "get"}, "icons"},
 		{[]string{"jamf-cli", "pro", "--quiet", "icons", "get"}, "icons"},
+		// A value-taking flag after the product, long and short forms.
+		{[]string{"jamf-cli", "pro", "-p", "ci-svc", "icons", "get"}, "icons"},
+		{[]string{"jamf-cli", "pro", "--profile", "ci-svc", "icons", "get"}, "icons"},
+		{[]string{"jamf-cli", "pro", "--profile=ci-svc", "icons", "get"}, "icons"},
+		{[]string{"jamf-cli", "pro", "-o", "json", "icons", "get"}, "icons"},
+		{[]string{"jamf-cli", "pro", "-ojson", "icons", "get"}, "icons"},
+		// A boolean shorthand carries no value, so the next token is the
+		// resource. `-n` is --dry-run; a run of them must not eat one either.
+		{[]string{"jamf-cli", "pro", "-n", "icons", "get"}, "icons"},
+		{[]string{"jamf-cli", "pro", "-nq", "icons", "get"}, "icons"},
+		// Several flags, mixed forms and placements.
+		{[]string{"jamf-cli", "--no-color", "pro", "-p", "ci-svc", "--output", "json", "icons", "get"}, "icons"},
+		// An unrecognised long flag is treated as value-taking, which is what
+		// cobra does. Agreeing with cobra matters more than being right about a
+		// command line cobra is about to reject.
+		{[]string{"jamf-cli", "pro", "--not-a-flag", "value", "icons", "get"}, "icons"},
+		// The terminator makes everything after it positional.
+		{[]string{"jamf-cli", "pro", "--", "icons", "get"}, "icons"},
 		{[]string{"jamf-cli", "pro"}, ""},
+		{[]string{"jamf-cli", "pro", "-p"}, ""},
 		{[]string{"jamf-cli", "protect", "plans", "list"}, ""},
 	} {
-		if got := resourceTokenAfter(tc.args, "pro"); got != tc.want {
+		if got := resourceTokenAfter(tc.args, "pro", flags); got != tc.want {
 			t.Errorf("resourceTokenAfter(%v) = %q, want %q", tc.args, got, tc.want)
 		}
 	}
@@ -313,6 +341,82 @@ func TestProWiringNamesCommandsThatShip(t *testing.T) {
 		t.Fatal("found no wiring calls in pro.go; the pattern stopped matching and this guard is vacuous")
 	}
 	t.Logf("checked %d wiring targets", seen)
+}
+
+// The source grep above answers "does this parent name ship". It cannot answer
+// the other half — "does this *child* name ship under it" — and that half is
+// where the failure is worse, because a stale child key does not remove a
+// command, it ships one. `removeSubcommand` leaves the generated command in
+// place; `replaceSubcommand` adds its replacement beside it. So `pro
+// computer-inventory --help` listed `erase` twice in effect: the hand-written
+// one under that name and the served v4 one under
+// `v-4-computers-inventory-erase`, the second without the
+// `--confirm-destructive` gate the first carries for bulk.
+//
+// The assembled tree cannot tell a successful replace from a stale key, since
+// the child exists either way. The helpers therefore record every miss at the
+// moment of the failed lookup — before any replacement is added — and this
+// asserts the record is empty. That also covers the whole-resource removals the
+// grep above skips, and the parent lookups, in one place.
+func TestProWiringResolvesEveryNameItUses(t *testing.T) {
+	for k := range staleProWiring {
+		delete(staleProWiring, k)
+	}
+	t.Cleanup(func() {
+		for k := range staleProWiring {
+			delete(staleProWiring, k)
+		}
+	})
+
+	newProCmd(&registry.CLIContext{})
+
+	if len(staleProWiring) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(staleProWiring))
+	for k := range staleProWiring {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		t.Errorf("pro.go wiring names something `pro` does not ship: %s — the call is discarded, and for a suppression that means the generated command ships beside the hand-written one it exists to displace", k)
+	}
+}
+
+// A guard that only ever passes proves nothing. This drives one stale key
+// through the same helpers and requires the record to hold it, so the
+// no-findings pass above is a real answer rather than a broken accumulator.
+func TestStaleProWiringIsRecorded(t *testing.T) {
+	for k := range staleProWiring {
+		delete(staleProWiring, k)
+	}
+	t.Cleanup(func() {
+		for k := range staleProWiring {
+			delete(staleProWiring, k)
+		}
+	})
+
+	root := &cobra.Command{Use: "root"}
+	parent := &cobra.Command{Use: "computer-inventory"}
+	parent.AddCommand(&cobra.Command{Use: "erase"})
+	root.AddCommand(parent)
+
+	removeSubcommand(root, []string{"computer-inventory"}, "v-4-computers-inventory-erase")
+	if len(staleProWiring) != 1 {
+		t.Fatalf("a stale child key recorded %d misses, want 1: %v", len(staleProWiring), staleProWiring)
+	}
+	replaceSubcommand(root, []string{"nonexistent"}, "erase", &cobra.Command{Use: "erase"})
+	if len(staleProWiring) != 2 {
+		t.Fatalf("a stale parent path recorded %d misses in total, want 2: %v", len(staleProWiring), staleProWiring)
+	}
+
+	// A key that does resolve must not be recorded, or the guard fires on
+	// everything and says nothing.
+	before := len(staleProWiring)
+	removeSubcommand(root, []string{"computer-inventory"}, "erase")
+	if len(staleProWiring) != before {
+		t.Errorf("a resolving key was recorded as stale: %v", staleProWiring)
+	}
 }
 
 // A withdrawal message points the caller somewhere, and pointing them at a

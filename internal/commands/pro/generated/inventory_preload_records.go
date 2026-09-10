@@ -742,7 +742,7 @@ func newInventoryPreloadRecordsDeleteAllCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-all\n")
+				fmt.Fprintf(os.Stderr, "Would run \"delete-all\" on this inventory-preload-record\n")
 				return nil
 			}
 			if !flagYes {
@@ -750,7 +750,7 @@ func newInventoryPreloadRecordsDeleteAllCmd(ctx *registry.CLIContext) *cobra.Com
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-all. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-all\" on this inventory-preload-record. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

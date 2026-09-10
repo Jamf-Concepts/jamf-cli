@@ -780,7 +780,7 @@ func newVenafiProxyTrustStoreDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would proxy-trust-store-delete resource %s\n", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -788,7 +788,7 @@ func newVenafiProxyTrustStoreDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will proxy-trust-store-delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
