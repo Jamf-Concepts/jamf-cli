@@ -24,8 +24,10 @@ type DashboardData struct {
 	EnvStats            *environmentStats
 	Checkin             *checkinStatus
 	Hardware            *hardwareModels
-	Protect             *protectCoverage
-	Platform            *platformStatus
+	Protect      *protectCoverage
+	Platform     *platformStatus
+	Cleanup      *cleanupAnalysis
+	OrgStructure *orgStructure
 }
 
 type dashboardProfile struct {
@@ -234,4 +236,28 @@ type benchmarkEntry struct {
 	Title         string
 	CompliancePct float64
 	FailingRules  int
+}
+
+type cleanupAnalysis struct {
+	DisabledPolicies int
+	UnscopedPolicies int
+	UnscopedProfiles int
+	UnusedPackages   int
+	UnusedScripts    int
+}
+
+func (c *cleanupAnalysis) Total() int {
+	return c.DisabledPolicies + c.UnscopedPolicies + c.UnscopedProfiles + c.UnusedPackages + c.UnusedScripts
+}
+
+type orgStructure struct {
+	Sites       []orgEntry
+	Buildings   []orgEntry
+	Departments []orgEntry
+	Categories  []orgEntry
+}
+
+type orgEntry struct {
+	Name  string
+	Count int
 }

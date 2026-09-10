@@ -196,6 +196,8 @@ func TestRenderDashboard_NoSectionsWhenNil(t *testing.T) {
 		"Environment",
 		"Computer Smart Groups",
 		"Mobile Smart Groups",
+		"Cleanup",
+		"Org Structure",
 	}
 	for _, s := range absent {
 		if strings.Contains(html, s) {
@@ -370,6 +372,100 @@ func TestDashboardProfileNames(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRenderDashboard_CleanupSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Cleanup Test",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+		Cleanup: &cleanupAnalysis{
+			DisabledPolicies: 12,
+			UnscopedPolicies: 8,
+			UnscopedProfiles: 3,
+			UnusedPackages:   5,
+			UnusedScripts:    7,
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	html := buf.String()
+	for _, want := range []string{
+		"Cleanup",
+		"Disabled Policies",
+		"Unscoped Policies",
+		"Unscoped Profiles",
+		"Unused Packages",
+		"Unused Scripts",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML missing %q in Cleanup section", want)
+		}
+	}
+}
+
+func TestRenderDashboard_CleanupAbsentWhenNil(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Minimal Dashboard",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	if strings.Contains(buf.String(), "Cleanup") {
+		t.Error("HTML should not contain Cleanup section when Cleanup is nil")
+	}
+}
+
+func TestRenderDashboard_OrgStructureSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Org Test",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+		OrgStructure: &orgStructure{
+			Sites:       []orgEntry{{Name: "Headquarters", Count: 450}, {Name: "Remote", Count: 120}},
+			Buildings:   []orgEntry{{Name: "Building A", Count: 200}},
+			Departments: []orgEntry{{Name: "Engineering", Count: 180}, {Name: "Sales", Count: 95}},
+			Categories:  []orgEntry{{Name: "Productivity", Count: 22}},
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	html := buf.String()
+	for _, want := range []string{
+		"Org Structure",
+		"Sites",
+		"Buildings",
+		"Departments",
+		"Categories",
+		"Headquarters",
+		"Engineering",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML missing %q in Org Structure section", want)
+		}
+	}
+}
+
+func TestRenderDashboard_OrgStructureAbsentWhenNil(t *testing.T) {
+	data := &DashboardData{
+		Title:       "No Org",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	if strings.Contains(buf.String(), "Org Structure") {
+		t.Error("HTML should not contain Org Structure section when OrgStructure is nil")
 	}
 }
 

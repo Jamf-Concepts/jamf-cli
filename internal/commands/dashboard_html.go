@@ -88,6 +88,7 @@ a{color:var(--blue);text-decoration:none}
 .chevron{font-size:.55rem;color:var(--text3);transition:transform .2s;display:inline-block}
 .section.collapsed .section-body{display:none}
 .section.collapsed .chevron{transform:rotate(-90deg)}
+.section-meta{font-size:.7rem;color:var(--text3);font-variant-numeric:tabular-nums}
 .section-body{padding:.85rem .85rem 1.25rem}
 .section-badges{display:flex;gap:.35rem}
 
@@ -220,6 +221,10 @@ tr:hover td{background:var(--card-hover)}
 .subsection-title{font-size:.68rem;font-weight:650;text-transform:uppercase;letter-spacing:.05em;
   color:var(--text3);margin-bottom:.5rem;margin-top:.75rem}
 .subsection-title:first-child{margin-top:0}
+
+/* ── Org Structure ────────────────────────── */
+.org-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}
+.org-group table{width:100%;margin:0}
 
 /* ── Footer ───────────────────────────────── */
 .footer{text-align:center;padding:1.25rem;color:var(--text3);font-size:.7rem}
@@ -674,6 +679,75 @@ tr:hover td{background:var(--card-hover)}
         {{end}}
       </tbody>
     </table>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{/* ── 8. Cleanup Analysis ── */}}
+{{if .Cleanup}}
+<div class="section accent-pro" id="cleanup">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Cleanup</h2>
+    <span class="section-meta">{{.Cleanup.Total}} items</span>
+  </div>
+  <div class="section-body">
+    <table>
+      <thead><tr><th>Item</th><th>Count</th></tr></thead>
+      <tbody>
+        <tr><td>Disabled Policies</td><td>{{comma .Cleanup.DisabledPolicies}}</td></tr>
+        <tr><td>Unscoped Policies</td><td>{{comma .Cleanup.UnscopedPolicies}}</td></tr>
+        <tr><td>Unscoped Profiles</td><td>{{comma .Cleanup.UnscopedProfiles}}</td></tr>
+        <tr><td>Unused Packages</td><td>{{comma .Cleanup.UnusedPackages}}</td></tr>
+        <tr><td>Unused Scripts</td><td>{{comma .Cleanup.UnusedScripts}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+{{/* ── 9. Org Structure ── */}}
+{{if .OrgStructure}}
+<div class="section accent-pro" id="org-structure">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Org Structure</h2>
+  </div>
+  <div class="section-body org-grid">
+    {{if .OrgStructure.Sites}}
+    <div class="org-group">
+      <div class="subsection-title">Sites ({{len .OrgStructure.Sites}})</div>
+      <table>
+        <thead><tr><th>Name</th><th>Devices</th></tr></thead>
+        <tbody>{{range .OrgStructure.Sites}}<tr><td>{{.Name}}</td><td>{{comma .Count}}</td></tr>{{end}}</tbody>
+      </table>
+    </div>
+    {{end}}
+    {{if .OrgStructure.Buildings}}
+    <div class="org-group">
+      <div class="subsection-title">Buildings ({{len .OrgStructure.Buildings}})</div>
+      <table>
+        <thead><tr><th>Name</th><th>Devices</th></tr></thead>
+        <tbody>{{range .OrgStructure.Buildings}}<tr><td>{{.Name}}</td><td>{{comma .Count}}</td></tr>{{end}}</tbody>
+      </table>
+    </div>
+    {{end}}
+    {{if .OrgStructure.Departments}}
+    <div class="org-group">
+      <div class="subsection-title">Departments ({{len .OrgStructure.Departments}})</div>
+      <table>
+        <thead><tr><th>Name</th><th>Devices</th></tr></thead>
+        <tbody>{{range .OrgStructure.Departments}}<tr><td>{{.Name}}</td><td>{{comma .Count}}</td></tr>{{end}}</tbody>
+      </table>
+    </div>
+    {{end}}
+    {{if .OrgStructure.Categories}}
+    <div class="org-group">
+      <div class="subsection-title">Categories ({{len .OrgStructure.Categories}})</div>
+      <table>
+        <thead><tr><th>Name</th><th>Items</th></tr></thead>
+        <tbody>{{range .OrgStructure.Categories}}<tr><td>{{.Name}}</td><td>{{comma .Count}}</td></tr>{{end}}</tbody>
+      </table>
+    </div>
     {{end}}
   </div>
 </div>

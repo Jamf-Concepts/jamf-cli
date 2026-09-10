@@ -20,7 +20,7 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	wg.Add(11)
+	wg.Add(13)
 
 	go func() {
 		defer wg.Done()
@@ -150,6 +150,30 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 		}
 		mu.Lock()
 		data.MobileSmartGroups = sg
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		cleanup, err := collectCleanupAnalysis(ctx, client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: cleanup analysis: %v\n", err)
+			return
+		}
+		mu.Lock()
+		data.Cleanup = cleanup
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		org, err := collectOrgStructure(ctx, client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: org structure: %v\n", err)
+			return
+		}
+		mu.Lock()
+		data.OrgStructure = org
 		mu.Unlock()
 	}()
 
@@ -671,4 +695,267 @@ func collectSmartGroups(ctx context.Context, client registry.HTTPClient, endpoin
 	}
 
 	return summary, nil
+}
+
+// collectCleanupAnalysis identifies housekeeping candidates:
+// disabled policies, unscoped policies, unscoped config profiles,
+// packages not referenced by any policy, and scripts not referenced by any policy.
+func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*cleanupAnalysis, error) {
+	// Fetch policies with full detail to check scope and enabled state.
+	policies, err := FetchClassicList(ctx, client, "/JSSResource/policies", "policy")
+	if err != nil {
+		return nil, fmt.Errorf("policies: %w", err)
+	}
+
+	var disabledPolicies, unscopedPolicies int
+	referencedPackages := make(map[string]bool)
+	referencedScripts := make(map[string]bool)
+
+	for _, raw := range policies {
+		p, _ := raw.(map[string]any)
+		if p == nil {
+			continue
+		}
+		id := extractClassicID(p)
+		if id == "" {
+			continue
+		}
+		detail, err := fetchJSON(ctx, client, "/JSSResource/policies/id/"+id)
+		if err != nil {
+			continue
+		}
+		pol, _ := detail["policy"].(map[string]any)
+		if pol == nil {
+			pol = detail
+		}
+
+		gen, _ := pol["general"].(map[string]any)
+		if enabled, _ := gen["enabled"].(bool); !enabled {
+			disabledPolicies++
+		}
+
+		scope, _ := pol["scope"].(map[string]any)
+		if isEmptyScope(scope) {
+			unscopedPolicies++
+		}
+
+		// Track which packages and scripts this policy references.
+		if pkgs, _ := pol["package_configuration"].(map[string]any); pkgs != nil {
+			if pkgList, _ := pkgs["packages"].([]any); pkgList != nil {
+				for _, pkg := range pkgList {
+					if pm, _ := pkg.(map[string]any); pm != nil {
+						if name, _ := pm["name"].(string); name != "" {
+							referencedPackages[name] = true
+						}
+					}
+				}
+			}
+		}
+		if scripts, _ := pol["scripts"].(map[string]any); scripts != nil {
+			if scriptList, _ := scripts["script"].([]any); scriptList != nil {
+				for _, scr := range scriptList {
+					if sm, _ := scr.(map[string]any); sm != nil {
+						if name, _ := sm["name"].(string); name != "" {
+							referencedScripts[name] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Unscoped config profiles.
+	profiles, err := FetchClassicList(ctx, client, "/JSSResource/osxconfigurationprofiles", "configuration_profile")
+	if err != nil {
+		return nil, fmt.Errorf("config profiles: %w", err)
+	}
+	var unscopedProfiles int
+	for _, raw := range profiles {
+		p, _ := raw.(map[string]any)
+		if p == nil {
+			continue
+		}
+		id := extractClassicID(p)
+		if id == "" {
+			continue
+		}
+		detail, err := fetchJSON(ctx, client, "/JSSResource/osxconfigurationprofiles/id/"+id)
+		if err != nil {
+			continue
+		}
+		prof, _ := detail["os_x_configuration_profile"].(map[string]any)
+		if prof == nil {
+			continue
+		}
+		scope, _ := prof["scope"].(map[string]any)
+		if isEmptyScope(scope) {
+			unscopedProfiles++
+		}
+	}
+
+	// Unused packages: packages not referenced by any policy.
+	allPackages, err := FetchClassicList(ctx, client, "/JSSResource/packages", "package")
+	if err != nil {
+		return nil, fmt.Errorf("packages: %w", err)
+	}
+	unusedPackages := 0
+	for _, raw := range allPackages {
+		pkg, _ := raw.(map[string]any)
+		name, _ := pkg["name"].(string)
+		if !referencedPackages[name] {
+			unusedPackages++
+		}
+	}
+
+	// Unused scripts: scripts not referenced by any policy.
+	allScripts, err := FetchClassicList(ctx, client, "/JSSResource/scripts", "script")
+	if err != nil {
+		return nil, fmt.Errorf("scripts: %w", err)
+	}
+	unusedScripts := 0
+	for _, raw := range allScripts {
+		scr, _ := raw.(map[string]any)
+		name, _ := scr["name"].(string)
+		if !referencedScripts[name] {
+			unusedScripts++
+		}
+	}
+
+	return &cleanupAnalysis{
+		DisabledPolicies: disabledPolicies,
+		UnscopedPolicies: unscopedPolicies,
+		UnscopedProfiles: unscopedProfiles,
+		UnusedPackages:   unusedPackages,
+		UnusedScripts:    unusedScripts,
+	}, nil
+}
+
+// isEmptyScope returns true when a Classic API scope object has no targets.
+// An unscoped policy/profile has no computers, groups, buildings, departments,
+// or network segments.
+func isEmptyScope(scope map[string]any) bool {
+	if scope == nil {
+		return true
+	}
+	for _, key := range []string{"computers", "computer_groups", "buildings", "departments", "network_segments", "mobile_devices", "mobile_device_groups"} {
+		if items, _ := scope[key].([]any); len(items) > 0 {
+			return false
+		}
+	}
+	// A scope targeting "All Computers" or similar is non-empty.
+	if allComp, _ := scope["all_computers"].(bool); allComp {
+		return false
+	}
+	if allMobile, _ := scope["all_mobile_devices"].(bool); allMobile {
+		return false
+	}
+	return true
+}
+
+// extractClassicID extracts the integer id field from a Classic API list item.
+func extractClassicID(item map[string]any) string {
+	if v, ok := item["id"].(float64); ok && v > 0 {
+		return fmt.Sprintf("%.0f", v)
+	}
+	return ""
+}
+
+// collectOrgStructure fetches sites, buildings, departments, and categories
+// with their device counts to give an overview of the org hierarchy.
+func collectOrgStructure(ctx context.Context, client registry.HTTPClient) (*orgStructure, error) {
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	org := &orgStructure{}
+
+	type orgTask struct {
+		target *[]orgEntry
+		path   string
+		key    string
+	}
+
+	tasks := []orgTask{
+		{&org.Sites, "/JSSResource/sites", "site"},
+		{&org.Buildings, "/JSSResource/buildings", "building"},
+		{&org.Departments, "/JSSResource/departments", "department"},
+	}
+
+	// Fetch all computer inventory once to count per site/building/department.
+	allComputers, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=GENERAL", 500)
+	if err != nil {
+		return nil, fmt.Errorf("computers-inventory: %w", err)
+	}
+
+	// Build site/building/department counts from inventory.
+	siteCounts := make(map[string]int)
+	buildingCounts := make(map[string]int)
+	deptCounts := make(map[string]int)
+	for _, comp := range allComputers {
+		gen, _ := comp["general"].(map[string]any)
+		if gen == nil {
+			continue
+		}
+		if site, _ := gen["site"].(map[string]any); site != nil {
+			if name, _ := site["name"].(string); name != "" && name != "None" {
+				siteCounts[name]++
+			}
+		}
+		if bldg, _ := gen["building"].(map[string]any); bldg != nil {
+			if name, _ := bldg["name"].(string); name != "" && name != "None" {
+				buildingCounts[name]++
+			}
+		}
+		if dept, _ := gen["department"].(map[string]any); dept != nil {
+			if name, _ := dept["name"].(string); name != "" && name != "None" {
+				deptCounts[name]++
+			}
+		}
+	}
+
+	toEntries := func(counts map[string]int) []orgEntry {
+		entries := make([]orgEntry, 0, len(counts))
+		for name, count := range counts {
+			entries = append(entries, orgEntry{Name: name, Count: count})
+		}
+		sort.Slice(entries, func(i, j int) bool {
+			if entries[i].Count != entries[j].Count {
+				return entries[i].Count > entries[j].Count
+			}
+			return entries[i].Name < entries[j].Name
+		})
+		return entries
+	}
+
+	org.Sites = toEntries(siteCounts)
+	org.Buildings = toEntries(buildingCounts)
+	org.Departments = toEntries(deptCounts)
+
+	// Categories: fetch list + item count per category in parallel.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cats, err := FetchAllPaginated(ctx, client, "/v1/categories", 100)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: categories: %v\n", err)
+			return
+		}
+		entries := make([]orgEntry, 0, len(cats))
+		for _, cat := range cats {
+			name, _ := cat["name"].(string)
+			if name == "" || name == "No category assigned" {
+				continue
+			}
+			entries = append(entries, orgEntry{Name: name})
+		}
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].Name < entries[j].Name
+		})
+		mu.Lock()
+		org.Categories = entries
+		mu.Unlock()
+	}()
+
+	_ = tasks // used above via direct count maps
+	wg.Wait()
+
+	return org, nil
 }
