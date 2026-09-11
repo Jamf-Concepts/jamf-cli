@@ -28,14 +28,25 @@ func newDashboardCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		extraProfiles []string
 		title         string
 		smartGroups   []string
+		full          bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "dashboard",
 		Short: "Generate a cross-product HTML fleet dashboard",
 		Long: `Generate a self-contained HTML report aggregating fleet health, security
-posture, audit findings, patch compliance, and more across Jamf Pro,
-Protect, and Platform products.
+posture, audit findings, and more across Jamf Pro, Protect, and Platform
+products.
+
+By default the report runs a fast collection (~20 API calls) that covers
+fleet counts, security posture, OS distribution, check-in compliance, audit
+findings, and environment object counts — a comprehensive overview regardless
+of instance size.
+
+Add --full to also collect patch compliance (2 calls per patch title), hardware
+models, cleanup analysis (1 API call per policy and profile), and org structure.
+On a large instance with 30 patch titles and 300 config objects, --full adds
+roughly 350 additional API calls and may take 60-120 seconds.
 
 The report covers the profile selected by the global -p/--profile flag
 (or JAMF_PROFILE, or the configured default). Add --include-profile to
@@ -47,6 +58,7 @@ HTML goes to stdout; redirect it, or use the global --out-file.
 
 Examples:
   jamf-cli dashboard -p prod-pro --out-file report.html
+  jamf-cli dashboard -p prod-pro --full --out-file full-report.html
   jamf-cli dashboard -p prod-pro --include-profile prod-protect > report.html
   jamf-cli dashboard -p my-platform --include-profile my-pro --title "Q2 Fleet Report"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,6 +83,7 @@ Examples:
 				Profiles:    names,
 				Title:       title,
 				SmartGroups: smartGroups,
+				Full:        full,
 			})
 		},
 	}
@@ -78,6 +91,7 @@ Examples:
 	cmd.Flags().StringArrayVar(&extraProfiles, "include-profile", nil, "additional config profile(s) to pull into the same report (repeatable)")
 	cmd.Flags().StringVar(&title, "title", "Jamf Fleet Dashboard", "report title")
 	cmd.Flags().StringArrayVar(&smartGroups, "smart-groups", nil, "smart group names to visualize (repeatable)")
+	cmd.Flags().BoolVar(&full, "full", false, "collect additional sections (patch compliance, hardware models, cleanup analysis, org structure) — significantly more API calls on large instances")
 
 	return cmd
 }
@@ -111,13 +125,15 @@ type dashboardOptions struct {
 	Profiles    []string
 	Title       string
 	SmartGroups []string
+	Full        bool
 }
 
 type resolvedClients struct {
-	profile  dashboardProfile
-	pro      registry.HTTPClient
-	protect  registry.ProtectClient
-	platform *jamfplatform.Client
+	profile        dashboardProfile
+	pro            registry.HTTPClient
+	protect        registry.ProtectClient
+	platform       *jamfplatform.Client
+	hasSecurityCloud bool
 }
 
 func runDashboard(ctx context.Context, w io.Writer, opts dashboardOptions) error {
@@ -148,12 +164,15 @@ func runDashboard(ctx context.Context, w io.Writer, opts dashboardOptions) error
 
 		switch rc.profile.Product {
 		case "pro":
-			collectProData(ctx, rc.pro, data, opts.SmartGroups)
+			collectProData(ctx, rc.pro, data, opts.SmartGroups, opts.Full)
 		case "protect":
 			collectProtectData(ctx, rc.protect, data)
 		case "platform":
-			collectProData(ctx, rc.pro, data, opts.SmartGroups)
+			collectProData(ctx, rc.pro, data, opts.SmartGroups, opts.Full)
 			collectPlatformData(ctx, rc.platform, data)
+			if rc.hasSecurityCloud {
+				collectSecurityCloudData(ctx, rc.platform, data)
+			}
 		}
 	}
 
@@ -202,8 +221,16 @@ func resolveDashboardProfile(cfg *config.Config, profileName string) (resolvedCl
 		if !ok {
 			return resolvedClients{}, fmt.Errorf("profile %q has platform product but non-platform auth", profileName)
 		}
-		rc.pro = &cliClient{client.New(resolvedURL, authProvider, client.WithTenantID(pp.TenantID()))}
-		rc.platform = newPlatformSDKClient(resolvedURL, pp.ClientID(), pp.ClientSecret(), pp.TenantID(), false)
+		if err := checkScopeConflict(cfg, profileName); err != nil {
+			return resolvedClients{}, err
+		}
+		rc.pro = &cliClient{client.New(resolvedURL, authProvider, client.WithGatewayScope(pp.Scope()))}
+		sdk, err := newPlatformSDKClient(resolvedURL, pp.ClientID(), pp.ClientSecret(), pp.Scope(), shouldShowSpinner())
+		if err != nil {
+			return resolvedClients{}, err
+		}
+		rc.platform = sdk
+		rc.hasSecurityCloud = true
 		rc.profile.URL = resolvedURL
 
 	default: // "pro"
@@ -213,7 +240,7 @@ func resolveDashboardProfile(cfg *config.Config, profileName string) (resolvedCl
 		}
 		clientOpts := []client.Option{client.WithVerbose(verboseLevel)}
 		if pp, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
-			clientOpts = append(clientOpts, client.WithTenantID(pp.TenantID()))
+			clientOpts = append(clientOpts, client.WithGatewayScope(pp.Scope()))
 		}
 		type jarProvider interface {
 			Jar() http.CookieJar

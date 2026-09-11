@@ -123,14 +123,23 @@ Configure it in an MCP client (example for Claude Desktop's config):
 					"file path, its size, and any warnings — never the HTML, which is far " +
 					"too large for a conversation. Use this when the administrator wants " +
 					"something to share or action rather than read now; use run_command for " +
-					"questions answered by a table. The report covers the profile this server " +
-					"was started with. A Platform profile (auth-method: platform) gives the " +
-					"most comprehensive report: it authenticates one set of credentials " +
-					"against the Jamf Platform Gateway and collects both Jamf Pro data and " +
-					"Platform-specific data (blueprints, compliance benchmarks, DDM reports). " +
-					"The destination and file name are server-derived and cannot be set per " +
-					"call. After calling it, tell the administrator the path and summarize " +
-					"what the report says.",
+					"questions answered by a table.\n\n" +
+					"TWO-TIER COLLECTION — call generate_report WITHOUT full:true first. " +
+					"The fast report (~20 API calls) covers fleet counts, security posture, " +
+					"OS distribution, check-in compliance, audit findings, and environment stats. " +
+					"After it completes, report the fleet size to the administrator and offer " +
+					"the extended report: 'The instance has N managed devices. I can run a full " +
+					"report that also includes patch compliance, hardware models, cleanup analysis, " +
+					"and org structure — this adds roughly 200-500 additional API calls and may " +
+					"take 60-120 seconds on a large instance. Would you like the full report?' " +
+					"Only set full:true after explicit confirmation.\n\n" +
+					"The report covers the profile this server was started with. A Platform " +
+					"profile (auth-method: platform) gives the most comprehensive report: it " +
+					"authenticates one set of credentials against the Jamf Platform Gateway and " +
+					"collects both Jamf Pro data and Platform-specific data (blueprints, compliance " +
+					"benchmarks, DDM reports). The destination and file name are server-derived " +
+					"and cannot be set per call. After calling it, tell the administrator the " +
+					"path and summarize what the report says.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in generateReportInput) (*mcp.CallToolResult, any, error) {
 				return runReportChild(ctx, executable, serverProfile, in, time.Now()), nil, nil
 			})
@@ -156,6 +165,7 @@ type runCommandInput struct {
 type generateReportInput struct {
 	Title       string   `json:"title,omitempty" jsonschema:"report title shown in the HTML heading"`
 	SmartGroups []string `json:"smart_groups,omitempty" jsonschema:"smart group names to visualize"`
+	Full        bool     `json:"full,omitempty" jsonschema:"set to true to collect additional sections: patch compliance per title (2 calls per title), hardware models, cleanup analysis (1 call per policy and profile), and org structure. Omit or set false for the default fast report (~20 API calls). Before setting this, tell the user how many devices the instance has and ask if they want the extended report — it can add 200-500 API calls on a large instance and take 60-120 seconds."`
 }
 
 // runChild re-invokes this binary with the given args, injecting the server's
@@ -332,6 +342,9 @@ func buildReportArgs(in generateReportInput) []string {
 			continue
 		}
 		args = append(args, "--smart-groups", g)
+	}
+	if in.Full {
+		args = append(args, "--full")
 	}
 	return args
 }

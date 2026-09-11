@@ -135,6 +135,19 @@ func TestSmokeDashboard(t *testing.T) {
 			},
 		},
 		Protect: &protectCoverage{Plans: 8, AnalyticsTotal: 247, AnalyticsActive: 247, Endpoints: 2891, AnalyticSets: 12, ExceptionSets: 4},
+		SecurityCloud: &securityCloudStatus{
+			ZtnaApps:     34,
+			ZtnaGateways: 6,
+			DeviceGroups: 12,
+			DnsZones:     4,
+			UemConnector: true,
+			AppsByCategory: []secCloudCategory{
+				{Name: "Productivity", Count: 14},
+				{Name: "Dev Tools", Count: 9},
+				{Name: "Business", Count: 7},
+				{Name: "Uncategorized", Count: 4},
+			},
+		},
 		Platform: &platformStatus{
 			Blueprints: []blueprintEntry{
 				{Name: "Corporate Mac — Standard", DeploymentState: "ACTIVE"},

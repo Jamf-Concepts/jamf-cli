@@ -395,6 +395,13 @@ var handWrittenUndeterminedMethods = map[string][]string{
 	// `pro diff` to capture a prestage's device scope.
 	"/pro/v2/computer-prestages/{}/scope":      {"GET"},
 	"/pro/v2/mobile-device-prestages/{}/scope": {"GET"},
+
+	// dashboard_pro.go — the smart-group endpoint is an argument to
+	// collectSmartGroups (which reads the collection and filters client-side)
+	// and to paginatedCount; the mobile-devices path is an argument to
+	// fetchPaginatedCountInt and FetchAllPaginated. All reads.
+	"/pro/v3/computer-groups/smart-groups": {"GET"},
+	"/pro/v2/mobile-devices":               {"GET"},
 }
 
 // unservedHandWrittenPath is one accepted exception, keyed "METHOD gateway-path"

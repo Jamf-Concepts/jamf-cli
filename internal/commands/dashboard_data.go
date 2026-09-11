@@ -24,10 +24,11 @@ type DashboardData struct {
 	EnvStats            *environmentStats
 	Checkin             *checkinStatus
 	Hardware            *hardwareModels
-	Protect      *protectCoverage
-	Platform     *platformStatus
-	Cleanup      *cleanupAnalysis
-	OrgStructure *orgStructure
+	Protect       *protectCoverage
+	Platform      *platformStatus
+	SecurityCloud *securityCloudStatus
+	Cleanup       *cleanupAnalysis
+	OrgStructure  *orgStructure
 }
 
 type dashboardProfile struct {
@@ -258,6 +259,20 @@ type orgStructure struct {
 }
 
 type orgEntry struct {
+	Name  string
+	Count int
+}
+
+type securityCloudStatus struct {
+	ZtnaApps       int
+	ZtnaGateways   int
+	DeviceGroups   int
+	DnsZones       int
+	UemConnector   bool
+	AppsByCategory []secCloudCategory
+}
+
+type secCloudCategory struct {
 	Name  string
 	Count int
 }

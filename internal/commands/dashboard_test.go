@@ -190,6 +190,7 @@ func TestRenderDashboard_NoSectionsWhenNil(t *testing.T) {
 		"Patch Version Spread",
 		"OS Distribution",
 		"Jamf Platform",
+		"Jamf Security Cloud",
 		"Check-in Status",
 		"Computer Models",
 		"Mobile Models",
@@ -466,6 +467,83 @@ func TestRenderDashboard_OrgStructureAbsentWhenNil(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), "Org Structure") {
 		t.Error("HTML should not contain Org Structure section when OrgStructure is nil")
+	}
+}
+
+func TestRenderDashboard_SecurityCloudSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Security Cloud Dashboard",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.5.0",
+		SecurityCloud: &securityCloudStatus{
+			ZtnaApps:     12,
+			ZtnaGateways: 3,
+			DeviceGroups: 7,
+			DnsZones:     2,
+			UemConnector: true,
+			AppsByCategory: []secCloudCategory{
+				{Name: "Business", Count: 8},
+				{Name: "Uncategorized", Count: 4},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	for _, want := range []string{
+		"Jamf Security Cloud",
+		"accent-teal",
+		"ZTNA Apps",
+		"ZTNA Gateways",
+		"Device Groups",
+		"DNS Zones",
+		"UEM Connect configured",
+		"Apps by Category",
+		"Business",
+		"Uncategorized",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML missing %q in Security Cloud section", want)
+		}
+	}
+}
+
+func TestRenderDashboard_SecurityCloudAbsentWhenNil(t *testing.T) {
+	data := &DashboardData{
+		Title:       "No Security Cloud",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	if strings.Contains(buf.String(), "Jamf Security Cloud") {
+		t.Error("HTML should not contain Security Cloud section when SecurityCloud is nil")
+	}
+}
+
+func TestRenderDashboard_SecurityCloudNoUemConnector(t *testing.T) {
+	data := &DashboardData{
+		Title:         "SC No UEM",
+		GeneratedAt:   time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:    "1.0.0",
+		SecurityCloud: &securityCloudStatus{ZtnaApps: 4, UemConnector: false},
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	html := buf.String()
+	if !strings.Contains(html, "Jamf Security Cloud") {
+		t.Error("HTML missing Security Cloud section")
+	}
+	if strings.Contains(html, "UEM Connect configured") {
+		t.Error("HTML should not show UEM Connect indicator when UemConnector is false")
 	}
 }
 

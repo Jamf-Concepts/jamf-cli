@@ -19,14 +19,21 @@ const dashboardTemplate = `<!DOCTYPE html>
 <style>
 /* ── Theme ────────────────────────────────── */
 :root,[data-theme="dark"]{
-  --bg:#0b0f19;--bg2:#111827;--card:rgba(255,255,255,0.035);--card-hover:rgba(255,255,255,0.06);
-  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --bg:#0b0f19;--bg2:#111827;--card:rgba(255,255,255,0.04);--card-hover:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
   --text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
   --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--teal:#14b8a6;
-  --ring-track:rgba(255,255,255,0.06);--bar-track:rgba(255,255,255,0.06);
-  --stripe:rgba(255,255,255,0.02);--header-bg:#060910;
+  --ring-track:rgba(255,255,255,0.06);--bar-track:rgba(255,255,255,0.07);
+  --stripe:rgba(255,255,255,0.025);--header-bg:#060910;
   --glow1:rgba(59,130,246,0.07);--glow2:rgba(139,92,246,0.05);
   --alert-bg:rgba(239,68,68,0.08);--alert-border:rgba(239,68,68,0.2);
+  --shadow:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.3);
+  /* Nebula design token aliases — mirrors @jamf/design-system-web-components-next chart tokens */
+  --color-font-base:var(--text);--color-border-secondary:var(--border2);
+  --color-chart-blue:var(--blue);--color-chart-green:var(--green);
+  --color-chart-yellow:var(--amber);--color-chart-red:var(--red);
+  --color-chart-teal:var(--teal);--color-chart-indigo:var(--purple);
+  --color-chart-orange:#f97316;--color-chart-pink:#ec4899;
 }
 [data-theme="light"]{
   --bg:#f0f2f5;--bg2:#ffffff;--card:#ffffff;--card-hover:#f8fafc;
@@ -37,6 +44,13 @@ const dashboardTemplate = `<!DOCTYPE html>
   --stripe:#f8fafc;--header-bg:#0c101a;
   --glow1:rgba(59,130,246,0.04);--glow2:rgba(139,92,246,0.03);
   --alert-bg:rgba(239,68,68,0.06);--alert-border:rgba(239,68,68,0.15);
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  /* Nebula design token aliases */
+  --color-font-base:var(--text);--color-border-secondary:var(--border2);
+  --color-chart-blue:var(--blue);--color-chart-green:var(--green);
+  --color-chart-yellow:var(--amber);--color-chart-red:var(--red);
+  --color-chart-teal:var(--teal);--color-chart-indigo:var(--purple);
+  --color-chart-orange:#f97316;--color-chart-pink:#ec4899;
 }
 
 /* ── Reset & Base ─────────────────────────── */
@@ -54,7 +68,7 @@ a{color:var(--blue);text-decoration:none}
 .header .meta{font-size:.75rem;color:#64748b;margin-top:.15rem}
 .header-actions{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
 .profiles{display:flex;gap:.35rem;flex-wrap:wrap}
-.badge{display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.7rem;font-weight:600;color:#fff;letter-spacing:.02em;
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:.375rem;font-size:.7rem;font-weight:600;color:#fff;letter-spacing:.02em;
   cursor:pointer;user-select:none;transition:opacity .2s,filter .2s}
 .badge.dimmed{opacity:.3;filter:grayscale(.5)}
 .badge-pro{background:var(--blue)}.badge-protect{background:var(--green)}.badge-platform{background:var(--purple)}
@@ -76,14 +90,14 @@ a{color:var(--blue);text-decoration:none}
 .container{max-width:1280px;margin:0 auto;padding:1rem 1.5rem;columns:2;column-gap:.75rem}
 
 /* ── Section Cards ────────────────────────── */
-.section{background:var(--card);border:1px solid var(--border);border-radius:.5rem;
-  opacity:0;animation:fadeUp .4s ease forwards;break-inside:avoid;margin-bottom:.75rem}
+.section{background:var(--card);border:1px solid var(--border);border-radius:.75rem;
+  box-shadow:var(--shadow);opacity:0;animation:fadeUp .4s ease forwards;break-inside:avoid;margin-bottom:.75rem}
 .section.full-width{column-span:all}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .section-head{display:flex;align-items:center;justify-content:space-between;
   padding:.6rem .85rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);transition:background .15s}
 .section-head:hover{background:var(--card-hover)}
-.section-head h2{font-size:.82rem;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text);
+.section-head h2{font-size:.82rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text);
   display:flex;align-items:center;gap:.4rem}
 .chevron{font-size:.55rem;color:var(--text3);transition:transform .2s;display:inline-block}
 .section.collapsed .section-body{display:none}
@@ -96,6 +110,7 @@ a{color:var(--blue);text-decoration:none}
 .accent-pro{border-left:2px solid var(--blue)}
 .accent-protect{border-left:2px solid var(--green)}
 .accent-platform{border-left:2px solid var(--purple)}
+.accent-teal{border-left:2px solid var(--teal)}
 
 /* ── Stat Row ─────────────────────────────── */
 .stat-row{display:flex;gap:1.25rem;flex-wrap:wrap}
@@ -163,8 +178,8 @@ tr:hover td{background:var(--card-hover)}
 
 /* ── Compliance Bars ──────────────────────── */
 .cbar{display:inline-flex;align-items:center;gap:.4rem;width:100%}
-.cbar-track{flex:1;height:6px;background:var(--bar-track);border-radius:3px;overflow:hidden}
-.cbar-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.cbar-track{flex:1;height:8px;background:var(--bar-track);border-radius:4px;overflow:hidden}
+.cbar-fill{height:100%;border-radius:4px;transition:width .4s ease}
 .cbar-text{font-size:.72rem;font-weight:600;min-width:2.5rem;text-align:right;
   font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums}
 
@@ -173,8 +188,8 @@ tr:hover td{background:var(--card-hover)}
 .os-row+.os-row{border-top:1px solid var(--border)}
 .os-label{font-size:.75rem;color:var(--text2);width:14rem;flex-shrink:0;font-weight:500;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.os-bar-track{flex:1;height:6px;background:var(--bar-track);border-radius:3px;overflow:hidden}
-.os-bar-fill{height:100%;border-radius:3px;background:var(--blue);transition:width .5s ease}
+.os-bar-track{flex:1;height:8px;background:var(--bar-track);border-radius:4px;overflow:hidden}
+.os-bar-fill{height:100%;border-radius:4px;background:var(--color-chart-blue);transition:width .5s ease}
 .os-count{font-size:.72rem;color:var(--text3);min-width:2.5rem;text-align:right;
   font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums}
 .os-pct{font-size:.7rem;color:var(--text3);min-width:2.8rem;text-align:right;
@@ -185,22 +200,23 @@ tr:hover td{background:var(--card-hover)}
 .spread-title:not(:first-child){margin-top:.6rem}
 .spread-bar{display:flex;height:22px;border-radius:4px;overflow:hidden;gap:1px}
 .spread-seg{min-width:2px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-.spread-seg:nth-child(1){background:var(--green)}
-.spread-seg:nth-child(2){background:var(--blue)}
-.spread-seg:nth-child(3){background:var(--amber)}
-.spread-seg:nth-child(4){background:#8b5cf6}
-.spread-seg:nth-child(5){background:#ec4899}
-.spread-seg:nth-child(6){background:#06b6d4}
-.spread-seg:nth-child(7){background:#f97316}
+.spread-seg:nth-child(1){background:var(--color-chart-green)}
+.spread-seg:nth-child(2){background:var(--color-chart-blue)}
+.spread-seg:nth-child(3){background:var(--color-chart-yellow)}
+.spread-seg:nth-child(4){background:var(--color-chart-indigo)}
+.spread-seg:nth-child(5){background:var(--color-chart-pink)}
+.spread-seg:nth-child(6){background:var(--color-chart-teal)}
+.spread-seg:nth-child(7){background:var(--color-chart-orange)}
 .spread-seg:nth-child(n+8){background:var(--text3)}
 .spread-seg-label{font-size:.58rem;font-weight:600;color:#fff;white-space:nowrap;padding:0 .25rem;
   text-shadow:0 0 2px rgba(0,0,0,.5);overflow:hidden;text-overflow:ellipsis}
 
-/* ── Deploy Badges ────────────────────────── */
-.deploy-badge{display:inline-block;padding:.1rem .4rem;border-radius:.2rem;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-.deploy-badge.active{background:rgba(16,185,129,0.12);color:var(--green)}
-.deploy-badge.inactive{background:rgba(255,255,255,0.06);color:var(--text3)}
-.deploy-badge.draft{background:rgba(245,158,11,0.12);color:var(--amber)}
+/* ── Deploy Badges (Nebula Tag-aligned) ───── */
+.deploy-badge{display:inline-block;padding:.15rem .45rem;border-radius:.375rem;font-size:.65rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:.03em;border:1px solid transparent}
+.deploy-badge.active{background:rgba(16,185,129,0.1);color:var(--color-chart-green);border-color:rgba(16,185,129,0.25)}
+.deploy-badge.inactive{background:rgba(255,255,255,0.04);color:var(--text3);border-color:var(--border2)}
+.deploy-badge.draft{background:rgba(245,158,11,0.1);color:var(--color-chart-yellow);border-color:rgba(245,158,11,0.25)}
 
 /* ── Alert Cards ──────────────────────────── */
 .alert-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
@@ -213,12 +229,12 @@ tr:hover td{background:var(--card-hover)}
 
 /* ── Protect Stat Grid ────────────────────── */
 .prot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.6rem}
-.prot-stat{text-align:center;padding:.5rem;background:rgba(255,255,255,0.02);border-radius:.35rem;border:1px solid var(--border)}
+.prot-stat{text-align:center;padding:.5rem;background:rgba(255,255,255,0.03);border-radius:.5rem;border:1px solid var(--border2)}
 .prot-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:1.1rem;font-weight:700;color:var(--text)}
 .prot-lbl{font-size:.67rem;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.03em;margin-top:.1rem}
 
 /* ── Subsection ───────────────────────────── */
-.subsection-title{font-size:.68rem;font-weight:650;text-transform:uppercase;letter-spacing:.05em;
+.subsection-title{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
   color:var(--text3);margin-bottom:.5rem;margin-top:.75rem}
 .subsection-title:first-child{margin-top:0}
 
@@ -684,7 +700,36 @@ tr:hover td{background:var(--card-hover)}
 </div>
 {{end}}
 
-{{/* ── 8. Cleanup Analysis ── */}}
+{{/* ── 8. Jamf Security Cloud ── */}}
+{{if .SecurityCloud}}
+<div class="section accent-teal" id="security-cloud">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Jamf Security Cloud</h2>
+  </div>
+  <div class="section-body">
+    <div class="prot-grid">
+      <div class="prot-stat"><div class="prot-val">{{comma .SecurityCloud.ZtnaApps}}</div><div class="prot-lbl">ZTNA Apps</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .SecurityCloud.ZtnaGateways}}</div><div class="prot-lbl">ZTNA Gateways</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .SecurityCloud.DeviceGroups}}</div><div class="prot-lbl">Device Groups</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .SecurityCloud.DnsZones}}</div><div class="prot-lbl">DNS Zones</div></div>
+    </div>
+    {{if .SecurityCloud.UemConnector}}<div style="margin-top:.6rem;font-size:.75rem;color:var(--green)">● UEM Connect configured</div>{{end}}
+    {{if .SecurityCloud.AppsByCategory}}
+    <div class="subsection-title" style="margin-top:.75rem">Apps by Category</div>
+    <table>
+      <thead><tr><th>Category</th><th>Apps</th></tr></thead>
+      <tbody>
+        {{range .SecurityCloud.AppsByCategory}}
+        <tr><td>{{.Name}}</td><td>{{.Count}}</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{/* ── 10. Cleanup Analysis ── */}}
 {{if .Cleanup}}
 <div class="section accent-pro" id="cleanup">
   <div class="section-head" onclick="toggleSection(this)">
@@ -706,7 +751,7 @@ tr:hover td{background:var(--card-hover)}
 </div>
 {{end}}
 
-{{/* ── 9. Org Structure ── */}}
+{{/* ── 11. Org Structure ── */}}
 {{if .OrgStructure}}
 <div class="section accent-pro" id="org-structure">
   <div class="section-head" onclick="toggleSection(this)">

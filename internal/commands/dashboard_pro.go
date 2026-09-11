@@ -13,14 +13,25 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// collectProData orchestrates all Jamf Pro data collection in parallel.
-// Failures in individual sections are logged to stderr; they do not abort
-// the dashboard — other sections continue normally.
-func collectProData(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string) {
+// collectProData orchestrates all Jamf Pro data collection.
+// The fast tier (~20 API calls) always runs. The full tier (patch compliance,
+// hardware models, cleanup analysis, org structure) runs only when full is true —
+// it scales with instance size and can add hundreds of calls on large instances.
+func collectProData(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, full bool) {
+	collectProDataFast(ctx, client, data, smartGroupNames)
+	if full {
+		collectProDataFull(ctx, client, data, smartGroupNames)
+	}
+}
+
+// collectProDataFast runs the fixed-cost collectors (~20 API calls total,
+// independent of instance size). Covers fleet counts, security posture,
+// OS distribution, check-in compliance, audit findings, and environment stats.
+func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	wg.Add(13)
+	wg.Add(8)
 
 	go func() {
 		defer wg.Done()
@@ -54,19 +65,6 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 			data.Audit = audit
 			mu.Unlock()
 		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		patch, spread, err := collectPatchCompliance(ctx, client)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: patch compliance: %v\n", err)
-			return
-		}
-		mu.Lock()
-		data.Patch = patch
-		data.PatchSpread = spread
-		mu.Unlock()
 	}()
 
 	go func() {
@@ -119,19 +117,7 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 
 	go func() {
 		defer wg.Done()
-		hw, err := collectHardwareModels(ctx, client)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: hardware models: %v\n", err)
-			return
-		}
-		mu.Lock()
-		data.Hardware = hw
-		mu.Unlock()
-	}()
-
-	go func() {
-		defer wg.Done()
-		sg, err := collectSmartGroups(ctx, client, "/v2/computer-groups/smart-groups", smartGroupNames, "membershipCount")
+		sg, err := collectSmartGroups(ctx, client, "/v3/computer-groups/smart-groups", smartGroupNames, "membershipCount")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: computer smart groups: %v\n", err)
 			return
@@ -141,15 +127,45 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 		mu.Unlock()
 	}()
 
+	wg.Wait()
+
+	if data.Fleet != nil && data.ComputerSmartGroups != nil {
+		data.ComputerSmartGroups.TotalFleet = data.Fleet.ManagedComputers + data.Fleet.UnmanagedComputers
+	}
+}
+
+// collectProDataFull runs the variable-cost collectors. Call count scales with
+// instance size: 2 calls per patch title + 1 call per policy + 1 per profile.
+// A mid-sized instance (30 patch titles, 200 policies, 100 profiles) adds ~360
+// additional API calls beyond the fast tier.
+func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string) {
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	wg.Add(4)
+
 	go func() {
 		defer wg.Done()
-		sg, err := collectSmartGroups(ctx, client, "/v1/mobile-device-groups/smart-groups", smartGroupNames, "count")
+		patch, spread, err := collectPatchCompliance(ctx, client)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: mobile smart groups: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: patch compliance: %v\n", err)
 			return
 		}
 		mu.Lock()
-		data.MobileSmartGroups = sg
+		data.Patch = patch
+		data.PatchSpread = spread
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		hw, err := collectHardwareModels(ctx, client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: hardware models: %v\n", err)
+			return
+		}
+		mu.Lock()
+		data.Hardware = hw
 		mu.Unlock()
 	}()
 
@@ -179,14 +195,19 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 
 	wg.Wait()
 
-	// Populate smart group fleet totals from already-fetched fleet data (avoids re-fetching inventory-information).
-	if data.Fleet != nil {
-		if data.ComputerSmartGroups != nil {
-			data.ComputerSmartGroups.TotalFleet = data.Fleet.ManagedComputers + data.Fleet.UnmanagedComputers
-		}
-		if data.MobileSmartGroups != nil {
-			data.MobileSmartGroups.TotalFleet = data.Fleet.ManagedMobile + data.Fleet.UnmanagedMobile
-		}
+	// Mobile smart groups are also full-tier: member counts on large fleets
+	// can be slow. Populate fleet total once mobile data is in.
+	mgSG, err := collectSmartGroups(ctx, client, "/v2/mobile-device-groups/smart-groups", smartGroupNames, "count")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: mobile smart groups: %v\n", err)
+	} else {
+		mu.Lock()
+		data.MobileSmartGroups = mgSG
+		mu.Unlock()
+	}
+
+	if data.Fleet != nil && data.MobileSmartGroups != nil {
+		data.MobileSmartGroups.TotalFleet = data.Fleet.ManagedMobile + data.Fleet.UnmanagedMobile
 	}
 }
 
@@ -225,7 +246,7 @@ func collectFleetCounts(ctx context.Context, client registry.HTTPClient) (*fleet
 // collectSecurityPosture fetches all computers with SECURITY and DISK_ENCRYPTION
 // sections, then counts how many have each security feature enabled.
 func collectSecurityPosture(ctx context.Context, client registry.HTTPClient) (*securityPosture, error) {
-	all, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=SECURITY&section=DISK_ENCRYPTION", 500)
+	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=SECURITY&section=DISK_ENCRYPTION", 500)
 	if err != nil {
 		return nil, fmt.Errorf("computers-inventory security: %w", err)
 	}
@@ -284,7 +305,7 @@ func collectAuditFindings(ctx context.Context, client registry.HTTPClient) *audi
 // collectPatchCompliance fetches all patch software title configurations and
 // then collects a per-title patch summary in parallel.
 func collectPatchCompliance(ctx context.Context, client registry.HTTPClient) (*patchCompliance, []patchVersionSpread, error) {
-	configs, err := FetchAllPaginated(ctx, client, "/v2/patch-software-title-configurations", 100)
+	configs, err := FetchAllPaginated(ctx, client, "/v3/patch-software-title-configurations", 100)
 	if err != nil {
 		return nil, nil, fmt.Errorf("patch-software-title-configurations: %w", err)
 	}
@@ -303,13 +324,13 @@ func collectPatchCompliance(ctx context.Context, client registry.HTTPClient) (*p
 		if id == "" {
 			return patchResult{}, fmt.Errorf("missing id in patch config")
 		}
-		summaryPath := fmt.Sprintf("/v2/patch-software-title-configurations/%s/patch-summary", id)
+		summaryPath := fmt.Sprintf("/v3/patch-software-title-configurations/%s/patch-summary", id)
 		summary, err := fetchJSON(ctx, client, summaryPath)
 		if err != nil {
 			return patchResult{}, err
 		}
 
-		versionsPath := fmt.Sprintf("/v2/patch-software-title-configurations/%s/patch-summary/versions", id)
+		versionsPath := fmt.Sprintf("/v3/patch-software-title-configurations/%s/patch-summary/versions", id)
 		versions, vErr := FetchAllPaginated(ctx, client, versionsPath, 100)
 		if vErr != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: patch versions for %s: %v\n", id, vErr)
@@ -389,7 +410,7 @@ func collectDeviceCompliance(ctx context.Context, client registry.HTTPClient) (*
 	const staleDays = 14
 	cutoff := timeNow().AddDate(0, 0, -staleDays).UTC().Format("2006-01-02")
 	staleData, err := fetchJSON(ctx, client,
-		fmt.Sprintf("/v3/computers-inventory?section=GENERAL&page-size=1&filter=general.lastContactTime%%3C%s", cutoff))
+		fmt.Sprintf("/v4/computers-inventory?section=GENERAL&page-size=1&filter=general.lastCheckIn%%3C%s", cutoff))
 	staleCount := 0
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: stale device check-in count: %v\n", err)
@@ -419,7 +440,7 @@ func collectDeviceCompliance(ctx context.Context, client registry.HTTPClient) (*
 // collectOSDistribution fetches all computers with OPERATING_SYSTEM section
 // and groups them by OS version, sorted by count descending.
 func collectOSDistribution(ctx context.Context, client registry.HTTPClient) (*osDistribution, error) {
-	all, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=OPERATING_SYSTEM", 500)
+	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=OPERATING_SYSTEM", 500)
 	if err != nil {
 		return nil, fmt.Errorf("computers-inventory OS section: %w", err)
 	}
@@ -481,8 +502,8 @@ func collectEnvironmentStats(ctx context.Context, client registry.HTTPClient) (*
 		{&stats.ConfigProfiles, classicCount("/JSSResource/osxconfigurationprofiles")},
 		{&stats.Scripts, paginatedCount("/v1/scripts")},
 		{&stats.Packages, classicCount("/JSSResource/packages")},
-		{&stats.ComputerSmartGrps, paginatedCount("/v2/computer-groups/smart-groups")},
-		{&stats.MobileSmartGrps, paginatedCount("/v1/mobile-device-groups/smart-groups")},
+		{&stats.ComputerSmartGrps, paginatedCount("/v3/computer-groups/smart-groups")},
+		{&stats.MobileSmartGrps, paginatedCount("/v2/mobile-device-groups/smart-groups")},
 		{&stats.ExtAttributes, paginatedCount("/v1/computer-extension-attributes")},
 		{&stats.Categories, paginatedCount("/v1/categories")},
 	}
@@ -518,7 +539,7 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*che
 
 	go func() {
 		defer wg.Done()
-		n, err := fetchPaginatedCountInt(ctx, client, "/v3/computers-inventory?section=GENERAL")
+		n, err := fetchPaginatedCountInt(ctx, client, "/v4/computers-inventory?section=GENERAL")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: computer total count: %v\n", err)
 			return
@@ -531,7 +552,7 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*che
 	go func() {
 		defer wg.Done()
 		n, err := fetchPaginatedCountInt(ctx, client,
-			fmt.Sprintf("/v3/computers-inventory?section=GENERAL&filter=general.lastContactTime%%3C%s", cutoff))
+			fmt.Sprintf("/v4/computers-inventory?section=GENERAL&filter=general.lastCheckIn%%3C%s", cutoff))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: overdue computer count: %v\n", err)
 			return
@@ -597,7 +618,7 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient) (*ha
 
 	go func() {
 		defer wg.Done()
-		all, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=HARDWARE", 500)
+		all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=HARDWARE", 500)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: computer hardware: %v\n", err)
 			return
@@ -880,7 +901,7 @@ func collectOrgStructure(ctx context.Context, client registry.HTTPClient) (*orgS
 	}
 
 	// Fetch all computer inventory once to count per site/building/department.
-	allComputers, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=GENERAL", 500)
+	allComputers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL", 500)
 	if err != nil {
 		return nil, fmt.Errorf("computers-inventory: %w", err)
 	}
