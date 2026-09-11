@@ -5,6 +5,7 @@
 - `docs/GLOSSARY.md` — canonical terms for Pro vs Platform vs Classic, blueprint vs config profile, smart vs static groups, scope vs target, etc. Consult before guessing.
 - `docs/guides/platform-api-ga.md` — the user-facing Platform API beta→GA migration guide (base URL, scope keys, credentials, the refused-command list, the 403 vocabulary). Update it whenever any of those move; it quotes verbatim CLI output and a specific SDK ingest.
 - `docs/solutions/` — categorized postmortems and design-pattern docs (e.g., `conventions/output-flag-matrix-2026-05-08.md`, `design-patterns/cobra-annotations-as-policy-2026-05-11.md`). When starting work in a package, grep `docs/solutions/` for matching `module:` or `tags:` frontmatter.
+- `docs/guides/claude-context.md` — how this CLAUDE.md structure works and where to put new context. Read this before adding anything to any CLAUDE.md or `.claude/` file.
 
 
 ## CRITICAL: Credential Input Policy
@@ -71,13 +72,4 @@ split out so Claude loads it only when it's actually relevant:
 
 ## Extending this file
 
-Keep the root CLAUDE.md lean. When adding context, choose the right home:
-
-| What you're adding | Where it goes |
-|---|---|
-| Critical policy every session must know (credentials, generated code boundary) | Root `CLAUDE.md` — the existing sections |
-| Always-loaded convention or wire fact (coding style, Classic API behavior, auth wiring) | New `.claude/rules/<topic>.md` + pointer in the "Always-loaded rules" list above |
-| Workflow recipe or navigation guide loaded on demand (how to add a feature, sync specs) | New `.claude/skills/<topic>.md` + pointer in the "Skills" list above |
-| Quirks, invariants, gotchas specific to one package | `<package>/CLAUDE.md` in that directory — auto-loaded when Claude reads files there |
-
-**If you find yourself adding more than a pointer to the root CLAUDE.md, it almost certainly belongs in a rules or skills file instead.** Bloating the root means every session loads context that's only relevant to a fraction of tasks.
+See `docs/guides/claude-context.md` for the full decision guide. Short rule: if you're adding more than a pointer here, it belongs in `.claude/rules/`, `.claude/skills/`, a subdirectory `CLAUDE.md`, or `docs/guides/`.
