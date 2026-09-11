@@ -354,7 +354,7 @@ customisations. Analytics with no override are omitted.`,
 			sort.Slice(doc.Overrides, func(i, j int) bool {
 				return doc.Overrides[i].Analytic < doc.Overrides[j].Analytic
 			})
-			return printExport(doc)
+			return printExport(cliCtx, doc)
 		},
 	}
 }
@@ -380,7 +380,7 @@ non-zero if any failed.`,
 		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(analyticOverridesDoc{Overrides: []analyticOverride{{
+				return printExport(cliCtx, analyticOverridesDoc{Overrides: []analyticOverride{{
 					Analytic: "BlazingKeylogger",
 					Severity: "Low",
 					Actions:  []analyticOverrideAction{{Name: "Report", Parameters: "{}"}},

@@ -117,7 +117,7 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a unified logging filter",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.UnifiedLoggingFilterInput{})
+				return printExport(cliCtx, jamfprotect.UnifiedLoggingFilterInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -321,7 +321,7 @@ func newProtectULFExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("marshalling YAML: %w", err)
 			}
 
-			fmt.Print(string(data))
+			fmt.Fprint(writerFor(cliCtx), string(data))
 			return nil
 		},
 	}

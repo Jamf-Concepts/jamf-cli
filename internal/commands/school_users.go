@@ -101,7 +101,7 @@ func newSchoolUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a user",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfschool.UserCreateInput{})
+				return printExport(cliCtx, jamfschool.UserCreateInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -226,7 +226,7 @@ func newSchoolUsersExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(schoolUserToInput(item))
+			return printExport(cliCtx, schoolUserToInput(item))
 		},
 	}
 }

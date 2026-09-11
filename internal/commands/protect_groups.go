@@ -183,7 +183,7 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				// The export shape, not the SDK input shape: 'export' emits names now,
 				// and a scaffold teaching roleids/connectionid teaches the form this
 				// command only still accepts for backward compatibility.
-				return printExport(groupExport{Roles: []string{}})
+				return printExport(cliCtx, groupExport{Roles: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -305,7 +305,7 @@ func newProtectGroupsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(groupToExport(item))
+			return printExport(cliCtx, groupToExport(item))
 		},
 	}
 }

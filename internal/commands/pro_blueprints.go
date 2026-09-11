@@ -163,7 +163,7 @@ Examples:
 					}
 					bp.Steps[0].Components = comps
 				}
-				return printScaffold(bp)
+				return printScaffold(cliCtx, bp)
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
@@ -364,7 +364,7 @@ Multi-instance fan-out:
 			if err != nil {
 				return err
 			}
-			return printExport(blueprintToExport(ctx, cliCtx.PlatformSDKClient, bp))
+			return printExport(cliCtx, blueprintToExport(ctx, cliCtx.PlatformSDKClient, bp))
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
@@ -639,7 +639,7 @@ func newBlueprintsComponentsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.AddCommand(newBlueprintsComponentsListCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsGetCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsComponentsScaffoldCmd())
+	cmd.AddCommand(newBlueprintsComponentsScaffoldCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsConfigProfileCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsConfigProfilePlistCmd())
 	return cmd
@@ -733,7 +733,7 @@ The source scope is copied by default. Use --scope to override device group targ
 	return cmd
 }
 
-func newBlueprintsComponentsScaffoldCmd() *cobra.Command {
+func newBlueprintsComponentsScaffoldCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "scaffold <identifier>",
 		Short: "Print example configuration JSON for a component",
@@ -763,7 +763,7 @@ Examples:
 				"identifier":    identifier,
 				"configuration": json.RawMessage(scaffold),
 			}
-			return printScaffold(block)
+			return printScaffold(cliCtx, block)
 		},
 	}
 }
