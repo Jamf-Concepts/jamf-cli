@@ -21,7 +21,7 @@ package gateway
 const (
 	ProAPIVersion     = "11.31.0"
 	ClassicAPIVersion = "11.28.0"
-	SDKCommit         = "d4ab4f4"
+	SDKCommit         = "bed9af9"
 )
 
 // unserved is sorted by path then method. Paths are gateway-form with every
@@ -389,6 +389,7 @@ var scopeRules = []scopeRule{
 	{Method: "GET", Path: "/pro/v1/mdm-renewal/device-common-details/{}", Scopes: []string{"device-actions:read"}},
 	{Method: "DELETE", Path: "/pro/v1/mdm-renewal/renewal-strategies/{}", Scopes: []string{"device-actions:execute"}},
 	{Method: "GET", Path: "/pro/v1/mdm-renewal/renewal-strategies/{}", Scopes: []string{"device-actions:read"}},
+	{Method: "GET", Path: "/pro/v1/mdm/commands", Scopes: []string{"device-actions:read"}},
 	{Method: "POST", Path: "/pro/v1/mdm/renew-profile", Scopes: []string{"device-actions:execute"}},
 	{Method: "GET", Path: "/pro/v1/mobile-device-enrollment-profile/{}/download-profile", Scopes: []string{"enrollment-profiles:read"}},
 	{Method: "GET", Path: "/pro/v1/mobile-device-extension-attributes", Scopes: []string{"extension-attributes:read"}},

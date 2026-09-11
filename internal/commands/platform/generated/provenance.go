@@ -15,7 +15,7 @@ var Sources = []SpecSource{
 	{File: "specs/platform/account_licensing_api.json", SHA256: "12dc1dd124d8a38706ac6be70882c0d915be67abef424bf01558510ed9a7e97c"},
 	{File: "specs/platform/account_partners_api.json", SHA256: "2cd9861989bddb7774a3e3b7c02413c09509758954d697b92936e0286ed774b6"},
 	{File: "specs/platform/account_sso_api.json", SHA256: "1666b749cd3af48e15d4b7ab0f6360665205767541eb63fd328976baf6214b09"},
-	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "7c0ba60fecae405a33f290073a7868c61dd5c08b2bca3d2c987f3dc074f91a0d"},
+	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "c8aa7179373f0798b4f03c16c397ddc8a6ee3b0f4baec33509dfb0435de1ec53"},
 	{File: "specs/platform/audit_api.json", SHA256: "91c2bc728040703da48194160da8605de3b9c35c734fe04f93a8a7cf88359881"},
 	{File: "specs/platform/blueprints_api.json", SHA256: "43276c66813acb8a360ce9ae41a2b6062bc33e3ab1d327f11beeba5dac943654"},
 	{File: "specs/platform/compliance_benchmark_engine.json", SHA256: "5db95f8e71eee86fcf6677f1ec246a800fffbbe02715e72fdff80f4b0859f92d"},
