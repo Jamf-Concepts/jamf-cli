@@ -34,6 +34,10 @@ secrets/
 
 .claude/*
 !.claude/settings.json
+!.claude/rules/
+!.claude/rules/*.md
+!.claude/skills/
+!.claude/skills/*.md
 completions/
 
 # Audit artifacts (local reference only, not committed)
