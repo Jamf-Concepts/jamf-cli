@@ -85,22 +85,22 @@ func TestCollectCommands(t *testing.T) {
 		t.Error("expected 'version' command in entries")
 	}
 
-	// Verify a generated command like "pro computers-inventory list" is present
+	// Verify a generated command like "pro computer-inventory list" is present
 	found = false
 	for _, e := range entries {
-		if e.Command == "pro computers-inventory list" {
+		if e.Command == "pro computer-inventory list" {
 			found = true
 			if len(e.Aliases) == 0 {
-				t.Error("expected pro computers-inventory list to have aliases (e.g., 'comp')")
+				t.Error("expected pro computer-inventory list to have aliases (e.g., 'comp')")
 			}
 			if len(e.Flags) == 0 {
-				t.Error("expected pro computers-inventory list to have flags")
+				t.Error("expected pro computer-inventory list to have flags")
 			}
 			break
 		}
 	}
 	if !found {
-		t.Error("expected 'pro computers-inventory list' command in entries")
+		t.Error("expected 'pro computer-inventory list' command in entries")
 	}
 
 	// Verify 'commands' and 'help' are excluded
@@ -230,13 +230,13 @@ func TestCollectCommands_ProductAndGroup(t *testing.T) {
 
 	var found *commandEntry
 	for i := range entries {
-		if entries[i].Command == "pro computers-inventory list" {
+		if entries[i].Command == "pro computer-inventory list" {
 			found = &entries[i]
 			break
 		}
 	}
 	if found == nil {
-		t.Fatal("expected 'pro computers-inventory list' in entries")
+		t.Fatal("expected 'pro computer-inventory list' in entries")
 		return
 	}
 	if found.Product != "pro" {
@@ -2040,23 +2040,23 @@ func TestCollectCommands_DestructiveFlag(t *testing.T) {
 
 	// A delete command must be marked destructive (annotation is enforced
 	// elsewhere by TestDestructiveVerbCommandsAreAnnotated).
-	// "computers" is an alias for "computers-inventory"; collectCommands uses
+	// "computers" is an alias for "computer-inventory"; collectCommands uses
 	// the canonical command name, not aliases.
-	del, ok := byCmd["pro computers-inventory delete"]
+	del, ok := byCmd["pro computer-inventory delete"]
 	if !ok {
-		t.Fatal("expected 'pro computers-inventory delete' in entries")
+		t.Fatal("expected 'pro computer-inventory delete' in entries")
 	}
 	if !del.Destructive {
-		t.Error("pro computers-inventory delete: Destructive = false, want true")
+		t.Error("pro computer-inventory delete: Destructive = false, want true")
 	}
 
 	// A read command must not be marked destructive.
-	list, ok := byCmd["pro computers-inventory list"]
+	list, ok := byCmd["pro computer-inventory list"]
 	if !ok {
-		t.Fatal("expected 'pro computers-inventory list' in entries")
+		t.Fatal("expected 'pro computer-inventory list' in entries")
 	}
 	if list.Destructive {
-		t.Error("pro computers-inventory list: Destructive = true, want false")
+		t.Error("pro computer-inventory list: Destructive = true, want false")
 	}
 }
 
@@ -2131,7 +2131,10 @@ func TestCommandEntriesToMaps_PrivilegesPositiveOnly(t *testing.T) {
 func TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands(t *testing.T) {
 	for _, args := range [][]string{
 		{"platform", "ai-policies", "version", "some-id", "1"},
-		{"pro", "mdm-commands", "commands"},
+		// The live name. It was `pro mdm-commands commands`, which still resolves
+		// through a deprecation alias and so still passes — but an alias is not
+		// what this asserts, and the aliases expire.
+		{"pro", "mdm", "commands"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			resetGlobals()

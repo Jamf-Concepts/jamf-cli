@@ -1,0 +1,1366 @@
+# Every `pro` command path the CLI shipped before spec-derived naming, with the
+# shape it had then and the shape it has now. See invocation_sweep_test.go.
+#
+# Columns: invocation <TAB> was <TAB> now
+#   leaf  — resolves to a command that runs and returns a result
+#   group — resolves to a parent, which prints help and exits 0
+#   gone  — no longer resolves at all (`now` only)
+#
+# A `leaf`->`group` row is the worst shape a rename can take and there are three:
+# the path still resolves and still exits 0, and a script piping it into jq gets
+# help text instead of data. Recorded here and in CHANGELOG.md's migration table.
+pro access-managements	group	group
+pro access-managements access-management	leaf	leaf
+pro access-managements list	leaf	refused
+pro account-driven-user-enrollment-session-token-settings	group	group
+pro account-driven-user-enrollment-session-token-settings get	leaf	leaf
+pro account-driven-user-enrollment-session-token-settings update	leaf	leaf
+pro account-groups	group	group
+pro account-groups get	leaf	leaf
+pro account-groups list	leaf	leaf
+pro account-preferences	group	group
+pro account-preferences list	leaf	leaf
+pro account-preferences patch	leaf	leaf
+pro activation-codes	group	group
+pro activation-codes add-history-note	leaf	leaf
+pro activation-codes history	leaf	leaf
+pro activation-codes history-export	leaf	leaf
+pro activation-codes patch	leaf	refused
+pro activation-codes update	leaf	leaf
+pro adcs-settings	group	group
+pro adcs-settings add-history-note	leaf	leaf
+pro adcs-settings create	leaf	leaf
+pro adcs-settings delete	leaf	leaf
+pro adcs-settings dependencies	leaf	leaf
+pro adcs-settings get	leaf	leaf
+pro adcs-settings history	leaf	leaf
+pro adcs-settings patch	leaf	leaf
+pro adcs-settings validate-certificate	leaf	leaf
+pro adcs-settings validate-client-certificate	leaf	leaf
+pro advanced-mobile-device-searches	group	group
+pro advanced-mobile-device-searches apply	leaf	leaf
+pro advanced-mobile-device-searches choices	leaf	leaf
+pro advanced-mobile-device-searches create	leaf	leaf
+pro advanced-mobile-device-searches delete	leaf	leaf
+pro advanced-mobile-device-searches delete-multiple	leaf	leaf
+pro advanced-mobile-device-searches get	leaf	leaf
+pro advanced-mobile-device-searches list	leaf	leaf
+pro advanced-mobile-device-searches update	leaf	leaf
+pro advanced-user-content-searches	group	group
+pro advanced-user-content-searches apply	leaf	leaf
+pro advanced-user-content-searches create	leaf	leaf
+pro advanced-user-content-searches delete	leaf	leaf
+pro advanced-user-content-searches get	leaf	leaf
+pro advanced-user-content-searches list	leaf	leaf
+pro advanced-user-content-searches update	leaf	leaf
+pro api-integrations	group	group
+pro api-integrations apply	leaf	leaf
+pro api-integrations client-credentials	leaf	leaf
+pro api-integrations create	leaf	leaf
+pro api-integrations delete	leaf	leaf
+pro api-integrations get	leaf	leaf
+pro api-integrations list	leaf	leaf
+pro api-integrations update	leaf	leaf
+pro api-roles	group	group
+pro api-roles apply	leaf	leaf
+pro api-roles create	leaf	leaf
+pro api-roles delete	leaf	leaf
+pro api-roles get	leaf	leaf
+pro api-roles list	leaf	leaf
+pro api-roles update	leaf	leaf
+pro api-roles-privileges	group	group
+pro api-roles-privileges api-role-privileges	leaf	refused
+pro api-roles-privileges search	leaf	leaf
+pro apns-client-push-status	group	group
+pro apns-client-push-status apns-client-push-status	leaf	gone
+pro apns-client-push-status enable-all-clients	leaf	leaf
+pro apns-client-push-status enable-client	leaf	leaf
+pro apns-client-push-status status	leaf	leaf
+pro app-installer-deployments	group	group
+pro app-installer-deployments add-history-note	leaf	leaf
+pro app-installer-deployments apply	leaf	leaf
+pro app-installer-deployments computers	leaf	leaf
+pro app-installer-deployments create	leaf	leaf
+pro app-installer-deployments delete	leaf	leaf
+pro app-installer-deployments export	leaf	leaf
+pro app-installer-deployments get	leaf	leaf
+pro app-installer-deployments history	leaf	leaf
+pro app-installer-deployments installation-retry	leaf	leaf
+pro app-installer-deployments installation-retry-by-computer-id	leaf	leaf
+pro app-installer-deployments installation-summary	leaf	leaf
+pro app-installer-deployments list	leaf	leaf
+pro app-installer-deployments update	leaf	leaf
+pro app-installer-deployments version-update	leaf	leaf
+pro app-installer-global-settings	group	group
+pro app-installer-global-settings add-history-note	leaf	leaf
+pro app-installer-global-settings deployment-controls	leaf	leaf
+pro app-installer-global-settings get	leaf	leaf
+pro app-installer-global-settings history	leaf	leaf
+pro app-installer-global-settings update	leaf	leaf
+pro app-installer-titles	group	group
+pro app-installer-titles get	leaf	leaf
+pro app-installer-titles list	leaf	leaf
+pro app-installer-titles versions	leaf	leaf
+pro app-installers	group	group
+pro app-installers get	leaf	leaf
+pro app-requests	group	group
+pro app-requests apply	leaf	gone
+pro app-requests create	leaf	refused
+pro app-requests delete	leaf	refused
+pro app-requests get	leaf	leaf
+pro app-requests list	leaf	refused
+pro app-requests settings	leaf	refused
+pro app-requests update	leaf	leaf
+pro app-requests update-settings	leaf	refused
+pro audit	leaf	leaf
+pro auth	group	group
+pro auth token	leaf	leaf
+pro authentications	group	group
+pro authentications current	leaf	leaf
+pro authentications invalidate-token	leaf	leaf
+pro authentications keep-alive	leaf	leaf
+pro authentications list	leaf	leaf
+pro authentications oauth-token	leaf	leaf
+pro authentications token	leaf	leaf
+pro backup	group	group
+pro backup list-resources	leaf	leaf
+pro baselines	group	group
+pro baselines list	leaf	leaf
+pro benchmark-reports	group	group
+pro benchmark-reports compliance-percentage	leaf	leaf
+pro benchmark-reports devices	leaf	leaf
+pro benchmark-reports rules	leaf	leaf
+pro blueprint-components	group	group
+pro blueprint-components get	leaf	leaf
+pro blueprint-components list	leaf	leaf
+pro blueprints	group	group
+pro blueprints apply	leaf	leaf
+pro blueprints clone	leaf	leaf
+pro blueprints components	group	group
+pro blueprints components configuration-profile	leaf	leaf
+pro blueprints components configuration-profile-plist	leaf	leaf
+pro blueprints components get	leaf	leaf
+pro blueprints components list	leaf	leaf
+pro blueprints components scaffold	leaf	leaf
+pro blueprints delete	leaf	leaf
+pro blueprints deploy	leaf	leaf
+pro blueprints export	leaf	leaf
+pro blueprints get	leaf	leaf
+pro blueprints import-profile	leaf	leaf
+pro blueprints list	leaf	leaf
+pro blueprints patch	leaf	leaf
+pro blueprints report	leaf	leaf
+pro blueprints scope	group	group
+pro blueprints scope add	leaf	leaf
+pro blueprints scope list	leaf	leaf
+pro blueprints scope remove	leaf	leaf
+pro blueprints undeploy	leaf	leaf
+pro buildings	group	group
+pro buildings add-history-note	leaf	leaf
+pro buildings apply	leaf	leaf
+pro buildings create	leaf	leaf
+pro buildings delete	leaf	leaf
+pro buildings delete-multiple	leaf	leaf
+pro buildings export	leaf	leaf
+pro buildings get	leaf	leaf
+pro buildings history	leaf	leaf
+pro buildings history-export	leaf	leaf
+pro buildings list	leaf	leaf
+pro buildings update	leaf	leaf
+pro bulk	group	group
+pro bulk add-to-group	leaf	leaf
+pro bulk disable-policies	leaf	leaf
+pro bulk enable-policies	leaf	leaf
+pro bulk remove-from-group	leaf	leaf
+pro bulk send-command	leaf	leaf
+pro cache	group	group
+pro cache get	leaf	leaf
+pro cache update	leaf	leaf
+pro categories	group	group
+pro categories add-history-note	leaf	leaf
+pro categories apply	leaf	leaf
+pro categories create	leaf	leaf
+pro categories delete	leaf	leaf
+pro categories delete-multiple	leaf	leaf
+pro categories get	leaf	leaf
+pro categories history	leaf	leaf
+pro categories list	leaf	leaf
+pro categories update	leaf	leaf
+pro certificate-authorities	group	group
+pro certificate-authorities active	leaf	leaf
+pro certificate-authorities der	leaf	leaf
+pro certificate-authorities der-by-id	leaf	leaf
+pro certificate-authorities get	leaf	leaf
+pro certificate-authorities pem	leaf	leaf
+pro certificate-authorities pem-by-id	leaf	leaf
+pro change-passwords	group	group
+pro change-passwords change-password	leaf	leaf
+pro classic-account-groups	group	group
+pro classic-account-groups create	leaf	leaf
+pro classic-account-groups delete	leaf	leaf
+pro classic-account-groups get	leaf	leaf
+pro classic-account-groups list	leaf	leaf
+pro classic-account-groups update	leaf	leaf
+pro classic-account-users	group	group
+pro classic-account-users create	leaf	leaf
+pro classic-account-users delete	leaf	leaf
+pro classic-account-users get	leaf	leaf
+pro classic-account-users list	leaf	leaf
+pro classic-account-users update	leaf	leaf
+pro classic-accounts	group	group
+pro classic-accounts list	leaf	leaf
+pro classic-advanced-computer-searches	group	group
+pro classic-advanced-computer-searches apply	leaf	leaf
+pro classic-advanced-computer-searches create	leaf	leaf
+pro classic-advanced-computer-searches delete	leaf	leaf
+pro classic-advanced-computer-searches get	leaf	leaf
+pro classic-advanced-computer-searches list	leaf	leaf
+pro classic-advanced-computer-searches update	leaf	leaf
+pro classic-advanced-mobile-device-searches	group	group
+pro classic-advanced-mobile-device-searches apply	leaf	leaf
+pro classic-advanced-mobile-device-searches create	leaf	leaf
+pro classic-advanced-mobile-device-searches delete	leaf	leaf
+pro classic-advanced-mobile-device-searches get	leaf	leaf
+pro classic-advanced-mobile-device-searches list	leaf	leaf
+pro classic-advanced-mobile-device-searches update	leaf	leaf
+pro classic-allowed-file-extensions	group	group
+pro classic-allowed-file-extensions create	leaf	leaf
+pro classic-allowed-file-extensions delete	leaf	leaf
+pro classic-allowed-file-extensions get	leaf	leaf
+pro classic-allowed-file-extensions list	leaf	leaf
+pro classic-classes	group	group
+pro classic-classes apply	leaf	leaf
+pro classic-classes create	leaf	leaf
+pro classic-classes delete	leaf	leaf
+pro classic-classes get	leaf	leaf
+pro classic-classes list	leaf	leaf
+pro classic-classes update	leaf	leaf
+pro classic-computer-app-usage	leaf	leaf
+pro classic-computer-commands	group	group
+pro classic-computer-commands list	leaf	leaf
+pro classic-computer-configs	group	group
+pro classic-computer-configs apply	leaf	leaf
+pro classic-computer-configs create	leaf	leaf
+pro classic-computer-configs delete	leaf	leaf
+pro classic-computer-configs get	leaf	leaf
+pro classic-computer-configs list	leaf	leaf
+pro classic-computer-configs update	leaf	leaf
+pro classic-computer-ext-attrs	group	group
+pro classic-computer-ext-attrs apply	leaf	leaf
+pro classic-computer-ext-attrs create	leaf	leaf
+pro classic-computer-ext-attrs delete	leaf	leaf
+pro classic-computer-ext-attrs get	leaf	leaf
+pro classic-computer-ext-attrs list	leaf	leaf
+pro classic-computer-ext-attrs update	leaf	leaf
+pro classic-computer-groups	group	group
+pro classic-computer-groups apply	leaf	leaf
+pro classic-computer-groups create	leaf	leaf
+pro classic-computer-groups delete	leaf	leaf
+pro classic-computer-groups get	leaf	leaf
+pro classic-computer-groups list	leaf	leaf
+pro classic-computer-groups update	leaf	leaf
+pro classic-computer-history	group	group
+pro classic-computer-history get	leaf	leaf
+pro classic-computer-invitations	group	group
+pro classic-computer-invitations create	leaf	leaf
+pro classic-computer-invitations delete	leaf	leaf
+pro classic-computer-invitations get	leaf	leaf
+pro classic-computer-invitations list	leaf	leaf
+pro classic-directory-bindings	group	group
+pro classic-directory-bindings apply	leaf	leaf
+pro classic-directory-bindings create	leaf	leaf
+pro classic-directory-bindings delete	leaf	leaf
+pro classic-directory-bindings get	leaf	leaf
+pro classic-directory-bindings list	leaf	leaf
+pro classic-directory-bindings update	leaf	leaf
+pro classic-disk-encryption-configs	group	group
+pro classic-disk-encryption-configs apply	leaf	leaf
+pro classic-disk-encryption-configs create	leaf	leaf
+pro classic-disk-encryption-configs delete	leaf	leaf
+pro classic-disk-encryption-configs get	leaf	leaf
+pro classic-disk-encryption-configs list	leaf	leaf
+pro classic-disk-encryption-configs update	leaf	leaf
+pro classic-distribution-points	group	group
+pro classic-distribution-points apply	leaf	leaf
+pro classic-distribution-points create	leaf	leaf
+pro classic-distribution-points delete	leaf	leaf
+pro classic-distribution-points get	leaf	leaf
+pro classic-distribution-points list	leaf	leaf
+pro classic-distribution-points update	leaf	leaf
+pro classic-dock-items	group	group
+pro classic-dock-items apply	leaf	leaf
+pro classic-dock-items create	leaf	leaf
+pro classic-dock-items delete	leaf	leaf
+pro classic-dock-items get	leaf	leaf
+pro classic-dock-items list	leaf	leaf
+pro classic-dock-items update	leaf	leaf
+pro classic-ebooks	group	group
+pro classic-ebooks apply	leaf	leaf
+pro classic-ebooks create	leaf	leaf
+pro classic-ebooks delete	leaf	leaf
+pro classic-ebooks get	leaf	leaf
+pro classic-ebooks list	leaf	leaf
+pro classic-ebooks scope	group	group
+pro classic-ebooks scope add	leaf	leaf
+pro classic-ebooks scope get	leaf	leaf
+pro classic-ebooks scope remove	leaf	leaf
+pro classic-ebooks update	leaf	leaf
+pro classic-gsx-connection	group	group
+pro classic-gsx-connection get	leaf	leaf
+pro classic-gsx-connection update	leaf	leaf
+pro classic-ibeacons	group	group
+pro classic-ibeacons apply	leaf	leaf
+pro classic-ibeacons create	leaf	leaf
+pro classic-ibeacons delete	leaf	leaf
+pro classic-ibeacons get	leaf	leaf
+pro classic-ibeacons list	leaf	leaf
+pro classic-ibeacons update	leaf	leaf
+pro classic-jwt-configs	group	group
+pro classic-jwt-configs create	leaf	leaf
+pro classic-jwt-configs delete	leaf	leaf
+pro classic-jwt-configs get	leaf	leaf
+pro classic-jwt-configs list	leaf	leaf
+pro classic-jwt-configs update	leaf	leaf
+pro classic-ldap-servers	group	group
+pro classic-ldap-servers apply	leaf	leaf
+pro classic-ldap-servers create	leaf	leaf
+pro classic-ldap-servers delete	leaf	leaf
+pro classic-ldap-servers get	leaf	leaf
+pro classic-ldap-servers list	leaf	leaf
+pro classic-ldap-servers update	leaf	leaf
+pro classic-ldaps	group	group
+pro classic-ldaps get	leaf	leaf
+pro classic-licensed-software	group	group
+pro classic-licensed-software apply	leaf	leaf
+pro classic-licensed-software create	leaf	leaf
+pro classic-licensed-software delete	leaf	leaf
+pro classic-licensed-software get	leaf	leaf
+pro classic-licensed-software list	leaf	leaf
+pro classic-licensed-software update	leaf	leaf
+pro classic-mac-apps	group	group
+pro classic-mac-apps apply	leaf	leaf
+pro classic-mac-apps create	leaf	leaf
+pro classic-mac-apps delete	leaf	leaf
+pro classic-mac-apps get	leaf	leaf
+pro classic-mac-apps list	leaf	leaf
+pro classic-mac-apps scope	group	group
+pro classic-mac-apps scope add	leaf	leaf
+pro classic-mac-apps scope get	leaf	leaf
+pro classic-mac-apps scope remove	leaf	leaf
+pro classic-mac-apps update	leaf	leaf
+pro classic-macos-config-profiles	group	group
+pro classic-macos-config-profiles apply	leaf	leaf
+pro classic-macos-config-profiles create	leaf	leaf
+pro classic-macos-config-profiles delete	leaf	leaf
+pro classic-macos-config-profiles get	leaf	leaf
+pro classic-macos-config-profiles list	leaf	leaf
+pro classic-macos-config-profiles scope	group	group
+pro classic-macos-config-profiles scope add	leaf	leaf
+pro classic-macos-config-profiles scope get	leaf	leaf
+pro classic-macos-config-profiles scope remove	leaf	leaf
+pro classic-macos-config-profiles update	leaf	leaf
+pro classic-mobile-apps	group	group
+pro classic-mobile-apps apply	leaf	leaf
+pro classic-mobile-apps create	leaf	leaf
+pro classic-mobile-apps delete	leaf	leaf
+pro classic-mobile-apps get	leaf	leaf
+pro classic-mobile-apps list	leaf	leaf
+pro classic-mobile-apps scope	group	group
+pro classic-mobile-apps scope add	leaf	leaf
+pro classic-mobile-apps scope get	leaf	leaf
+pro classic-mobile-apps scope remove	leaf	leaf
+pro classic-mobile-apps update	leaf	leaf
+pro classic-mobile-commands	group	group
+pro classic-mobile-commands list	leaf	leaf
+pro classic-mobile-config-profiles	group	group
+pro classic-mobile-config-profiles apply	leaf	leaf
+pro classic-mobile-config-profiles create	leaf	leaf
+pro classic-mobile-config-profiles delete	leaf	leaf
+pro classic-mobile-config-profiles get	leaf	leaf
+pro classic-mobile-config-profiles list	leaf	leaf
+pro classic-mobile-config-profiles scope	group	group
+pro classic-mobile-config-profiles scope add	leaf	leaf
+pro classic-mobile-config-profiles scope get	leaf	leaf
+pro classic-mobile-config-profiles scope remove	leaf	leaf
+pro classic-mobile-config-profiles update	leaf	leaf
+pro classic-mobile-device-groups	group	group
+pro classic-mobile-device-groups apply	leaf	leaf
+pro classic-mobile-device-groups create	leaf	leaf
+pro classic-mobile-device-groups delete	leaf	leaf
+pro classic-mobile-device-groups get	leaf	leaf
+pro classic-mobile-device-groups list	leaf	leaf
+pro classic-mobile-device-groups update	leaf	leaf
+pro classic-mobile-devices	group	group
+pro classic-mobile-devices apply	leaf	leaf
+pro classic-mobile-devices create	leaf	leaf
+pro classic-mobile-devices delete	leaf	leaf
+pro classic-mobile-devices get	leaf	leaf
+pro classic-mobile-devices list	leaf	leaf
+pro classic-mobile-devices update	leaf	leaf
+pro classic-mobile-history	group	group
+pro classic-mobile-history get	leaf	leaf
+pro classic-mobile-invitations	group	group
+pro classic-mobile-invitations create	leaf	leaf
+pro classic-mobile-invitations delete	leaf	leaf
+pro classic-mobile-invitations get	leaf	leaf
+pro classic-mobile-invitations list	leaf	leaf
+pro classic-mobile-provisioning-profiles	group	group
+pro classic-mobile-provisioning-profiles apply	leaf	leaf
+pro classic-mobile-provisioning-profiles create	leaf	leaf
+pro classic-mobile-provisioning-profiles delete	leaf	leaf
+pro classic-mobile-provisioning-profiles get	leaf	leaf
+pro classic-mobile-provisioning-profiles list	leaf	leaf
+pro classic-mobile-provisioning-profiles update	leaf	leaf
+pro classic-network-segments	group	group
+pro classic-network-segments apply	leaf	leaf
+pro classic-network-segments create	leaf	leaf
+pro classic-network-segments delete	leaf	leaf
+pro classic-network-segments get	leaf	leaf
+pro classic-network-segments list	leaf	leaf
+pro classic-network-segments update	leaf	leaf
+pro classic-packages	group	group
+pro classic-packages apply	leaf	leaf
+pro classic-packages create	leaf	leaf
+pro classic-packages delete	leaf	leaf
+pro classic-packages get	leaf	leaf
+pro classic-packages list	leaf	leaf
+pro classic-packages update	leaf	leaf
+pro classic-patch-available-titles	group	group
+pro classic-patch-available-titles get	leaf	leaf
+pro classic-patch-external-sources	group	group
+pro classic-patch-external-sources apply	leaf	leaf
+pro classic-patch-external-sources create	leaf	leaf
+pro classic-patch-external-sources delete	leaf	leaf
+pro classic-patch-external-sources get	leaf	leaf
+pro classic-patch-external-sources list	leaf	leaf
+pro classic-patch-external-sources update	leaf	leaf
+pro classic-patch-internal-sources	group	group
+pro classic-patch-internal-sources get	leaf	leaf
+pro classic-patch-internal-sources list	leaf	leaf
+pro classic-patch-policies	group	group
+pro classic-patch-policies create	leaf	leaf
+pro classic-patch-policies delete	leaf	leaf
+pro classic-patch-policies get	leaf	leaf
+pro classic-patch-policies list	leaf	leaf
+pro classic-patch-policies update	leaf	leaf
+pro classic-patch-reports	group	group
+pro classic-patch-reports get	leaf	leaf
+pro classic-patch-titles	group	group
+pro classic-patch-titles apply	leaf	leaf
+pro classic-patch-titles create	leaf	leaf
+pro classic-patch-titles delete	leaf	leaf
+pro classic-patch-titles get	leaf	leaf
+pro classic-patch-titles list	leaf	leaf
+pro classic-patch-titles update	leaf	leaf
+pro classic-policies	group	group
+pro classic-policies apply	leaf	leaf
+pro classic-policies create	leaf	leaf
+pro classic-policies delete	leaf	leaf
+pro classic-policies get	leaf	leaf
+pro classic-policies list	leaf	leaf
+pro classic-policies scope	group	group
+pro classic-policies scope add	leaf	leaf
+pro classic-policies scope get	leaf	leaf
+pro classic-policies scope remove	leaf	leaf
+pro classic-policies update	leaf	leaf
+pro classic-printers	group	group
+pro classic-printers apply	leaf	leaf
+pro classic-printers create	leaf	leaf
+pro classic-printers delete	leaf	leaf
+pro classic-printers get	leaf	leaf
+pro classic-printers list	leaf	leaf
+pro classic-printers update	leaf	leaf
+pro classic-removable-mac-addresses	group	group
+pro classic-removable-mac-addresses apply	leaf	leaf
+pro classic-removable-mac-addresses create	leaf	leaf
+pro classic-removable-mac-addresses delete	leaf	leaf
+pro classic-removable-mac-addresses get	leaf	leaf
+pro classic-removable-mac-addresses list	leaf	leaf
+pro classic-removable-mac-addresses update	leaf	leaf
+pro classic-restricted-software	group	group
+pro classic-restricted-software apply	leaf	leaf
+pro classic-restricted-software create	leaf	leaf
+pro classic-restricted-software delete	leaf	leaf
+pro classic-restricted-software get	leaf	leaf
+pro classic-restricted-software list	leaf	leaf
+pro classic-restricted-software scope	group	group
+pro classic-restricted-software scope add	leaf	leaf
+pro classic-restricted-software scope get	leaf	leaf
+pro classic-restricted-software scope remove	leaf	leaf
+pro classic-restricted-software update	leaf	leaf
+pro classic-smtp-server	group	group
+pro classic-smtp-server get	leaf	leaf
+pro classic-smtp-server update	leaf	leaf
+pro classic-software-update-servers	group	group
+pro classic-software-update-servers apply	leaf	leaf
+pro classic-software-update-servers create	leaf	leaf
+pro classic-software-update-servers delete	leaf	leaf
+pro classic-software-update-servers get	leaf	leaf
+pro classic-software-update-servers list	leaf	leaf
+pro classic-software-update-servers update	leaf	leaf
+pro classic-user-ext-attrs	group	group
+pro classic-user-ext-attrs apply	leaf	leaf
+pro classic-user-ext-attrs create	leaf	leaf
+pro classic-user-ext-attrs delete	leaf	leaf
+pro classic-user-ext-attrs get	leaf	leaf
+pro classic-user-ext-attrs list	leaf	leaf
+pro classic-user-ext-attrs update	leaf	leaf
+pro classic-user-groups	group	group
+pro classic-user-groups apply	leaf	leaf
+pro classic-user-groups create	leaf	leaf
+pro classic-user-groups delete	leaf	leaf
+pro classic-user-groups get	leaf	leaf
+pro classic-user-groups list	leaf	leaf
+pro classic-user-groups update	leaf	leaf
+pro classic-vpp-accounts	group	group
+pro classic-vpp-accounts create	leaf	leaf
+pro classic-vpp-accounts delete	leaf	leaf
+pro classic-vpp-accounts get	leaf	leaf
+pro classic-vpp-accounts list	leaf	leaf
+pro classic-vpp-accounts update	leaf	leaf
+pro classic-vpp-assignments	group	group
+pro classic-vpp-assignments create	leaf	leaf
+pro classic-vpp-assignments delete	leaf	leaf
+pro classic-vpp-assignments get	leaf	leaf
+pro classic-vpp-assignments list	leaf	leaf
+pro classic-vpp-assignments scope	group	group
+pro classic-vpp-assignments scope add	leaf	leaf
+pro classic-vpp-assignments scope get	leaf	leaf
+pro classic-vpp-assignments scope remove	leaf	leaf
+pro classic-vpp-assignments update	leaf	leaf
+pro classic-vpp-invitations	group	group
+pro classic-vpp-invitations create	leaf	leaf
+pro classic-vpp-invitations delete	leaf	leaf
+pro classic-vpp-invitations get	leaf	leaf
+pro classic-vpp-invitations list	leaf	leaf
+pro classic-vpp-invitations scope	group	group
+pro classic-vpp-invitations scope add	leaf	leaf
+pro classic-vpp-invitations scope get	leaf	leaf
+pro classic-vpp-invitations scope remove	leaf	leaf
+pro classic-webhooks	group	group
+pro classic-webhooks apply	leaf	leaf
+pro classic-webhooks create	leaf	leaf
+pro classic-webhooks delete	leaf	leaf
+pro classic-webhooks get	leaf	leaf
+pro classic-webhooks list	leaf	leaf
+pro classic-webhooks update	leaf	leaf
+pro client-check-in	group	group
+pro client-check-in add-history-note	leaf	leaf
+pro client-check-in get	leaf	leaf
+pro client-check-in history	leaf	leaf
+pro client-check-in update	leaf	leaf
+pro cloud-azure-defaults	group	group
+pro cloud-azure-defaults mappings	leaf	leaf
+pro cloud-azure-defaults server-configuration	leaf	leaf
+pro cloud-azures	group	group
+pro cloud-azures create	leaf	leaf
+pro cloud-azures delete	leaf	leaf
+pro cloud-azures get	leaf	leaf
+pro cloud-azures update	leaf	leaf
+pro cloud-distribution-points	group	group
+pro cloud-distribution-points action	leaf	leaf
+pro cloud-distribution-points add-history-note	leaf	leaf
+pro cloud-distribution-points cloud-distribution-point	leaf	refused
+pro cloud-distribution-points create	leaf	leaf
+pro cloud-distribution-points delete	leaf	leaf
+pro cloud-distribution-points files	leaf	leaf
+pro cloud-distribution-points history	leaf	leaf
+pro cloud-distribution-points patch	leaf	leaf
+pro cloud-distribution-points refresh-inventory	leaf	leaf
+pro cloud-distribution-points test-connection	leaf	leaf
+pro cloud-distribution-points upload-capability	leaf	leaf
+pro cloud-id-p-configurations	group	group
+pro cloud-id-p-configurations export	leaf	leaf
+pro cloud-id-p-configurations get	leaf	leaf
+pro cloud-id-p-configurations list	leaf	leaf
+pro cloud-id-p-histories	group	group
+pro cloud-id-p-histories add-history-note	leaf	leaf
+pro cloud-id-p-histories history	leaf	leaf
+pro cloud-id-p-test-searches	group	group
+pro cloud-id-p-test-searches test-group	leaf	leaf
+pro cloud-id-p-test-searches test-user	leaf	leaf
+pro cloud-id-p-test-searches test-user-membership	leaf	leaf
+pro cloud-informations	group	group
+pro cloud-informations list	leaf	leaf
+pro cloud-ldap-connections	group	group
+pro cloud-ldap-connections bind	leaf	leaf
+pro cloud-ldap-connections search	leaf	leaf
+pro cloud-ldap-connections status	leaf	leaf
+pro cloud-ldap-defaults	group	group
+pro cloud-ldap-defaults mappings	leaf	leaf
+pro cloud-ldap-defaults server-configuration	leaf	leaf
+pro cloud-ldap-key-stores	group	group
+pro cloud-ldap-key-stores verify	leaf	leaf
+pro cloud-ldap-mappings	group	group
+pro cloud-ldap-mappings mappings	leaf	leaf
+pro cloud-ldap-mappings update-mappings	leaf	leaf
+pro cloud-ldaps	group	group
+pro cloud-ldaps create	leaf	leaf
+pro cloud-ldaps delete	leaf	leaf
+pro cloud-ldaps get	leaf	leaf
+pro cloud-ldaps update	leaf	leaf
+pro compliance-benchmarks	group	group
+pro compliance-benchmarks apply	leaf	leaf
+pro compliance-benchmarks clone	leaf	leaf
+pro compliance-benchmarks delete	leaf	leaf
+pro compliance-benchmarks export	leaf	leaf
+pro compliance-benchmarks get	leaf	leaf
+pro compliance-benchmarks list	leaf	leaf
+pro computer-extension-attributes	group	group
+pro computer-extension-attributes add-history-note	leaf	leaf
+pro computer-extension-attributes apply	leaf	leaf
+pro computer-extension-attributes create	leaf	leaf
+pro computer-extension-attributes data-dependency	leaf	leaf
+pro computer-extension-attributes delete	leaf	leaf
+pro computer-extension-attributes delete-multiple	leaf	leaf
+pro computer-extension-attributes download	leaf	leaf
+pro computer-extension-attributes get	leaf	leaf
+pro computer-extension-attributes history	leaf	leaf
+pro computer-extension-attributes list	leaf	leaf
+pro computer-extension-attributes update	leaf	leaf
+pro computer-extension-attributes upload	leaf	leaf
+pro computer-groups	group	group
+pro computer-groups get	leaf	leaf
+pro computer-groups-smart-groups	group	group
+pro computer-groups-smart-groups apply	leaf	leaf
+pro computer-groups-smart-groups create	leaf	leaf
+pro computer-groups-smart-groups delete	leaf	leaf
+pro computer-groups-smart-groups get	leaf	leaf
+pro computer-groups-smart-groups list	leaf	leaf
+pro computer-groups-smart-groups update	leaf	leaf
+pro computer-groups-static-groups	group	group
+pro computer-groups-static-groups apply	leaf	leaf
+pro computer-groups-static-groups create	leaf	leaf
+pro computer-groups-static-groups delete	leaf	leaf
+pro computer-groups-static-groups get	leaf	leaf
+pro computer-groups-static-groups list	leaf	leaf
+pro computer-groups-static-groups update	leaf	leaf
+pro computer-inventory-collection-settings	group	group
+pro computer-inventory-collection-settings create	leaf	refused
+pro computer-inventory-collection-settings delete	leaf	refused
+pro computer-inventory-collection-settings list	leaf	leaf
+pro computer-inventory-collection-settings patch	leaf	leaf
+pro computer-prestage-scopes	group	group
+pro computer-prestage-scopes create-scope	leaf	leaf
+pro computer-prestage-scopes delete-multiple	leaf	leaf
+pro computer-prestage-scopes list	leaf	leaf
+pro computer-prestage-scopes scope	leaf	leaf
+pro computer-prestage-scopes update-scope	leaf	leaf
+pro computer-prestages	group	group
+pro computer-prestages apply	leaf	leaf
+pro computer-prestages create	leaf	leaf
+pro computer-prestages delete	leaf	leaf
+pro computer-prestages get	leaf	leaf
+pro computer-prestages list	leaf	leaf
+pro computer-prestages update	leaf	leaf
+pro computer-smart-groups	group	group
+pro computer-smart-groups recalculate	leaf	leaf
+pro computer-smart-groups recalculate-smart-groups	leaf	leaf
+pro computers-inventory	group	group
+pro computers-inventory apply	leaf	leaf
+pro computers-inventory blank-push	leaf	leaf
+pro computers-inventory create	leaf	leaf
+pro computers-inventory ddm-sync	leaf	leaf
+pro computers-inventory delete	leaf	leaf
+pro computers-inventory disable-remote-desktop	leaf	leaf
+pro computers-inventory download	leaf	leaf
+pro computers-inventory enable-remote-desktop	leaf	leaf
+pro computers-inventory erase	leaf	leaf
+pro computers-inventory filevault	leaf	leaf
+pro computers-inventory filevault-by-id	leaf	leaf
+pro computers-inventory flush-commands	leaf	leaf
+pro computers-inventory get	leaf	leaf
+pro computers-inventory list	leaf	leaf
+pro computers-inventory lock	leaf	leaf
+pro computers-inventory patch	leaf	leaf
+pro computers-inventory redeploy-framework	leaf	leaf
+pro computers-inventory remove-mdm	leaf	leaf
+pro computers-inventory renew-mdm	leaf	leaf
+pro computers-inventory restart	leaf	leaf
+pro computers-inventory set-auto-admin-password	leaf	leaf
+pro computers-inventory set-recovery-lock	leaf	leaf
+pro computers-inventory settings	leaf	leaf
+pro computers-inventory shutdown	leaf	leaf
+pro computers-inventory upload	leaf	leaf
+pro computers-inventory view-device-lock-pin	leaf	leaf
+pro computers-inventory view-recovery-lock-password	leaf	leaf
+pro country-codes	group	group
+pro country-codes list	leaf	leaf
+pro csas	group	group
+pro csas delete	leaf	refused
+pro csas tenant-id	leaf	leaf
+pro csas token	leaf	group
+pro dashboards	group	group
+pro dashboards list	leaf	leaf
+pro dashboards toggle	leaf	leaf
+pro database-connections	group	group
+pro database-connections initialize-database-connection	leaf	leaf
+pro ddm-reports	group	group
+pro ddm-reports declaration	group	group
+pro ddm-reports declaration devices	leaf	leaf
+pro ddm-reports device	group	group
+pro ddm-reports device channels	leaf	leaf
+pro ddm-reports device declarations	leaf	leaf
+pro ddm-reports errors	leaf	leaf
+pro ddm-status	group	group
+pro ddm-status status-items	leaf	leaf
+pro ddm-syncs	group	group
+pro ddm-syncs sync	leaf	leaf
+pro departments	group	group
+pro departments add-history-note	leaf	leaf
+pro departments apply	leaf	leaf
+pro departments create	leaf	leaf
+pro departments delete	leaf	leaf
+pro departments delete-multiple	leaf	leaf
+pro departments get	leaf	leaf
+pro departments history	leaf	leaf
+pro departments list	leaf	leaf
+pro departments update	leaf	leaf
+pro device-communication-settings	group	group
+pro device-communication-settings add-history-note	leaf	leaf
+pro device-communication-settings get	leaf	leaf
+pro device-communication-settings history	leaf	leaf
+pro device-communication-settings update	leaf	leaf
+pro device-compliance-informations	group	group
+pro device-compliance-informations get	leaf	leaf
+pro device-compliance-informations list	leaf	leaf
+pro device-enrollment-instance-sync-states	group	group
+pro device-enrollment-instance-sync-states latest	leaf	leaf
+pro device-enrollment-instance-sync-states list	leaf	leaf
+pro device-enrollment-instance-sync-states syncs	leaf	leaf
+pro device-enrollment-instances	group	group
+pro device-enrollment-instances add-history-note	leaf	leaf
+pro device-enrollment-instances apply	leaf	leaf
+pro device-enrollment-instances create	leaf	leaf
+pro device-enrollment-instances delete	leaf	leaf
+pro device-enrollment-instances devices	leaf	leaf
+pro device-enrollment-instances disown	leaf	leaf
+pro device-enrollment-instances get	leaf	leaf
+pro device-enrollment-instances history	leaf	leaf
+pro device-enrollment-instances list	leaf	leaf
+pro device-enrollment-instances public-key	leaf	leaf
+pro device-enrollment-instances update	leaf	leaf
+pro diff	leaf	leaf
+pro digi-cert-settings	group	group
+pro digi-cert-settings connection-status	leaf	leaf
+pro digi-cert-settings create	leaf	leaf
+pro digi-cert-settings delete	leaf	leaf
+pro digi-cert-settings dependencies	leaf	leaf
+pro digi-cert-settings get	leaf	leaf
+pro digi-cert-settings patch	leaf	leaf
+pro digi-cert-settings privilege-check	leaf	leaf
+pro digi-cert-settings validate-client-certificate	leaf	leaf
+pro distribution-points	group	group
+pro distribution-points add-history-note	leaf	leaf
+pro distribution-points apply	leaf	leaf
+pro distribution-points create	leaf	leaf
+pro distribution-points delete	leaf	leaf
+pro distribution-points delete-multiple	leaf	leaf
+pro distribution-points get	leaf	leaf
+pro distribution-points history	leaf	leaf
+pro distribution-points list	leaf	leaf
+pro distribution-points patch	leaf	leaf
+pro distribution-points update	leaf	leaf
+pro dock-items	group	group
+pro dock-items create	leaf	leaf
+pro dock-items delete	leaf	leaf
+pro dock-items get	leaf	leaf
+pro dock-items update	leaf	leaf
+pro dss-proxies	group	group
+pro dss-proxies get	leaf	leaf
+pro ebooks	group	group
+pro ebooks get	leaf	leaf
+pro ebooks list	leaf	leaf
+pro ebooks scope	leaf	leaf
+pro enrollment-customization-panels	group	group
+pro enrollment-customization-panels all	leaf	leaf
+pro enrollment-customization-panels create	leaf	refused
+pro enrollment-customization-panels delete	leaf	refused
+pro enrollment-customization-panels ldap	leaf	leaf
+pro enrollment-customization-panels markdown	leaf	leaf
+pro enrollment-customization-panels parse-markdown	leaf	leaf
+pro enrollment-customization-panels sso	leaf	leaf
+pro enrollment-customization-panels text	leaf	leaf
+pro enrollment-customization-panels update	leaf	refused
+pro enrollment-customizations	group	group
+pro enrollment-customizations add-history-note	leaf	leaf
+pro enrollment-customizations apply	leaf	leaf
+pro enrollment-customizations create	leaf	leaf
+pro enrollment-customizations delete	leaf	leaf
+pro enrollment-customizations download	leaf	gone
+pro enrollment-customizations get	leaf	leaf
+pro enrollment-customizations history	leaf	leaf
+pro enrollment-customizations list	leaf	leaf
+pro enrollment-customizations prestages	leaf	leaf
+pro enrollment-customizations update	leaf	leaf
+pro enrollment-customizations upload	leaf	gone
+pro enrollment-languages	group	group
+pro enrollment-languages delete	leaf	leaf
+pro enrollment-languages delete-multiple	leaf	leaf
+pro enrollment-languages filtered-language-codes	leaf	refused
+pro enrollment-languages get	leaf	leaf
+pro enrollment-languages language-codes	leaf	refused
+pro enrollment-languages list	leaf	leaf
+pro enrollment-languages update	leaf	leaf
+pro enrollment-settings	group	group
+pro enrollment-settings add-history-note	leaf	leaf
+pro enrollment-settings apply	leaf	gone
+pro enrollment-settings create	leaf	refused
+pro enrollment-settings delete	leaf	refused
+pro enrollment-settings enrollment	leaf	refused
+pro enrollment-settings get	leaf	leaf
+pro enrollment-settings history	leaf	leaf
+pro enrollment-settings history-export	leaf	leaf
+pro enrollment-settings list	leaf	refused
+pro enrollment-settings update	leaf	leaf
+pro enrollment-settings update-enrollment	leaf	refused
+pro environment-type	group	group
+pro environment-type get	leaf	leaf
+pro group-tools	group	group
+pro group-tools analyze	leaf	leaf
+pro group-tools export	leaf	leaf
+pro group-tools list	leaf	leaf
+pro group-tools members	leaf	leaf
+pro groups	group	group
+pro groups delete	leaf	leaf
+pro groups get	leaf	leaf
+pro groups list	leaf	leaf
+pro groups patch	leaf	leaf
+pro gsx-connection	group	group
+pro gsx-connection add-history-note	leaf	leaf
+pro gsx-connection get	leaf	leaf
+pro gsx-connection history	leaf	leaf
+pro gsx-connection patch	leaf	leaf
+pro gsx-connection test	leaf	leaf
+pro gsx-connection update	leaf	leaf
+pro health-checks	group	group
+pro health-checks health-check	leaf	refused
+pro health-checks health-status	leaf	leaf
+pro icons	group	group
+pro icons download	leaf	leaf
+pro icons get	leaf	leaf
+pro icons upload	leaf	leaf
+pro impact-alert-notification-settings	group	group
+pro impact-alert-notification-settings get	leaf	leaf
+pro impact-alert-notification-settings update	leaf	leaf
+pro inventory-informations	group	group
+pro inventory-informations list	leaf	leaf
+pro inventory-preloads	group	group
+pro inventory-preloads add-history-note	leaf	leaf
+pro inventory-preloads apply	leaf	gone
+pro inventory-preloads create	leaf	gone
+pro inventory-preloads csv	leaf	leaf
+pro inventory-preloads csv-template	leaf	leaf
+pro inventory-preloads csv-validate	leaf	leaf
+pro inventory-preloads delete	leaf	gone
+pro inventory-preloads delete-all	leaf	gone
+pro inventory-preloads ea-columns	leaf	leaf
+pro inventory-preloads export	leaf	leaf
+pro inventory-preloads get	leaf	gone
+pro inventory-preloads history	leaf	leaf
+pro inventory-preloads list	leaf	gone
+pro inventory-preloads update	leaf	gone
+pro inventory-preloads upload	leaf	leaf
+pro jamf-connect-deployment-tasks	group	group
+pro jamf-connect-deployment-tasks create	leaf	leaf
+pro jamf-connect-deployment-tasks tasks	leaf	leaf
+pro jamf-connects	group	group
+pro jamf-connects add-history-note	leaf	leaf
+pro jamf-connects history	leaf	leaf
+pro jamf-connects jamf-connect	leaf	refused
+pro jamf-connects list	leaf	leaf
+pro jamf-connects update	leaf	refused
+pro jamf-packages	group	group
+pro jamf-packages list	leaf	leaf
+pro jamf-pro-informations	group	group
+pro jamf-pro-informations list	leaf	leaf
+pro jamf-pro-server-url	group	group
+pro jamf-pro-server-url add-history-note	leaf	leaf
+pro jamf-pro-server-url get	leaf	leaf
+pro jamf-pro-server-url history	leaf	leaf
+pro jamf-pro-server-url update	leaf	leaf
+pro jamf-pro-versions	group	group
+pro jamf-pro-versions list	leaf	leaf
+pro jamf-protect	group	group
+pro jamf-protect add-history-note	leaf	leaf
+pro jamf-protect create	leaf	leaf
+pro jamf-protect delete	leaf	leaf
+pro jamf-protect get	leaf	leaf
+pro jamf-protect history	leaf	leaf
+pro jamf-protect update	leaf	leaf
+pro jamf-protect-deployment-tasks	group	group
+pro jamf-protect-deployment-tasks retry	leaf	leaf
+pro jamf-protect-deployment-tasks retry-failed	leaf	leaf
+pro jamf-protect-deployment-tasks tasks	leaf	leaf
+pro jamf-protect-plans	group	group
+pro jamf-protect-plans list	leaf	leaf
+pro jamf-protect-plans sync	leaf	leaf
+pro jamf-remote-assist-session-histories	group	group
+pro jamf-remote-assist-session-histories export	leaf	leaf
+pro jamf-remote-assist-session-histories get	leaf	leaf
+pro jamf-remote-assist-session-histories list	leaf	leaf
+pro jcds	group	group
+pro jcds delete	leaf	refused
+pro jcds download	leaf	leaf
+pro jcds files	leaf	refused
+pro jcds get	leaf	refused
+pro jcds list	leaf	refused
+pro jcds refresh-inventory	leaf	leaf
+pro jcds renew-credentials	leaf	leaf
+pro jcds sync	leaf	leaf
+pro last-logins	group	group
+pro last-logins list	leaf	leaf
+pro ldap-rs	group	group
+pro ldap-rs groups	leaf	leaf
+pro ldap-rs ldap-servers	leaf	leaf
+pro ldap-rs servers	leaf	leaf
+pro local-admin-passwords	group	group
+pro local-admin-passwords account-history	leaf	leaf
+pro local-admin-passwords account-history-by-guid	leaf	leaf
+pro local-admin-passwords accounts	leaf	leaf
+pro local-admin-passwords audit	leaf	leaf
+pro local-admin-passwords audit-by-guid	leaf	leaf
+pro local-admin-passwords history	leaf	leaf
+pro local-admin-passwords password	leaf	leaf
+pro local-admin-passwords password-by-guid	leaf	leaf
+pro local-admin-passwords pending-rotations	leaf	leaf
+pro local-admin-passwords set-password	leaf	leaf
+pro local-admin-passwords settings	leaf	group
+pro local-admin-passwords update	leaf	refused
+pro locales	group	group
+pro locales list	leaf	leaf
+pro log-flushings	group	group
+pro log-flushings delete	leaf	refused
+pro log-flushings get	leaf	refused
+pro log-flushings list	leaf	leaf
+pro log-flushings log-flushing	leaf	refused
+pro log-flushings task	leaf	refused
+pro login-customization	group	group
+pro login-customization get	leaf	leaf
+pro login-customization update	leaf	leaf
+pro m2m	group	group
+pro m2m list	leaf	leaf
+pro mac-os-managed-software-updates	group	group
+pro mac-os-managed-software-updates list	leaf	leaf
+pro mac-os-managed-software-updates send-updates	leaf	leaf
+pro managed-software-updates	group	group
+pro managed-software-updates available-updates	leaf	leaf
+pro managed-software-updates get	leaf	leaf
+pro managed-software-updates update-statuses	leaf	leaf
+pro managed-software-updates-plans	group	group
+pro managed-software-updates-plans abandon	leaf	refused
+pro managed-software-updates-plans apply	leaf	gone
+pro managed-software-updates-plans create	leaf	leaf
+pro managed-software-updates-plans declarations	leaf	leaf
+pro managed-software-updates-plans events	leaf	leaf
+pro managed-software-updates-plans feature-toggle	leaf	group
+pro managed-software-updates-plans get	leaf	leaf
+pro managed-software-updates-plans list	leaf	leaf
+pro managed-software-updates-plans status	leaf	refused
+pro managed-software-updates-plans update	leaf	refused
+pro mdm-commands	group	group
+pro mdm-commands blank-push	leaf	leaf
+pro mdm-commands commands	leaf	leaf
+pro mdm-commands list	leaf	leaf
+pro mdm-renewals	group	group
+pro mdm-renewals delete	leaf	leaf
+pro mdm-renewals get	leaf	leaf
+pro mdm-renewals patch	leaf	refused
+pro mobile-device-apps	group	group
+pro mobile-device-apps reinstall-app-config	leaf	leaf
+pro mobile-device-enrollment-profiles	group	group
+pro mobile-device-enrollment-profiles download-profile	leaf	leaf
+pro mobile-device-extension-attributes	group	group
+pro mobile-device-extension-attributes add-history-note	leaf	leaf
+pro mobile-device-extension-attributes apply	leaf	leaf
+pro mobile-device-extension-attributes create	leaf	leaf
+pro mobile-device-extension-attributes data-dependency	leaf	leaf
+pro mobile-device-extension-attributes delete	leaf	leaf
+pro mobile-device-extension-attributes get	leaf	leaf
+pro mobile-device-extension-attributes history	leaf	leaf
+pro mobile-device-extension-attributes list	leaf	leaf
+pro mobile-device-extension-attributes update	leaf	leaf
+pro mobile-device-groups	group	group
+pro mobile-device-groups erase	leaf	leaf
+pro mobile-device-groups get	leaf	leaf
+pro mobile-device-groups list	leaf	leaf
+pro mobile-device-groups-smart-groups	group	group
+pro mobile-device-groups-smart-groups apply	leaf	leaf
+pro mobile-device-groups-smart-groups create	leaf	leaf
+pro mobile-device-groups-smart-groups delete	leaf	leaf
+pro mobile-device-groups-smart-groups get	leaf	leaf
+pro mobile-device-groups-smart-groups list	leaf	leaf
+pro mobile-device-groups-smart-groups update	leaf	leaf
+pro mobile-device-groups-static-groups	group	group
+pro mobile-device-groups-static-groups apply	leaf	leaf
+pro mobile-device-groups-static-groups create	leaf	leaf
+pro mobile-device-groups-static-groups delete	leaf	leaf
+pro mobile-device-groups-static-groups get	leaf	leaf
+pro mobile-device-groups-static-groups list	leaf	leaf
+pro mobile-device-groups-static-groups patch	leaf	leaf
+pro mobile-device-inventory-details	group	group
+pro mobile-device-inventory-details list	leaf	leaf
+pro mobile-device-inventory-details paired-devices	leaf	leaf
+pro mobile-device-prestage-scopes	group	group
+pro mobile-device-prestage-scopes create-scope	leaf	leaf
+pro mobile-device-prestage-scopes delete-multiple	leaf	refused
+pro mobile-device-prestage-scopes list	leaf	leaf
+pro mobile-device-prestage-scopes scope	leaf	leaf
+pro mobile-device-prestage-scopes update-scope	leaf	leaf
+pro mobile-device-prestage-sync-states	group	group
+pro mobile-device-prestage-sync-states latest	leaf	leaf
+pro mobile-device-prestage-sync-states list	leaf	leaf
+pro mobile-device-prestage-sync-states syncs	leaf	leaf
+pro mobile-device-prestages	group	group
+pro mobile-device-prestages add-history-note	leaf	leaf
+pro mobile-device-prestages apply	leaf	leaf
+pro mobile-device-prestages attachments	leaf	leaf
+pro mobile-device-prestages create	leaf	leaf
+pro mobile-device-prestages delete	leaf	leaf
+pro mobile-device-prestages delete-multiple	leaf	refused
+pro mobile-device-prestages get	leaf	leaf
+pro mobile-device-prestages history	leaf	leaf
+pro mobile-device-prestages list	leaf	leaf
+pro mobile-device-prestages update	leaf	leaf
+pro mobile-device-prestages upload	leaf	leaf
+pro mobile-device-smart-groups	group	group
+pro mobile-device-smart-groups recalculate	leaf	leaf
+pro mobile-device-smart-groups recalculate-smart-groups	leaf	leaf
+pro mobile-devices	group	group
+pro mobile-devices apply-redemption-code	leaf	leaf
+pro mobile-devices clear-passcode	leaf	leaf
+pro mobile-devices clear-restrictions-password	leaf	leaf
+pro mobile-devices delete	leaf	leaf
+pro mobile-devices delete-user	leaf	leaf
+pro mobile-devices disable-lost-mode	leaf	leaf
+pro mobile-devices enable-lost-mode	leaf	leaf
+pro mobile-devices erase	leaf	leaf
+pro mobile-devices flush-commands	leaf	leaf
+pro mobile-devices get	leaf	leaf
+pro mobile-devices list	leaf	leaf
+pro mobile-devices lock	leaf	leaf
+pro mobile-devices log-out-user	leaf	leaf
+pro mobile-devices patch	leaf	leaf
+pro mobile-devices play-lost-mode-sound	leaf	leaf
+pro mobile-devices refresh-cellular-plans	leaf	leaf
+pro mobile-devices request-mirroring	leaf	leaf
+pro mobile-devices restart	leaf	leaf
+pro mobile-devices settings	leaf	leaf
+pro mobile-devices shutdown	leaf	leaf
+pro mobile-devices stop-mirroring	leaf	leaf
+pro mobile-devices unlock-user-account	leaf	leaf
+pro mobile-devices unmanage	leaf	leaf
+pro mobile-devices update-inventory	leaf	leaf
+pro notifications	group	group
+pro notifications delete	leaf	leaf
+pro notifications list	leaf	leaf
+pro oauth-token-sessions	group	group
+pro oauth-token-sessions list	leaf	leaf
+pro oidcs	group	group
+pro oidcs direct-idp-login-url	leaf	leaf
+pro oidcs dispatch	leaf	leaf
+pro oidcs generate-certificate	leaf	leaf
+pro oidcs public-features	leaf	leaf
+pro oidcs public-key	leaf	leaf
+pro onboarding-configuration	group	group
+pro onboarding-configuration get	leaf	leaf
+pro onboarding-configuration update	leaf	leaf
+pro onboardings	group	group
+pro onboardings add-history-note	leaf	leaf
+pro onboardings eligible-apps	leaf	leaf
+pro onboardings eligible-configuration-profiles	leaf	leaf
+pro onboardings eligible-policies	leaf	leaf
+pro onboardings history	leaf	leaf
+pro onboardings history-export	leaf	leaf
+pro overview	leaf	leaf
+pro package-deployments	group	group
+pro package-deployments deploy-package	leaf	leaf
+pro packages	group	group
+pro packages add-history-note	leaf	leaf
+pro packages apply	leaf	leaf
+pro packages create	leaf	leaf
+pro packages delete	leaf	leaf
+pro packages delete-multiple	leaf	leaf
+pro packages export	leaf	leaf
+pro packages get	leaf	leaf
+pro packages history	leaf	leaf
+pro packages history-export	leaf	leaf
+pro packages list	leaf	leaf
+pro packages sync	leaf	leaf
+pro packages update	leaf	leaf
+pro packages upload	leaf	leaf
+pro parent-app	group	group
+pro parent-app add-history-note	leaf	leaf
+pro parent-app get	leaf	leaf
+pro parent-app history	leaf	leaf
+pro parent-app update	leaf	leaf
+pro patch-policies	group	group
+pro patch-policies create-dashboard	leaf	leaf
+pro patch-policies dashboard	leaf	leaf
+pro patch-policies delete	leaf	leaf
+pro patch-policies list	leaf	leaf
+pro patch-policies policy-details	leaf	leaf
+pro patch-policy-logs	group	group
+pro patch-policy-logs details	leaf	leaf
+pro patch-policy-logs eligible-retry-count	leaf	leaf
+pro patch-policy-logs logs	leaf	leaf
+pro patch-policy-logs retry	leaf	leaf
+pro patch-policy-logs retry-all	leaf	leaf
+pro patch-software-title-configurations	group	group
+pro patch-software-title-configurations add-history-note	leaf	leaf
+pro patch-software-title-configurations apply	leaf	leaf
+pro patch-software-title-configurations create	leaf	leaf
+pro patch-software-title-configurations create-dashboard	leaf	leaf
+pro patch-software-title-configurations dashboard	leaf	leaf
+pro patch-software-title-configurations definitions	leaf	leaf
+pro patch-software-title-configurations delete	leaf	leaf
+pro patch-software-title-configurations dependencies	leaf	leaf
+pro patch-software-title-configurations export-report	leaf	leaf
+pro patch-software-title-configurations extension-attributes	leaf	leaf
+pro patch-software-title-configurations get	leaf	leaf
+pro patch-software-title-configurations history	leaf	leaf
+pro patch-software-title-configurations list	leaf	leaf
+pro patch-software-title-configurations patch	leaf	leaf
+pro patch-software-title-configurations patch-report	leaf	leaf
+pro patch-software-title-configurations patch-summary	leaf	leaf
+pro patch-software-title-configurations versions	leaf	leaf
+pro patch-titles	group	group
+pro patch-titles patch-management-accept-disclaimer	leaf	leaf
+pro platform-device-groups	group	group
+pro platform-device-groups add-members	leaf	leaf
+pro platform-device-groups apply	leaf	leaf
+pro platform-device-groups create	leaf	leaf
+pro platform-device-groups delete	leaf	leaf
+pro platform-device-groups get	leaf	leaf
+pro platform-device-groups list	leaf	leaf
+pro platform-device-groups members	leaf	leaf
+pro platform-device-groups patch	leaf	leaf
+pro platform-device-groups patch-members	leaf	leaf
+pro platform-device-groups remove-members	leaf	leaf
+pro platform-devices	group	group
+pro platform-devices applications	leaf	leaf
+pro platform-devices check-in	leaf	leaf
+pro platform-devices delete	leaf	leaf
+pro platform-devices device-groups	leaf	leaf
+pro platform-devices erase	leaf	leaf
+pro platform-devices get	leaf	leaf
+pro platform-devices groups	leaf	leaf
+pro platform-devices list	leaf	leaf
+pro platform-devices patch	leaf	leaf
+pro platform-devices restart	leaf	leaf
+pro platform-devices shutdown	leaf	leaf
+pro platform-devices unmanage	leaf	leaf
+pro platform-devices update	leaf	leaf
+pro platform-devices user	leaf	leaf
+pro platform-users	group	group
+pro platform-users devices	leaf	leaf
+pro policy-properties	group	group
+pro policy-properties policy-properties	leaf	refused
+pro policy-properties update-policy-properties	leaf	refused
+pro reenrollment	group	group
+pro reenrollment add-history-note	leaf	leaf
+pro reenrollment get	leaf	leaf
+pro reenrollment history	leaf	leaf
+pro reenrollment history-export	leaf	leaf
+pro reenrollment update	leaf	leaf
+pro remote-administration-configurations	group	leaf
+pro remote-administration-configurations list	leaf	gone
+pro report	group	group
+pro report app-status	leaf	leaf
+pro report blueprint-status	leaf	leaf
+pro report compliance-devices	leaf	leaf
+pro report compliance-rules	leaf	leaf
+pro report ddm-status	leaf	leaf
+pro report device-compliance	leaf	leaf
+pro report duplicate-serials	leaf	leaf
+pro report ea-results	leaf	leaf
+pro report inventory-summary	leaf	leaf
+pro report patch-status	leaf	leaf
+pro report policy-status	leaf	leaf
+pro report profile-status	leaf	leaf
+pro report security	leaf	leaf
+pro report software-installs	leaf	leaf
+pro report update-status	leaf	leaf
+pro return-to-service-configurations	group	group
+pro return-to-service-configurations apply	leaf	leaf
+pro return-to-service-configurations create	leaf	leaf
+pro return-to-service-configurations delete	leaf	leaf
+pro return-to-service-configurations get	leaf	leaf
+pro return-to-service-configurations list	leaf	leaf
+pro return-to-service-configurations update	leaf	leaf
+pro rules	group	group
+pro rules list	leaf	leaf
+pro schedulers	group	group
+pro schedulers list	leaf	leaf
+pro schedulers summary	leaf	refused
+pro schedulers triggers	leaf	refused
+pro scripts	group	group
+pro scripts add-history-note	leaf	leaf
+pro scripts apply	leaf	leaf
+pro scripts create	leaf	leaf
+pro scripts delete	leaf	leaf
+pro scripts download	leaf	leaf
+pro scripts get	leaf	leaf
+pro scripts history	leaf	leaf
+pro scripts list	leaf	leaf
+pro scripts update	leaf	leaf
+pro self-service-branding-images	group	group
+pro self-service-branding-images upload	leaf	leaf
+pro self-service-branding-ios	group	group
+pro self-service-branding-ios apply	leaf	leaf
+pro self-service-branding-ios create	leaf	leaf
+pro self-service-branding-ios delete	leaf	leaf
+pro self-service-branding-ios get	leaf	leaf
+pro self-service-branding-ios list	leaf	leaf
+pro self-service-branding-ios update	leaf	leaf
+pro self-service-branding-macos	group	group
+pro self-service-branding-macos apply	leaf	leaf
+pro self-service-branding-macos create	leaf	leaf
+pro self-service-branding-macos delete	leaf	leaf
+pro self-service-branding-macos get	leaf	leaf
+pro self-service-branding-macos list	leaf	leaf
+pro self-service-branding-macos update	leaf	leaf
+pro self-service-plus	group	group
+pro self-service-plus enabled	leaf	leaf
+pro self-service-plus get	leaf	refused
+pro self-service-plus update	leaf	refused
+pro self-service-settings	group	group
+pro self-service-settings add-history-note	leaf	leaf
+pro self-service-settings get	leaf	leaf
+pro self-service-settings history	leaf	leaf
+pro self-service-settings update	leaf	leaf
+pro servers	group	leaf
+pro servers issue-tomcat-ssl-certificate	leaf	gone
+pro service-discovery	group	group
+pro service-discovery get	leaf	leaf
+pro service-discovery update	leaf	leaf
+pro setup	leaf	leaf
+pro sites	group	group
+pro sites list	leaf	leaf
+pro sites objects	leaf	leaf
+pro slasas	group	group
+pro slasas list	leaf	leaf
+pro slasas slasa	leaf	leaf
+pro smtp-server	group	group
+pro smtp-server add-history-note	leaf	leaf
+pro smtp-server allowed-auth-types	leaf	leaf
+pro smtp-server get	leaf	leaf
+pro smtp-server history	leaf	leaf
+pro smtp-server test	leaf	leaf
+pro smtp-server update	leaf	leaf
+pro sso-failovers	group	group
+pro sso-failovers generate	leaf	leaf
+pro sso-failovers list	leaf	refused
+pro sso-settings	group	group
+pro sso-settings add-history-note	leaf	leaf
+pro sso-settings dependencies	leaf	leaf
+pro sso-settings disable	leaf	leaf
+pro sso-settings download	leaf	leaf
+pro sso-settings get	leaf	leaf
+pro sso-settings history	leaf	leaf
+pro sso-settings update	leaf	leaf
+pro sso-settings-cert	group	group
+pro sso-settings-cert cert	leaf	refused
+pro sso-settings-cert delete	leaf	leaf
+pro sso-settings-cert download	leaf	leaf
+pro sso-settings-cert get	leaf	leaf
+pro sso-settings-cert parse	leaf	leaf
+pro sso-settings-cert update	leaf	leaf
+pro startup-status	group	group
+pro startup-status list	leaf	leaf
+pro static-computer-groups	group	group
+pro static-computer-groups apply	leaf	leaf
+pro static-computer-groups create	leaf	leaf
+pro static-computer-groups delete	leaf	leaf
+pro static-computer-groups get	leaf	leaf
+pro static-computer-groups list	leaf	leaf
+pro static-computer-groups update	leaf	leaf
+pro static-user-groups	group	group
+pro static-user-groups get	leaf	leaf
+pro static-user-groups list	leaf	leaf
+pro supervision-identities	group	group
+pro supervision-identities apply	leaf	leaf
+pro supervision-identities create	leaf	leaf
+pro supervision-identities delete	leaf	leaf
+pro supervision-identities download	leaf	leaf
+pro supervision-identities get	leaf	leaf
+pro supervision-identities list	leaf	leaf
+pro supervision-identities update	leaf	leaf
+pro supervision-identities upload	leaf	leaf
+pro systems	group	group
+pro systems initialize	leaf	leaf
+pro systems platform-initialize	leaf	leaf
+pro teacher-settings	group	group
+pro teacher-settings add-history-note	leaf	leaf
+pro teacher-settings get	leaf	leaf
+pro teacher-settings history	leaf	leaf
+pro teacher-settings update	leaf	leaf
+pro team-viewer-remote-administrations	group	group
+pro team-viewer-remote-administrations close	leaf	leaf
+pro team-viewer-remote-administrations create	leaf	leaf
+pro team-viewer-remote-administrations delete	leaf	leaf
+pro team-viewer-remote-administrations get	leaf	leaf
+pro team-viewer-remote-administrations patch	leaf	leaf
+pro team-viewer-remote-administrations resend-notification	leaf	leaf
+pro team-viewer-remote-administrations sessions	leaf	leaf
+pro team-viewer-remote-administrations sessions-status	leaf	leaf
+pro team-viewer-remote-administrations status	leaf	leaf
+pro time-zones	group	group
+pro time-zones list	leaf	leaf
+pro user-accounts	group	group
+pro user-accounts apply	leaf	leaf
+pro user-accounts create	leaf	leaf
+pro user-accounts delete	leaf	leaf
+pro user-accounts get	leaf	leaf
+pro user-accounts list	leaf	leaf
+pro user-accounts update	leaf	leaf
+pro user-preferences	group	group
+pro user-preferences delete	leaf	leaf
+pro user-preferences get	leaf	leaf
+pro user-preferences update	leaf	leaf
+pro user-sessions	group	group
+pro user-sessions active	leaf	leaf
+pro user-sessions count	leaf	leaf
+pro user-smart-groups	group	group
+pro user-smart-groups recalculate	leaf	leaf
+pro user-smart-groups recalculate-smart-groups	leaf	leaf
+pro users	group	group
+pro users apply	leaf	leaf
+pro users create	leaf	leaf
+pro users delete	leaf	leaf
+pro users get	leaf	leaf
+pro users list	leaf	leaf
+pro users update	leaf	leaf
+pro venafis	group	group
+pro venafis add-history-note	leaf	leaf
+pro venafis connection-status	leaf	leaf
+pro venafis create	leaf	leaf
+pro venafis delete	leaf	leaf
+pro venafis dependent-profiles	leaf	leaf
+pro venafis get	leaf	leaf
+pro venafis history	leaf	leaf
+pro venafis jamf-public-key	leaf	leaf
+pro venafis patch	leaf	leaf
+pro venafis proxy-trust-store	leaf	leaf
+pro venafis regenerate	leaf	leaf
+pro vpp-locations	group	group
+pro vpp-locations add-history-note	leaf	leaf
+pro vpp-locations apply	leaf	leaf
+pro vpp-locations content	leaf	leaf
+pro vpp-locations create	leaf	leaf
+pro vpp-locations delete	leaf	leaf
+pro vpp-locations get	leaf	leaf
+pro vpp-locations history	leaf	leaf
+pro vpp-locations list	leaf	leaf
+pro vpp-locations patch	leaf	leaf
+pro vpp-locations reclaim	leaf	leaf
+pro vpp-locations revoke-licenses	leaf	leaf
+pro vpp-subscriptions	group	group
+pro vpp-subscriptions add-history-note	leaf	leaf
+pro vpp-subscriptions apply	leaf	leaf
+pro vpp-subscriptions create	leaf	leaf
+pro vpp-subscriptions delete	leaf	leaf
+pro vpp-subscriptions get	leaf	leaf
+pro vpp-subscriptions history	leaf	leaf
+pro vpp-subscriptions list	leaf	leaf
+pro vpp-subscriptions update	leaf	leaf

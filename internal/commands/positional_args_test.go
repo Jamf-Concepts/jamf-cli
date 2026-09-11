@@ -113,7 +113,20 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 
 	seenUnbounded := map[string]bool{}
 	documented, unwrapped := 0, 0
+	stubs := 0
 	for _, l := range leaves {
+		if isMovedStub(l.cmd) {
+			// A movedInvocations refusal stub takes whatever it is given and
+			// answers that the invocation no longer exists. Its arity is not a
+			// contract — the command it stands in for is gone, so inventing a
+			// placeholder in its Use would document a positional nothing
+			// reads, and clamping it would answer `pro csa delete 5` with
+			// "takes no positional arguments" instead of naming where the
+			// operation went. TestEveryMovedInvocationRefusesAndNamesIts-
+			// Replacement is what holds these to their own contract.
+			stubs++
+			continue
+		}
 		count, variadic := declaredPositionals(l.cmd.Use, l.cmd.Name())
 		if reason, listed := unboundedPositionalLeaves[l.path]; listed {
 			seenUnbounded[l.path] = true
@@ -194,6 +207,14 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 
 	if unwrapped > 0 {
 		t.Errorf("%d zero-arity leaves carry refuseStrayPositionals unwrapped: guardStrayPositionals must run before classifyArgsErrors in NewRootCmd", unwrapped)
+	}
+
+	// The exemption above is only sound while every skipped leaf really is a
+	// stub, so the count has to match the table it comes from. A stub that
+	// stopped being registered, or a real leaf that grew the stub's Short,
+	// would otherwise leave this walk quietly skipping commands.
+	if want := len(movedInvocations) + movedAliasSpellings(); stubs != want {
+		t.Errorf("skipped %d refusal stub(s), want %d — a movedInvocations entry lost its stub, or a real leaf is being skipped", stubs, want)
 	}
 
 	if len(leaves) < 700 {
@@ -279,19 +300,32 @@ func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
 //
 // Eighteen are internal/scope's add and remove across nine classic resources,
 // whose examples are written without the binary name (`scope add "Deploy
-// Chrome" …`). The other three carry an example that resolves to a different
+// Chrome" …`). The other two carry an example that resolves to a different
 // command than the leaf it sits on: `pro mobile-devices delete` documents
-// `pro classic-mobile-devices delete`, `pro packages sync` documents
-// `pro jcds sync`, and `pro computer-groups get` belongs to the second of two
-// identical computer-groups subtrees, the generated registry calling
-// NewComputerGroupsCmd twice, so `pro --help` prints the row twice and Find
-// resolves every path under it to the first copy. All three are pre-existing and
-// are a question about the example, or about the registry, rather than about
-// arity.
+// `pro classic-mobile-devices delete` and `pro packages sync` documents
+// `pro jcds sync`. Both are pre-existing and are a question about the example
+// rather than about arity.
+//
+// It was 21. The third was `pro computer-groups get`, which sat in the second of
+// two identical computer-groups subtrees — the generated registry called
+// NewComputerGroupsCmd twice, so `pro --help` printed the row twice and Find
+// resolved every path under it to the first copy. Resource identity comes from
+// the spec's paths and tags now rather than from two filenames that named the
+// same resource, so there is one subtree and the example resolves to its own
+// leaf. A registry defect, fixed by removing what caused it.
+//
+// Thirteen more arrived with the nested sub-resource split, and for those the
+// mismatch is the point: each is a leaf under a hidden compatibility stub
+// (`pro sso-settings-cert update`, `pro self-service-settings get` and the rest
+// of nestedAliases), built by calling the nested resource's own constructor, so
+// its Example correctly names the live path — `pro sso-settings cert update` —
+// which resolves to a different leaf. A stub whose --help taught its own dead
+// name would be the defect. Their arity is still covered, once, on the leaf the
+// examples do resolve to.
 //
 // Pinned so a reader that stops matching a form it handles today, or a new
 // unmatchable form, fails rather than quietly shrinking the population.
-const unmatchedExampleLeaves = 21
+const unmatchedExampleLeaves = 33
 
 // TestScaffoldKeepsTheDeclaredPositionalCeiling covers the path the walk above
 // cannot see, because that walk reads each validator with no flag set.
@@ -1060,4 +1094,15 @@ func TestSetPairSplitIgnoresAnUnsuppliedDefault(t *testing.T) {
 	if !setPairSplitByASpace(cmd) {
 		t.Error("a supplied element with no \"=\" is the split-pair signature and was missed")
 	}
+}
+
+// movedAliasSpellings counts the extra stubs registered under a nested-alias
+// spelling of a movedInvocations key, which are the same refusal reachable by a
+// second path.
+func movedAliasSpellings() int {
+	n := 0
+	for key := range movedInvocations {
+		n += len(movedKeySpellings(key)) - 1
+	}
+	return n
 }

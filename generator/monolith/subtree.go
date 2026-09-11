@@ -99,7 +99,7 @@ func ExtractSubtree(source, specsDir, subtree string, specs []SubtreeSpec) ([]st
 			// lose an endpoint with nothing to notice.
 			return nil, nil, fmt.Errorf("no SubtreeSpec owns %s — add one for its collection path", path)
 		}
-		item, ws := proDirectPathItem(path, pi, owner.Prefix, monoComponents)
+		item, ws := proDirectPathItem(path, pi, owner.Prefix, paths, monoComponents)
 		warnings = append(warnings, ws...)
 		if byFile[owner.Filename] == nil {
 			byFile[owner.Filename] = map[string]any{}
@@ -165,7 +165,7 @@ var httpMethods = []string{"get", "put", "post", "delete", "patch", "head", "opt
 
 // proDirectPathItem applies the three transforms described on ExtractSubtree to
 // one path item, in place, and returns any warnings.
-func proDirectPathItem(path string, pi any, collectionPath string, monoComponents map[string]any) (any, []string) {
+func proDirectPathItem(path string, pi any, collectionPath string, paths map[string]any, monoComponents map[string]any) (any, []string) {
 	item, ok := asMap(pi)
 	if !ok {
 		return pi, nil
@@ -176,7 +176,7 @@ func proDirectPathItem(path string, pi any, collectionPath string, monoComponent
 		item["parameters"] = dropHeaderParams(params, monoComponents)
 	}
 
-	action := isActionPath(path, collectionPath)
+	action := isActionPath(path, collectionPath, paths)
 	for _, method := range httpMethods {
 		op, ok := asMap(item[method])
 		if !ok {
@@ -206,12 +206,41 @@ func proDirectPathItem(path string, pi any, collectionPath string, monoComponent
 // isActionPath reports whether an operation's path is deeper than its
 // collection path and ends in a literal segment — the shape jss marks
 // x-action, and the shape the parser names after its terminal segment.
-func isActionPath(path, collectionPath string) bool {
+func isActionPath(path, collectionPath string, paths map[string]any) bool {
 	if path == collectionPath || !strings.HasPrefix(path, collectionPath+"/") {
 		return false
 	}
 	seg := path[strings.LastIndex(path, "/")+1:]
-	return seg != "" && !strings.HasPrefix(seg, "{")
+	if seg == "" || strings.HasPrefix(seg, "{") {
+		return false
+	}
+	// A path with a /{param} child of its own is a collection, not an action,
+	// however deep it sits below the subtree's prefix. /v1/app-installers/titles
+	// and /v1/app-installers/deployments are one segment below the prefix and
+	// each has a /{id} child, so stamping them made the parser name their
+	// collection GETs after their terminal segment — `pro app-installers-titles
+	// titles` rather than `list`, and likewise `deployments`.
+	//
+	// It only mattered once resource identity came from tags and paths: under one
+	// spec file per resource these were operations on the app-installers
+	// resource, where "titles" reads as a sub-collection accessor. Now each is
+	// its own resource and the segment it is named after is the resource's own
+	// name.
+	return !hasParamChild(path, paths)
+}
+
+// hasParamChild reports whether the document declares a path that is this path
+// plus a single {param} segment.
+func hasParamChild(path string, paths map[string]any) bool {
+	for p := range paths {
+		if !strings.HasPrefix(p, path+"/{") {
+			continue
+		}
+		if !strings.Contains(p[len(path)+1:], "/") {
+			return true
+		}
+	}
+	return false
 }
 
 // dropHeaderParams removes header parameters, inline or $ref'd. A $ref is

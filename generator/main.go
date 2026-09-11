@@ -86,21 +86,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	// If a monolith was provided, split it into per-resource spec files first.
-	// The splitter overwrites *.yaml in the root of specsDir; the classic/
-	// subdirectory is left untouched.
+	// A monolith is written into specsDir as one normalised document rather
+	// than split into per-resource files. Resource identity comes from the URL
+	// paths now (parser.ParseMonolith), so a file boundary names nothing and
+	// carving one document into 165 was carrying naming rather than
+	// information. Recorded here for the prune below.
+	var normalisedSpecs []string
 	if monolithPath != "" {
-		fmt.Println("Splitting monolith spec")
-		fmt.Println("-----------------------")
-		written, warnings, err := monolith.Split(monolithPath, specsDir)
+		fmt.Println("Normalising monolith spec")
+		fmt.Println("-------------------------")
+		written, err := monolith.Normalise(monolithPath, specsDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error splitting monolith: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error normalising monolith: %v\n", err)
 			os.Exit(1)
 		}
-		for _, w := range warnings {
-			fmt.Fprintln(os.Stderr, "  note:", w)
-		}
-		fmt.Printf("  Wrote %d spec files (incl. %s)\n\n", len(written), monolith.LibraryFilename)
+		normalisedSpecs = append(normalisedSpecs, written)
+		fmt.Printf("  Wrote %s\n\n", written)
 	}
 
 	// Re-derive the gateway coverage manifest from a bundle drop, when one was
@@ -152,7 +153,24 @@ func main() {
 		for _, w := range warnings {
 			fmt.Fprintln(os.Stderr, "  note:", w)
 		}
+		normalisedSpecs = append(normalisedSpecs, written...)
 		fmt.Printf("  Wrote %d spec file(s)\n\n", len(written))
+	}
+
+	// Remove the per-resource files a previous split left behind, but only on a
+	// run that actually produced the documents replacing them. A plain
+	// `make generate` writes no specs and must not delete any; gating on the
+	// monolith having been ingested is what separates the two.
+	if monolithPath != "" {
+		removed, err := monolith.PruneStaleSpecs(specsDir, normalisedSpecs)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error pruning stale specs: %v\n", err)
+			os.Exit(1)
+		}
+		if len(removed) > 0 {
+			fmt.Printf("Pruned %d per-resource spec file(s) the split layout left behind\n", len(removed))
+			fmt.Printf("  first: %s   last: %s\n\n", removed[0], removed[len(removed)-1])
+		}
 	}
 
 	// Load it for the verdict passes below. A missing manifest is not an error:
@@ -178,39 +196,49 @@ func main() {
 		os.Exit(0)
 	}
 
-	fmt.Printf("Found %d spec(s)\n\n", len(specs))
+	fmt.Printf("Found %d spec document(s)\n\n", len(specs))
 
-	// Parse and generate for each spec
-	var resources []*parser.Resource
-	for _, specPath := range specs {
-		fmt.Printf("Parsing: %s\n", filepath.Base(specPath))
-		parsed, err := parser.ParseSpec(specPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
-			continue
-		}
-		for _, resource := range parsed {
-			resources = append(resources, resource)
-			fmt.Printf("  Resource: %s (%d operations)\n", resource.Name, len(resource.Operations))
+	// One document, always: every spec file is merged and then grouped by the
+	// URL paths it declares. A resource's identity is its collection path, not
+	// the name of the file the path was filed under — see parser.ParseMonolith
+	// for what that filename used to decide, and what reading it cost.
+	//
+	// There is no cross-resource version pass any more. Every version of a path
+	// lands in one resource by construction, and deduplicateVersionedOps picks
+	// the highest per path shape inside it, so a resource family is a fact about
+	// the paths rather than about a filename's `-vN` suffix.
+	resources, notes, err := parser.LoadDocuments(specs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing specs: %v\n", err)
+		os.Exit(1)
+	}
+	for _, n := range notes {
+		fmt.Fprintln(os.Stderr, "  note:", n)
+	}
+	for _, resource := range resources {
+		fmt.Printf("  Resource: %s (%d operations)\n", resource.Name, len(resource.Operations))
+		// Reported, because a spec drop that turns a sub-path into an
+		// independently-writable object moves commands one token deeper and
+		// this line is where that becomes visible at generate time.
+		for _, sub := range resource.SubResources {
+			fmt.Printf("    Sub-resource: %s (%d operations)\n", sub.CmdPath(), len(sub.Operations))
 		}
 	}
 
 	fmt.Println()
 
-	// Filter out resources with no operations
+	// Filter out resources with no operations. A parent with none but with
+	// sub-resources cannot arise — subResourceRoots refuses a candidate that
+	// would take every operation in the group — and dropping one here would
+	// take its sub-resources with it silently, so the condition reads the whole
+	// subtree rather than relying on that.
 	var validResources []*parser.Resource
 	for _, r := range resources {
-		if len(r.Operations) > 0 {
+		if len(r.AllOperations()) > 0 {
 			validResources = append(validResources, r)
 		}
 	}
 	resources = validResources
-
-	// Consolidate multi-version resources: keep only the highest version per resource
-	// family, renamed to its clean canonical name (e.g. "mobile-device-prestages-v-3s"
-	// becomes "mobile-device-prestages"). This also suppresses any older non-versioned
-	// base resource that a versioned sibling supersedes.
-	resources = parser.DeduplicateVersioned(resources)
 
 	// Fix names where auto-pluralization produces unnatural results
 	// (e.g. computers-inventories → computers-inventory).
@@ -255,7 +283,13 @@ func main() {
 
 	// Generate code
 	gen := parser.NewGenerator(outputDir)
-	for _, resource := range resources {
+	// One file per resource and per nested sub-resource. A sub-resource goes
+	// through the same template, which is the point: `pro sso-settings cert get`
+	// needs every flag, scaffold, pagination and confirmation the flat command
+	// had, and re-deriving that for a nesting level would be a second
+	// implementation to keep in step. Only the top-level ones reach
+	// GenerateRegistry — a sub-resource is added by its parent's constructor.
+	for _, resource := range parser.FlattenResources(resources) {
 		outPath, err := gen.Generate(resource)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error generating %s: %v\n", resource.Name, err)
@@ -540,14 +574,17 @@ func main() {
 func generateSmokeRegistry(outputDir string, modern []*parser.Resource, classicRes []classic.ClassicResource) (string, error) {
 	var entries []smokeEntry
 
-	// Collect modern GET endpoints
-	for _, r := range modern {
+	// Collect modern GET endpoints. Flattened, so a nested sub-resource's reads
+	// are exercised too — and keyed on its qualified name, which is both the
+	// honest subtest label and what keeps the phase-2 id sharing from handing a
+	// sub-resource an id discovered from its parent's collection.
+	for _, r := range parser.FlattenResources(modern) {
 		for _, op := range r.Operations {
 			if op.Method != "GET" {
 				continue
 			}
 			entries = append(entries, smokeEntry{
-				Resource:      r.Name,
+				Resource:      r.QualifiedName(),
 				Operation:     op.Name,
 				Method:        op.Method,
 				Path:          op.Path,
@@ -649,7 +686,11 @@ func generateBackupRegistry(outputDir string, modern []*parser.Resource, classic
 	// Modern resources: find the canonical list + get pair. Resources with a
 	// list endpoint but no per-ID detail endpoint (e.g. sites) are included
 	// with an empty GetPath — the backup runtime treats those as list-only.
-	for _, r := range modern {
+	// Flattened: a sub-resource ships no list/get pair today, so it contributes
+	// nothing — but a resource-shaped thing that backup cannot see is exactly
+	// how a resource silently stops being backed up, and the filter below is
+	// the only thing that should decide it.
+	for _, r := range parser.FlattenResources(modern) {
 		if r.IsSingleton {
 			continue
 		}
@@ -811,7 +852,11 @@ var BackupEndpoints = map[string]BackupEndpoint{
 func modernGatewayOps(resources []*parser.Resource) []gateway.Op {
 	var ops []gateway.Op
 	for _, r := range resources {
-		for _, op := range r.Operations {
+		// AllOperations, not Operations: an unstamped operation carries no
+		// jamf:gateway annotation, checkAPIMatch refuses only on that, and a
+		// nested command on a withdrawn endpoint would then go out to the bare
+		// 403 the pre-flight refusal exists to replace.
+		for _, op := range r.AllOperations() {
 			ops = append(ops, gateway.Op{
 				Method:      op.Method,
 				GatewayPath: gateway.ProPrefix + op.Path,

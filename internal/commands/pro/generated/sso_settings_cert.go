@@ -16,19 +16,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSsoSettingsCertCmd creates the sso-settings-cert command group
+// NewSsoSettingsCertCmd creates the sso-settings cert command group
 func NewSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "sso-settings-cert",
-		Short:       "Manage sso-settings-cert",
-		Long:        `Manage sso-settings-cert in Jamf Pro.`,
+		Use:         "cert",
+		Short:       "Manage sso-settings cert",
+		Long:        `Manage sso-settings cert in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSsoSettingsCertGetCmd(ctx))
+	cmd.AddCommand(newSsoSettingsCertCreateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsCertUpdateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsCertDeleteCmd(ctx))
-	cmd.AddCommand(newSsoSettingsCertCertCmd(ctx))
 	cmd.AddCommand(newSsoSettingsCertDownloadCmd(ctx))
 	cmd.AddCommand(newSsoSettingsCertParseCmd(ctx))
 
@@ -42,11 +42,11 @@ func newSsoSettingsCertGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get",
 		Short: "Retrieve the certificate currently configured for use with SSO",
 		Long:  "Retrieves the certificate currently configured for use with SSO.",
-		Example: `  # Get sso-settings-cert
-  jamf-cli pro sso-settings-cert get
+		Example: `  # Get sso-settings cert
+  jamf-cli pro sso-settings cert get
 
-  # Get sso-settings-cert and output as YAML
-  jamf-cli pro sso-settings-cert get -o yaml`,
+  # Get sso-settings cert and output as YAML
+  jamf-cli pro sso-settings cert get -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -74,6 +74,65 @@ func newSsoSettingsCertGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newSsoSettingsCertCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Jamf Pro will generate a new certificate and use it to sign SSO",
+		Long:  "Jamf Pro will generate a new certificate and use it to sign SSO requests to the identity provider.",
+		Example: `  # Show the JSON template for creating a cert
+  jamf-cli pro sso-settings cert create --scaffold
+
+  # Create a cert from JSON
+  echo '{"name":"Example"}' | jamf-cli pro sso-settings cert create
+
+  # Get a cert, modify it, and create a copy
+  jamf-cli pro sso-settings cert get -o json | jq '.name = "Copy"' | jamf-cli pro sso-settings cert create`,
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/sso/cert"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
@@ -85,13 +144,13 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider",
 		Long:  "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  key                                          string\n  keystoreFile                                 string\n  keystoreFileName                             string\n  keystorePassword                             string\n  keystoreSetupType                            string\n  password                                     string\n  type                                         string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  keys                                         array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro sso-settings-cert update --set field=value
+  jamf-cli pro sso-settings cert update --set field=value
 
-  # Replace sso-settings-cert from a full JSON document
-  jamf-cli pro sso-settings-cert get -o json | jq '.field = "value"' | jamf-cli pro sso-settings-cert update
+  # Replace sso-settings cert from a full JSON document
+  jamf-cli pro sso-settings cert get -o json | jq '.field = "value"' | jamf-cli pro sso-settings cert update
 
   # Update from a file
-  jamf-cli pro sso-settings-cert update --from-file sso-settings-cert.json`,
+  jamf-cli pro sso-settings cert update --from-file sso-settings-cert.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -138,7 +197,7 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current sso-settings-cert for --set: %w", err)
+						return fmt.Errorf("parsing current cert for --set: %w", err)
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"key": nil, "keys": nil, "keystoreFile": nil, "keystoreFileName": nil, "keystorePassword": nil, "keystoreSetupType": nil, "password": nil, "type": nil}}).apply(current)
@@ -151,10 +210,10 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				if !hasNestedKey(setMap, "keystorePassword") {
-					fmt.Fprintf(os.Stderr, "warning: sso-settings-cert field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set keystorePassword=<value> to preserve it.\n", "keystorePassword")
+					fmt.Fprintf(os.Stderr, "warning: cert field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set keystorePassword=<value> to preserve it.\n", "keystorePassword")
 				}
 				if !hasNestedKey(setMap, "password") {
-					fmt.Fprintf(os.Stderr, "warning: sso-settings-cert field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set password=<value> to preserve it.\n", "password")
+					fmt.Fprintf(os.Stderr, "warning: cert field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set password=<value> to preserve it.\n", "password")
 				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
@@ -210,18 +269,18 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete the currently configured certificate used by SSO",
 		Long:  "Deletes the currently configured certificate used by SSO.",
-		Example: `  # Delete the sso-settings-cert (with confirmation)
-  jamf-cli pro sso-settings-cert delete
+		Example: `  # Delete the cert (with confirmation)
+  jamf-cli pro sso-settings cert delete
 
   # Delete without confirmation prompt
-  jamf-cli pro sso-settings-cert delete --yes`,
+  jamf-cli pro sso-settings cert delete --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete\n")
+				fmt.Fprintf(os.Stderr, "Would delete this cert\n")
 				return nil
 			}
 			if !flagYes {
@@ -229,7 +288,7 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete this cert. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -278,57 +337,6 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSettingsCertCertCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "cert",
-		Short:       "Jamf Pro will generate a new certificate and use it to sign SSO",
-		Long:        "Jamf Pro will generate a new certificate and use it to sign SSO requests to the identity provider.",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/sso/cert"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
 func newSsoSettingsCertDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
@@ -339,10 +347,10 @@ func newSsoSettingsCertDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Download the certificate currently configured for use with Jamf Pro's SSO configuration",
 		Long:  "Downloads the certificate currently configured for use with Jamf Pro's SSO configuration",
 		Example: `  # Save to file
-  jamf-cli pro sso-settings-cert download -O output.bin
+  jamf-cli pro sso-settings cert download -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro sso-settings-cert download > output.bin`,
+  jamf-cli pro sso-settings cert download > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

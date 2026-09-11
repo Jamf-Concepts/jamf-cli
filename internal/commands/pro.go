@@ -3,6 +3,9 @@
 package commands
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
@@ -55,24 +58,37 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Generated Classic API commands
 	generated.RegisterClassicCommands(cmd, cliCtx)
 
-	// Suppress generated commands that don't work for singleton/sub-resource patterns (see #45)
-	removeSubcommand(cmd, []string{"jamf-protects"}, "apply")
-	removeSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, "get-by-name")
+	// Two suppressions used to sit here (#45), and the wiring guard below is
+	// what found them dead. One removed `apply` from the resource `main` calls
+	// `jamf-protects`, the other `get-by-name` from
+	// `jamf-protect-deployment-tasks`; this branch produces neither resource,
+	// and neither name is generated under the `jamf-protect` that absorbed
+	// them. It has no nameResolutionPath, so no `apply` is synthesized, and the
+	// deployment-tasks lookup ships as `pro jamf-protect tasks`. Re-keying them
+	// onto `jamf-protect` — the first pass of this branch — left two calls that
+	// resolved a parent and then removed nothing.
 
-	// Suppress generated Classic "computers" (basic v1 list) — replaced by
-	// "computers-inventory" which is aliased to "computers"/"comp" and has the
-	// full modern v4 CRUD plus curated table output. MDM actions continue to be
-	// wired into "computers" via addSubcommand (resolves via alias).
-	removeSubcommand(cmd, []string{}, "computers")
-
-	// Suppress generated commands duplicated by richer handwritten versions (see #39)
-	// Handwritten counterparts support --serial/--name/--group/--from-file targeting and bulk ops.
-	removeSubcommand(cmd, []string{}, "erase-device-computers")              // → pro comp erase
-	removeSubcommand(cmd, []string{}, "erase-device-mobiles")                // → pro md erase
-	removeSubcommand(cmd, []string{}, "renew-mdm-profiles")                  // → pro comp renew-mdm
-	removeSubcommand(cmd, []string{}, "redeploy-jamf-management-frameworks") // → pro comp redeploy-framework
-	removeSubcommand(cmd, []string{}, "remove-computer-mdm-profiles")        // → pro comp remove-mdm
-	removeSubcommand(cmd, []string{}, "remove-mobile-device-mdm-profiles")   // → pro md unmanage
+	// Suppress generated commands duplicated by richer handwritten versions (see #39).
+	// The handwritten counterparts target by --serial/--name/--group/--from-file,
+	// confirm the action, honour --dry-run and carry the Find My PIN body, where
+	// the generated ones take an <id>.
+	//
+	// These used to name six standalone resources, which is what a per-file spec
+	// layout produced: `/v1/computer-inventory/{id}/erase` sat in its own file
+	// and became `pro erase-device-computers`. Grouping by tag files each action
+	// under the resource it acts on, so what has to be suppressed is a
+	// subcommand rather than a resource — and `computer-inventory` is the
+	// primary computer resource now, so removing it would take `pro comp list`
+	// with it.
+	//
+	// `computers` is no longer suppressed. It used to be the Classic basic v1
+	// list; that path is dropped at ingest now (see parser.KeepPath), and the
+	// name belongs to `POST /v1/computers/{id}/recalculate-smart-groups`, which
+	// has no handwritten counterpart and should ship.
+	removeSubcommand(cmd, []string{}, "jamf-management-framework") // → pro comp redeploy-framework
+	removeSubcommand(cmd, []string{"mobile-devices"}, "erase")     // → pro md erase
+	removeSubcommand(cmd, []string{"mobile-devices"}, "unmanage")  // → pro md unmanage
+	removeSubcommand(cmd, []string{"mdm"}, "renew-profile")        // → pro comp renew-mdm
 
 	// Replace broken generated upload with handwritten streaming upload.
 	// The JCDS binary-upload endpoint needs special chunked-upload handling
@@ -80,15 +96,15 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 
 	// Add handwritten jcds commands to generated parent (multi-step orchestration).
-	addSubcommand(cmd, []string{"jcds"}, newJcdsDownloadCmd(cliCtx))
-	addSubcommand(cmd, []string{"jcds"}, newJcdsSyncCmd(cliCtx))
+	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsDownloadCmd(cliCtx))
+	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsSyncCmd(cliCtx))
 
 	// Also expose sync under packages — JCDS is the backing store for packages.
 	addSubcommand(cmd, []string{"packages"}, newJcdsSyncCmd(cliCtx))
 
 	// Add handwritten retry-failed to generated parent (orchestrates computer
 	// resolution + task lookup/filter before calling the retry endpoint).
-	addSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, newJamfProtectDeploymentRetryFailedCmd(cliCtx))
+	addSubcommand(cmd, []string{"jamf-protect"}, newJamfProtectDeploymentRetryFailedCmd(cliCtx))
 
 	// Add device action subcommands to generated resource parents
 	// Both replace a generated v4 sibling rather than sitting beside it. The
@@ -97,27 +113,27 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// destructive action, honour --dry-run and carry the Find My PIN body. A
 	// second `erase` under one parent is also not a choice cobra can make —
 	// before this, `pro comp --help` listed the name twice.
-	replaceSubcommand(cmd, []string{"computers-inventory"}, "erase", newComputerEraseCmd(cliCtx))
-	removeSubcommand(cmd, []string{"computers-inventory"}, "remove-mdm-profile")
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRemoveMDMCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRedeployFrameworkCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerBlankPushCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerDDMSyncCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRenewMDMCmd(cliCtx))
+	replaceSubcommand(cmd, []string{"computer-inventory"}, "erase", newComputerEraseCmd(cliCtx))
+	removeSubcommand(cmd, []string{"computer-inventory"}, "remove-mdm-profile")
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRemoveMDMCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRedeployFrameworkCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerBlankPushCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerDDMSyncCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRenewMDMCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnmanageCmd(cliCtx))
 
 	// Modern API computer MDM commands
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerLockCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEnableRemoteDesktopCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerDisableRemoteDesktopCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRestartCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerShutdownCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSetRecoveryLockCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSettingsCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerEnableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerDisableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRestartCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerShutdownCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSetRecoveryLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSettingsCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
 
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerFlushCommandsCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerFlushCommandsCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileFlushCommandsCmd(cliCtx))
 
 	// Mobile device MDM commands (modern API where available, Classic where not)
@@ -147,6 +163,10 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		}
 	}
 
+	// Retired resource names, before applyAliases so a deprecated name and a
+	// curated alias cannot both be appended for the same string.
+	applyDeprecatedNames(cmd, cliCtx)
+
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)
 	applyProGroups(cmd)
@@ -154,10 +174,61 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+// Wiring a hand-written command into the generated tree is keyed on names —
+// the parent resource's, and for a suppression the generated child's. Both
+// halves are strings the generator derives from the spec, so an upstream path
+// or tag change can stale one, and until this all three helpers answered a
+// stale key by doing nothing.
+//
+// The consequence is not a missing command, which is the failure a reader
+// expects and would notice. `removeSubcommand` leaves the generated command in
+// place, and `replaceSubcommand` adds its replacement without removing
+// anything — so a stale key ships the generated command the hand-written one
+// exists to displace, beside it, under whatever name the generator gave it.
+// That happened to `erase` and `remove-mdm-profile`: the deprecated v1 pair
+// took the plain names, so both keys matched the deprecated pair and the served
+// v4 twins shipped alongside `pro comp erase` and `pro comp remove-mdm`,
+// without the `--confirm-destructive` gate the hand-written pair carry for
+// bulk. A second path to a fleet-wide wipe, behind one fewer flag, from a
+// suppression that reported success.
+//
+// So every miss is recorded rather than discarded, and
+// TestProWiringNamesCommandsThatShip fails on a non-empty record. It is a
+// package-level map rather than a returned error because the wiring runs once
+// at startup and there is nothing useful for a CLI to do about it at that
+// point; a test is the right place to answer it. Keyed on the invocation, so
+// repeated tree builds record one entry rather than growing.
+var staleProWiring = map[string]string{}
+
+func recordStaleProWiring(op string, parentPath []string, childName string) {
+	key := op + " " + strings.Join(append([]string{"pro"}, parentPath...), " ")
+	if childName != "" {
+		key += " " + childName
+	}
+	staleProWiring[key] = childName
+}
+
+// findWiringParent resolves a parent path, recording a miss when it does not
+// resolve to the command the path names. cobra's Find falls back to the nearest
+// resolvable ancestor rather than erroring on a bad leaf, so the returned
+// command has to be checked against the path as well.
+func findWiringParent(root *cobra.Command, op string, parentPath []string, childName string) *cobra.Command {
+	parent, _, err := root.Find(parentPath)
+	if err != nil || parent == nil {
+		recordStaleProWiring(op, parentPath, childName)
+		return nil
+	}
+	if len(parentPath) > 0 && parent.Name() != parentPath[len(parentPath)-1] && !slices.Contains(parent.Aliases, parentPath[len(parentPath)-1]) {
+		recordStaleProWiring(op, parentPath, childName)
+		return nil
+	}
+	return parent
+}
+
 // addSubcommand finds a parent command by path and adds a child to it.
 func addSubcommand(root *cobra.Command, parentPath []string, child *cobra.Command) {
-	parent, _, err := root.Find(parentPath)
-	if err != nil {
+	parent := findWiringParent(root, "add", parentPath, child.Name())
+	if parent == nil {
 		return
 	}
 	parent.AddCommand(child)
@@ -165,8 +236,8 @@ func addSubcommand(root *cobra.Command, parentPath []string, child *cobra.Comman
 
 // removeSubcommand finds a parent command by path and removes a named child.
 func removeSubcommand(root *cobra.Command, parentPath []string, childName string) {
-	parent, _, err := root.Find(parentPath)
-	if err != nil {
+	parent := findWiringParent(root, "remove", parentPath, childName)
+	if parent == nil {
 		return
 	}
 	for _, child := range parent.Commands() {
@@ -175,19 +246,30 @@ func removeSubcommand(root *cobra.Command, parentPath []string, childName string
 			return
 		}
 	}
+	recordStaleProWiring("remove", parentPath, childName)
 }
 
 // replaceSubcommand finds a parent command by path and replaces a named child.
+//
+// The removal is looked up before the replacement is added, so a stale key is
+// recorded against the tree the generator produced rather than against the tree
+// this call leaves behind — where the child exists either way and a successful
+// replace is indistinguishable from an addition.
 func replaceSubcommand(root *cobra.Command, parentPath []string, childName string, replacement *cobra.Command) {
-	parent, _, err := root.Find(parentPath)
-	if err != nil {
+	parent := findWiringParent(root, "replace", parentPath, childName)
+	if parent == nil {
 		return
 	}
+	removed := false
 	for _, child := range parent.Commands() {
 		if child.Name() == childName {
 			parent.RemoveCommand(child)
+			removed = true
 			break
 		}
+	}
+	if !removed {
+		recordStaleProWiring("replace", parentPath, childName)
 	}
 	parent.AddCommand(replacement)
 }

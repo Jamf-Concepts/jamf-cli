@@ -1,0 +1,42 @@
+# Every operation the shipped `pro` surface loses to a name collision.
+#
+# Columns: resource <TAB> the name it lost <TAB> method <TAB> path
+#
+# Pinned by TestTheDroppedOperationSetIsPinned, because the loss is reported as a
+# warning on stderr and exit 0 — so a new one is a line in `make generate`'s
+# output that nobody reads, and seven writes went missing under exactly that.
+#
+# Two rows are worth reading before adding a third.
+#
+# `computer-inventory get GET /v4/computers-inventory-detail/{id}` is
+# deliberate: resourceGetDetailPathOverrides puts the detail endpoint and
+# /v4/computers-inventory/{id} behind one `get`, the first serving the call and
+# the second serving `--section`, so the operation is dropped and its path is
+# still sent.
+#
+# `app-request-form-input-fields update PUT .../form-input-fields/{id}` is a
+# real defect and a pre-existing one: the collection-level PUT keeps `update`,
+# so `update` replaces the whole list rather than one field. Both operations
+# address the resource's own root, so deciding between them is a naming judgement
+# (`update <id>` against a bulk `update-all`) rather than the precedence rule
+# qualifyDuplicateVerbsOutsideTheRoot applies, and it is not this change.
+#
+# What the test refuses outright is a root operation losing its name to a
+# *sub-path's*, since a resource's plain verbs are its root's. Every other row
+# here is a collision between two sub-paths.
+api-authentication	invalidate-token	POST	/v1/auth/invalidate-token
+api-authentication	keep-alive	POST	/v1/auth/keep-alive
+app-request-form-input-fields	update	PUT	/v1/app-request/form-input-fields/{id}
+computer-inventory	get	GET	/v4/computers-inventory-detail/{id}
+conditional-access	get	GET	/v1/conditional-access/device-compliance-information/mobile/{deviceId}
+declarative-device-management	status-items	GET	/v1/ddm/{clientManagementId}/status-items/{key}
+enrollment-customization	all	GET	/v1/enrollment-customization/{id}/all/{panel-id}
+jamf-pro-user-account-settings	get	GET	/v1/user/preferences/{keyId}
+managed-software-updates	get	GET	/v1/managed-software-updates/update-statuses/computers/{id}
+managed-software-updates	get	GET	/v1/managed-software-updates/update-statuses/mobile-device-groups/{id}
+managed-software-updates	get	GET	/v1/managed-software-updates/update-statuses/mobile-devices/{id}
+mobile-device-groups	get	GET	/v2/mobile-device-groups/static-group-membership/{id}
+packages	upload	POST	/v1/packages/{id}/upload
+patch-policies	logs	GET	/v2/patch-policies/{id}/logs/{deviceId}
+team-viewer-remote-administration	create	POST	/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions
+team-viewer-remote-administration	sessions	GET	/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}

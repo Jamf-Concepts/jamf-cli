@@ -565,6 +565,83 @@ func TestGenerate_DestructiveOps(t *testing.T) {
 	}
 }
 
+// A destructive x-action shares the bulk and confirmation blocks with a plain
+// `delete`, and both used to be written as if it were one.
+//
+// The method was the correctness half: the bulk loop hardcoded `DELETE`, so
+// `pro mobile-device-groups erase --from-file ids.txt` sent
+// `DELETE /v2/mobile-device-groups/{id}/erase` — a POST-only endpoint — and
+// reported "Deleted" for each entry. The wording was the safety half: the group
+// prompt offered to "delete N computer-inventory" for what wipes every Mac in a
+// group, and the single prompt interpolated the operation's raw name into the
+// sentence, so a disambiguated name read "This will
+// v-4-computers-inventory-erase computer-inventory".
+//
+// Asserted on a resource whose bulk paths are reachable — a name lookup is what
+// gates --from-file, and a Classic groups path is what gates --group.
+func TestDestructiveActionNamesItsOwnActionAndMethod(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:              "devices",
+		NameSingular:      "device",
+		GoName:            "Devices",
+		NameField:         "name",
+		IDField:           "id",
+		GroupsClassicPath: "/JSSResource/computergroups",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/devices", IsList: true},
+			{
+				Name: "erase", Method: "POST", Path: "/v1/devices/{id}/erase",
+				Summary: "Erase a device", APIVersion: "v1",
+				IsAction: true, IsDestructive: true,
+				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string", Required: true}},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	raw, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(raw)
+
+	if strings.Contains(code, `Do(reqCtx, "DELETE", delPath`) {
+		t.Error("the bulk loop sends DELETE for a POST action — it must send the operation's own method")
+	}
+	if !strings.Contains(code, `Do(reqCtx, "POST", delPath`) {
+		t.Error("the bulk loop does not send POST; the action's method is not reaching the request")
+	}
+	// The two prompts that stand between an operator and a fleet-wide action.
+	for _, want := range []string{
+		`This will run \"erase\" on %d devices. Type 'yes' to confirm: `,
+		`This will run \"erase\" on %d devices from group %q. Type 'yes' to confirm: `,
+		`This will run \"erase\" on device %q (id: %s). Type 'yes' to confirm: `,
+	} {
+		if !strings.Contains(code, want) {
+			t.Errorf("no confirmation prompt reads %q", want)
+		}
+	}
+	// "delete"/"Deleted" must not appear anywhere in this command's own text:
+	// the resource ships no delete, so any occurrence is the shared block
+	// describing the action as one.
+	for _, forbidden := range []string{"This will delete", "Would delete", `Deleted device`, "devices deletes"} {
+		if strings.Contains(code, forbidden) {
+			t.Errorf("a POST action describes itself as a delete: %q", forbidden)
+		}
+	}
+	// And the raw operation name must not be conjugated into a sentence.
+	if strings.Contains(code, "This will erase device") {
+		t.Error("the operation name is interpolated as a verb; there is no English verb for `remove-mdm-profile` and inventing one is the defect")
+	}
+}
+
 func TestGenerateRegistry(t *testing.T) {
 	dir := t.TempDir()
 	gen := NewGenerator(dir)

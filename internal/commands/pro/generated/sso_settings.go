@@ -29,9 +29,12 @@ func NewSsoSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newSsoSettingsUpdateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newSsoSettingsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newSsoSettingsFailoverCmd(ctx))
+	cmd.AddCommand(newSsoSettingsGenerateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDependenciesCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
+	cmd.AddCommand(NewSsoSettingsCertCmd(ctx))
 
 	return cmd
 }
@@ -429,6 +432,91 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	return cmd
+}
+
+func newSsoSettingsFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "failover",
+		Short:       "Retrieve the current failover settings",
+		Long:        "Retrieve the current failover settings",
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/sso/failover"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newSsoSettingsGenerateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "generate",
+		Short:       "Regenerates failover url",
+		Long:        "Regenerates failover url, by changing failover key to new one, and returns new failover settings",
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/sso/failover/generate"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
 	return cmd
 }
 

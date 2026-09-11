@@ -25,7 +25,7 @@ func NewApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newApnsClientPushStatusApnsClientPushStatusCmd(ctx))
+	cmd.AddCommand(newApnsClientPushStatusListCmd(ctx))
 	cmd.AddCommand(newApnsClientPushStatusEnableAllClientsCmd(ctx))
 	cmd.AddCommand(newApnsClientPushStatusStatusCmd(ctx))
 	cmd.AddCommand(newApnsClientPushStatusEnableClientCmd(ctx))
@@ -33,7 +33,7 @@ func NewApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newApnsClientPushStatusApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApnsClientPushStatusListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -44,9 +44,14 @@ func newApnsClientPushStatusApnsClientPushStatusCmd(ctx *registry.CLIContext) *c
 	)
 
 	cmd := &cobra.Command{
-		Use:         "apns-client-push-status",
-		Short:       "Search for clients with push notifications disabled",
-		Long:        "Retrieve a paginated, sortable, and filterable list of MDM clients that have push notifications disabled. The endpoint queries the mdm_client table and returns information about when push was disabled and links to the device records.",
+		Use:   "list",
+		Short: "Search for clients with push notifications disabled",
+		Long:  "Retrieve a paginated, sortable, and filterable list of MDM clients that have push notifications disabled. The endpoint queries the mdm_client table and returns information about when push was disabled and links to the device records.",
+		Example: `  # List all apns-client-push-status
+  jamf-cli pro apns-client-push-status list
+
+  # List apns-client-push-status and extract IDs
+  jamf-cli pro apns-client-push-status list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

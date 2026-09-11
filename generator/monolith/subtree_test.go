@@ -238,8 +238,29 @@ func TestExtractSubtreeStampsXActionOnSubPathOperations(t *testing.T) {
 		t.Error("the collection root was stamped as an action")
 	}
 	// Nor is a bare {id} path — that is get/update/delete.
-	if isActionPath("/v1/things/{id}", "/v1/things") {
+	if isActionPath("/v1/things/{id}", "/v1/things", nil) {
 		t.Error("a bare {id} path was classified as an action")
+	}
+	// Nor is a sub-path that owns a /{param} child of its own: it is that
+	// resource's collection, however deep below the subtree prefix it sits.
+	// Without this, /v1/app-installers/titles and .../deployments were stamped
+	// and their collection GETs were named `titles` and `deployments` rather
+	// than `list`.
+	collection := map[string]any{
+		"/v1/things/widgets":      nil,
+		"/v1/things/widgets/{id}": nil,
+	}
+	if isActionPath("/v1/things/widgets", "/v1/things", collection) {
+		t.Error("a sub-collection with its own {id} child was classified as an action")
+	}
+	// A sub-path whose only deeper sibling is not a {param} child stays an
+	// action — that is the /v1/app-installers/global-settings shape.
+	notACollection := map[string]any{
+		"/v1/things/widgets":         nil,
+		"/v1/things/widgets/history": nil,
+	}
+	if !isActionPath("/v1/things/widgets", "/v1/things", notACollection) {
+		t.Error("a sub-path with no {param} child stopped being an action")
 	}
 	// A family's own root is not an action either, even though it is deeper
 	// than the subtree — /v1/things/settings owns itself.
@@ -280,7 +301,14 @@ func TestExtractSubtreeInlinesOnlyTheClosure(t *testing.T) {
 	if _, ok := schemas["Unreachd"]; ok {
 		t.Error("a schema nothing references was inlined")
 	}
-	if _, err := os.Stat(filepath.Join(dir, LibraryFilename)); err == nil {
-		t.Error("a shared library was written; these files must be self-contained")
+	// Self-contained: every $ref resolves inside this document. Asserted on the
+	// references rather than on the absence of a library filename, which is the
+	// property that actually matters and outlived the shared-library layout.
+	data, err := os.ReadFile(filepath.Join(dir, "Thing.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), ".yaml#") {
+		t.Error("an external $ref survived; this document must resolve on its own")
 	}
 }

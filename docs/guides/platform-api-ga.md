@@ -284,8 +284,8 @@ Update` from `apply`. Tick the union.
 Three things the fields deliberately do not claim:
 
 - **Absent is not "needs none".** A command outside the published API declares no capability,
-  as do the 44 unauthenticated Jamf Pro endpoints (`pro health-checks`,
-  `pro jamf-pro-versions`) and the hand-written commands, which send no single endpoint.
+  as do the 44 unauthenticated Jamf Pro endpoints (`pro health-check`,
+  `pro jamf-pro-version`) and the hand-written commands, which send no single endpoint.
 - **A `--name`, `--serial` or `--udid` lookup resolves the identifier through the resource's
   collection first**, so those invocations also need its read permission. Only the
   permissions a command *always* uses are listed, so that `delete <id>` does not ask you to
@@ -302,31 +302,38 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | Command group | Refused | Why |
 |---|---|---|
 | `pro mobile-devices` | 16 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock`, `restart`, `shutdown` and lost mode |
-| `pro computers-inventory` | 8 | as above — `lock`, `restart`, `shutdown`, remote-desktop control, `set-recovery-lock`, `set-auto-admin-password` |
+| `pro computer-inventory` | 8 | as above — `lock`, `restart`, `shutdown`, remote-desktop control, `set-recovery-lock`, `set-auto-admin-password` |
 | `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
+| `pro api-authentication` | 6 | outside the published API |
 | `pro api-roles` | 6 | as `pro api-integrations` |
-| `pro authentications` | 6 | outside the published API |
-| `pro static-computer-groups` | 6 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
-| `pro api-roles-privileges` | 2 | as `pro api-integrations` |
-| `pro policy-properties` | 2 | `GET`/`PUT /settings/obj/policyProperties`, withdrawn from the published API |
-| `pro systems` | 2 | `initialize` / `platform-initialize`, withdrawn upstream |
-| `pro database-connections` | 1 | outside the published API |
+| `pro jamf-pro-initialization` | 3 | `initialize`, `platform-initialize` and `initialize-database-connection`, withdrawn upstream |
+| `pro api-role-privileges` | 2 | as `pro api-integrations` |
 | `pro environment-type` | 1 | outside the published API |
-| `pro mac-os-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
-| `pro mdm-commands commands` | 1 | the gateway declares GET on that path, not POST |
-| `pro oauth-token-sessions` | 1 | outside the published API |
+| `pro macos-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
+| `pro mdm commands` | 1 | the gateway declares GET on that path, not POST |
+| `pro sso-oauth-session-tokens` | 1 | outside the published API |
 
-67 commands in total (a wholly-refused resource contributes its group node too).
+59 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
-**24 of the 67 are MDM device actions, and that is the refusal most likely to be felt.**
+Eight fewer than the 67 this guide reported before command names came from the spec, and
+none of the eight was un-refused by the gateway. Six were `pro static-computer-groups`,
+the withdrawn v2 command, which stopped existing when every version of an endpoint started
+landing in one resource — so there is no second command to refuse, only the v3 one that is
+served. The other two were `pro policy-properties`, whose unversioned legacy twin
+`/settings/obj/policyProperties` is no longer ingested at all; the versioned
+`/v1/policy-properties` it shared a tag with is published, so both its commands are served.
+Two groups also merged into `pro jamf-pro-initialization`, which is why the table has 12
+rows where it had 15 and still counts the same endpoints.
+
+**24 of the 59 are MDM device actions, and that is the refusal most likely to be felt.**
 `pro mobile-devices` loses `lock`, `restart`, `shutdown`, `enable-lost-mode`,
 `disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
 `delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
 `refresh-cellular-plans`, `request-mirroring`, `stop-mirroring` and `settings`;
-`pro computers-inventory` loses `lock`, `restart`, `shutdown`, `enable-remote-desktop`,
+`pro computer-inventory` loses `lock`, `restart`, `shutdown`, `enable-remote-desktop`,
 `disable-remote-desktop`, `set-recovery-lock`, `set-auto-admin-password` and `settings`. The
 published API declares GET on those paths but not POST, so the refusal is **per method**: the
 inventory reads on both resources are unaffected, and so is everything else under them.
@@ -355,27 +362,36 @@ To see the current list for the binary you have, without a profile:
 jamf-cli commands -o json | jq -r '.[] | select(.gateway=="unserved") | .command'
 ```
 
-`pro static-computer-groups` is the one entry with a working replacement already in the
-CLI, and it is worth understanding because more will follow it. The gateway's published
-11.31.0 surface withdrew 122 superseded Jamf Pro endpoints — every one of them a version
-with a published higher-version successor. In almost every case the CLI simply moved onto
-the successor and you will notice nothing: `pro computers-inventory` now sends `/v4`
-instead of `/v3`, and gained `erase` and `remove-mdm-profile` subcommands in the process.
-(13 of the 122 have since been restored — the `/v3/computers-inventory` family, on the
-grounds that it was deprecated too close to the removal for callers to reach v4. The CLI
-sends v4 either way.)
-Static computer groups are the exception, because the CLI ships the two versions under two
-different command names:
+**No refused command has a replacement in the CLI today, and that is a change worth
+understanding.** The gateway's published 11.31.0 surface withdrew 122 superseded Jamf Pro
+endpoints — every one of them a version with a published higher-version successor. In almost
+every case the CLI simply moved onto the successor and you notice nothing: `pro
+computer-inventory` sends `/v4`, and gained `erase` and `remove-mdm-profile` subcommands in
+the process. (13 of the 122 have since been restored — the `/v3/computers-inventory` family,
+on the grounds that it was deprecated too close to the removal for callers to reach v4. The
+CLI sends v4 either way.)
+
+There used to be one exception. The CLI shipped the withdrawn v2 static computer groups and
+the published v3 as *two* commands, because a resource's name came from the name of the spec
+file its paths were split into — so two versions of one endpoint arrived in two files under
+two names, and only one of them worked on a gateway profile:
 
 ```
-pro static-computer-groups            # v2 — refused on a gateway profile
-pro computer-groups-static-groups     # v3 — use this
+pro static-computer-groups            # v2 — was refused on a gateway profile
+pro computer-groups-static-groups     # v3
 ```
 
-Both still work against a Jamf Pro instance profile, and **the refusal names the
-replacement**: where a working successor ships in the same binary, it is offered first, ahead
-of the instance-profile remedy. `pro static-computer-groups --help` says the same thing on
-the group itself, so you do not have to run a subcommand to find out.
+Names now come from the spec's own tags and paths, so every version of an endpoint lands in
+one resource and the highest one wins. `pro static-computer-groups` is a deprecated alias for
+`pro computer-groups-static-groups` until 2027-03-09, and there is no second command to
+refuse. Six refusals went with it.
+
+**The mechanism that named the replacement stays, and its table is empty.** Where a refused
+command does have a working successor in the same binary, the successor is offered first,
+ahead of the instance-profile remedy — at runtime, in the group's `--help`, and as
+`gatewaySuccessor` in `commands -o json`, from one table so the three cannot disagree. Expect
+it to fill again: the next withdrawal that is a capability loss rather than a superseded
+version is the case it exists for.
 
 The refusal explains itself. Every endpoint on the list today **may still answer** — that is
 transitional, and the refusal says so rather than claiming the endpoint is gone:
@@ -401,19 +417,13 @@ $ echo $?
 ```
 
 `pro api-roles` has no successor in the CLI, so the only remedy offered is the instance
-profile. A command that does have one names it first:
+profile — and as of this release no refused command has one, so that is the only shape you
+will see. A command that did have one would name it ahead of the instance-profile remedy,
+in place of the "Run it against a Jamf Pro instance directly" line:
 
 ```
-$ jamf-cli -p platform-prod pro static-computer-groups list
-jamf-cli pro static-computer-groups list is not part of the Jamf Platform gateway's published API
-
-Not declared by the gateway's Jamf Pro API 11.31.0.
-
-...
-
-Use `jamf-cli pro computer-groups-static-groups` instead — the same resource on the v3
-endpoint the gateway publishes, where this command is the withdrawn v2. It ships in this
-binary and is served by the gateway.
+Use `jamf-cli pro <successor>` instead — it ships in this binary and is served by the
+gateway.
 
 Failing that, run it against a Jamf Pro instance directly — a profile whose url is your
 instance and whose auth-method is oauth2 or token.
@@ -446,7 +456,7 @@ The list moves in both directions. **App Installers used to head it — 17 comma
 instance-only — and no longer appears at all.** The endpoints were absent from every
 published spec because they sit under `hiddenapi/` in Jamf Pro's source, so nothing routed
 them and the CLI refused them on a recorded wire probe. Upstream published all 23 on
-2026-09-03 and the gateway opened them the same day, so `pro app-installer-titles`,
+2026-09-03 and the gateway opened them the same day, so `pro app-installers-titles`,
 `app-installer-deployments`, `app-installer-global-settings` and the new `pro app-installers`
 now work on a gateway profile like any other Pro command. `pro policy-properties` moved the
 other way in the same spec drop, and still answers on the wire — which is the case the
@@ -518,7 +528,7 @@ Additive — no action needed, and all of it is live now.
 - **Platform audit:** `platform audit`. Environment scope only; an organization-scoped
   profile gets an error explaining that. Not to be confused with `pro audit`, which runs
   health checks on a Jamf Pro instance.
-- **App Installers on the gateway:** `pro app-installer-titles`,
+- **App Installers on the gateway:** `pro app-installers-titles`,
   `app-installer-deployments`, `app-installer-global-settings` and a new `pro app-installers`
   (whether the feature is available and which features the Cloud Services Connection
   enables). Previously instance-only and refused on a gateway profile; the endpoints are now
@@ -585,9 +595,9 @@ Hand-written commands that read DDM state — `pro ddm-reports errors`, and the 
 of `pro device`, `pro report` and `pro audit` — already used the filtered endpoints and are
 unaffected.
 
-### `pro computers-inventory` sends v4
+### `pro computer-inventory` sends v4
 
-Every `pro computers-inventory` (`pro comp`, `pro computers`) subcommand now sends `/v4`
+Every `pro computer-inventory` (`pro comp`, `pro computers`) subcommand now sends `/v4`
 instead of `/v3`, and `get` reads the v4 detail endpoint. Nothing renamed and no flag moved.
 Generated subcommands retry the `/v1` path on a 404 and print a one-line warning to stderr,
 so an instance that does not serve v4 still answers.
@@ -643,7 +653,7 @@ took `--from-file`. They now take `--from-file` too. **The old name is gone, not
 leaving two spellings alive in parallel.
 
 `--file` still means an *upload* payload on the commands that send one (`pro packages
-upload`, `pro icons upload`, `protect analytics import` and their siblings). That is a
+upload`, `pro icon upload`, `protect analytics import` and their siblings). That is a
 different thing and is deliberately not renamed: a `--from-file` can always be replaced by a
 pipe, and a multipart upload cannot, because the transport needs a filename and a length.
 

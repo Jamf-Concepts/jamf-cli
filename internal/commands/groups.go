@@ -170,17 +170,25 @@ var proGroupMap = map[string]string{
 	"diff":        groupPower,
 	"group-tools": groupPower,
 	// Computer Management
-	"computers":                              groupComputers,
-	"computer-groups":                        groupComputers,
-	"computer-smart-groups":                  groupComputers,
-	"computer-prestages":                     groupComputers,
-	"computer-prestage-scopes":               groupComputers,
-	"computer-extension-attributes":          groupComputers,
-	"computer-inventory-collection-settings": groupComputers,
-	"static-computer-groups":                 groupComputers,
-	"computer-groups-smart-groups":           groupComputers,
-	"computer-groups-static-groups":          groupComputers,
-	"computers-inventory":                    groupComputers,
+	// Now /v1/computers/{id}/recalculate-smart-groups. It used to be the
+	// Classic basic v1 list, which pro.go suppressed and parser.KeepPath now
+	// drops at ingest; the name went to the recalculate action, formerly filed
+	// under computer-smart-groups.
+	"computers":                                          groupComputers,
+	"computer-groups":                                    groupComputers,
+	"smart-computer-groups":                              groupComputers,
+	"computer-prestages":                                 groupComputers,
+	"computer-extension-attributes":                      groupComputers,
+	"computer-extension-attributes-templates":            groupComputers,
+	"computer-inventory-collection-settings-custom-path": groupComputers,
+	"static-computer-groups":                             groupComputers,
+	"computer-groups-smart-groups":                       groupComputers,
+	"computer-groups-static-groups":                      groupComputers,
+	// Split off from `icons` by path grouping: /v1/branding-images/download/{id}
+	// is the shared image library the icon commands read from.
+	"branding-images":            groupScriptsPolicies,
+	"computer-inventory":         groupComputers,
+	"computers-inventory-detail": groupComputers,
 	// macOS-only Dock customization (Pro: Settings > Computer management > Dock items)
 	"dock-items": groupComputers,
 
@@ -189,37 +197,34 @@ var proGroupMap = map[string]string{
 	"mobile-device-groups":               groupMobile,
 	"mobile-device-groups-smart-groups":  groupMobile,
 	"mobile-device-groups-static-groups": groupMobile,
-	"mobile-device-smart-groups":         groupMobile,
+	"smart-mobile-device-groups":         groupMobile,
 	"mobile-device-prestages":            groupMobile,
-	"mobile-device-prestage-scopes":      groupMobile,
-	"mobile-device-prestage-sync-states": groupMobile,
 	"mobile-device-apps":                 groupMobile,
-	"mobile-device-enrollment-profiles":  groupMobile,
+	"mobile-device-enrollment-profile":   groupMobile,
 	"mobile-device-extension-attributes": groupMobile,
-	"mobile-device-inventory-details":    groupMobile,
 	"groups":                             groupMobile,
 	"device-extension-attributes":        groupMobile,
 	// Mobile-only "Settings and Security Management for Mobile Devices" features
-	"return-to-service-configurations": groupMobile,
+	"return-to-service": groupMobile,
 
 	// Enrollment
-	"enrollment-settings":                                   groupEnrollment,
-	"enrollment-languages":                                  groupEnrollment,
-	"enrollment-customization-panels":                       groupEnrollment,
-	"device-enrollment-instances":                           groupEnrollment,
-	"device-enrollment-instance-sync-states":                groupEnrollment,
-	"account-driven-user-enrollment-session-token-settings": groupEnrollment,
-	"reenrollment":                                          groupEnrollment,
-	"onboardings":                                           groupEnrollment,
-	"onboarding-configuration":                              groupEnrollment,
-	"enrollment-customizations":                             groupEnrollment,
+	"enrollment":                       groupEnrollment,
+	"enrollment-access-groups":         groupEnrollment,
+	"enrollment-languages":             groupEnrollment,
+	"enrollment-customization":         groupEnrollment,
+	"device-enrollments":               groupEnrollment,
+	"adue-session-token-settings":      groupEnrollment,
+	"re-enrollment":                    groupEnrollment,
+	"onboarding":                       groupEnrollment,
+	"enrollment-customizations-images": groupEnrollment,
 	// Supervision identities are applied via PreStage enrollment, so they live
 	// in the enrollment workflow rather than in policy/script settings.
 	"supervision-identities": groupEnrollment,
 
 	// Inventory & Search
-	"inventory-informations":          groupInventory,
-	"inventory-preloads":              groupInventory,
+	"inventory-information":           groupInventory,
+	"inventory-preload":               groupInventory,
+	"inventory-preload-records":       groupInventory,
 	"advanced-mobile-device-searches": groupInventory,
 	"advanced-user-content-searches":  groupInventory,
 
@@ -233,171 +238,165 @@ var proGroupMap = map[string]string{
 	// the patch-management workflow that updates them. Ebooks are licensed
 	// through Apple/VPP just like apps, so they belong here too.
 	"app-installers":                      groupAppsPatching,
-	"app-installer-titles":                groupAppsPatching,
-	"app-installer-deployments":           groupAppsPatching,
-	"app-installer-global-settings":       groupAppsPatching,
-	"app-requests":                        groupAppsPatching,
-	"vpp-subscriptions":                   groupAppsPatching,
-	"vpp-locations":                       groupAppsPatching,
+	"app-installers-titles":               groupAppsPatching,
+	"app-installers-deployments":          groupAppsPatching,
+	"app-request-form-input-fields":       groupAppsPatching,
+	"app-request":                         groupAppsPatching,
+	"volume-purchasing-subscriptions":     groupAppsPatching,
+	"volume-purchasing-locations":         groupAppsPatching,
 	"ebooks":                              groupAppsPatching,
-	"patch-titles":                        groupAppsPatching,
+	"patch-management-accept-disclaimer":  groupAppsPatching,
 	"patch-policies":                      groupAppsPatching,
-	"patch-policy-logs":                   groupAppsPatching,
 	"patch-software-title-configurations": groupAppsPatching,
 
 	// Distribution & JCDS — package storage / cloud distribution point /
 	// in-house file delivery infrastructure.
-	"jcds":                      groupDistribution,
-	"packages":                  groupDistribution,
-	"jamf-packages":             groupDistribution,
-	"cloud-distribution-points": groupDistribution,
-	"distribution-points":       groupDistribution,
-	"dss-proxies":               groupDistribution,
+	"jcds-files":                            groupDistribution,
+	"jamf-cloud-distribution-service-files": groupDistribution,
+	"jamf-cloud-distribution-service":       groupDistribution,
+	"packages":                              groupDistribution,
+	"jamf-package":                          groupDistribution,
+	"cloud-distribution-point":              groupDistribution,
+	"distribution-point":                    groupDistribution,
+	"dss-declarations":                      groupDistribution,
 
 	// Scripts & Policies — generic policy primitives that aren't device- or
 	// app-specific (scripts, modern package deployments, global policy config,
 	// the shared icon library).
-	"scripts":             groupScriptsPolicies,
-	"package-deployments": groupScriptsPolicies,
-	"policy-properties":   groupScriptsPolicies,
-	"icons":               groupScriptsPolicies,
+	"scripts":           groupScriptsPolicies,
+	"mdm":               groupScriptsPolicies,
+	"policy-properties": groupScriptsPolicies,
+	"icon":              groupScriptsPolicies,
 
 	// Self Service — the unified end-user app (Self Service+ replaces Self
 	// Service classic, Jamf Connect menubar, and surfaces Jamf Protect status).
-	"self-service-settings":        groupSelfService,
-	"self-service-branding-macos":  groupSelfService,
-	"self-service-branding-ios":    groupSelfService,
-	"self-service-branding-images": groupSelfService,
-	"self-service-plus":            groupSelfService,
-	"login-customization":          groupSelfService,
+	"self-service":                groupSelfService,
+	"self-service-branding-macos": groupSelfService,
+	"self-service-branding-ios":   groupSelfService,
+	"self-service-plus":           groupSelfService,
+	"login-customization":         groupSelfService,
 
 	// Jamf App Integrations — every Jamf-branded app/product that integrates
 	// with Pro (Connect, Protect, Parent, Teacher) lives under "Jamf
 	// Application Integrations" in the official docs and groups together
 	// here for the same reason.
-	"jamf-connects":                 groupIntegrations,
-	"jamf-connect-deployment-tasks": groupIntegrations,
-	"jamf-protect":                  groupIntegrations,
-	"jamf-protect-plans":            groupIntegrations,
-	"jamf-protect-deployment-tasks": groupIntegrations,
-	"parent-app":                    groupIntegrations,
-	"teacher-settings":              groupIntegrations,
+	"jamf-connect":                 groupIntegrations,
+	"jamf-connect-config-profiles": groupIntegrations,
+	"jamf-protect":                 groupIntegrations,
+	"parent-app":                   groupIntegrations,
+	"teacher-app":                  groupIntegrations,
 
 	// Users & Groups — *end-user* records: people assigned to managed devices,
 	// their session state, and the smart/static groups admins build to scope
 	// policies. Distinct from Jamf Pro admin accounts (Admin Accounts group).
-	"users":              groupUsers,
-	"user-sessions":      groupUsers,
-	"user-preferences":   groupUsers,
-	"user-smart-groups":  groupUsers,
+	"users":         groupUsers,
+	"user-sessions": groupUsers,
+	// /v1/user/change-password and /v1/user/preferences are the *calling*
+	// account's own, not an end-user record — groupUsers' comment above draws
+	// exactly that line. Path grouping merged the two former resources
+	// (change-passwords, user-preferences) which sat either side of it.
+	"user":               groupAdminAccounts,
 	"static-user-groups": groupUsers,
 
 	// Admin Accounts — Jamf Pro admin user accounts and their settings,
 	// surfaced under "Settings > System > User accounts and groups" in the
 	// Pro UI. Per docs: "Jamf Pro user accounts and groups allow you to grant
 	// different privileges and levels of access to each user."
-	"user-accounts":       groupAdminAccounts,
-	"account-groups":      groupAdminAccounts,
-	"account-preferences": groupAdminAccounts,
-	"change-passwords":    groupAdminAccounts,
-	"last-logins":         groupAdminAccounts,
-	"authentications":     groupAdminAccounts,
-	"access-managements":  groupAdminAccounts,
+	"accounts":                     groupAdminAccounts,
+	"account-groups":               groupAdminAccounts,
+	"jamf-pro-account-preferences": groupAdminAccounts,
+	"last-login":                   groupAdminAccounts,
+	"api-authentication":           groupAdminAccounts,
+	"oauth":                        groupAdminAccounts,
 
 	// Identity Providers — end-user identity surfaces (Cloud LDAP bridge to
 	// Google Workspace, Microsoft Entra ID via Cloud Azure, classic LDAP for
 	// on-prem directories). Distinct from admin SSO and API auth below.
-	"cloud-id-p-histories":      groupIdentityEndUser,
-	"cloud-id-p-configurations": groupIdentityEndUser,
-	"cloud-id-p-test-searches":  groupIdentityEndUser,
-	"cloud-ldaps":               groupIdentityEndUser,
-	"cloud-ldap-connections":    groupIdentityEndUser,
-	"cloud-ldap-defaults":       groupIdentityEndUser,
-	"cloud-ldap-key-stores":     groupIdentityEndUser,
-	"cloud-ldap-mappings":       groupIdentityEndUser,
-	"classic-ldaps":             groupIdentityEndUser,
-	"classic-ldap-servers":      groupIdentityEndUser,
-	"ldap-rs":                   groupIdentityEndUser,
-	"cloud-azures":              groupIdentityEndUser,
-	"cloud-azure-defaults":      groupIdentityEndUser,
+	"cloud-idp":            groupIdentityEndUser,
+	"cloud-ldap":           groupIdentityEndUser,
+	"ldap-keystore":        groupIdentityEndUser,
+	"classic-ldap":         groupIdentityEndUser,
+	"classic-ldap-servers": groupIdentityEndUser,
+	"ldap-lookups":         groupIdentityEndUser,
+	"cloud-azure":          groupIdentityEndUser,
 
 	// Admin SSO — single sign-on into the Pro UI for administrators. SAML
 	// lives here (`sso-*`) and so does OIDC (`oidcs`); both are IdP-side
 	// admin-login config. Enabling OIDC SSO via Jamf Account is the
 	// prerequisite that gates Blueprints and Compliance Benchmarks, but the
 	// config itself is an Identity & Access concern, not a Platform one.
-	"sso-failovers":     groupAdminSSO,
-	"sso-settings-cert": groupAdminSSO,
-	"sso-settings":      groupAdminSSO,
-	"oidcs":             groupAdminSSO,
+	"sso":  groupAdminSSO,
+	"oidc": groupAdminSSO,
 
 	// API Access — modern OAuth2 client-credentials API auth (replaces the
 	// classic API user model).
-	"api-roles":            groupAPIAccess,
-	"api-integrations":     groupAPIAccess,
-	"api-roles-privileges": groupAPIAccess,
-	"oauth-token-sessions": groupAPIAccess,
-	"m2m":                  groupAPIAccess,
+	"api-roles":           groupAPIAccess,
+	"api-integrations":    groupAPIAccess,
+	"api-role-privileges": groupAPIAccess,
+	"oauth2":              groupAPIAccess,
+	"m2m":                 groupAPIAccess,
 
 	// MDM & Certificates — the MDM transport itself: command queue, profile
 	// renewal, certificate plumbing, push notifications, and the DDM bridge
 	// (DDM declarations are delivered over the MDM channel).
-	"mdm-renewals":                  groupMDM,
-	"mdm-commands":                  groupMDM,
-	"certificate-authorities":       groupMDM,
-	"device-communication-settings": groupMDM,
-	"client-check-in":               groupMDM,
-	"apns-client-push-status":       groupMDM,
-	"ddm-status":                    groupMDM,
-	"ddm-syncs":                     groupMDM,
+	"mdm-renewal":                       groupMDM,
+	"mdm-renewal-device-common-details": groupMDM,
+	"certificate-authority":             groupMDM,
+	"device-communication-settings":     groupMDM,
+	"check-in":                          groupMDM,
+	"apns-client-push-status":           groupMDM,
+	"ddm-clients":                       groupMDM,
 
 	// OS Updates — Apple's "Managing Apple OS Updates" surface (managed
 	// software update plans for macOS/iOS/iPadOS/tvOS, including the
 	// declarative install action).
-	"managed-software-updates":        groupOSUpdates,
-	"managed-software-updates-plans":  groupOSUpdates,
-	"mac-os-managed-software-updates": groupOSUpdates,
+	"managed-software-updates":             groupOSUpdates,
+	"managed-software-updates-plans":       groupOSUpdates,
+	"managed-software-updates-plans-group": groupOSUpdates,
+	"macos-managed-software-updates":       groupOSUpdates,
 
 	// Security — endpoint security primitives that aren't MDM transport:
 	// LAPS for managed local-admin password rotation, and per-device
 	// compliance/posture data.
-	"local-admin-passwords":          groupSecurity,
-	"device-compliance-informations": groupSecurity,
+	"local-admin-password": groupSecurity,
+	"conditional-access":   groupSecurity,
 
 	// Server Health — the live state of the Jamf Pro instance itself.
-	"servers":               groupServer,
-	"systems":               groupServer,
-	"cache":                 groupServer,
-	"database-connections":  groupServer,
-	"notifications":         groupServer,
-	"dashboards":            groupServer,
-	"jamf-pro-informations": groupServer,
-	"jamf-pro-versions":     groupServer,
-	"jamf-pro-server-url":   groupServer,
-	"activation-codes":      groupServer,
-	"service-discovery":     groupServer,
-	"cloud-informations":    groupServer,
-	"health-checks":         groupServer,
-	"log-flushings":         groupServer,
-	"schedulers":            groupServer,
-	"startup-status":        groupServer,
-	"environment-type":      groupServer,
+	"servers":                      groupServer,
+	"system":                       groupServer,
+	"cache-settings":               groupServer,
+	"jamf-pro-notifications":       groupServer,
+	"dashboard":                    groupServer,
+	"jamf-pro-information":         groupServer,
+	"jamf-pro-version":             groupServer,
+	"jamf-pro-server-url":          groupServer,
+	"activation-code":              groupServer,
+	"service-discovery-enrollment": groupServer,
+	"cloud-information":            groupServer,
+	"health-check":                 groupServer,
+	"health-status":                groupServer,
+	"log-flushing-task":            groupServer,
+	"log-flushing":                 groupServer,
+	"scheduler-jobs":               groupServer,
+	"scheduler":                    groupServer,
+	"startup-status":               groupServer,
+	"environment-type":             groupServer,
 
 	// System Integrations — third-party / hardware / locale config that
 	// connects Jamf Pro to the surrounding world.
 	"smtp-server":                          groupSystemIntegrations,
 	"remote-administration-configurations": groupSystemIntegrations,
-	"team-viewer-remote-administrations":   groupSystemIntegrations,
-	"jamf-remote-assist-session-histories": groupSystemIntegrations,
-	"csas":                                 groupSystemIntegrations,
-	"slasas":                               groupSystemIntegrations,
-	"venafis":                              groupSystemIntegrations,
-	"country-codes":                        groupSystemIntegrations,
+	"team-viewer-remote-administration":    groupSystemIntegrations,
+	"jamf-remote-assist-session":           groupSystemIntegrations,
+	"csa":                                  groupSystemIntegrations,
+	"slasa":                                groupSystemIntegrations,
+	"pki-venafi":                           groupSystemIntegrations,
+	"app-store-country-codes":              groupSystemIntegrations,
 	"locales":                              groupSystemIntegrations,
 	"time-zones":                           groupSystemIntegrations,
 	"gsx-connection":                       groupSystemIntegrations,
-	"adcs-settings":                        groupSystemIntegrations,
-	"digi-cert-settings":                   groupSystemIntegrations,
+	"pki-adcs-settings":                    groupSystemIntegrations,
+	"pki-digicert-trust-lifecycle-manager": groupSystemIntegrations,
 	"impact-alert-notification-settings":   groupSystemIntegrations,
 
 	// Platform - Configuration
@@ -480,6 +479,28 @@ var proGroupMap = map[string]string{
 	"classic-patch-internal-sources": groupClassicPatch,
 	"classic-patch-available-titles": groupClassicPatch,
 	"classic-patch-reports":          groupClassicPatch,
+	// /v1/branding-images/download/{id}, the shared image library the icon
+	// commands read from. It has no predecessor group because
+	// filterToCanonicalPrefix used to discard it from Icon.yaml with a warning,
+	// so it never shipped as a command at all.
+	"branding": groupScriptsPolicies,
+
+	// Resources whose names arrived with tag-derived naming, grouped as their
+	// predecessors were.
+	"adcs-settings":                          groupSystemIntegrations,
+	"client-check-in":                        groupMDM,
+	"computer-inventory-collection-settings": groupComputers,
+	"declarative-device-management":          groupMDM,
+	"digicert":                               groupSystemIntegrations,
+	"enrollment-customization-images":        groupEnrollment,
+	"jamf-pro-initialization":                groupServer,
+	"jamf-pro-user-account-settings":         groupUsers,
+	"jamf-remote-assist":                     groupSystemIntegrations,
+	"ldap":                                   groupIdentityEndUser,
+	"patch-management":                       groupAppsPatching,
+	"sso-oauth-session-tokens":               groupAPIAccess,
+	"sso-settings":                           groupAdminSSO,
+	"venafi":                                 groupSystemIntegrations,
 }
 
 // applyProGroups registers command groups on the pro command and assigns each

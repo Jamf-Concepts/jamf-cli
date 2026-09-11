@@ -32,8 +32,6 @@ func NewEnrollmentLanguagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentLanguagesUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesDeleteCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesDeleteMultipleCmd(ctx))
-	cmd.AddCommand(newEnrollmentLanguagesFilteredLanguageCodesCmd(ctx))
-	cmd.AddCommand(newEnrollmentLanguagesLanguageCodesCmd(ctx))
 
 	return cmd
 }
@@ -662,7 +660,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-multiple\n")
+				fmt.Fprintf(os.Stderr, "Would run \"delete-multiple\" on this enrollment-language\n")
 				return nil
 			}
 			if !flagYes {
@@ -670,7 +668,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on this enrollment-language. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -730,73 +728,5 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
-func newEnrollmentLanguagesFilteredLanguageCodesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "filtered-language-codes",
-		Short:       "Retrieve the list of languages and corresponding ISO 639-1 Codes but only those not already added to Enrollment",
-		Long:        "Retrieves the list of languages and corresponding ISO 639-1 Codes, but only those not already added to Enrollment.",
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v3/enrollment/filtered-language-codes"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newEnrollmentLanguagesLanguageCodesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:         "language-codes",
-		Short:       "Retrieve the list of languages and corresponding ISO 639-1 Codes",
-		Long:        "Retrieves the list of languages and corresponding ISO 639-1 Codes.",
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v3/enrollment/language-codes"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
 	return cmd
 }

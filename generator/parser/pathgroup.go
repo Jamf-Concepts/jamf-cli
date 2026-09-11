@@ -1,0 +1,357 @@
+// Copyright 2026, Jamf Software LLC
+
+package parser
+
+import (
+	"strconv"
+	"strings"
+)
+
+// A resource's identity comes from the URL paths it serves, not from the name
+// of a file someone put those paths in.
+//
+// The spec files under specs/ used to decide it: a single-family spec was named
+// from its filename and a multi-family one from its paths, so `pro
+// static-computer-groups` existed because of `StaticComputerGroups.yaml` — a
+// string that appears in no spec and is upstream's jss module filename. Four
+// things followed from that filename with nothing stating them: the command
+// name, the endpoint-version family the resource joined (keyed on a `-vN`
+// suffix), whether an upstream `-preview` tag reached a command, and whether the
+// splitter could delete the file. Splitting one document into 165 files to carry
+// that is overkill; grouping the paths directly says the same thing and says it
+// from the spec.
+//
+// It also removes two whole classes of bug rather than guarding against them.
+// Version consolidation stops depending on a filename suffix — every version of
+// a path lands in one group and the highest wins, which is what the CLI wanted
+// when a mis-keyed family cost it the v4 computer-inventory endpoints. And
+// preview suppression keys on the operation's tag rather than on a filename
+// happening to name the canonical resource, which is what kept 17 `-preview`
+// tags out of the command surface by accident.
+
+// PathGroup is one resource: the literal path segments that identify it, and
+// every path that belongs to it.
+type PathGroup struct {
+	// Name is the kebab-case command name, derived from Root unless an override
+	// replaces it.
+	Name string
+	// Root is the literal (non-parameter, non-version) path segments that
+	// identify the resource.
+	Root []string
+	// Paths are the document paths assigned to this group, sorted.
+	Paths []string
+	// Tag is the OpenAPI tag that names the group, with any `-preview` suffix
+	// removed. It is the resource's name unless the tag covers more than one
+	// group. Not every path in the group need carry it: a root can hold paths
+	// from two tags, and groupTag decides which one names the resource.
+	Tag string
+	// Versions are the API versions the group's paths are served at. A group
+	// spanning several is normal and is not itself a consolidation event —
+	// deduplicateVersionedOps decides that per version-stripped path shape.
+	Versions []int
+}
+
+// mergeRoots folds one group's paths into another's, for the case where two
+// path roots are the same resource.
+//
+// Distinct from a name override: the two roots produce two groups, and what is
+// wanted is one. Every entry is forced by a collision with an established
+// command alias rather than chosen on taste — see pathGroupRootMerges.
+func mergeRoots(byRoot map[string]*PathGroup) {
+	for source, target := range pathGroupRootMerges {
+		from, ok := byRoot[source]
+		if !ok {
+			continue
+		}
+		into, ok := byRoot[target]
+		if !ok {
+			continue
+		}
+		into.Paths = append(into.Paths, from.Paths...)
+		for _, v := range from.Versions {
+			if !containsInt(into.Versions, v) {
+				into.Versions = append(into.Versions, v)
+			}
+		}
+		delete(byRoot, source)
+	}
+}
+
+// pathGroupRootMerges folds a derived root into another, keyed by the "/"-joined
+// literal segments of each.
+//
+// Both entries exist because the derived name collides with an alias this CLI
+// has shipped for a long time, and in both cases the paths act on the resource
+// that alias names — so merging is what the collision was pointing at rather
+// than a workaround for it. `pro computers` in particular is the alias for the
+// primary computer resource and one of the most-used commands in the CLI.
+//
+// Note the merge restores a symmetry the paths break on their own:
+// /v1/mobile-devices/{id}/recalculate-smart-groups and
+// /v1/users/{id}/recalculate-smart-groups already land inside their real
+// resources, because those live at the matching path. The computer resource is
+// served at /vN/computers-inventory, so its recalculate action was the only one
+// of the three left stranded in a group of its own.
+var pathGroupRootMerges = map[string]string{
+	"computers":             "computers-inventory",
+	"smart-computer-groups": "computer-groups/smart-groups",
+}
+
+// classifyPrefixes records, for every literal path prefix in the document,
+// whether that prefix answers as a path in its own right and whether any path
+// extends it with a parameter segment.
+func classifyPrefixes(paths []string) (exact, withParamChild map[string]bool) {
+	exact = map[string]bool{}
+	withParamChild = map[string]bool{}
+	for _, p := range paths {
+		_, segs := splitVersionSegment(p)
+		var lits []string
+		sawParam := false
+		for _, s := range segs {
+			if isPathParam(s) {
+				withParamChild[strings.Join(lits, "/")] = true
+				sawParam = true
+				break
+			}
+			lits = append(lits, s)
+		}
+		if !sawParam {
+			exact[strings.Join(lits, "/")] = true
+		}
+	}
+	return exact, withParamChild
+}
+
+// longestRoot returns the longest leading run of literal segments that isRoot
+// accepts. It stops at the first parameter segment: a root is always an
+// unparameterised prefix, so nothing beyond one can name a resource.
+func longestRoot(segs []string, isRoot func([]string) bool) []string {
+	var best []string
+	for i := 1; i <= len(segs); i++ {
+		if isPathParam(segs[i-1]) {
+			break
+		}
+		prefix := segs[:i]
+		if isRoot(prefix) && i > len(best) {
+			best = prefix
+		}
+	}
+	if best == nil {
+		// Every segment is a parameter, or the document declares a bare "/".
+		// Neither is a resource; the caller reports it rather than inventing one.
+		return nil
+	}
+	return append([]string(nil), best...)
+}
+
+// splitVersionSegment removes a leading `vN` segment and returns the version it
+// declared (0 when the path carries none) plus the remaining segments.
+//
+// Only a *leading* version is stripped, which is where every Jamf Pro API path
+// carries it. A version appearing deeper would be part of a resource's own
+// name.
+func splitVersionSegment(path string) (int, []string) {
+	segs := splitPathSegments(path)
+	if len(segs) == 0 {
+		return 0, nil
+	}
+	if n, ok := apiVersionSegment(segs[0]); ok {
+		return n, segs[1:]
+	}
+	return 0, segs
+}
+
+// apiVersionSegment reports whether seg is a `vN` version segment.
+func apiVersionSegment(seg string) (int, bool) {
+	if len(seg) < 2 || seg[0] != 'v' {
+		return 0, false
+	}
+	n, err := strconv.Atoi(seg[1:])
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+// splitPathSegments splits a URL path into its non-empty segments.
+func splitPathSegments(path string) []string {
+	var out []string
+	for _, s := range strings.Split(path, "/") {
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// isPathParam reports whether seg is an OpenAPI path parameter like `{id}`.
+func isPathParam(seg string) bool {
+	return strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}")
+}
+
+func containsInt(xs []int, x int) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
+	}
+	return false
+}
+
+// groupName turns a root into a command name, applying an override when the
+// derived one is unusable.
+func groupName(root []string) string {
+	return applyNameOverride(strings.Join(root, "-"))
+}
+
+// applyNameOverride replaces a derived resource name that cannot stand as a
+// command name. Applied to a tag-derived name and a path-derived one alike,
+// since either can produce one.
+func applyNameOverride(name string) string {
+	if override, ok := pathGroupNameOverrides[name]; ok {
+		return override
+	}
+	return name
+}
+
+// pathGroupNameOverrides replaces a derived resource name that cannot stand as
+// a command name, keyed on the name nameFromTags or groupName produced.
+//
+// One entry, and that is the strongest argument for naming from tags. Naming
+// from paths needed eight, seven of which were names I invented — a `pki-`
+// prefix the reference does not use, `ldap-lookups`, `ddm-clients`,
+// `certificate-authorities`, `team-viewer-remote-administrations`. Every one of
+// those was a guess at what a resource should be called, and the tag already
+// said.
+var pathGroupNameOverrides = map[string]string{
+	// `/v1/policy-properties`, tagged `policies-preview`. Stripping the suffix
+	// gives `policies`, which is the one place the reference's own name
+	// misleads: there is no modern policy API at all — no path in the document
+	// contains `/policies` — and real policy CRUD is Classic-only, shipping as
+	// `pro classic-policies`. A `pro policies` command holding two settings
+	// fields would sit beside the actual policy surface looking like it.
+	"policies": "policy-properties",
+}
+
+// KeepPath reports whether a document path should be ingested at all, given the
+// tags its operations carry.
+//
+// This is the declared "do not turn this into a command" list, and it is the
+// only thing standing between the command surface and upstream's legacy
+// endpoints. Grouping by path is faithful to the document, which means it is
+// also faithful to the parts of the document nobody should be calling.
+func KeepPath(path string, tags []string) bool {
+	if droppedPaths[path] {
+		return false
+	}
+	for _, t := range tags {
+		if droppedTags[t] {
+			return false
+		}
+	}
+	return true
+}
+
+// droppedTags lists OpenAPI tags whose paths must never become commands.
+//
+// A tag is the right unit when it covers exactly the legacy endpoints — it
+// survives a path being renamed upstream, and it reads as a statement about the
+// endpoints rather than about their spelling.
+var droppedTags = map[string]bool{
+	// `/preview/computers` — a stub returning names only. The real computer
+	// surface is `/vN/computers-inventory`, which this CLI already ships.
+	"computers-preview": true,
+	// `/settings/issueTomcatSslCertificate` — unversioned legacy, and the one
+	// path this tag covers.
+	"tomcat-settings-preview": true,
+	// `/preview/remote-administration-configurations` — the bare collection
+	// stub above the team-viewer family. Dropping the stub leaves
+	// `/preview/remote-administration-configurations/team-viewer/...` intact,
+	// which is the surface the gateway actually publishes.
+	"remote-administration": true,
+	// `/devices/extensionAttributes` — a preview endpoint returning names only.
+	// The real CRUD is `/v1/mobile-device-extension-attributes`, tagged
+	// separately.
+	"mobile-device-extension-attributes-preview": true,
+	// `/user`, `/user/updateSession` — legacy session-token endpoints unrelated
+	// to the canonical `/v1/user-sessions/*` resource.
+	"user-session-preview": true,
+}
+
+// droppedPaths lists individual paths to skip, for the case a tag cannot
+// express.
+//
+// It exists because **a tag is not always a safe unit**, and assuming it was
+// would have deleted a live command. `policies-preview` tags the legacy
+// `/settings/obj/policyProperties` *and* `/v1/policy-properties`, the real
+// versioned resource — so dropping that tag would have taken `pro
+// policy-properties` with it, silently, since the resource simply stops being
+// generated. Check a tag's blast radius before adding one above.
+var droppedPaths = map[string]bool{
+	// Unversioned legacy twin of `/v1/policy-properties`. Shares the
+	// `policies-preview` tag with that live path, hence the path-keyed drop.
+	"/settings/obj/policyProperties": true,
+	// Inventory preload v1, superseded by v2 at a restructured path.
+	//
+	// This is the one case a version rule cannot settle on its own. v2 moved
+	// every record operation under `records/`, so `/v1/inventory-preload/{id}`
+	// and `/v2/inventory-preload/records/{id}` are the same endpoint at two
+	// path *shapes* — and deduplicateVersionedOps matches on the shape, so it
+	// sees two unrelated endpoints and keeps both. The gateway withdrew the v1
+	// family, and v2 serves list, get, create, update, delete and delete-all,
+	// so nothing is lost by dropping these.
+	//
+	// Left in, they were actively worse than absent: the v1 paths took the
+	// plain `list`, `get`, `create`, `update` and `delete` names on
+	// `pro inventory-preload` while being refused on a gateway profile, and the
+	// served v2 CRUD sat under `pro inventory-preload-records`. The obvious
+	// command was the broken one.
+	"/inventory-preload":                 true,
+	"/v1/inventory-preload":              true,
+	"/inventory-preload/{id}":            true,
+	"/v1/inventory-preload/{id}":         true,
+	"/inventory-preload/validate-csv":    true,
+	"/v1/inventory-preload/validate-csv": true,
+	"/inventory-preload/history":         true,
+	"/v1/inventory-preload/history":      true,
+	"/inventory-preload/history/notes":   true,
+	"/inventory-preload/csv-template":    true,
+	"/v1/inventory-preload/csv-template": true,
+
+	// The deprecated v1 erase and unmanage actions, superseded by v4 at a
+	// path that spells the resource differently.
+	//
+	// The inventory-preload case above with the noun changed. v4 renamed the
+	// collection segment from `computer-inventory` to `computers-inventory`, so
+	// `/v1/computer-inventory/{id}/erase` and
+	// `/v4/computers-inventory/{id}/erase` are the same endpoint at two path
+	// shapes, and deduplicateVersionedOps — which keys on the shape — saw two
+	// unrelated endpoints and kept both. Upstream declares the v1 pair
+	// `deprecated: true` with an `x-deprecation-date`, the gateway withdrew
+	// them, and v4 serves both actions.
+	//
+	// Left in they were worse than absent, in three compounding ways. The
+	// deprecated pair took the plain `erase` and `remove-mdm-profile` names, so
+	// the served v4 pair came out as `v-4-computers-inventory-erase` and
+	// `v-4-computers-inventory-remove-mdm-profile` — the only version-leaking
+	// names in the binary, on the two most destructive generated commands.
+	// `pro.go` removes a generated `erase`/`remove-mdm-profile` by name in
+	// favour of the hand-written pair, so it matched the *deprecated* pair and
+	// the served twins shipped beside the hand-written commands, without the
+	// `--confirm-destructive` gate those carry for bulk. And these two are the
+	// only paths in the document whose root segment is `computer-inventory`
+	// rather than `computers-inventory`, so they alone renamed the CLI's
+	// most-used resource.
+	"/v1/computer-inventory/{id}/erase":              true,
+	"/v1/computer-inventory/{id}/remove-mdm-profile": true,
+
+	// A sub-lookup with no sibling CRUD on the base collection, so it produces
+	// a lone `groups` command with no context. Membership is already reachable
+	// through the computer-groups and mobile-device-groups resources.
+	//
+	// Dropped by path even though its `devices` tag covers nothing else,
+	// because the path is versioned and the rule above forbids a tag-keyed drop
+	// reaching one: a versioned path is a live endpoint, and if upstream ever
+	// tags another with `devices` the tag-keyed drop would take it silently.
+	"/v1/devices/{id}/groups": true,
+}

@@ -19,6 +19,7 @@ func NewAppInstallersCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newAppInstallersGetCmd(ctx))
+	cmd.AddCommand(NewAppInstallersGlobalSettingsCmd(ctx))
 
 	return cmd
 }

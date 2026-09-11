@@ -528,162 +528,12 @@ components:
 	}
 }
 
-func makeResource(name string) *Resource {
-	return &Resource{Name: name}
-}
-
 func resourceNames(rs []*Resource) []string {
 	names := make([]string, len(rs))
 	for i, r := range rs {
 		names[i] = r.Name
 	}
 	return names
-}
-
-func TestDeduplicateVersioned(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     []*Resource
-		wantNames []string
-	}{
-		{
-			name:      "no versioned resources — no-op",
-			input:     []*Resource{makeResource("buildings"), makeResource("computers"), makeResource("policies")},
-			wantNames: []string{"buildings", "computers", "policies"},
-		},
-		{
-			name:      "single versioned resource — renamed to canonical",
-			input:     []*Resource{makeResource("buildings"), makeResource("inventory-preload-v-2s")},
-			wantNames: []string{"buildings", "inventory-preloads"},
-		},
-		{
-			name: "multiple versions — highest wins, lower dropped",
-			input: []*Resource{
-				makeResource("mobile-device-prestages-v-2s"),
-				makeResource("mobile-device-prestages-v-3s"),
-				makeResource("computers"),
-			},
-			wantNames: []string{"mobile-device-prestages", "computers"},
-		},
-		{
-			name: "base resource suppressed when versioned family exists",
-			input: []*Resource{
-				makeResource("inventory-preloads"),
-				makeResource("inventory-preload-v-2s"),
-				makeResource("buildings"),
-			},
-			wantNames: []string{"inventory-preloads", "buildings"},
-		},
-		{
-			name: "multiple independent version families",
-			input: []*Resource{
-				makeResource("computer-prestages-v-2s"),
-				makeResource("computer-prestages-v-3s"),
-				makeResource("inventory-preload-v-2s"),
-				makeResource("unrelated"),
-			},
-			wantNames: []string{"computer-prestages", "inventory-preloads", "unrelated"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := DeduplicateVersioned(tt.input)
-			gotNames := resourceNames(got)
-
-			if len(gotNames) != len(tt.wantNames) {
-				t.Fatalf("DeduplicateVersioned() returned %v, want %v", gotNames, tt.wantNames)
-			}
-			for i, name := range gotNames {
-				if name != tt.wantNames[i] {
-					t.Errorf("DeduplicateVersioned()[%d] = %q, want %q", i, name, tt.wantNames[i])
-				}
-			}
-
-			// Winner must have correct derived fields set.
-			for _, r := range got {
-				if versionedName.MatchString(r.Name) {
-					t.Errorf("output still contains versioned name %q — winner not renamed", r.Name)
-				}
-			}
-		})
-	}
-}
-
-// makeVersionedResource is makeResource with one operation, so the resource has
-// an API version to be ranked by. The version has to come off a path — a
-// resource's name says which family it is in, not which version it serves.
-func makeVersionedResource(name, path string) *Resource {
-	return &Resource{Name: name, Operations: []*Operation{{Name: "list", Method: "GET", Path: path}}}
-}
-
-// The real shape of specs/ComputersInventory{,V2,V3}.yaml: three spec files, one
-// family, and the highest version is the one whose *name* carries no version
-// suffix — because that file declares /v1 and /v4 together and the within-file
-// deduplication leaves it holding v4.
-//
-// Read by name alone, the v4 resource looks like the legacy base and is
-// suppressed, so every pro computers-inventory command shipped /v3 and the two
-// v4-only operations (erase, remove-mdm-profile) were never generated. Nothing
-// failed: v3 answered, and the gateway published all four versions. Its 11.31.0
-// drop now publishes v4 alone, which turned the silent wrong choice into a
-// command refused before a request is sent.
-func TestDeduplicateVersioned_BaseWinsWhenItServesTheHigherVersion(t *testing.T) {
-	base := makeVersionedResource("computers-inventories", "/v4/computers-inventory")
-	got := DeduplicateVersioned([]*Resource{
-		base,
-		makeVersionedResource("computers-inventory-v-2s", "/v2/computers-inventory"),
-		makeVersionedResource("computers-inventory-v-3s", "/v3/computers-inventory"),
-	})
-
-	if len(got) != 1 {
-		t.Fatalf("DeduplicateVersioned() returned %v, want the v4 resource alone", resourceNames(got))
-	}
-	if got[0] != base {
-		t.Errorf("winner is %q serving %s, want the base resource serving /v4 — the name suffix is not the version",
-			got[0].Name, got[0].Operations[0].Path)
-	}
-}
-
-// The suppression rule still has to hold the other way round, which is the case
-// it was written for: inventory-preload's base file declares v1 (plus one
-// unversioned path with no v2 equivalent) and InventoryPreloadV2.yaml declares
-// v2, so the versioned sibling is genuinely the newer one and the base goes.
-func TestDeduplicateVersioned_BaseStillLosesWhenItIsOlder(t *testing.T) {
-	base := &Resource{Name: "inventory-preloads", Operations: []*Operation{
-		{Name: "list", Method: "GET", Path: "/v1/inventory-preload"},
-		{Name: "notes", Method: "POST", Path: "/inventory-preload/history/notes"},
-	}}
-	winner := makeVersionedResource("inventory-preload-v-2s", "/v2/inventory-preload")
-
-	got := DeduplicateVersioned([]*Resource{base, winner})
-	if len(got) != 1 {
-		t.Fatalf("DeduplicateVersioned() returned %v, want the v2 resource alone", resourceNames(got))
-	}
-	if got[0] != winner {
-		t.Errorf("winner serves %s, want /v2 — an unversioned path alongside v1 must not out-rank v2",
-			got[0].Operations[0].Path)
-	}
-	if got[0].Name != "inventory-preloads" {
-		t.Errorf("Name = %q, want the canonical inventory-preloads", got[0].Name)
-	}
-}
-
-func TestDeduplicateVersioned_WinnerFieldsRenamed(t *testing.T) {
-	r := makeResource("mobile-device-prestages-v-3s")
-	result := DeduplicateVersioned([]*Resource{r})
-	if len(result) != 1 {
-		t.Fatalf("expected 1 resource, got %d", len(result))
-	}
-	if result[0].Name != "mobile-device-prestages" {
-		t.Errorf("Name = %q, want %q", result[0].Name, "mobile-device-prestages")
-	}
-	if result[0].NameSingular != "mobile-device-prestage" {
-		t.Errorf("NameSingular = %q, want %q", result[0].NameSingular, "mobile-device-prestage")
-	}
-	if result[0].GoName != "MobileDevicePrestages" {
-		t.Errorf("GoName = %q, want %q", result[0].GoName, "MobileDevicePrestages")
-	}
 }
 
 func TestDetectNameField(t *testing.T) {
@@ -1915,7 +1765,7 @@ func TestResolveNoParamConflicts(t *testing.T) {
 			{Name: "list", Method: "GET", Path: "/v2/resource/settings"},
 			{Name: "list", Method: "GET", Path: "/v2/resource/pending-rotations"},
 		}
-		resolveNoParamConflicts(ops)
+		resolveNoParamConflicts(ops, nil)
 		names := map[string]bool{}
 		for _, op := range ops {
 			names[op.Name] = true
@@ -1931,7 +1781,7 @@ func TestResolveNoParamConflicts(t *testing.T) {
 			{Name: "get", Method: "GET", Path: "/v2/resource/{id}"},
 			{Name: "list", Method: "GET", Path: "/v2/resource/sub-path"},
 		}
-		resolveNoParamConflicts(ops)
+		resolveNoParamConflicts(ops, nil)
 		// /v2/resource has a /{id} child → canonical → stays "list"
 		// /v2/resource/sub-path → renamed to "sub-path"
 		var canonical, renamed string
@@ -1952,13 +1802,62 @@ func TestResolveNoParamConflicts(t *testing.T) {
 	})
 }
 
+// buildDisambiguatedName names the loser of a collision from the parts of its
+// path that differ from the winner's, and a version segment was one of them:
+// `/v2/mobile-device-prestages/{id}/scope/delete-multiple` came out as
+// `v-2-scope-delete-multiple`.
+//
+// **No live collision reaches this today** — the root-less qualification branch
+// in disambiguateSameTerminalOps answers the one shape that used to produce a
+// version-leaking name, and disabling this skip leaves the generated surface
+// byte-identical. It is kept, and tested here directly rather than through the
+// specs, because a version segment names no resource and is never a correct
+// part of a command name: the rule is worth stating where names are built, and
+// TestNoCommandNameCarriesAnAPIVersion is the guard that actually watches the
+// shipped surface.
+func TestBuildDisambiguatedNameSkipsTheVersionSegment(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		longer  string
+		shorter string
+		want    string
+	}{
+		{
+			name:    "a version beside a real difference contributes nothing",
+			longer:  "/v2/mobile-device-prestages/{id}/scope/delete-multiple",
+			shorter: "/v3/mobile-device-prestages/{id}/attachments/delete-multiple",
+			want:    "scope-delete-multiple",
+		},
+		{
+			name:    "same version, unchanged",
+			longer:  "/v1/thing/{id}/scope/purge",
+			shorter: "/v1/thing/{id}/attachments/purge",
+			want:    "scope-purge",
+		},
+		{
+			name:    "a version-only difference has nothing to add, so the name is unchanged and the caller's fallback decides",
+			longer:  "/v2/thing/{id}/purge",
+			shorter: "/v1/thing/{id}/purge",
+			want:    "purge",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base := lastPathSeg(tc.shorter)
+			got := buildDisambiguatedName(base, tc.longer, tc.shorter, map[string]bool{base: true})
+			if got != tc.want {
+				t.Errorf("buildDisambiguatedName(%q, %q, %q) = %q, want %q", base, tc.longer, tc.shorter, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDisambiguateSameTerminalOps(t *testing.T) {
 	t.Run("audit vs audit-by-guid", func(t *testing.T) {
 		ops := []*Operation{
 			{Name: "audit", Method: "GET", Path: "/v2/laps/{id}/account/{username}/audit"},
 			{Name: "audit", Method: "GET", Path: "/v2/laps/{id}/account/{username}/{guid}/audit"},
 		}
-		disambiguateSameTerminalOps(ops)
+		disambiguateSameTerminalOps(ops, nil)
 		if ops[0].Name != "audit" {
 			t.Errorf("shorter path name = %q, want audit", ops[0].Name)
 		}
@@ -1973,7 +1872,7 @@ func TestDisambiguateSameTerminalOps(t *testing.T) {
 			{Name: "history", Method: "GET", Path: "/v2/laps/{id}/account/{username}/history"},
 			{Name: "history", Method: "GET", Path: "/v2/laps/{id}/account/{username}/{guid}/history"},
 		}
-		disambiguateSameTerminalOps(ops)
+		disambiguateSameTerminalOps(ops, nil)
 		names := map[string]string{}
 		for _, op := range ops {
 			names[op.Path] = op.Name
@@ -1994,7 +1893,7 @@ func TestDisambiguateSameTerminalOps(t *testing.T) {
 			{Name: "mappings", Method: "GET", Path: "/v2/resource/{id}/mappings"},
 			{Name: "mappings", Method: "PUT", Path: "/v2/resource/{id}/mappings"},
 		}
-		disambiguateSameTerminalOps(ops)
+		disambiguateSameTerminalOps(ops, nil)
 		if ops[0].Name != "mappings" {
 			t.Errorf("GET name = %q, want mappings", ops[0].Name)
 		}
@@ -2173,7 +2072,7 @@ func TestApplyNameOverrides(t *testing.T) {
 
 func TestApplyNameFieldOverrides(t *testing.T) {
 	resources := []*Resource{
-		{Name: "computers-inventory", NameField: "name", IDField: "id"},
+		{Name: "computer-inventory", NameField: "name", IDField: "id"},
 		{Name: "groups", NameField: "name", IDField: "id"},
 		{Name: "buildings", NameField: "name", IDField: "id"},
 	}
@@ -2184,7 +2083,7 @@ func TestApplyNameFieldOverrides(t *testing.T) {
 		wantName string
 		wantID   string
 	}{
-		{"computers-inventory", "general.name", "id"},
+		{"computer-inventory", "general.name", "id"},
 		{"groups", "groupName", "groupPlatformId"},
 		{"buildings", "name", "id"}, // unaffected
 	}
@@ -2201,13 +2100,13 @@ func TestApplyNameFieldOverrides(t *testing.T) {
 
 func TestApplyCreateOpOverrides(t *testing.T) {
 	// Resource matching the override map: sub-path POST should be renamed to "create".
-	target := resourceCreateOpOverrides["device-enrollment-instances"]
+	target := resourceCreateOpOverrides["device-enrollments"]
 	if target.Path == "" {
-		t.Fatal("resourceCreateOpOverrides missing device-enrollment-instances entry")
+		t.Fatal("resourceCreateOpOverrides missing device-enrollments entry")
 	}
 
 	r := &Resource{
-		Name: "device-enrollment-instances",
+		Name: "device-enrollments",
 		Operations: []*Operation{
 			{Name: "list", Method: "GET", Path: "/v1/device-enrollments"},
 			{Name: "upload-token", Method: target.Method, Path: target.Path},
@@ -2246,15 +2145,15 @@ func TestApplyCreateOpOverrides(t *testing.T) {
 }
 
 func TestApplyUpdateTokenOpOverrides(t *testing.T) {
-	target := resourceUpdateTokenOpOverrides["device-enrollment-instances"]
+	target := resourceUpdateTokenOpOverrides["device-enrollments"]
 	if target.Path == "" {
-		t.Fatal("resourceUpdateTokenOpOverrides missing device-enrollment-instances entry")
+		t.Fatal("resourceUpdateTokenOpOverrides missing device-enrollments entry")
 	}
 
 	tokenOp := &Operation{Name: "upload-token-by-id", Method: target.Method, Path: target.Path}
 	updateOp := &Operation{Name: "update", Method: "PUT", Path: "/v1/device-enrollments/{id}"}
 	r := &Resource{
-		Name: "device-enrollment-instances",
+		Name: "device-enrollments",
 		Operations: []*Operation{
 			{Name: "list", Method: "GET", Path: "/v1/device-enrollments"},
 			updateOp,
