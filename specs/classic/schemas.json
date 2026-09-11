@@ -8,7 +8,7 @@
     "spec": "classic_api_resource_documentation.json",
     "title": "Classic API",
     "version": "11.28.0",
-    "sdkCommit": "d4ab4f4",
+    "sdkCommit": "bed9af9",
     "schemas": 165,
     "resources": 44,
     "unresolved": 1

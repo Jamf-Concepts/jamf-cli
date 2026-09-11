@@ -5,8 +5,8 @@
       "file": "pro_api.json",
       "title": "Jamf Pro API",
       "version": "11.31.0",
-      "paths": 476,
-      "operations": 700
+      "paths": 477,
+      "operations": 701
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
@@ -15,7 +15,7 @@
       "paths": 270,
       "operations": 589
     },
-    "sdkCommit": "d4ab4f4"
+    "sdkCommit": "bed9af9"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -745,6 +745,9 @@
     ],
     "/pro/v1/mdm-renewal/renewal-strategies/{}": [
       "DELETE",
+      "GET"
+    ],
+    "/pro/v1/mdm/commands": [
       "GET"
     ],
     "/pro/v1/mdm/renew-profile": [
@@ -4062,6 +4065,11 @@
       "DELETE": [
         "device-actions:execute"
       ],
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/pro/v1/mdm/commands": {
       "GET": [
         "device-actions:read"
       ]
