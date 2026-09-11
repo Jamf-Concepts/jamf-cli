@@ -68,3 +68,16 @@ split out so Claude loads it only when it's actually relevant:
 - `internal/profileconvert/CLAUDE.md` — legacy-to-DDM payload conversion
 - `generator/CLAUDE.md` — code generation pipeline and generated command features
 - `docs/site/CLAUDE.md` — GitHub Pages showcase site
+
+## Extending this file
+
+Keep the root CLAUDE.md lean. When adding context, choose the right home:
+
+| What you're adding | Where it goes |
+|---|---|
+| Critical policy every session must know (credentials, generated code boundary) | Root `CLAUDE.md` — the existing sections |
+| Always-loaded convention or wire fact (coding style, Classic API behavior, auth wiring) | New `.claude/rules/<topic>.md` + pointer in the "Always-loaded rules" list above |
+| Workflow recipe or navigation guide loaded on demand (how to add a feature, sync specs) | New `.claude/skills/<topic>.md` + pointer in the "Skills" list above |
+| Quirks, invariants, gotchas specific to one package | `<package>/CLAUDE.md` in that directory — auto-loaded when Claude reads files there |
+
+**If you find yourself adding more than a pointer to the root CLAUDE.md, it almost certainly belongs in a rules or skills file instead.** Bloating the root means every session loads context that's only relevant to a fraction of tasks.
