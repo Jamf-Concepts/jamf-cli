@@ -525,8 +525,9 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{ if needsScope . }}
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
-		APIPath:       "{{ .Path }}",
-		SingularKey:   "{{ .Singular }}",
+		APIPath:     "{{ .Path }}",
+		SingularKey: "{{ .Singular }}",
+		CLIName:     "{{ .CLIName }}",
 		{{- if scopeResolveByList . }}
 		ResolveByList: true,
 		{{- end }}

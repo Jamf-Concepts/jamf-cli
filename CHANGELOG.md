@@ -409,6 +409,88 @@ too, as whole resources), so no capability moves.
   the rename had left (`apply` and `get-by-name` on the former `jamf-protects` and
   `jamf-protect-deployment-tasks`); both are removed.
 
+### Breaking — Classic `scope` subcommands take `[<id>]` and `--name`
+
+- **The positional argument is now the id, not the name.** `pro <resource> scope
+  get|add|remove` took the name positionally — the only commands in the binary that
+  did — so a caller holding an id from `list` had to go and find the name for it, and
+  an object whose name looks like an id could not be addressed at all. They now match
+  every other Classic command: an optional `[<id>]` plus `--name`, refused together.
+
+  ```
+  # before
+  jamf-cli pro classic-policies scope add "Deploy Chrome" --computer-group "Lab Macs"
+  # after — either of
+  jamf-cli pro classic-policies scope add 1 --computer-group "Lab Macs"
+  jamf-cli pro classic-policies scope add --name "Deploy Chrome" --computer-group "Lab Macs"
+  ```
+
+  A non-numeric positional is refused at exit 2 naming `--name`, rather than being sent
+  as an id and answering a 404 whose hint points at `list`.
+
+- **Each command now registers only the scope categories its own resource carries**, so
+  `--help` and shell completion stop offering flags the server refuses. Validation had
+  two branches — restricted software, and everything else — so a policy accepted
+  `--mobile-device-group` and a mobile configuration profile accepted `--computer-group`,
+  both spending a GET and a PUT to earn `409 Error: Mobile device groups cannot be
+  assigned to an macOS profile`. There are five scope shapes across the eight scopeable
+  resources, read off each resource's own GET and cross-checked against
+  terraform-provider-jamfplatform's independently wire-probed schemas.
+
+  A category belonging to another device family is now an unknown flag, whose hint names
+  the categories this resource does have. A valid category in the wrong section is
+  refused naming the section that takes it.
+
+- **`--ibeacon` and `--class` are new.** Both were categories `scope get` listed and
+  nothing could write — the worst shape for a gap, since the CLI showed a value it could
+  not change. `--ibeacon` is accepted on the three resources that carry iBeacons and
+  refused on the five that silently drop them; `--class` on ebooks only.
+
+- **`--user` is now accepted as a restricted-software exclusion.** It was refused
+  outright; the wire accepts it and stores it. It is the admin UI's "Directory
+  Service/Local Users" exclusion.
+
+- **A scope write sends only `<scope>`.** It used to GET the whole document, splice the
+  new scope into its bytes and PUT the entire document back, so one `scope add` cost
+  three GETs and re-sent sections the caller had not touched. A Classic PUT is a partial
+  update at top-level-section granularity, verified on all eight resources against a
+  direct instance and the platform gateway: every non-scope byte comes back identical,
+  including a 19 KB configuration profile's `<payloads>`.
+
+- **A scope name that matches more than one record is refused** instead of resolving to
+  the first in document order. Only the two VPP resources reach this path, having no
+  `/name/` endpoint; Classic names are not unique, and a live tenant carried two ebooks
+  sharing one.
+
+- **`-n, --dry-run` on a scope command no longer always fails.** The preview suppressed
+  the PUT and the post-write check then reported that the server had not persisted the
+  change, at exit 1.
+
+### Fixed — Classic scope writes no longer silently destroy an ebook's class targets
+
+- **Class targets are delivered in two requests, because one cannot work.** Jamf Pro
+  stores `<classes>` only while the stored category is empty: a write made while it
+  already holds a member clears it, and carrying the identical value, omitting the
+  element and every identifier shape all clear it (5/5 each way). Since a scope PUT
+  replaces `<scope>` wholesale, no single request can preserve an existing class across
+  any other scope change — so `scope add --building` on an ebook holding a class
+  destroyed the class and reported success. The intended change is now sent with
+  `<classes>` emptied, then the same scope with the classes populated.
+
+  The same defect is a hard `Provider produced inconsistent result after apply` in
+  terraform-provider-jamfplatform, reported as
+  [#428](https://github.com/jamf/terraform-provider-jamfplatform/issues/428).
+
+- **A write is checked against the whole scope that was sent**, not just the category the
+  command changed — which is why the loss above went unreported. Anything the server did
+  not keep is named.
+
+- **A Classic HTTP error renders its reason instead of an HTML page.** The Classic API
+  answers a refused write with a status page whose one useful sentence was buried in
+  ~400 bytes of markup and inline CSS, arriving in the JSON error envelope as a single
+  escaped line. `Error: Unable to match computer group` and its siblings are now the
+  message.
+
 ### Fixed — a destructive `x-action` no longer sends `DELETE`, or describes itself as a delete
 
 - **`--from-file` and `--group` on a destructive action sent the wrong HTTP

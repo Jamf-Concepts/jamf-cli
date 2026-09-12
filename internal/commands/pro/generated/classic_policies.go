@@ -570,6 +570,7 @@ func NewClassicPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "policies",
 		SingularKey: "policy",
+		CLIName:     "classic-policies",
 	}))
 
 	return cmd

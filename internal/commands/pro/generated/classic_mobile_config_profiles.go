@@ -286,6 +286,7 @@ func NewClassicMobileConfigProfilesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "mobiledeviceconfigurationprofiles",
 		SingularKey: "configuration_profile",
+		CLIName:     "classic-mobile-config-profiles",
 	}))
 
 	return cmd

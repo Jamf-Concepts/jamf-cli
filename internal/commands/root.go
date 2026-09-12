@@ -28,6 +28,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/security"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -1006,6 +1007,15 @@ in the config file. It never runs in CI, when output is piped, or under
 				// auto-remediate (a renamed flag) was the one they could not
 				// read structurally.
 				e.Hint = fmt.Sprintf("did you mean --%s?", s)
+			} else if cats := c.Annotations[scope.AnnotationCategories]; cats != "" {
+				// A scope command registers only the categories its own
+				// resource carries, so a category belonging to another device
+				// family is an unknown flag rather than a refusal the scope
+				// matrix can explain. Naming this resource's vocabulary is the
+				// answer a caller needs: "--computer-group on a mobile
+				// configuration profile" is the commonest scope mistake and
+				// the server's own answer to it is a page of HTML.
+				e.Hint = "scope categories for this resource: " + cats
 			}
 		}
 		return e

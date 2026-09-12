@@ -13,9 +13,20 @@ tags:
   - platform-gateway
   - scope
   - subset-endpoint
+superseded_by: docs/solutions/conventions/classic-scope-put-is-scope-only-2026-09-12.md
 ---
 
 # Classic API scope add/remove must PUT the top-level endpoint, not `/subset/Scope`
+
+> **Partly superseded (2026-09-12).** The `/subset/Scope` conclusion still
+> holds and was re-probed: 201 on a direct instance, 403 through the platform
+> gateway. The *full-document* conclusion does not — a PUT to the top-level
+> endpoint carrying only `<scope>` applies the scope and leaves every other
+> section byte-identical, so the fetch-splice-PUT below is gone along with the
+> extra GET it needed. See
+> `docs/solutions/conventions/classic-scope-put-is-scope-only-2026-09-12.md`,
+> which also records the element-order trap that makes a hand-assembled
+> scope-only body a silent no-op on two resources.
 
 ## Context
 
