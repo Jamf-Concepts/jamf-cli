@@ -298,13 +298,17 @@ func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
 // unmatchedExampleLeaves is the number of leaves whose Example resolves to no
 // invocation of that leaf, so this test reads nothing for them.
 //
-// Eighteen are internal/scope's add and remove across nine classic resources,
-// whose examples are written without the binary name (`scope add "Deploy
-// Chrome" …`). The other two carry an example that resolves to a different
-// command than the leaf it sits on: `pro mobile-devices delete` documents
-// `pro classic-mobile-devices delete` and `pro packages sync` documents
-// `pro jcds sync`. Both are pre-existing and are a question about the example
-// rather than about arity.
+// Two carry an example that resolves to a different command than the leaf it
+// sits on: `pro mobile-devices delete` documents `pro classic-mobile-devices
+// delete` and `pro packages sync` documents `pro jcds sync`. Both are
+// pre-existing and are a question about the example rather than about arity.
+//
+// It was 33. The other eighteen were internal/scope's add and remove across
+// nine classic resources, whose examples were fragments written without the
+// binary name (`scope add "Deploy Chrome" …`) — so nothing here read them, and
+// a caller could not paste them either. scope.Resource carries the CLI name
+// now and the examples are whole invocations, which is what brought them into
+// this test's population rather than out of it.
 //
 // It was 21. The third was `pro computer-groups get`, which sat in the second of
 // two identical computer-groups subtrees — the generated registry called
@@ -325,7 +329,7 @@ func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
 //
 // Pinned so a reader that stops matching a form it handles today, or a new
 // unmatchable form, fails rather than quietly shrinking the population.
-const unmatchedExampleLeaves = 33
+const unmatchedExampleLeaves = 15
 
 // TestScaffoldKeepsTheDeclaredPositionalCeiling covers the path the walk above
 // cannot see, because that walk reads each validator with no flag set.
