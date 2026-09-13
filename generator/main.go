@@ -289,6 +289,14 @@ func main() {
 	// had, and re-deriving that for a nesting level would be a second
 	// implementation to keep in step. Only the top-level ones reach
 	// GenerateRegistry — a sub-resource is added by its parent's constructor.
+	// Ahead of the write loop, not only inside GenerateRegistry: a shared file
+	// name means the second Generate overwrites the first, so by the time the
+	// registry is emitted a resource has already been lost from the tree.
+	if err := parser.CheckRegistryCollisions(resources); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	for _, resource := range parser.FlattenResources(resources) {
 		outPath, err := gen.Generate(resource)
 		if err != nil {
@@ -369,6 +377,11 @@ func main() {
 		}
 
 		classicGen := classic.NewGenerator(outputDir)
+		// Ahead of the write loop, for the reason given at the modern call site.
+		if err := classic.CheckRegistryCollisions(classicResources); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		for _, r := range classicResources {
 			outPath, err := classicGen.Generate(r)
 			if err != nil {
