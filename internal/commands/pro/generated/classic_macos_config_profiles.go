@@ -299,6 +299,7 @@ func NewClassicMacosConfigProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "osxconfigurationprofiles",
 		SingularKey: "os_x_configuration_profile",
+		CLIName:     "classic-macos-config-profiles",
 	}))
 
 	return cmd

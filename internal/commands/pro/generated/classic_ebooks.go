@@ -324,6 +324,7 @@ func NewClassicEbooksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "ebooks",
 		SingularKey: "ebook",
+		CLIName:     "classic-ebooks",
 	}))
 
 	return cmd

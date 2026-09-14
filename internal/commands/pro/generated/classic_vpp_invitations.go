@@ -145,6 +145,7 @@ func NewClassicVppInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:       "vppinvitations",
 		SingularKey:   "vpp_invitation",
+		CLIName:       "classic-vpp-invitations",
 		ResolveByList: true,
 	}))
 

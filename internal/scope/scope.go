@@ -14,8 +14,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/spf13/cobra"
-
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -46,27 +45,79 @@ func isDeviceFlag(flagName string) bool {
 	return flagName == "mobile-device" || flagName == "computer"
 }
 
-// FetchScope performs a GET on a Classic API resource by name and returns
-// the resource's ID and parsed scope. When res.ResolveByList is true it lists
-// all records to resolve name→ID first (for resources with no /name/ endpoint).
-func FetchScope(ctx context.Context, client registry.HTTPClient, res Resource, name string) (string, *ScopeXML, error) {
-	var fetchPath string
-	var resolvedID string
+// Ref identifies which object a scope command addresses: exactly one of an ID
+// or a name, matching every other Classic command's `<id>` positional plus
+// `--name` flag.
+type Ref struct {
+	ID   string
+	Name string
+}
 
-	if res.ResolveByList {
-		id, err := resolveNameToID(ctx, client, res.APIPath, res.SingularKey, name)
-		if err != nil {
-			return "", nil, err
+// String renders the reference for an error message, so a failure names what
+// the caller actually typed rather than always saying "name".
+func (r Ref) String() string {
+	if r.ID != "" {
+		return "id " + r.ID
+	}
+	return fmt.Sprintf("%q", r.Name)
+}
+
+// NewRef builds a Ref from a scope command's positional and --name flag,
+// refusing the two together and the two absent.
+//
+// Rejecting `<id>` and `--name` together is the Platform convention (see
+// CLAUDE.md, Identifier convention) and matters more here than elsewhere:
+// there is no correct resolution when they disagree, and preferring one
+// silently would mutate the scope of an object the caller did not name.
+func NewRef(args []string, flagName string) (Ref, error) {
+	var positional string
+	if len(args) > 0 {
+		positional = args[0]
+	}
+	switch {
+	case positional != "" && flagName != "":
+		return Ref{}, exitcode.New(exitcode.Usage, "pass either an <id> argument or --name, not both")
+	case positional != "":
+		// The positional used to be the NAME on these commands — they were the
+		// only ones in the binary that worked that way — so the commonest
+		// migration mistake is `scope get "My Policy"`. Sent as an id it costs
+		// a request and returns a 404 whose hint points at `list`, saying
+		// nothing about --name. Refusing here is what makes the breaking
+		// change navigable.
+		//
+		// The sibling generated commands need no equivalent: their positional
+		// has always been an id, so no caller is migrating. Deliberately a
+		// refusal rather than a sniff — `blueprints import-profile` guesses
+		// between the two for a documented compat reason, and CLAUDE.md says
+		// not to copy that without one.
+		if !numericRe.MatchString(positional) {
+			return Ref{}, exitcode.New(exitcode.Usage,
+				fmt.Sprintf("%q is not an id; Classic ids are numeric", positional)).
+				WithHint(fmt.Sprintf("pass a name as --name %q — the positional argument used to be the name on these commands and is now the id", positional))
 		}
-		resolvedID = id
-		fetchPath = fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id))
-	} else {
-		fetchPath = fmt.Sprintf("/JSSResource/%s/name/%s", res.APIPath, registry.EscapeClassicPathSegment(name))
+		return Ref{ID: positional}, nil
+	case flagName != "":
+		return Ref{Name: flagName}, nil
+	}
+	return Ref{}, exitcode.New(exitcode.Usage, "provide an <id> argument or --name")
+}
+
+// FetchScope GETs a Classic API resource and returns its ID and parsed scope.
+//
+// An ID is one request. A name is one request too for most resources, via the
+// Classic /name/{name} endpoint, whose response carries <general><id> — the
+// ID needed for the subsequent PUT. Only a resource with no /name/ endpoint
+// (res.ResolveByList: the VPP pair) costs two, listing the collection to
+// resolve the name first.
+func FetchScope(ctx context.Context, client registry.HTTPClient, res Resource, ref Ref) (string, *ScopeXML, error) {
+	fetchPath, resolvedID, err := scopeFetchPath(ctx, client, res, ref)
+	if err != nil {
+		return "", nil, err
 	}
 
 	resp, err := client.Do(ctx, "GET", fetchPath, nil)
 	if err != nil {
-		return "", nil, fmt.Errorf("fetching %s %q: %w", res.SingularKey, name, err)
+		return "", nil, fmt.Errorf("fetching %s %s: %w", res.SingularKey, ref, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -80,18 +131,41 @@ func FetchScope(ctx context.Context, client registry.HTTPClient, res Resource, n
 		return "", nil, fmt.Errorf("parsing %s XML: %w", res.SingularKey, err)
 	}
 
-	if res.ResolveByList {
+	if resolvedID != "" {
 		return resolvedID, &envelope.Scope, nil
 	}
-
 	if envelope.General.ID == "" {
-		return "", nil, fmt.Errorf("no ID in %s %q", res.SingularKey, name)
+		return "", nil, fmt.Errorf("no ID in %s %s", res.SingularKey, ref)
 	}
 	return envelope.General.ID, &envelope.Scope, nil
 }
 
-// resolveNameToID lists all records at the resource root and returns the ID
-// of the first record whose <name> matches (case-insensitive).
+// scopeFetchPath picks the GET path for a reference, resolving a name through
+// the collection listing only where the resource has no /name/ endpoint.
+// Returns the already-known ID when there is one, so FetchScope does not have
+// to re-derive it from a response body that may not carry <general><id>.
+func scopeFetchPath(ctx context.Context, client registry.HTTPClient, res Resource, ref Ref) (path, resolvedID string, err error) {
+	if ref.ID != "" {
+		return fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(ref.ID)), ref.ID, nil
+	}
+	if res.ResolveByList {
+		id, err := resolveNameToID(ctx, client, res.APIPath, res.SingularKey, ref.Name)
+		if err != nil {
+			return "", "", err
+		}
+		return fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id)), id, nil
+	}
+	return fmt.Sprintf("/JSSResource/%s/name/%s", res.APIPath, registry.EscapeClassicPathSegment(ref.Name)), "", nil
+}
+
+// resolveNameToID lists all records at the resource root and returns the ID of
+// the record whose <name> matches case-insensitively.
+//
+// Two matches is an error, not a coin toss: Classic names are not unique (a
+// live tenant carried two ebooks with the same name), and picking the first in
+// document order would silently rewrite the scope of whichever one the server
+// happened to list first. Only the resources with no /name/ endpoint reach
+// this — for the rest the server resolves the name and owns that choice.
 func resolveNameToID(ctx context.Context, client registry.HTTPClient, apiPath, singularKey, name string) (string, error) {
 	resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
 	if err != nil {
@@ -104,6 +178,7 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, apiPath, s
 		return "", fmt.Errorf("reading list response: %w", err)
 	}
 
+	var matches []string
 	d := xml.NewDecoder(bytes.NewReader(body))
 	depth := 0
 	for {
@@ -123,7 +198,7 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, apiPath, s
 					Name string `xml:"name"`
 				}
 				if decErr := d.DecodeElement(&it, &t); decErr == nil && strings.EqualFold(it.Name, name) {
-					return it.ID, nil
+					matches = append(matches, it.ID)
 				}
 				depth-- // DecodeElement consumed the end element
 			}
@@ -131,137 +206,131 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, apiPath, s
 			depth--
 		}
 	}
-	return "", fmt.Errorf("%s %q not found", singularKey, name)
+
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("%s %q not found", singularKey, name)
+	case 1:
+		return matches[0], nil
+	}
+	return "", fmt.Errorf("%d %s records are named %q (ids %s); pass one as the <id> argument instead",
+		len(matches), singularKey, name, strings.Join(matches, ", "))
 }
 
-// PutScope writes an updated scope back to the Classic API. It fetches the
-// full resource document, splices in the updated scope, and PUTs the whole
-// document back to the top-level endpoint — the /subset/Scope shortcut is
-// skipped entirely, since the Jamf Platform Gateway's Classic API proxy does
-// not proxy /subset/* sub-resources (only top-level Classic paths), which
-// otherwise surfaces as a 403 on scope add/remove under platform gateway auth.
+// PutScope writes an updated scope back to the Classic API, sending a body
+// that carries nothing but the <scope> element.
+//
+// Two properties of the Classic API make this the right shape, both
+// wire-checked 2026-09-12 against Jamf Pro 11.31.1 on a direct instance and
+// through the platform gateway:
+//
+//   - A PUT is a partial update at top-level-section granularity: a body of
+//     just <scope> applies the scope and leaves general, self_service,
+//     packages, payloads and every other section byte-identical.
+//   - <scope> itself is replaced wholesale. A body carrying only some scope
+//     categories wipes the rest, so the whole block has to be sent — which is
+//     what the caller's ScopeXML, read from the server and edited in place,
+//     already is. An empty category element is what clears a category.
+//
+// The body is marshalled by encoding/xml rather than spliced into the document
+// the server returned, and the element ORDER that produces is load-bearing.
+// The Classic API's XML binding is sequence-ordered: it reads scope children in
+// schema order and silently ignores what arrives out of order, answering 200
+// either way. The order a GET returns is not that order — macapplications, for
+// one, answers <exclusions> as buildings, departments, mobile_device_groups,
+// users, ... — so echoing the server's own bytes back is accepted and applied to
+// nothing. ScopeXML's field order is the schema order; keep it that way.
+//
+// The /subset/Scope shortcut is not used: the Jamf Platform Gateway's Classic
+// proxy forwards only top-level Classic paths, so it answers 403 there while
+// working on a direct instance (re-probed 2026-09-12). One code path that works
+// on both beats two that disagree.
+// CLASS TARGETS NEED TWO WRITES. Jamf Pro's Classic API stores <classes> only
+// while the stored category is EMPTY. A write made while it already holds a
+// member clears it — carrying the identical value or omitting it both clear
+// it, and the child's identifier shape makes no difference (wire-checked
+// 2026-09-12 on Jamf Pro 11.31.1, 5/5 each way). Since a scope PUT replaces
+// <scope> wholesale, no single request can preserve an existing class across
+// any other scope change.
+//
+// So a scope with class members is delivered in two requests: the first
+// carries every intended change with <classes> emptied, leaving the category
+// empty; the second carries the same scope with the classes populated, which
+// the server now accepts. Verified 5/5 — a department added to an ebook that
+// already had a class ends up with both.
+//
+// Three properties make that safe rather than clever:
+//
+//   - It is never worse than one request. The first PUT already carries the
+//     caller's real change, so an interruption between the two leaves exactly
+//     what a single PUT would have left: the change applied, the classes gone.
+//   - It is keyed on the CATEGORY, not the resource. Only ebooks carry
+//     <classes> today, but the rule is a property of the element, so a
+//     resource that gains one is handled with no edit here.
+//   - A scope with no class members takes the single-request path, so the
+//     common case is unchanged and the extra write happens only where it is
+//     the difference between working and silently losing data.
 func PutScope(ctx context.Context, client registry.HTTPClient, res Resource, id string, s *ScopeXML) error {
-	fetchPath := fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id))
-	resp, err := client.Do(ctx, "GET", fetchPath, nil)
-	if err != nil {
-		return fmt.Errorf("fetching %s for update: %w", res.SingularKey, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+	path := fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id))
 
-	original, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
-	if err != nil {
-		return fmt.Errorf("reading %s: %w", res.SingularKey, err)
+	// A scope carrying class members is delivered in two requests; everything
+	// else in one. See the class-target note in this function's doc comment.
+	if len(s.Classes.Items) > 0 {
+		cleared := *s
+		cleared.Classes = ScopeItemSlice{ElemName: s.Classes.ElemName}
+		if err := putScopeOnce(ctx, client, res, path, &cleared); err != nil {
+			return err
+		}
 	}
+	return putScopeOnce(ctx, client, res, path, s)
+}
 
-	updated, err := replaceScopeInXML(original, s)
+// putScopeOnce sends one scope-only PUT.
+func putScopeOnce(ctx context.Context, client registry.HTTPClient, res Resource, path string, s *ScopeXML) error {
+	body, err := marshalScopeBody(res.SingularKey, s)
 	if err != nil {
-		return fmt.Errorf("replacing scope: %w", err)
+		return err
 	}
-
-	putResp, err := client.Do(ctx, "PUT", fetchPath, bytes.NewReader(updated))
+	resp, err := client.Do(ctx, "PUT", path, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("updating scope: %w", err)
 	}
-	_ = putResp.Body.Close()
+	_ = resp.Body.Close()
 	return nil
 }
 
-// replaceScopeInXML finds the <scope>...</scope> block in the XML bytes and
-// replaces it with the marshalled newScope. Classic API XML is well-formed so
-// simple byte search is safe.
-func replaceScopeInXML(original []byte, newScope *ScopeXML) ([]byte, error) {
-	newScopeXML, err := xml.MarshalIndent(newScope, "  ", "  ")
+// marshalScopeBody renders <singularKey><scope>…</scope></singularKey>, the
+// smallest body that updates a Classic resource's scope.
+func marshalScopeBody(singularKey string, s *ScopeXML) ([]byte, error) {
+	scopeXML, err := xml.MarshalIndent(s, "  ", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshalling scope: %w", err)
 	}
 
-	scopeOpen := bytes.Index(original, []byte("<scope>"))
-	if scopeOpen == -1 {
-		return nil, fmt.Errorf("no <scope> element found in resource XML")
-	}
-	closeTag := []byte("</scope>")
-	rel := bytes.Index(original[scopeOpen:], closeTag)
-	if rel == -1 {
-		return nil, fmt.Errorf("no </scope> closing tag found in resource XML")
-	}
-	scopeClose := scopeOpen + rel + len(closeTag)
-
 	var buf bytes.Buffer
-	buf.Write(original[:scopeOpen])
-	buf.Write(newScopeXML)
-	buf.Write(original[scopeClose:])
+	buf.WriteString(xml.Header)
+	buf.WriteString("<" + singularKey + ">\n")
+	buf.Write(scopeXML)
+	buf.WriteString("\n</" + singularKey + ">\n")
 	return buf.Bytes(), nil
-}
-
-// VerifyItemInScope refetches scope after a PUT and confirms the given item is
-// (or is not) present, depending on `expectPresent`. Catches the silent-drop
-// case where the server returns 200/201 but discards a scope element that
-// doesn't apply to the resource type (e.g. computer_groups limitation on a
-// policy, network_segment on a VPP assignment).
-func VerifyItemInScope(ctx context.Context, client registry.HTTPClient, res Resource, name, section, flagName, itemName string, expectPresent bool) error {
-	_, s, err := FetchScope(ctx, client, res, name)
-	if err != nil {
-		return fmt.Errorf("verifying scope: %w", err)
-	}
-
-	if isPolicyLimitUserGroup(res.SingularKey, section, flagName) {
-		ltuPresent := false
-		if s.LimitToUsers != nil {
-			for _, g := range s.LimitToUsers.UserGroups.Items {
-				if strings.EqualFold(g, itemName) {
-					ltuPresent = true
-					break
-				}
-			}
-		}
-		limPresent := false
-		if s.Limitations != nil {
-			for _, item := range s.Limitations.UserGroups.Items {
-				if strings.EqualFold(item.Name, itemName) {
-					limPresent = true
-					break
-				}
-			}
-		}
-		present := ltuPresent || limPresent
-		if present != expectPresent {
-			return silentDropError(res.SingularKey, section, flagName, itemName, expectPresent)
-		}
-		return nil
-	}
-
-	items := readScopeItems(s, section, flagName)
-	present := false
-	if items != nil {
-		for _, item := range items.Items {
-			if strings.EqualFold(item.Name, itemName) ||
-				item.ID == itemName ||
-				strings.EqualFold(item.UDID, itemName) {
-				present = true
-				break
-			}
-		}
-	}
-	if present != expectPresent {
-		return silentDropError(res.SingularKey, section, flagName, itemName, expectPresent)
-	}
-	return nil
 }
 
 func silentDropError(singularKey, section, flagName, itemName string, expectedPresent bool) error {
 	if expectedPresent {
-		return fmt.Errorf("server accepted PUT but did not persist --%s %q in %s scope (identifier did not resolve to an existing record, or resource type %q does not support this scope element)", flagName, itemName, section, singularKey)
+		return fmt.Errorf("the server accepted the write but %s %q is not in the %s scope of this %s; the likeliest cause is that the identifier names no existing record",
+			flagName, itemName, section, singularKey)
 	}
-	return fmt.Errorf("server accepted PUT but did not remove --%s %q from %s scope (resource type %q may not allow modification of this scope element)", flagName, itemName, section, singularKey)
+	return fmt.Errorf("the server accepted the write but %s %q is still in the %s scope of this %s",
+		flagName, itemName, section, singularKey)
 }
 
 // AddToScope adds a named item to the given scope section. Returns true if the
 // item was added, false if already present (idempotent no-op).
-func AddToScope(s *ScopeXML, singularKey, section, flagName, name string) bool {
-	if isPolicyLimitUserGroup(singularKey, section, flagName) {
-		return addPolicyLimitUserGroup(s, name)
-	}
-
+//
+// singularKey is no longer read: the policy-only <limit_to_users> branch this
+// used to carry is gone, the server keeping that element in step with
+// <limitations><user_groups> by itself (see ScopeXML).
+func AddToScope(s *ScopeXML, section, flagName, name string) bool {
 	items := getOrCreateScopeItems(s, section, flagName)
 	if items == nil {
 		return false
@@ -276,7 +345,7 @@ func AddToScope(s *ScopeXML, singularKey, section, flagName, name string) bool {
 	}
 
 	if items.ElemName == "" {
-		items.ElemName = resolveElemName(section, flagName)
+		items.ElemName = flagToElemName[flagName]
 	}
 	var item NamedItem
 	if isDeviceFlag(flagName) {
@@ -290,17 +359,7 @@ func AddToScope(s *ScopeXML, singularKey, section, flagName, name string) bool {
 
 // RemoveFromScope removes a named item from the given scope section. Returns
 // true if removed, false if not found (idempotent no-op).
-//
-// For the policy limitation user_group case, user groups can live in BOTH
-// limit_to_users/user_groups (plain strings) AND limitations/user_groups
-// (named items). Both locations are checked.
-func RemoveFromScope(s *ScopeXML, singularKey, section, flagName, name string) bool {
-	if isPolicyLimitUserGroup(singularKey, section, flagName) {
-		a := removePolicyLimitUserGroup(s, name)
-		b := removeNamedItem(readScopeItems(s, section, flagName), name)
-		return a || b
-	}
-
+func RemoveFromScope(s *ScopeXML, section, flagName, name string) bool {
 	return removeNamedItem(readScopeItems(s, section, flagName), name)
 }
 
@@ -314,7 +373,7 @@ func RemoveFromScope(s *ScopeXML, singularKey, section, flagName, name string) b
 // -o Table, or the internal json-multi that means JSON on the wire and a table
 // on the screen — took the nested structure to a table renderer. See
 // output.RendersStructureVerbatim.
-func OutputScope(out registry.OutputFormatter, s *ScopeXML, singularKey, format string) error {
+func OutputScope(out registry.OutputFormatter, s *ScopeXML, format string) error {
 	if output.RendersStructureVerbatim(format) {
 		data, err := json.Marshal(s)
 		if err != nil {
@@ -323,7 +382,7 @@ func OutputScope(out registry.OutputFormatter, s *ScopeXML, singularKey, format 
 		return out.PrintRaw(data)
 	}
 
-	rows := FlattenScope(s, singularKey)
+	rows := FlattenScope(s)
 	if len(rows) == 0 {
 		fmt.Fprintln(os.Stderr, "Scope is empty")
 		return nil
@@ -336,168 +395,57 @@ func OutputScope(out registry.OutputFormatter, s *ScopeXML, singularKey, format 
 }
 
 // FlattenScope converts a ScopeXML into a flat list of rows for table output.
-func FlattenScope(s *ScopeXML, singularKey string) []map[string]any {
+//
+// Every category the XML model carries is emitted, so what `scope get` shows
+// is exactly what `scope add`/`remove` can address. The two that used to be
+// missing were the ones a caller could see in the admin UI and not here:
+// iBeacon limitations and exclusions, and target classes.
+func FlattenScope(s *ScopeXML) []map[string]any {
 	var rows []map[string]any
 
 	if s.AllComputers {
-		rows = append(rows, map[string]any{"section": "target", "type": "all_computers", "name": "true"})
+		rows = append(rows, map[string]any{"section": SectionTarget, "type": elemAllComputers, "name": "true"})
 	}
 	if s.AllMobileDevices {
-		rows = append(rows, map[string]any{"section": "target", "type": "all_mobile_devices", "name": "true"})
+		rows = append(rows, map[string]any{"section": SectionTarget, "type": elemAllMobileDevices, "name": "true"})
 	}
 	if s.AllJSSUsers {
-		rows = append(rows, map[string]any{"section": "target", "type": "all_jss_users", "name": "true"})
+		rows = append(rows, map[string]any{"section": SectionTarget, "type": elemAllJSSUsers, "name": "true"})
 	}
 
-	appendNamedRows(&rows, "target", "computer", s.Computers.Items)
-	appendNamedRows(&rows, "target", "computer_group", s.ComputerGroups.Items)
-	appendNamedRows(&rows, "target", "mobile_device", s.MobileDevices.Items)
-	appendNamedRows(&rows, "target", "mobile_device_group", s.MobileDeviceGroups.Items)
-	appendNamedRows(&rows, "target", "building", s.Buildings.Items)
-	appendNamedRows(&rows, "target", "department", s.Departments.Items)
-	appendNamedRows(&rows, "target", "jss_user", s.JSSUsers.Items)
-	appendNamedRows(&rows, "target", "jss_user_group", s.JSSUserGroups.Items)
-	appendNamedRows(&rows, "target", "class", s.Classes.Items)
-
-	// Policy special case: limit_to_users holds plain strings
-	if singularKey == "policy" && s.LimitToUsers != nil {
-		for _, g := range s.LimitToUsers.UserGroups.Items {
-			rows = append(rows, map[string]any{"section": "limitation", "type": "user_group", "name": g})
-		}
-	}
+	appendNamedRows(&rows, SectionTarget, "computer", s.Computers.Items)
+	appendNamedRows(&rows, SectionTarget, "computer_group", s.ComputerGroups.Items)
+	appendNamedRows(&rows, SectionTarget, "mobile_device", s.MobileDevices.Items)
+	appendNamedRows(&rows, SectionTarget, "mobile_device_group", s.MobileDeviceGroups.Items)
+	appendNamedRows(&rows, SectionTarget, "building", s.Buildings.Items)
+	appendNamedRows(&rows, SectionTarget, "department", s.Departments.Items)
+	appendNamedRows(&rows, SectionTarget, "jss_user", s.JSSUsers.Items)
+	appendNamedRows(&rows, SectionTarget, "jss_user_group", s.JSSUserGroups.Items)
+	appendNamedRows(&rows, SectionTarget, "class", s.Classes.Items)
 
 	if s.Limitations != nil {
-		appendNamedRows(&rows, "limitation", "user", s.Limitations.Users.Items)
-		appendNamedRows(&rows, "limitation", "network_segment", s.Limitations.NetworkSegments.Items)
-		// For policies, user groups are already emitted from limit_to_users above;
-		// limitations/user_groups is a server-side mirror, so skip it to avoid duplicates.
-		if singularKey != "policy" {
-			appendNamedRows(&rows, "limitation", "user_group", s.Limitations.UserGroups.Items)
-		}
-		appendNamedRows(&rows, "limitation", "ibeacon", s.Limitations.IBeacons.Items)
+		appendNamedRows(&rows, SectionLimitation, "user", s.Limitations.Users.Items)
+		appendNamedRows(&rows, SectionLimitation, "user_group", s.Limitations.UserGroups.Items)
+		appendNamedRows(&rows, SectionLimitation, "network_segment", s.Limitations.NetworkSegments.Items)
+		appendNamedRows(&rows, SectionLimitation, "ibeacon", s.Limitations.IBeacons.Items)
 	}
 
 	if s.Exclusions != nil {
-		appendNamedRows(&rows, "exclusion", "computer", s.Exclusions.Computers.Items)
-		appendNamedRows(&rows, "exclusion", "computer_group", s.Exclusions.ComputerGroups.Items)
-		appendNamedRows(&rows, "exclusion", "mobile_device", s.Exclusions.MobileDevices.Items)
-		appendNamedRows(&rows, "exclusion", "mobile_device_group", s.Exclusions.MobileDeviceGroups.Items)
-		appendNamedRows(&rows, "exclusion", "user", s.Exclusions.Users.Items)
-		appendNamedRows(&rows, "exclusion", "user_group", s.Exclusions.UserGroups.Items)
-		appendNamedRows(&rows, "exclusion", "jss_user", s.Exclusions.JSSUsers.Items)
-		appendNamedRows(&rows, "exclusion", "jss_user_group", s.Exclusions.JSSUserGroups.Items)
-		appendNamedRows(&rows, "exclusion", "network_segment", s.Exclusions.NetworkSegments.Items)
-		appendNamedRows(&rows, "exclusion", "building", s.Exclusions.Buildings.Items)
-		appendNamedRows(&rows, "exclusion", "department", s.Exclusions.Departments.Items)
-		appendNamedRows(&rows, "exclusion", "ibeacon", s.Exclusions.IBeacons.Items)
+		appendNamedRows(&rows, SectionExclusion, "computer", s.Exclusions.Computers.Items)
+		appendNamedRows(&rows, SectionExclusion, "computer_group", s.Exclusions.ComputerGroups.Items)
+		appendNamedRows(&rows, SectionExclusion, "mobile_device", s.Exclusions.MobileDevices.Items)
+		appendNamedRows(&rows, SectionExclusion, "mobile_device_group", s.Exclusions.MobileDeviceGroups.Items)
+		appendNamedRows(&rows, SectionExclusion, "user", s.Exclusions.Users.Items)
+		appendNamedRows(&rows, SectionExclusion, "user_group", s.Exclusions.UserGroups.Items)
+		appendNamedRows(&rows, SectionExclusion, "jss_user", s.Exclusions.JSSUsers.Items)
+		appendNamedRows(&rows, SectionExclusion, "jss_user_group", s.Exclusions.JSSUserGroups.Items)
+		appendNamedRows(&rows, SectionExclusion, "network_segment", s.Exclusions.NetworkSegments.Items)
+		appendNamedRows(&rows, SectionExclusion, "building", s.Exclusions.Buildings.Items)
+		appendNamedRows(&rows, SectionExclusion, "department", s.Exclusions.Departments.Items)
+		appendNamedRows(&rows, SectionExclusion, "ibeacon", s.Exclusions.IBeacons.Items)
 	}
 
 	return rows
-}
-
-// ValidateScopeCombination checks that the given section/flag combination is valid
-// for the resource type. The acceptance rules below reflect live testing of every
-// flag against every scope-enabled Classic resource (see docs/solutions/).
-//
-// Notable rules:
-//   - `--user-group` is only valid in limitation/exclusion (LDAP/AD group). Use
-//     `--jss-user-group` to target a JSS user group; the previous overload of
-//     `--user-group` for target was ambiguous and made wrong-section mistakes
-//     undetectable until a GET roundtrip.
-//   - Restricted software is computer-only: it accepts no limitations, and only
-//     computer-group / building / department for target and exclusion. The
-//     server silently drops jss_user_groups / all_jss_users / user_groups for
-//     this resource type.
-//   - `--computer` is only valid in target/exclusion (no concept of a "computer
-//     limitation"). `--mobile-device` same.
-//   - `--user` (inventory username, free-text) is only valid in
-//     limitation/exclusion.
-func ValidateScopeCombination(singularKey, section, flagName string) error {
-	isRestricted := singularKey == "restricted_software"
-
-	switch section {
-	case "target":
-		if isRestricted {
-			switch flagName {
-			case "computer", "computer-group", "building", "department":
-				return nil
-			}
-			return fmt.Errorf("--%s is not valid as a target for restricted software; use --computer, --computer-group, --building, or --department", flagName)
-		}
-		switch flagName {
-		case "computer", "computer-group", "mobile-device", "mobile-device-group",
-			"building", "department", "jss-user-group", "jss-user":
-			return nil
-		}
-		return fmt.Errorf("--%s is not valid as a target; use --computer, --computer-group, --mobile-device, --mobile-device-group, --building, --department, --jss-user-group, or --jss-user", flagName)
-
-	case "limitation":
-		if isRestricted {
-			return fmt.Errorf("restricted software does not support limitations")
-		}
-		switch flagName {
-		case "network-segment", "user", "user-group":
-			return nil
-		}
-		return fmt.Errorf("--%s is not valid as a limitation; use --network-segment, --user, or --user-group", flagName)
-
-	case "exclusion":
-		if isRestricted {
-			switch flagName {
-			case "computer", "computer-group", "building", "department":
-				return nil
-			}
-			return fmt.Errorf("--%s is not valid as an exclusion for restricted software; use --computer, --computer-group, --building, or --department", flagName)
-		}
-		switch flagName {
-		case "computer", "computer-group", "mobile-device", "mobile-device-group",
-			"user", "user-group", "jss-user-group", "jss-user",
-			"network-segment", "building", "department":
-			return nil
-		}
-		return fmt.Errorf("--%s is not valid as an exclusion", flagName)
-	}
-
-	return fmt.Errorf("invalid section %q; use target, limitation, or exclusion", section)
-}
-
-// DetermineScopeTarget inspects the command's flags to find exactly one scope
-// target flag that was set. Returns an error if zero or multiple flags are set.
-func DetermineScopeTarget(cmd *cobra.Command) (ScopeTarget, error) {
-	var found ScopeTarget
-	count := 0
-	for _, flag := range scopeFlagNames {
-		if v, _ := cmd.Flags().GetString(flag); v != "" {
-			found = ScopeTarget{FlagName: flag, Name: v}
-			count++
-		}
-	}
-	if count == 0 {
-		return ScopeTarget{}, fmt.Errorf("specify one of: --computer, --computer-group, --mobile-device, --mobile-device-group, --building, --department, --network-segment, --user, --user-group, --jss-user-group, --jss-user")
-	}
-	if count > 1 {
-		return ScopeTarget{}, fmt.Errorf("specify only one scopeable type per invocation")
-	}
-	return found, nil
-}
-
-// AddScopeFlags registers the --section and item flags on a scope add/remove command.
-func AddScopeFlags(cmd *cobra.Command, section *string) {
-	cmd.Flags().StringVar(section, "section", "target", "scope section: target, limitation, exclusion")
-	_ = cmd.RegisterFlagCompletionFunc("section", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{"target", "limitation", "exclusion"}, cobra.ShellCompDirectiveNoFileComp
-	})
-	cmd.Flags().String("computer", "", "individual computer (id, name, or UDID); target/exclusion only")
-	cmd.Flags().String("computer-group", "", "computer group name")
-	cmd.Flags().String("mobile-device", "", "individual mobile device (id, name, or UDID); target/exclusion only")
-	cmd.Flags().String("mobile-device-group", "", "mobile device group name")
-	cmd.Flags().String("building", "", "building name")
-	cmd.Flags().String("department", "", "department name")
-	cmd.Flags().String("network-segment", "", "network segment name (limitations/exclusions)")
-	cmd.Flags().String("user", "", "inventory username (free-text, limitations/exclusions only)")
-	cmd.Flags().String("user-group", "", "LDAP/directory user group name (limitations/exclusions only — use --jss-user-group for target)")
-	cmd.Flags().String("jss-user-group", "", "JSS user group name (target/exclusion)")
-	cmd.Flags().String("jss-user", "", "JSS user name (target/exclusion)")
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -524,58 +472,18 @@ func removeNamedItem(items *ScopeItemSlice, name string) bool {
 	return true
 }
 
-func addPolicyLimitUserGroup(s *ScopeXML, name string) bool {
-	if s.LimitToUsers == nil {
-		s.LimitToUsers = &LimitToUsersXML{}
-	}
-	ltu := s.LimitToUsers
-	if ltu.UserGroups.ElemName == "" {
-		ltu.UserGroups.ElemName = "user_group"
-	}
-	for _, g := range ltu.UserGroups.Items {
-		if strings.EqualFold(g, name) {
-			return false
-		}
-	}
-	ltu.UserGroups.Items = append(ltu.UserGroups.Items, name)
-	return true
-}
-
-func removePolicyLimitUserGroup(s *ScopeXML, name string) bool {
-	if s.LimitToUsers == nil {
-		return false
-	}
-	groups := &s.LimitToUsers.UserGroups
-	var keep []string
-	found := false
-	for _, g := range groups.Items {
-		if strings.EqualFold(g, name) {
-			found = true
-			continue
-		}
-		keep = append(keep, g)
-	}
-	if !found {
-		return false
-	}
-	groups.Items = keep
-	return true
-}
-
-func isPolicyLimitUserGroup(singularKey, section, flagName string) bool {
-	return singularKey == "policy" && section == "limitation" && flagName == "user-group"
-}
-
+// getOrCreateScopeItems returns the slice a flag addresses in a section,
+// materialising the section wrapper when the server omitted it.
 func getOrCreateScopeItems(s *ScopeXML, section, flagName string) *ScopeItemSlice {
 	switch section {
-	case "target":
+	case SectionTarget:
 		return targetItems(s, flagName)
-	case "limitation":
+	case SectionLimitation:
 		if s.Limitations == nil {
 			s.Limitations = &LimitationsXML{}
 		}
 		return limitationItems(s.Limitations, flagName)
-	case "exclusion":
+	case SectionExclusion:
 		if s.Exclusions == nil {
 			s.Exclusions = &ExclusionsXML{}
 		}
@@ -584,16 +492,18 @@ func getOrCreateScopeItems(s *ScopeXML, section, flagName string) *ScopeItemSlic
 	return nil
 }
 
+// readScopeItems is getOrCreateScopeItems without the materialising, for the
+// read and remove paths where an absent section means "nothing to find".
 func readScopeItems(s *ScopeXML, section, flagName string) *ScopeItemSlice {
 	switch section {
-	case "target":
+	case SectionTarget:
 		return targetItems(s, flagName)
-	case "limitation":
+	case SectionLimitation:
 		if s.Limitations == nil {
 			return nil
 		}
 		return limitationItems(s.Limitations, flagName)
-	case "exclusion":
+	case SectionExclusion:
 		if s.Exclusions == nil {
 			return nil
 		}
@@ -602,71 +512,75 @@ func readScopeItems(s *ScopeXML, section, flagName string) *ScopeItemSlice {
 	return nil
 }
 
+// targetItems maps a flag onto its target slice. There is no iBeacon target:
+// an iBeacon narrows an audience, it does not select one, so it exists only in
+// limitations and exclusions.
 func targetItems(s *ScopeXML, flagName string) *ScopeItemSlice {
 	switch flagName {
-	case "computer":
+	case flagComputer:
 		return &s.Computers
-	case "computer-group":
+	case flagComputerGroup:
 		return &s.ComputerGroups
-	case "mobile-device":
+	case flagMobileDevice:
 		return &s.MobileDevices
-	case "mobile-device-group":
+	case flagMobileDeviceGroup:
 		return &s.MobileDeviceGroups
-	case "building":
+	case flagBuilding:
 		return &s.Buildings
-	case "department":
+	case flagDepartment:
 		return &s.Departments
-	case "jss-user-group":
+	case flagJSSUserGroup:
 		return &s.JSSUserGroups
-	case "jss-user":
+	case flagJSSUser:
 		return &s.JSSUsers
+	case flagClass:
+		return &s.Classes
 	}
 	return nil
 }
 
 func limitationItems(lim *LimitationsXML, flagName string) *ScopeItemSlice {
 	switch flagName {
-	case "network-segment":
+	case flagNetworkSegment:
 		return &lim.NetworkSegments
-	case "user":
+	case flagUser:
 		return &lim.Users
-	case "user-group":
+	case flagUserGroup:
 		return &lim.UserGroups
+	case flagIBeacon:
+		return &lim.IBeacons
 	}
 	return nil
 }
 
 func exclusionItems(exc *ExclusionsXML, flagName string) *ScopeItemSlice {
 	switch flagName {
-	case "computer":
+	case flagComputer:
 		return &exc.Computers
-	case "computer-group":
+	case flagComputerGroup:
 		return &exc.ComputerGroups
-	case "mobile-device":
+	case flagMobileDevice:
 		return &exc.MobileDevices
-	case "mobile-device-group":
+	case flagMobileDeviceGroup:
 		return &exc.MobileDeviceGroups
-	case "user":
+	case flagUser:
 		return &exc.Users
-	case "user-group":
+	case flagUserGroup:
 		return &exc.UserGroups
-	case "jss-user-group":
+	case flagJSSUserGroup:
 		return &exc.JSSUserGroups
-	case "jss-user":
+	case flagJSSUser:
 		return &exc.JSSUsers
-	case "network-segment":
+	case flagNetworkSegment:
 		return &exc.NetworkSegments
-	case "building":
+	case flagBuilding:
 		return &exc.Buildings
-	case "department":
+	case flagDepartment:
 		return &exc.Departments
+	case flagIBeacon:
+		return &exc.IBeacons
 	}
 	return nil
-}
-
-// resolveElemName returns the XML child element name for a new scope item.
-func resolveElemName(section, flagName string) string {
-	return flagToElemName[flagName]
 }
 
 func appendNamedRows(rows *[]map[string]any, section, typeName string, items []NamedItem) {

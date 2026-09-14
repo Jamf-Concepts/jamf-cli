@@ -276,6 +276,7 @@ func NewClassicMacAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "macapplications",
 		SingularKey: "mac_application",
+		CLIName:     "classic-mac-apps",
 	}))
 
 	return cmd

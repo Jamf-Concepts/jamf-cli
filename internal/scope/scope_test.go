@@ -40,7 +40,7 @@ func TestScopeXML_UnmarshalPolicy(t *testing.T) {
 					<network_segment><id>1</id><name>Corporate</name></network_segment>
 				</network_segments>
 				<users/>
-				<user_groups/>
+				<user_groups><user_group><name>Staff</name></user_group></user_groups>
 				<ibeacons/>
 			</limitations>
 			<exclusions>
@@ -80,15 +80,14 @@ func TestScopeXML_UnmarshalPolicy(t *testing.T) {
 	if env.Scope.ComputerGroups.Items[0].Name != "All Managed" {
 		t.Errorf("first group = %q", env.Scope.ComputerGroups.Items[0].Name)
 	}
-	if env.Scope.LimitToUsers == nil {
-		t.Fatal("limit_to_users is nil")
-		return
-	}
-	if len(env.Scope.LimitToUsers.UserGroups.Items) != 2 {
-		t.Errorf("limit_to_users.user_groups: got %d, want 2", len(env.Scope.LimitToUsers.UserGroups.Items))
-	}
-	if env.Scope.LimitToUsers.UserGroups.Items[0] != "Staff" {
-		t.Errorf("first limit user_group = %q", env.Scope.LimitToUsers.UserGroups.Items[0])
+	// <limit_to_users> is deliberately unmodelled: the server keeps it in step
+	// with <limitations><user_groups> by itself, so reading the mirror is
+	// complete. What matters here is that its presence does not break the
+	// parse or leak into another field.
+	if got := len(env.Scope.Limitations.UserGroups.Items); got != 1 {
+		t.Errorf("limitations.user_groups: got %d, want 1 (the mirror of limit_to_users)", got)
+	} else if env.Scope.Limitations.UserGroups.Items[0].Name != "Staff" {
+		t.Errorf("limitation user_group = %q, want Staff", env.Scope.Limitations.UserGroups.Items[0].Name)
 	}
 	if len(env.Scope.Limitations.NetworkSegments.Items) != 1 {
 		t.Errorf("limitation network_segments: got %d", len(env.Scope.Limitations.NetworkSegments.Items))
@@ -140,41 +139,67 @@ func TestScopeXML_MarshalRoundTrip(t *testing.T) {
 	}
 }
 
-// mockPutClient records every request path it receives and returns a fixed
-// document body for GET.
+// mockPutClient records every request path and non-GET body it receives, and
+// returns a fixed document for GET.
 type mockPutClient struct {
 	getBody  string
 	requests []string // "METHOD path"
+	bodies   []string // request bodies, in request order, "" for a bodyless call
 }
 
-func (m *mockPutClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+func (m *mockPutClient) Do(_ context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	m.requests = append(m.requests, method+" "+path)
+	sent := ""
+	if body != nil {
+		b, _ := io.ReadAll(body)
+		sent = string(b)
+	}
+	m.bodies = append(m.bodies, sent)
 	if method == "GET" {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(m.getBody))}, nil
 	}
 	return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 }
 
-func TestPutScope_UsesTopLevelEndpoint_NoSubsetPath(t *testing.T) {
-	client := &mockPutClient{getBody: `<policy><general><id>5</id></general><scope><all_computers>false</all_computers></scope></policy>`}
+// TestPutScope_SendsOnlyTheScope pins the two properties of the write: one
+// request to the top-level endpoint, and a body carrying nothing but <scope>.
+//
+// The single request is the point — PutScope used to re-GET the whole document
+// purely to splice the scope into its bytes, so a scope edit cost three GETs.
+// The /subset/Scope check stays because that shortcut works on a direct
+// instance and answers 403 through the platform gateway, so it is the tempting
+// wrong answer rather than an impossible one.
+func TestPutScope_SendsOnlyTheScope(t *testing.T) {
+	client := &mockPutClient{}
 	res := Resource{APIPath: "policies", SingularKey: "policy"}
-	s := &ScopeXML{AllComputers: true}
+	s := &ScopeXML{
+		AllComputers:   true,
+		ComputerGroups: ScopeItemSlice{Items: []NamedItem{{ID: "1", Name: "Group A"}}, ElemName: "computer_group"},
+	}
 
 	if err := PutScope(context.Background(), client, res, "5", s); err != nil {
 		t.Fatalf("PutScope: %v", err)
 	}
 
-	want := []string{"GET /JSSResource/policies/id/5", "PUT /JSSResource/policies/id/5"}
-	if len(client.requests) != len(want) {
+	want := []string{"PUT /JSSResource/policies/id/5"}
+	if len(client.requests) != len(want) || client.requests[0] != want[0] {
 		t.Fatalf("requests = %v, want %v", client.requests, want)
 	}
-	for i, r := range client.requests {
-		if r != want[i] {
-			t.Errorf("request[%d] = %q, want %q", i, r, want[i])
+	if strings.Contains(client.requests[0], "subset") {
+		t.Errorf("hit a /subset/ path — not proxied by the Jamf Platform Gateway: %q", client.requests[0])
+	}
+
+	body := client.bodies[0]
+	for _, unwanted := range []string{"<general>", "<self_service>", "<payloads>", "<packages>"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("body carries %s, which a scope write must not rewrite:\n%s", unwanted, body)
 		}
-		if strings.Contains(r, "subset") {
-			t.Errorf("request[%d] hit a /subset/ path — not proxied by the Jamf Platform Gateway: %q", i, r)
-		}
+	}
+	if !strings.Contains(body, "<policy>") || !strings.Contains(body, "<scope>") {
+		t.Errorf("body is not <policy><scope>…:\n%s", body)
+	}
+	if !strings.Contains(body, "<name>Group A</name>") {
+		t.Errorf("body lost the edited member:\n%s", body)
 	}
 }
 
@@ -188,7 +213,7 @@ func TestAddToScope_TargetComputerGroup(t *testing.T) {
 		},
 	}
 
-	if !AddToScope(s, "policy", "target", "computer-group", "New Group") {
+	if !AddToScope(s, "target", "computer-group", "New Group") {
 		t.Fatal("expected true")
 		return
 	}
@@ -208,7 +233,7 @@ func TestAddToScope_Idempotent(t *testing.T) {
 		},
 	}
 
-	if AddToScope(s, "policy", "target", "computer-group", "existing") {
+	if AddToScope(s, "target", "computer-group", "existing") {
 		t.Fatal("expected false for case-insensitive duplicate")
 		return
 	}
@@ -221,7 +246,7 @@ func TestAddToScope_Idempotent(t *testing.T) {
 func TestAddToScope_CreatesSection(t *testing.T) {
 	s := &ScopeXML{}
 
-	if !AddToScope(s, "policy", "exclusion", "computer-group", "Test") {
+	if !AddToScope(s, "exclusion", "computer-group", "Test") {
 		t.Fatal("expected true")
 		return
 	}
@@ -243,7 +268,7 @@ func TestAddToScope_Limitation(t *testing.T) {
 		Limitations: &LimitationsXML{},
 	}
 
-	if !AddToScope(s, "policy", "limitation", "network-segment", "Guest") {
+	if !AddToScope(s, "limitation", "network-segment", "Guest") {
 		t.Fatal("expected true")
 		return
 	}
@@ -253,53 +278,32 @@ func TestAddToScope_Limitation(t *testing.T) {
 	}
 }
 
-// ─── AddToScope: policy limitation user_group special case ───────────────────
+// TestAddToScope_UserGroupLimitationIsTheOnlyPath asserts the simplification
+// the dropped <limit_to_users> field allows: a directory user group limitation
+// goes to limitations.user_groups for every resource, policies included, and
+// the marshalled body carries nothing else. The server denormalises it into
+// <limit_to_users> itself (wire-checked 2026-09-12), so writing both was work
+// with no effect.
+func TestAddToScope_UserGroupLimitationIsTheOnlyPath(t *testing.T) {
+	for _, singularKey := range []string{"policy", "os_x_configuration_profile", "vpp_assignment"} {
+		s := &ScopeXML{}
+		if !AddToScope(s, SectionLimitation, flagUserGroup, "Staff") {
+			t.Fatalf("%s: expected the group to be added", singularKey)
+		}
+		if s.Limitations == nil || len(s.Limitations.UserGroups.Items) != 1 {
+			t.Fatalf("%s: group did not land in limitations.user_groups", singularKey)
+		}
 
-func TestAddToScope_PolicyLimitUserGroup(t *testing.T) {
-	s := &ScopeXML{}
-
-	if !AddToScope(s, "policy", "limitation", "user-group", "Staff") {
-		t.Fatal("expected true")
-		return
-	}
-
-	if s.LimitToUsers == nil {
-		t.Fatal("limit_to_users should be created")
-		return
-	}
-	groups := s.LimitToUsers.UserGroups.Items
-	if len(groups) != 1 || groups[0] != "Staff" {
-		t.Errorf("got %v, want [Staff]", groups)
-	}
-}
-
-func TestAddToScope_PolicyLimitUserGroup_Idempotent(t *testing.T) {
-	s := &ScopeXML{
-		LimitToUsers: &LimitToUsersXML{
-			UserGroups: ScopeStringSlice{Items: []string{"Staff"}, ElemName: "user_group"},
-		},
-	}
-
-	if AddToScope(s, "policy", "limitation", "user-group", "staff") {
-		t.Fatal("expected false for case-insensitive duplicate")
-		return
-	}
-}
-
-func TestAddToScope_NonPolicyLimitUserGroup(t *testing.T) {
-	s := &ScopeXML{}
-
-	if !AddToScope(s, "os_x_configuration_profile", "limitation", "user-group", "Staff") {
-		t.Fatal("expected true")
-		return
-	}
-
-	// Should go to limitations.user_groups, NOT limit_to_users
-	if s.LimitToUsers != nil {
-		t.Error("non-policy should not use limit_to_users")
-	}
-	if s.Limitations == nil || len(s.Limitations.UserGroups.Items) != 1 {
-		t.Error("should be in limitations.user_groups")
+		body, err := marshalScopeBody(singularKey, s)
+		if err != nil {
+			t.Fatalf("%s: marshal: %v", singularKey, err)
+		}
+		if strings.Contains(string(body), "limit_to_users") {
+			t.Errorf("%s: body still carries <limit_to_users>:\n%s", singularKey, body)
+		}
+		if !strings.Contains(string(body), "<user_group>") {
+			t.Errorf("%s: body is missing the <user_group> child:\n%s", singularKey, body)
+		}
 	}
 }
 
@@ -313,7 +317,7 @@ func TestRemoveFromScope_TargetComputerGroup(t *testing.T) {
 		},
 	}
 
-	if !RemoveFromScope(s, "policy", "target", "computer-group", "Remove") {
+	if !RemoveFromScope(s, "target", "computer-group", "Remove") {
 		t.Fatal("expected true")
 		return
 	}
@@ -330,7 +334,7 @@ func TestRemoveFromScope_NotFound(t *testing.T) {
 		ComputerGroups: ScopeItemSlice{Items: []NamedItem{{Name: "Keep"}}},
 	}
 
-	if RemoveFromScope(s, "policy", "target", "computer-group", "Nonexistent") {
+	if RemoveFromScope(s, "target", "computer-group", "Nonexistent") {
 		t.Fatal("expected false")
 		return
 	}
@@ -341,7 +345,7 @@ func TestRemoveFromScope_CaseInsensitive(t *testing.T) {
 		ComputerGroups: ScopeItemSlice{Items: []NamedItem{{Name: "Test Group"}}},
 	}
 
-	if !RemoveFromScope(s, "policy", "target", "computer-group", "test group") {
+	if !RemoveFromScope(s, "target", "computer-group", "test group") {
 		t.Fatal("expected case-insensitive match")
 		return
 	}
@@ -350,99 +354,86 @@ func TestRemoveFromScope_CaseInsensitive(t *testing.T) {
 func TestRemoveFromScope_MissingSection(t *testing.T) {
 	s := &ScopeXML{} // no exclusions
 
-	if RemoveFromScope(s, "policy", "exclusion", "computer-group", "Test") {
+	if RemoveFromScope(s, "exclusion", "computer-group", "Test") {
 		t.Fatal("expected false when section missing")
 		return
-	}
-}
-
-func TestRemoveFromScope_PolicyLimitUserGroup(t *testing.T) {
-	s := &ScopeXML{
-		LimitToUsers: &LimitToUsersXML{
-			UserGroups: ScopeStringSlice{Items: []string{"Staff", "Admins"}, ElemName: "user_group"},
-		},
-	}
-
-	if !RemoveFromScope(s, "policy", "limitation", "user-group", "staff") {
-		t.Fatal("expected true (case-insensitive)")
-		return
-	}
-	if len(s.LimitToUsers.UserGroups.Items) != 1 {
-		t.Fatalf("got %d, want 1", len(s.LimitToUsers.UserGroups.Items))
-	}
-	if s.LimitToUsers.UserGroups.Items[0] != "Admins" {
-		t.Errorf("remaining = %q", s.LimitToUsers.UserGroups.Items[0])
-	}
-}
-
-func TestRemoveFromScope_PolicyLimitUserGroup_NotFound(t *testing.T) {
-	s := &ScopeXML{
-		LimitToUsers: &LimitToUsersXML{
-			UserGroups: ScopeStringSlice{Items: []string{"Staff"}},
-		},
-	}
-
-	if RemoveFromScope(s, "policy", "limitation", "user-group", "Nonexistent") {
-		t.Fatal("expected false")
-		return
-	}
-}
-
-func TestRemoveFromScope_PolicyLimitUserGroup_InLimitations(t *testing.T) {
-	s := &ScopeXML{
-		LimitToUsers: &LimitToUsersXML{
-			UserGroups: ScopeStringSlice{Items: []string{}, ElemName: "user_group"},
-		},
-		Limitations: &LimitationsXML{
-			UserGroups: ScopeItemSlice{
-				Items:    []NamedItem{{ID: "5", Name: "Staff"}},
-				ElemName: "user_group",
-			},
-		},
-	}
-
-	if !RemoveFromScope(s, "policy", "limitation", "user-group", "Staff") {
-		t.Fatal("expected true — should find in limitations/user_groups")
-		return
-	}
-	if len(s.Limitations.UserGroups.Items) != 0 {
-		t.Error("should have removed from limitations/user_groups")
-	}
-}
-
-func TestRemoveFromScope_PolicyLimitUserGroup_InBothLocations(t *testing.T) {
-	s := &ScopeXML{
-		LimitToUsers: &LimitToUsersXML{
-			UserGroups: ScopeStringSlice{Items: []string{"Staff"}, ElemName: "user_group"},
-		},
-		Limitations: &LimitationsXML{
-			UserGroups: ScopeItemSlice{
-				Items:    []NamedItem{{Name: "Staff"}},
-				ElemName: "user_group",
-			},
-		},
-	}
-
-	if !RemoveFromScope(s, "policy", "limitation", "user-group", "Staff") {
-		t.Fatal("expected true")
-		return
-	}
-	if len(s.LimitToUsers.UserGroups.Items) != 0 {
-		t.Error("should have removed from limit_to_users")
-	}
-	if len(s.Limitations.UserGroups.Items) != 0 {
-		t.Error("should have removed from limitations/user_groups")
 	}
 }
 
 // ─── ValidateScopeCombination ────────────────────────────────────────────────
 
 func TestValidateScopeCombination_ValidTargets(t *testing.T) {
-	for _, flag := range []string{"computer", "computer-group", "mobile-device", "mobile-device-group", "building", "department", "jss-user-group", "jss-user"} {
+	for _, flag := range []string{"computer", "computer-group", "building", "department", "jss-user-group", "jss-user"} {
 		for _, sk := range []string{"policy", "os_x_configuration_profile"} {
-			if err := ValidateScopeCombination(sk, "target", flag); err != nil {
+			if err := ValidateScopeCombination(sk, SectionTarget, flag); err != nil {
 				t.Errorf("target/%s/%s: %v", sk, flag, err)
 			}
+		}
+	}
+}
+
+// TestValidateScopeCombination_RefusesTheWrongDeviceFamily pins the refusal
+// that used to be missing: validation had two branches (restricted software,
+// and everything else), so a computer-scoped resource accepted every mobile
+// category and a mobile one accepted every computer category. The server does
+// not: it answers 409 naming the mismatch ("Mobile device groups cannot be
+// assigned to an macOS profile", "Computer groups cannot be assigned to an iOS
+// profile" — wire-checked 2026-09-12), so the old behaviour spent a GET and a
+// PUT to earn a page of HTML.
+func TestValidateScopeCombination_RefusesTheWrongDeviceFamily(t *testing.T) {
+	cases := []struct{ singularKey, section, flag string }{
+		{"policy", SectionTarget, flagMobileDevice},
+		{"policy", SectionTarget, flagMobileDeviceGroup},
+		{"policy", SectionExclusion, flagMobileDeviceGroup},
+		{"os_x_configuration_profile", SectionTarget, flagMobileDeviceGroup},
+		{"mac_application", SectionTarget, flagMobileDeviceGroup},
+		{"configuration_profile", SectionTarget, flagComputer},
+		{"configuration_profile", SectionTarget, flagComputerGroup},
+		{"configuration_profile", SectionExclusion, flagComputerGroup},
+		{"mobile_device_application", SectionTarget, flagComputerGroup},
+		{"vpp_assignment", SectionTarget, flagComputerGroup},
+		{"vpp_assignment", SectionTarget, flagMobileDeviceGroup},
+	}
+	for _, tc := range cases {
+		err := ValidateScopeCombination(tc.singularKey, tc.section, tc.flag)
+		if err == nil {
+			t.Errorf("%s/%s/--%s: expected a refusal", tc.singularKey, tc.section, tc.flag)
+			continue
+		}
+		// The refusal has to name what would have worked, or the caller has to
+		// go and read the docs to find out.
+		if !strings.Contains(err.Error(), "--") {
+			t.Errorf("%s/%s/--%s: refusal names no alternative: %v", tc.singularKey, tc.section, tc.flag, err)
+		}
+	}
+}
+
+// TestValidateScopeCombination_IBeaconAndClassReachTheRightResources pins the
+// two categories the CLI could previously read but not write: iBeacons were
+// listed by `scope get` on a policy with no flag able to touch them, and an
+// ebook's target classes likewise.
+func TestValidateScopeCombination_IBeaconAndClassReachTheRightResources(t *testing.T) {
+	for _, sk := range []string{"policy", "os_x_configuration_profile", "configuration_profile"} {
+		for _, section := range []string{SectionLimitation, SectionExclusion} {
+			if err := ValidateScopeCombination(sk, section, flagIBeacon); err != nil {
+				t.Errorf("%s/%s/--ibeacon: %v", sk, section, err)
+			}
+		}
+	}
+	// The two app resources and ebooks drop iBeacons: a write carrying them
+	// answers 2xx and reads back with no <ibeacons> element (wire-checked).
+	for _, sk := range []string{"mac_application", "mobile_device_application", "ebook", "restricted_software", "vpp_assignment"} {
+		if err := ValidateScopeCombination(sk, SectionLimitation, flagIBeacon); err == nil {
+			t.Errorf("%s: --ibeacon should be refused", sk)
+		}
+	}
+	// <classes> is an ebook target and nothing else's.
+	if err := ValidateScopeCombination("ebook", SectionTarget, flagClass); err != nil {
+		t.Errorf("ebook/target/--class: %v", err)
+	}
+	for _, sk := range []string{"policy", "configuration_profile", "mac_application", "restricted_software", "vpp_assignment"} {
+		if err := ValidateScopeCombination(sk, SectionTarget, flagClass); err == nil {
+			t.Errorf("%s: --class should be refused", sk)
 		}
 	}
 }
@@ -494,9 +485,15 @@ func TestValidateScopeCombination_RestrictedSoftwareNoLimitations(t *testing.T) 
 }
 
 func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
-	for _, flag := range []string{"computer", "computer-group", "mobile-device", "mobile-device-group", "user", "user-group", "jss-user-group", "jss-user", "network-segment", "building", "department"} {
-		if err := ValidateScopeCombination("policy", "exclusion", flag); err != nil {
+	for _, flag := range []string{"computer", "computer-group", "user", "user-group", "jss-user-group", "jss-user", "network-segment", "building", "department", "ibeacon"} {
+		if err := ValidateScopeCombination("policy", SectionExclusion, flag); err != nil {
 			t.Errorf("exclusion/%s: %v", flag, err)
+		}
+	}
+	// The mobile mirror of the same list.
+	for _, flag := range []string{"mobile-device", "mobile-device-group", "user", "user-group", "jss-user-group", "jss-user", "network-segment", "building", "department", "ibeacon"} {
+		if err := ValidateScopeCombination("configuration_profile", SectionExclusion, flag); err != nil {
+			t.Errorf("mobile exclusion/%s: %v", flag, err)
 		}
 	}
 }
@@ -539,7 +536,7 @@ func TestAddToScope_MobileDeviceByUDID(t *testing.T) {
 	s := &ScopeXML{}
 	udid := "270aae10800b6e61a2ee2bbc285eb967050b5984"
 
-	if !AddToScope(s, "configuration_profile", "target", "mobile-device", udid) {
+	if !AddToScope(s, "target", "mobile-device", udid) {
 		t.Fatal("expected true")
 	}
 	if len(s.MobileDevices.Items) != 1 {
@@ -557,7 +554,7 @@ func TestAddToScope_MobileDeviceByUDID(t *testing.T) {
 func TestAddToScope_MobileDeviceByNumericID(t *testing.T) {
 	s := &ScopeXML{}
 
-	if !AddToScope(s, "configuration_profile", "target", "mobile-device", "7") {
+	if !AddToScope(s, "target", "mobile-device", "7") {
 		t.Fatal("expected true")
 	}
 	item := s.MobileDevices.Items[0]
@@ -572,7 +569,7 @@ func TestAddToScope_MobileDeviceByNumericID(t *testing.T) {
 func TestAddToScope_MobileDeviceByName(t *testing.T) {
 	s := &ScopeXML{}
 
-	if !AddToScope(s, "configuration_profile", "target", "mobile-device", "Ward iPhone") {
+	if !AddToScope(s, "target", "mobile-device", "Ward iPhone") {
 		t.Fatal("expected true")
 	}
 	item := s.MobileDevices.Items[0]
@@ -592,7 +589,7 @@ func TestAddToScope_MobileDeviceByUDID_IdempotentUDID(t *testing.T) {
 			ElemName: "mobile_device",
 		},
 	}
-	if AddToScope(s, "configuration_profile", "target", "mobile-device", udid) {
+	if AddToScope(s, "target", "mobile-device", udid) {
 		t.Fatal("expected false — already present by UDID")
 	}
 }
@@ -605,7 +602,7 @@ func TestAddToScope_MobileDeviceByUDID_IdempotentCaseInsensitive(t *testing.T) {
 			ElemName: "mobile_device",
 		},
 	}
-	if AddToScope(s, "configuration_profile", "target", "mobile-device", udid) {
+	if AddToScope(s, "target", "mobile-device", udid) {
 		t.Fatal("expected false — already present (case-insensitive UDID)")
 	}
 }
@@ -620,7 +617,7 @@ func TestRemoveFromScope_MobileDeviceByUDID(t *testing.T) {
 			ElemName: "mobile_device",
 		},
 	}
-	if !RemoveFromScope(s, "configuration_profile", "target", "mobile-device", udid) {
+	if !RemoveFromScope(s, "target", "mobile-device", udid) {
 		t.Fatal("expected true")
 	}
 	if len(s.MobileDevices.Items) != 0 {
@@ -635,7 +632,7 @@ func TestRemoveFromScope_MobileDeviceByNumericID(t *testing.T) {
 			ElemName: "mobile_device",
 		},
 	}
-	if !RemoveFromScope(s, "configuration_profile", "target", "mobile-device", "7") {
+	if !RemoveFromScope(s, "target", "mobile-device", "7") {
 		t.Fatal("expected true")
 	}
 	if len(s.MobileDevices.Items) != 0 {
@@ -649,8 +646,16 @@ func TestValidateScopeCombination_RestrictedSoftwareExclusions(t *testing.T) {
 			t.Errorf("restricted exclusion/%s: %v", flag, err)
 		}
 	}
-	for _, flag := range []string{"mobile-device", "mobile-device-group", "user", "user-group", "jss-user-group", "jss-user", "network-segment"} {
-		if err := ValidateScopeCombination("restricted_software", "exclusion", flag); err == nil {
+	// --user is a real restricted-software exclusion and used to be refused:
+	// the resource's own GET returns <users> in its exclusions block, and a
+	// write carrying <user><name>…</name> persists (wire-checked 2026-09-12).
+	// It is the admin UI's "Directory Service/Local Users" exclusion, free
+	// text rather than a Jamf Pro object.
+	if err := ValidateScopeCombination("restricted_software", SectionExclusion, flagUser); err != nil {
+		t.Errorf("restricted exclusion/user should be accepted: %v", err)
+	}
+	for _, flag := range []string{"mobile-device", "mobile-device-group", "user-group", "jss-user-group", "jss-user", "network-segment", "ibeacon"} {
+		if err := ValidateScopeCombination("restricted_software", SectionExclusion, flag); err == nil {
 			t.Errorf("expected error: restricted software exclusion + %s", flag)
 		}
 	}
@@ -692,10 +697,8 @@ func TestFlattenScope_BasicPolicy(t *testing.T) {
 		Buildings: ScopeItemSlice{
 			Items: []NamedItem{{Name: "HQ"}},
 		},
-		LimitToUsers: &LimitToUsersXML{
-			UserGroups: ScopeStringSlice{Items: []string{"Staff"}},
-		},
 		Limitations: &LimitationsXML{
+			UserGroups:      ScopeItemSlice{Items: []NamedItem{{Name: "Staff"}}},
 			NetworkSegments: ScopeItemSlice{Items: []NamedItem{{Name: "Corporate"}}},
 		},
 		Exclusions: &ExclusionsXML{
@@ -703,7 +706,7 @@ func TestFlattenScope_BasicPolicy(t *testing.T) {
 		},
 	}
 
-	rows := FlattenScope(s, "policy")
+	rows := FlattenScope(s)
 
 	expected := []struct{ section, typ, name string }{
 		{"target", "all_computers", "true"},
@@ -725,72 +728,10 @@ func TestFlattenScope_BasicPolicy(t *testing.T) {
 	}
 }
 
-func TestFlattenScope_PolicyUserGroupNoDuplicates(t *testing.T) {
-	s := &ScopeXML{
-		LimitToUsers: &LimitToUsersXML{
-			UserGroups: ScopeStringSlice{Items: []string{"Staff", "Faculty"}},
-		},
-		Limitations: &LimitationsXML{
-			UserGroups: ScopeItemSlice{Items: []NamedItem{
-				{ID: "1", Name: "Staff"},
-				{ID: "2", Name: "Faculty"},
-			}},
-			NetworkSegments: ScopeItemSlice{Items: []NamedItem{{Name: "Corporate"}}},
-		},
-	}
-
-	rows := FlattenScope(s, "policy")
-
-	var ugCount int
-	for _, r := range rows {
-		if r["type"] == "user_group" {
-			ugCount++
-		}
-	}
-	if ugCount != 2 {
-		t.Errorf("got %d user_group rows, want 2 (no duplicates): %v", ugCount, rows)
-	}
-
-	expected := []struct{ section, typ, name string }{
-		{"limitation", "user_group", "Staff"},
-		{"limitation", "user_group", "Faculty"},
-		{"limitation", "network_segment", "Corporate"},
-	}
-	if len(rows) != len(expected) {
-		t.Fatalf("got %d rows, want %d: %v", len(rows), len(expected), rows)
-	}
-	for i, want := range expected {
-		got := rows[i]
-		if got["section"] != want.section || got["type"] != want.typ || got["name"] != want.name {
-			t.Errorf("row %d: got %v, want %s/%s/%s", i, got, want.section, want.typ, want.name)
-		}
-	}
-}
-
 func TestFlattenScope_EmptyScope(t *testing.T) {
 	s := &ScopeXML{}
-	if rows := FlattenScope(s, "policy"); len(rows) != 0 {
+	if rows := FlattenScope(s); len(rows) != 0 {
 		t.Errorf("got %d rows, want 0", len(rows))
-	}
-}
-
-// ─── isPolicyLimitUserGroup ──────────────────────────────────────────────────
-
-func TestIsPolicyLimitUserGroup(t *testing.T) {
-	tests := []struct {
-		singularKey, section, flagName string
-		want                           bool
-	}{
-		{"policy", "limitation", "user-group", true},
-		{"policy", "exclusion", "user-group", false},
-		{"policy", "limitation", "computer-group", false},
-		{"os_x_configuration_profile", "limitation", "user-group", false},
-	}
-	for _, tt := range tests {
-		if got := isPolicyLimitUserGroup(tt.singularKey, tt.section, tt.flagName); got != tt.want {
-			t.Errorf("isPolicyLimitUserGroup(%q,%q,%q) = %v, want %v",
-				tt.singularKey, tt.section, tt.flagName, got, tt.want)
-		}
 	}
 }
 
@@ -801,7 +742,7 @@ func TestAddToScope_UserGroupTarget_NoLongerRoutes(t *testing.T) {
 	// --jss-user-group explicitly. AddToScope should refuse to add it.
 	s := &ScopeXML{}
 
-	if AddToScope(s, "vpp_assignment", "target", "user-group", "VPP Associated Users") {
+	if AddToScope(s, "target", "user-group", "VPP Associated Users") {
 		t.Fatal("expected false: --user-group is not a valid target flag")
 	}
 	if len(s.JSSUserGroups.Items) != 0 {
@@ -812,7 +753,7 @@ func TestAddToScope_UserGroupTarget_NoLongerRoutes(t *testing.T) {
 func TestAddToScope_JSSUserGroupTarget(t *testing.T) {
 	s := &ScopeXML{}
 
-	if !AddToScope(s, "vpp_assignment", "target", "jss-user-group", "My Group") {
+	if !AddToScope(s, "target", "jss-user-group", "My Group") {
 		t.Fatal("expected true")
 	}
 	if len(s.JSSUserGroups.Items) != 1 {
@@ -831,7 +772,7 @@ func TestAddToScope_JSSUserGroupTarget_Idempotent(t *testing.T) {
 		},
 	}
 
-	if AddToScope(s, "vpp_assignment", "target", "jss-user-group", "vpp associated users") {
+	if AddToScope(s, "target", "jss-user-group", "vpp associated users") {
 		t.Fatal("expected false for case-insensitive duplicate")
 	}
 }
@@ -844,7 +785,7 @@ func TestRemoveFromScope_JSSUserGroupTarget(t *testing.T) {
 		},
 	}
 
-	if !RemoveFromScope(s, "vpp_assignment", "target", "jss-user-group", "VPP Associated Users") {
+	if !RemoveFromScope(s, "target", "jss-user-group", "VPP Associated Users") {
 		t.Fatal("expected true")
 	}
 	if len(s.JSSUserGroups.Items) != 1 {
@@ -865,7 +806,7 @@ func TestRemoveFromScope_JSSUserGroupExclusion(t *testing.T) {
 		},
 	}
 
-	if !RemoveFromScope(s, "vpp_assignment", "exclusion", "jss-user-group", "Excluded Group") {
+	if !RemoveFromScope(s, "exclusion", "jss-user-group", "Excluded Group") {
 		t.Fatal("expected true")
 	}
 	if len(s.Exclusions.JSSUserGroups.Items) != 0 {
@@ -885,7 +826,7 @@ func TestFlattenScope_VPPAssignment_JSSUserGroups(t *testing.T) {
 		},
 	}
 
-	rows := FlattenScope(s, "vpp_assignment")
+	rows := FlattenScope(s)
 
 	expected := []struct{ section, typ, name string }{
 		{"target", "jss_user_group", "VPP Associated Users"},
@@ -899,65 +840,6 @@ func TestFlattenScope_VPPAssignment_JSSUserGroups(t *testing.T) {
 		if got["section"] != want.section || got["type"] != want.typ || got["name"] != want.name {
 			t.Errorf("row %d: got %v, want %s/%s/%s", i, got, want.section, want.typ, want.name)
 		}
-	}
-}
-
-func TestResolveElemName(t *testing.T) {
-	tests := []struct {
-		section, flag, want string
-	}{
-		{"target", "jss-user-group", "user_group"},
-		{"target", "computer", "computer"},
-		{"target", "computer-group", "computer_group"},
-		{"target", "mobile-device", "mobile_device"},
-		{"target", "mobile-device-group", "mobile_device_group"},
-		{"limitation", "user", "user"},
-		{"limitation", "user-group", "user_group"},
-		{"exclusion", "computer", "computer"},
-		{"exclusion", "mobile-device", "mobile_device"},
-		{"exclusion", "user", "user"},
-		{"exclusion", "user-group", "user_group"},
-		{"exclusion", "jss-user-group", "user_group"},
-	}
-	for _, tt := range tests {
-		if got := resolveElemName(tt.section, tt.flag); got != tt.want {
-			t.Errorf("resolveElemName(%q,%q) = %q, want %q", tt.section, tt.flag, got, tt.want)
-		}
-	}
-}
-
-func TestReplaceScopeInXML(t *testing.T) {
-	original := []byte(`<?xml version="1.0" encoding="UTF-8"?><vpp_assignment><general><id>11</id></general><scope><all_jss_users>false</all_jss_users><jss_user_groups><user_group><id>1</id><name>Old Group</name></user_group></jss_user_groups></scope></vpp_assignment>`)
-
-	newScope := &ScopeXML{
-		JSSUserGroups: ScopeItemSlice{
-			Items:    []NamedItem{{ID: "2", Name: "New Group"}},
-			ElemName: "user_group",
-		},
-	}
-
-	updated, err := replaceScopeInXML(original, newScope)
-	if err != nil {
-		t.Fatalf("replaceScopeInXML: %v", err)
-	}
-
-	s := string(updated)
-	if strings.Contains(s, "Old Group") {
-		t.Error("old scope content should be replaced")
-	}
-	if !strings.Contains(s, "New Group") {
-		t.Error("new scope content should be present")
-	}
-	if !strings.Contains(s, "<general>") {
-		t.Error("non-scope content should be preserved")
-	}
-}
-
-func TestReplaceScopeInXML_MissingScope(t *testing.T) {
-	original := []byte(`<vpp_assignment><general><id>1</id></general></vpp_assignment>`)
-	_, err := replaceScopeInXML(original, &ScopeXML{})
-	if err == nil {
-		t.Error("expected error for missing <scope>")
 	}
 }
 
@@ -1026,7 +908,7 @@ func TestScopeXML_PreservesClassesOnRoundTrip(t *testing.T) {
 
 func TestAddToScope_ComputerTarget(t *testing.T) {
 	s := &ScopeXML{}
-	if !AddToScope(s, "policy", "target", "computer", "ZTNR9F6XJ0") {
+	if !AddToScope(s, "target", "computer", "ZTNR9F6XJ0") {
 		t.Fatal("expected true")
 	}
 	if len(s.Computers.Items) != 1 || s.Computers.Items[0].Name != "ZTNR9F6XJ0" {
@@ -1036,7 +918,7 @@ func TestAddToScope_ComputerTarget(t *testing.T) {
 
 func TestAddToScope_MobileDeviceTarget(t *testing.T) {
 	s := &ScopeXML{}
-	if !AddToScope(s, "configuration_profile", "target", "mobile-device", "G6TDK43P0D4Y") {
+	if !AddToScope(s, "target", "mobile-device", "G6TDK43P0D4Y") {
 		t.Fatal("expected true")
 	}
 	if len(s.MobileDevices.Items) != 1 || s.MobileDevices.Items[0].Name != "G6TDK43P0D4Y" {
@@ -1049,7 +931,7 @@ func TestAddToScope_MobileDeviceTarget(t *testing.T) {
 
 func TestAddToScope_UserLimitation(t *testing.T) {
 	s := &ScopeXML{}
-	if !AddToScope(s, "policy", "limitation", "user", "alice") {
+	if !AddToScope(s, "limitation", "user", "alice") {
 		t.Fatal("expected true")
 	}
 	if s.Limitations == nil || len(s.Limitations.Users.Items) != 1 {
@@ -1062,7 +944,7 @@ func TestAddToScope_UserLimitation(t *testing.T) {
 
 func TestAddToScope_UserExclusion(t *testing.T) {
 	s := &ScopeXML{}
-	if !AddToScope(s, "policy", "exclusion", "user", "bob") {
+	if !AddToScope(s, "exclusion", "user", "bob") {
 		t.Fatal("expected true")
 	}
 	if s.Exclusions == nil || len(s.Exclusions.Users.Items) != 1 {
@@ -1083,7 +965,7 @@ func TestFlattenScope_NewFields(t *testing.T) {
 			Users:         ScopeItemSlice{Items: []NamedItem{{Name: "bob"}}},
 		},
 	}
-	rows := FlattenScope(s, "configuration_profile")
+	rows := FlattenScope(s)
 
 	want := map[string]bool{
 		"target:all_mobile_devices:true": false,
@@ -1160,7 +1042,7 @@ func TestOutputScope_MisCasedFormatStillFlattens(t *testing.T) {
 
 	for _, format := range []string{"Table", "TABLE", "Csv", "json-multi", "wibble"} {
 		out := &captureFormatter{}
-		if err := OutputScope(out, s, "computer", format); err != nil {
+		if err := OutputScope(out, s, format); err != nil {
 			t.Fatalf("OutputScope(-o %s): %v", format, err)
 		}
 
@@ -1188,7 +1070,7 @@ func TestOutputScope_StructuredFormatsKeepTheNestedShape(t *testing.T) {
 
 	for _, format := range []string{"json", "yaml", "ndjson", "xml", "raw"} {
 		out := &captureFormatter{}
-		if err := OutputScope(out, s, "computer", format); err != nil {
+		if err := OutputScope(out, s, format); err != nil {
 			t.Fatalf("OutputScope(-o %s): %v", format, err)
 		}
 		var obj map[string]any
@@ -1212,4 +1094,145 @@ type captureFormatter struct {
 func (c *captureFormatter) PrintRaw(data []byte) error {
 	c.raw = data
 	return nil
+}
+
+// ─── Fetch by id or name ─────────────────────────────────────────────────────
+
+// TestFetchScope_ByIDIsOneRequest is the request-count half of the refactor:
+// `scope get 5` costs one GET, where the command previously took the name
+// positionally and a mutation cost three GETs (by name, then by id for the
+// raw bytes to splice, then the verification read).
+func TestFetchScope_ByIDIsOneRequest(t *testing.T) {
+	client := &mockPutClient{getBody: `<policy><general><id>5</id></general><scope><all_computers>true</all_computers></scope></policy>`}
+	res := Resource{APIPath: "policies", SingularKey: "policy"}
+
+	id, s, err := FetchScope(context.Background(), client, res, Ref{ID: "5"})
+	if err != nil {
+		t.Fatalf("FetchScope: %v", err)
+	}
+	if id != "5" {
+		t.Errorf("id = %q, want 5", id)
+	}
+	if !s.AllComputers {
+		t.Error("scope did not parse")
+	}
+	want := []string{"GET /JSSResource/policies/id/5"}
+	if len(client.requests) != 1 || client.requests[0] != want[0] {
+		t.Errorf("requests = %v, want %v", client.requests, want)
+	}
+}
+
+// TestFetchScope_ByNameUsesTheNameEndpoint keeps a name lookup at one request
+// too, for every resource that has a /name/ endpoint: the response carries
+// <general><id>, which is the ID the subsequent PUT needs.
+func TestFetchScope_ByNameUsesTheNameEndpoint(t *testing.T) {
+	client := &mockPutClient{getBody: `<policy><general><id>9</id></general><scope/></policy>`}
+	res := Resource{APIPath: "policies", SingularKey: "policy"}
+
+	id, _, err := FetchScope(context.Background(), client, res, Ref{Name: "My Policy"})
+	if err != nil {
+		t.Fatalf("FetchScope: %v", err)
+	}
+	if id != "9" {
+		t.Errorf("id = %q, want 9 (read from <general><id>)", id)
+	}
+	if len(client.requests) != 1 {
+		t.Fatalf("requests = %v, want one GET", client.requests)
+	}
+	if !strings.Contains(client.requests[0], "/name/My%20Policy") {
+		t.Errorf("request = %q, want the /name/ endpoint with the name escaped", client.requests[0])
+	}
+}
+
+// nameListClient answers the collection GET with a fixed listing and every
+// other GET with a fixed document, for the ResolveByList path.
+type nameListClient struct {
+	list     string
+	doc      string
+	requests []string
+}
+
+func (c *nameListClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+	c.requests = append(c.requests, method+" "+path)
+	body := c.doc
+	if !strings.Contains(path, "/id/") {
+		body = c.list
+	}
+	return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+}
+
+// TestFetchScope_ResolveByListRefusesAnAmbiguousName pins the behaviour change
+// for the two resources with no /name/ endpoint. Classic names are not unique
+// — a live tenant carried two ebooks with the same name — and this used to
+// return the first match in document order, silently rewriting the scope of
+// whichever the server happened to list first.
+func TestFetchScope_ResolveByListRefusesAnAmbiguousName(t *testing.T) {
+	client := &nameListClient{
+		list: `<vpp_assignments>
+			<vpp_assignment><id>3</id><name>Shared</name></vpp_assignment>
+			<vpp_assignment><id>7</id><name>shared</name></vpp_assignment>
+		</vpp_assignments>`,
+		doc: `<vpp_assignment><general><id>3</id></general><scope/></vpp_assignment>`,
+	}
+	res := Resource{APIPath: "vppassignments", SingularKey: "vpp_assignment", ResolveByList: true}
+
+	_, _, err := FetchScope(context.Background(), client, res, Ref{Name: "Shared"})
+	if err == nil {
+		t.Fatal("two records with the same name should be refused, not resolved to the first")
+	}
+	for _, want := range []string{"3", "7", "<id>"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal should name the colliding ids and the way out; got: %v", err)
+		}
+	}
+
+	// One match still resolves, in two requests (list, then the document).
+	client.requests = nil
+	client.list = `<vpp_assignments><vpp_assignment><id>7</id><name>Shared</name></vpp_assignment></vpp_assignments>`
+	id, _, err := FetchScope(context.Background(), client, res, Ref{Name: "Shared"})
+	if err != nil {
+		t.Fatalf("single match: %v", err)
+	}
+	if id != "7" {
+		t.Errorf("id = %q, want 7", id)
+	}
+	if len(client.requests) != 2 {
+		t.Errorf("requests = %v, want the list plus the document", client.requests)
+	}
+}
+
+// TestMarshalScopeBody_FieldOrderIsSchemaOrder guards the property PutScope's
+// doc comment calls load-bearing. The Classic API reads scope children in
+// schema order and silently ignores whatever arrives out of it, answering 200
+// either way — so re-ordering ScopeXML's fields to match some resource's GET
+// would make writes no-ops with nothing failing. Only the relative order
+// matters, which is what this pins.
+func TestMarshalScopeBody_FieldOrderIsSchemaOrder(t *testing.T) {
+	body, err := marshalScopeBody("policy", &ScopeXML{})
+	if err != nil {
+		t.Fatalf("marshalScopeBody: %v", err)
+	}
+	got := string(body)
+
+	order := []string{
+		"<all_computers>", "<all_jss_users>",
+		"<computers>", "<computer_groups>",
+		"<mobile_devices>", "<mobile_device_groups>",
+		"<jss_users>", "<jss_user_groups>",
+		"<buildings>", "<departments>", "<classes>",
+	}
+	prev := -1
+	for _, elem := range order {
+		at := strings.Index(got, elem)
+		if at < 0 {
+			t.Fatalf("body is missing %s:\n%s", elem, got)
+		}
+		if at < prev {
+			t.Errorf("%s appears out of schema order; see the field-order note on ScopeXML:\n%s", elem, got)
+		}
+		prev = at
+	}
+	if !strings.HasPrefix(got, xml.Header) {
+		t.Errorf("body should open with the XML declaration:\n%s", got)
+	}
 }
