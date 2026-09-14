@@ -868,8 +868,53 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 	return outPath, nil
 }
 
+// CheckRegistryCollisions refuses a resource set that would emit a registry
+// registering one constructor twice, or write two resources to one file.
+//
+// Both failures are silent, which is the whole reason for a refusal here. A
+// repeated `root.AddCommand(NewXCmd(ctx))` compiles, so the resource ships twice
+// in `pro --help` and cobra's Find resolves every path beneath it to the first
+// copy — the second whole subtree is built at every process start and is
+// unreachable (#362). A repeated FileBase is the likelier cause of that and is
+// worse on its own: Generate writes one file per resource, so the second write
+// overwrites the first and a whole resource's operations are lost with nothing
+// reporting it. `make verify-generated` cannot see either, because the generator
+// reproduces both faithfully and the committed tree is therefore "up to date".
+//
+// It refuses rather than collapsing the repeat, because two resources deriving
+// one identity means the grouping upstream is wrong — deduplicating the
+// registration would keep `pro --help` honest while still discarding whichever
+// resource lost the filename race.
+//
+// GoName is checked across every resource rather than only the top-level ones
+// the registry lists: two resources in one package cannot both declare
+// New<GoName>Cmd, and a nested one colliding with a top-level one is the same
+// defect reported by the compiler instead of by cobra.
+func CheckRegistryCollisions(resources []*Resource) error {
+	goNames := make(map[string]string)
+	fileBases := make(map[string]string)
+	for _, r := range FlattenResources(resources) {
+		if prev, ok := goNames[r.GoName]; ok {
+			return fmt.Errorf("two resources derive the Go name %q (%s and %s): the registry would register New%sCmd twice and the package would declare it twice — fix the resource grouping rather than the registry",
+				r.GoName, prev, r.QualifiedName(), r.GoName)
+		}
+		goNames[r.GoName] = r.QualifiedName()
+
+		if prev, ok := fileBases[r.FileBase()]; ok {
+			return fmt.Errorf("two resources derive the file name %q (%s and %s): the second would overwrite the first and lose its operations — fix the resource grouping",
+				safeFilename(r.FileBase()), prev, r.QualifiedName())
+		}
+		fileBases[r.FileBase()] = r.QualifiedName()
+	}
+	return nil
+}
+
 // GenerateRegistry generates the registry file that registers all commands
 func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
+	if err := CheckRegistryCollisions(resources); err != nil {
+		return "", err
+	}
+
 	tmpl, err := template.New("registry").Funcs(template.FuncMap{
 		"nestedResources": func(resources []*Resource) []*Resource {
 			var out []*Resource
