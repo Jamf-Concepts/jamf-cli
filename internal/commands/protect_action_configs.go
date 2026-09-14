@@ -84,7 +84,7 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Short: "Create or update an action configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.ActionConfigInput{})
+				return printExport(cliCtx, jamfprotect.ActionConfigInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -189,7 +189,7 @@ func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			return printExport(export)
+			return printExport(cliCtx, export)
 		},
 	}
 }

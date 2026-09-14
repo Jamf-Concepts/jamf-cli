@@ -132,7 +132,7 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update an analytic",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.AnalyticInput{})
+				return printExport(cliCtx, jamfprotect.AnalyticInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -348,7 +348,7 @@ func newProtectAnalyticsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("marshalling YAML: %w", err)
 			}
 
-			fmt.Print(string(data))
+			fmt.Fprint(writerFor(cliCtx), string(data))
 			return nil
 		},
 	}

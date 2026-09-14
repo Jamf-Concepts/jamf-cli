@@ -88,7 +88,7 @@ func newProtectPreventListsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 		Long:  "Create or update a custom prevent list from a JSON file (--from-file), stdin, or from flags (--name, --type, --list).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.CustomPreventListInput{})
+				return printExport(cliCtx, jamfprotect.CustomPreventListInput{})
 			}
 			ctx := cmd.Context()
 			var input jamfprotect.CustomPreventListInput
@@ -224,7 +224,7 @@ func newProtectPreventListsExportCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err != nil {
 				return err
 			}
-			return printExport(preventListToInput(item))
+			return printExport(cliCtx, preventListToInput(item))
 		},
 	}
 }

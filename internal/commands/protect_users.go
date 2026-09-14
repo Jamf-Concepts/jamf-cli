@@ -122,7 +122,7 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				// The export shape, not the SDK input shape — see the groups scaffold.
-				return printExport(userExport{Roles: []string{}, Groups: []string{}})
+				return printExport(cliCtx, userExport{Roles: []string{}, Groups: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -227,7 +227,7 @@ func newProtectUsersExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(userToExport(item))
+			return printExport(cliCtx, userToExport(item))
 		},
 	}
 }

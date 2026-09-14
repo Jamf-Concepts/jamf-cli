@@ -104,7 +104,7 @@ func newSchoolClassesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a class",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfschool.ClassCreateInput{})
+				return printExport(cliCtx, jamfschool.ClassCreateInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -224,7 +224,7 @@ func newSchoolClassesExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(schoolClassToInput(item))
+			return printExport(cliCtx, schoolClassToInput(item))
 		},
 	}
 }

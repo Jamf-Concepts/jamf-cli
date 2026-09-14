@@ -93,7 +93,7 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a telemetry configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.TelemetryV2Input{})
+				return printExport(cliCtx, jamfprotect.TelemetryV2Input{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -194,7 +194,7 @@ func newProtectTelemetryExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(telemetryToInput(item))
+			return printExport(cliCtx, telemetryToInput(item))
 		},
 	}
 }

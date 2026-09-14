@@ -103,7 +103,7 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a removable storage control set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.RemovableStorageControlSetInput{})
+				return printExport(cliCtx, jamfprotect.RemovableStorageControlSetInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -453,7 +453,7 @@ func newProtectRSCSExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(rebuildRSCSInput(item))
+			return printExport(cliCtx, rebuildRSCSInput(item))
 		},
 	}
 }

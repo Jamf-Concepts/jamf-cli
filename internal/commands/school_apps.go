@@ -98,7 +98,7 @@ func newSchoolAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Add an app from the App Store by providing its Adam ID and country code.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfschool.AppCreateInput{})
+				return printExport(cliCtx, jamfschool.AppCreateInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)

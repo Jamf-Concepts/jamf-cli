@@ -188,7 +188,7 @@ func newPDGPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
-				return printScaffold(map[string]any{
+				return printScaffold(cliCtx, map[string]any{
 					"criteria":    []any{},
 					"description": "",
 					"name":        "",
@@ -265,7 +265,7 @@ func newPDGPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
-				return printScaffold(map[string]any{
+				return printScaffold(cliCtx, map[string]any{
 					"added":   []any{},
 					"removed": []any{},
 				})
@@ -307,7 +307,7 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a device group",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printScaffold(deviceGroupScaffold())
+				return printScaffold(cliCtx, deviceGroupScaffold())
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err

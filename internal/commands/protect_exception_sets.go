@@ -88,7 +88,7 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Short: "Create or update an exception set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(exceptionSetExport{
+				return printExport(cliCtx, exceptionSetExport{
 					Exceptions:   []exceptionExport{},
 					EsExceptions: []jamfprotect.EsExceptionInput{},
 				})
@@ -471,7 +471,7 @@ func newProtectExceptionSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			return printExport(exceptionSetToExport(item))
+			return printExport(cliCtx, exceptionSetToExport(item))
 		},
 	}
 }

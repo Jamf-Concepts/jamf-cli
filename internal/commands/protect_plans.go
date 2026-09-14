@@ -129,7 +129,7 @@ additive: an omitted or empty list leaves existing membership unchanged. Use the
 granular remove-* subcommands on the referenced resource to detach members.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(planExport{})
+				return printExport(cliCtx, planExport{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -329,7 +329,7 @@ func newProtectPlansExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(planToExport(item))
+			return printExport(cliCtx, planToExport(item))
 		},
 	}
 }

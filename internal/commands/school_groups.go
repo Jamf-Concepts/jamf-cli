@@ -98,7 +98,7 @@ func newSchoolGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a user group",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfschool.GroupCreateInput{})
+				return printExport(cliCtx, jamfschool.GroupCreateInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -219,7 +219,7 @@ func newSchoolGroupsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(schoolGroupToInput(item))
+			return printExport(cliCtx, schoolGroupToInput(item))
 		},
 	}
 }

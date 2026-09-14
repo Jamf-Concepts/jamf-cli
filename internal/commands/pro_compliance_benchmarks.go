@@ -90,7 +90,7 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Create a new compliance benchmark from a JSON/YAML definition. Benchmarks cannot be updated after creation.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printScaffold(benchmarkScaffold())
+				return printScaffold(cliCtx, benchmarkScaffold())
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
@@ -204,7 +204,7 @@ func newCBExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, g := range groups {
 				groupByID[g.ID] = g
 			}
-			return printExport(benchmarkToPortable(bm, groupByID))
+			return printExport(cliCtx, benchmarkToPortable(bm, groupByID))
 		},
 	}
 }
@@ -454,5 +454,5 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 	// versions available for the baseline, which also tracks future OS releases.
 	// resp.AvailableOsVersions lists the pinnable versions if the user wants to
 	// narrow the scope after editing the scaffold.
-	return printScaffold(scaffold)
+	return printScaffold(cliCtx, scaffold)
 }

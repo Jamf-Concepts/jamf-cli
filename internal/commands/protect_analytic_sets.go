@@ -107,7 +107,7 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 		Short: "Create or update an analytic set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(analyticSetExport{})
+				return printExport(cliCtx, analyticSetExport{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -322,7 +322,7 @@ func newProtectAnalyticSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err != nil {
 				return err
 			}
-			return printExport(analyticSetToExport(item))
+			return printExport(cliCtx, analyticSetToExport(item))
 		},
 	}
 }
