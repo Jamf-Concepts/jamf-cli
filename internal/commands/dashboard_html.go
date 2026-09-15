@@ -11,31 +11,14 @@ import (
 )
 
 const dashboardTemplate = `<!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{.Title}}</title>
 <style>
 /* ── Theme ────────────────────────────────── */
-:root,[data-theme="dark"]{
-  --bg:#0b0f19;--bg2:#111827;--card:rgba(255,255,255,0.04);--card-hover:rgba(255,255,255,0.07);
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
-  --text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
-  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--teal:#14b8a6;
-  --ring-track:rgba(255,255,255,0.06);--bar-track:rgba(255,255,255,0.07);
-  --stripe:rgba(255,255,255,0.025);--header-bg:#060910;
-  --glow1:rgba(59,130,246,0.07);--glow2:rgba(139,92,246,0.05);
-  --alert-bg:rgba(239,68,68,0.08);--alert-border:rgba(239,68,68,0.2);
-  --shadow:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.3);
-  /* Nebula design token aliases — mirrors @jamf/design-system-web-components-next chart tokens */
-  --color-font-base:var(--text);--color-border-secondary:var(--border2);
-  --color-chart-blue:var(--blue);--color-chart-green:var(--green);
-  --color-chart-yellow:var(--amber);--color-chart-red:var(--red);
-  --color-chart-teal:var(--teal);--color-chart-indigo:var(--purple);
-  --color-chart-orange:#f97316;--color-chart-pink:#ec4899;
-}
-[data-theme="light"]{
+:root{
   --bg:#f0f2f5;--bg2:#ffffff;--card:#ffffff;--card-hover:#f8fafc;
   --border:#e2e8f0;--border2:#cbd5e1;
   --text:#0f172a;--text2:#475569;--text3:#94a3b8;
@@ -45,12 +28,36 @@ const dashboardTemplate = `<!DOCTYPE html>
   --glow1:rgba(59,130,246,0.04);--glow2:rgba(139,92,246,0.03);
   --alert-bg:rgba(239,68,68,0.06);--alert-border:rgba(239,68,68,0.15);
   --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
-  /* Nebula design token aliases */
+  /* Nebula design token aliases — mirrors @jamf/design-system-web-components-next chart tokens */
   --color-font-base:var(--text);--color-border-secondary:var(--border2);
   --color-chart-blue:var(--blue);--color-chart-green:var(--green);
   --color-chart-yellow:var(--amber);--color-chart-red:var(--red);
   --color-chart-teal:var(--teal);--color-chart-indigo:var(--purple);
   --color-chart-orange:#f97316;--color-chart-pink:#ec4899;
+}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0f19;--bg2:#111827;--card:rgba(255,255,255,0.04);--card-hover:rgba(255,255,255,0.07);
+    --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+    --text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
+    --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--teal:#14b8a6;
+    --ring-track:rgba(255,255,255,0.06);--bar-track:rgba(255,255,255,0.07);
+    --stripe:rgba(255,255,255,0.025);--header-bg:#060910;
+    --glow1:rgba(59,130,246,0.07);--glow2:rgba(139,92,246,0.05);
+    --alert-bg:rgba(239,68,68,0.08);--alert-border:rgba(239,68,68,0.2);
+    --shadow:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.3);
+  }
+}
+[data-theme="dark"]{
+  --bg:#0b0f19;--bg2:#111827;--card:rgba(255,255,255,0.04);--card-hover:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+  --text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--teal:#14b8a6;
+  --ring-track:rgba(255,255,255,0.06);--bar-track:rgba(255,255,255,0.07);
+  --stripe:rgba(255,255,255,0.025);--header-bg:#060910;
+  --glow1:rgba(59,130,246,0.07);--glow2:rgba(139,92,246,0.05);
+  --alert-bg:rgba(239,68,68,0.08);--alert-border:rgba(239,68,68,0.2);
+  --shadow:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.3);
 }
 
 /* ── Reset & Base ─────────────────────────── */
@@ -807,13 +814,23 @@ tr:hover td{background:var(--card-hover)}
   "use strict";
 
   // Theme toggle
-  window.toggleTheme = function() {
-    var html = document.documentElement;
-    var isDark = html.getAttribute("data-theme") !== "light";
-    html.setAttribute("data-theme", isDark ? "light" : "dark");
+  function effectiveIsDark() {
+    var attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "dark") { return true; }
+    if (attr === "light") { return false; }
+    return window.matchMedia("(prefers-color-scheme:dark)").matches;
+  }
+  function syncThemeIcons(isDark) {
     document.querySelectorAll(".theme-icon-dark").forEach(function(e){ e.style.display = isDark ? "none" : ""; });
     document.querySelectorAll(".theme-icon-light").forEach(function(e){ e.style.display = isDark ? "" : "none"; });
+  }
+  window.toggleTheme = function() {
+    var html = document.documentElement;
+    var isDark = effectiveIsDark();
+    html.setAttribute("data-theme", isDark ? "light" : "dark");
+    syncThemeIcons(!isDark);
   };
+  syncThemeIcons(effectiveIsDark());
 
   // Section collapse
   window.toggleSection = function(header) {
