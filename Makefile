@@ -275,7 +275,7 @@ sync-platform-specs:
 #
 # Set JAMFPLATFORM_SDK_PATH to override with a local checkout — an unpublished
 # branch, a worktree pinned to one revision, or an offline machine.
-JAMFPLATFORM_SDK_REPO ?= Jamf-Concepts/jamfplatform-go-sdk
+JAMFPLATFORM_SDK_REPO ?= jamf/jamfplatform-go-sdk
 JAMFPLATFORM_SDK_REF ?= main
 JAMFPLATFORM_SDK_PATH ?=
 

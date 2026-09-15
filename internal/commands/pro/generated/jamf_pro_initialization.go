@@ -38,7 +38,7 @@ func newJamfProInitializationInitializeCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "initialize",
 		Short:       "Set up fresh installed Jamf Pro Server",
 		Long:        "Set up fresh installed Jamf Pro Server",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -104,7 +104,7 @@ func newJamfProInitializationInitializeDatabaseConnectionCmd(ctx *registry.CLICo
 		Use:         "initialize-database-connection",
 		Short:       "Provide Database Password during startup",
 		Long:        "Provide database password during startup. Endpoint is accessible when database password was not configured and Jamf Pro server has not been initialized yet.",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -164,7 +164,7 @@ func newJamfProInitializationPlatformInitializeCmd(ctx *registry.CLIContext) *co
 		Use:         "platform-initialize",
 		Short:       "Set up fresh installed Jamf Pro Server for Platform",
 		Long:        "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

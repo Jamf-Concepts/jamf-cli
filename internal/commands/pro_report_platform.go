@@ -9,10 +9,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/ddmreport"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/devices"
 )
 
 // ── Blueprint Status Report ────────────────────────────────────────────────

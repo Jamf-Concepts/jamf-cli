@@ -1926,6 +1926,16 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 		APIVersion:  extractAPIVersion(path),
 	}
 
+	// Parse x-preview: the operation is published but subject to breaking
+	// change. Read per operation rather than from the spec root, because a spec
+	// can graduate one endpoint at a time and two specs can merge into one
+	// resource.
+	if preview, ok := op.Extensions["x-preview"]; ok {
+		if b, ok := preview.(bool); ok {
+			operation.Preview = b
+		}
+	}
+
 	// Parse x-required-privileges extension
 	if privs, ok := op.Extensions["x-required-privileges"]; ok {
 		if arr, ok := privs.([]any); ok {

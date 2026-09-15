@@ -44,7 +44,7 @@ func newApiAuthenticationListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List api-authentication and extract IDs
   jamf-cli pro api-authentication list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,7 +79,7 @@ func newApiAuthenticationCurrentCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "current",
 		Short:       "Get the authorization details associated with the current API token",
 		Long:        "Get the authorization details associated with the current API token for the users current site",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -130,7 +130,7 @@ func newApiAuthenticationInvalidateTokenCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "invalidate-token",
 		Short:       "Invalidate current token",
 		Long:        "Invalidates current token",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -181,7 +181,7 @@ func newApiAuthenticationKeepAliveCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "keep-alive",
 		Short:       "Invalidate existing token and generates new token",
 		Long:        "Invalidates existing token and generates new token with extended expiration based on existing token credentials.",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -232,7 +232,7 @@ func newApiAuthenticationTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "token",
 		Short:       "Create a token based on other authentication details (basic, etc.)",
 		Long:        "Create a token based on other authentication details (basic, etc.).",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -283,7 +283,7 @@ func newApiAuthenticationOauthTokenCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "oauth-token",
 		Short:       "Obtain an access token using an API Client",
 		Long:        "Obtain an access token using the OAuth2 client credentials flow",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

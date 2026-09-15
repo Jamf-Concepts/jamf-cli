@@ -4,18 +4,18 @@
     "pro": {
       "file": "pro_api.json",
       "title": "Jamf Pro API",
-      "version": "11.31.0",
-      "paths": 477,
-      "operations": 701
+      "version": "11.32.0",
+      "paths": 478,
+      "operations": 704
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
       "title": "Classic API",
-      "version": "11.28.0",
+      "version": "11.32.0",
       "paths": 270,
       "operations": 589
     },
-    "sdkCommit": "bed9af9"
+    "sdkCommit": "9f9835d"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -779,6 +779,7 @@
       "POST"
     ],
     "/pro/v1/notifications": [
+      "DELETE",
       "GET"
     ],
     "/pro/v1/notifications/{}/{}": [
@@ -1627,6 +1628,10 @@
     ],
     "/pro/v3/sso/metadata/download": [
       "GET"
+    ],
+    "/pro/v3/sso/oidc-broker-config": [
+      "GET",
+      "PUT"
     ],
     "/pro/v4/computers-inventory": [
       "GET",
@@ -4121,6 +4126,11 @@
         "device-groups:update"
       ]
     },
+    "/pro/v1/notifications": {
+      "DELETE": [
+        "dismiss-notifications:execute"
+      ]
+    },
     "/pro/v1/notifications/{}/{}": {
       "DELETE": [
         "dismiss-notifications:execute"
@@ -5616,6 +5626,14 @@
     "/pro/v3/sso/metadata/download": {
       "GET": [
         "sso-settings:read"
+      ]
+    },
+    "/pro/v3/sso/oidc-broker-config": {
+      "GET": [
+        "sso-settings:read"
+      ],
+      "PUT": [
+        "sso-settings:update"
       ]
     },
     "/pro/v4/computers-inventory": {

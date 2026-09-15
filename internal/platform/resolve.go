@@ -5,7 +5,7 @@ package platform
 import (
 	"errors"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
 // ErrNotFound is returned when a resource name cannot be resolved to an ID.

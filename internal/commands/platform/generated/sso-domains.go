@@ -38,7 +38,7 @@ func newSsoDomainsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List Domains",
-		Long:        "Returns every domain claimed by the organization resolved from the access token, in every status, together with the domains other organizations have shared with it. A shared domain is marked with `sharedDomain: true` and carries the owning organization's `accountId`.",
+		Long:        "Returns every domain claimed by the organization resolved from the access token, in every status, together with the domains other organizations have shared with it. A shared domain is marked with `sharedDomain: true` and carries the owning organization's `accountId` - note this is different than an `organizationId` and is calculated by Jamf on response. It does not need to be provided on update. A domain with a non-null `verifiedTldId` inherited its verification from its TLD, not it's own TXT record.",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

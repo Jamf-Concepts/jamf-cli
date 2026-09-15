@@ -23,7 +23,7 @@ func NewAccountLicensesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "account-licenses",
 		Short:       "Manage account-licenses (Platform API)",
-		Long:        "Read the licenses held by your Jamf organization",
+		Long:        "Operations related to licenses purchased from Jamf",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newAccountLicensesListCmd(cliCtx))
@@ -34,7 +34,7 @@ func newAccountLicensesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List Licenses",
-		Long:        "Returns every license held by the organization resolved from the access token, wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no licenses returns an empty `results` array and a `totalCount` of 0.",
+		Long:        "Returns every license held by the organization resolved from the access token. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no licenses returns an empty `results` array and a `totalCount` of 0.",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
