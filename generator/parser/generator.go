@@ -155,14 +155,15 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"pathParamCount": func(params []*Parameter) int {
 			return len(pathParams(params))
 		},
-		"pathParamUsage": pathParamUsage,
-		"queryParams":    queryParams,
-		"goType":         goType,
-		"flagType":       flagType,
-		"sortOps":        sortOperations,
-		"dedupeOps":      dedupeOperations,
-		"escapeQuotes":   escapeQuotes,
-		"isDestructive":  func(op *Operation) bool { return op.IsDestructive },
+		"pathParamUsage":         pathParamUsage,
+		"optionalPathParamUsage": optionalPathParamUsage,
+		"queryParams":            queryParams,
+		"goType":                 goType,
+		"flagType":               flagType,
+		"sortOps":                sortOperations,
+		"dedupeOps":              dedupeOperations,
+		"escapeQuotes":           escapeQuotes,
+		"isDestructive":          func(op *Operation) bool { return op.IsDestructive },
 		// The destructive bulk and confirmation blocks are shared by a plain
 		// DELETE and by an x-action that happens to be destructive, and they
 		// used to word every message as a delete and send every bulk request
@@ -1003,6 +1004,26 @@ func pathParamUsage(params []*Parameter) string {
 	var parts []string
 	for _, p := range pp {
 		parts = append(parts, "<"+p.Name+">")
+	}
+	return " " + strings.Join(parts, " ")
+}
+
+// optionalPathParamUsage is pathParamUsage with every placeholder bracketed
+// optional, for a command where --all stands in for the identifiers. The Use
+// string is the enforced positional contract, so a command whose positionals
+// really are optional has to say so: rendering them required told the reader
+// that `delete --all` was not a legal invocation of the command it is a flag on.
+func optionalPathParamUsage(params []*Parameter) string {
+	pp := pathParams(params)
+	if len(pp) == 0 {
+		return ""
+	}
+	if len(pp) == 1 {
+		return " [<id>]"
+	}
+	var parts []string
+	for _, p := range pp {
+		parts = append(parts, "[<"+p.Name+">]")
 	}
 	return " " + strings.Join(parts, " ")
 }
@@ -2224,6 +2245,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd := &cobra.Command{
 {{- if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}
 		Use:   "{{ .Name }} [<id>]",
+{{- else if .BulkActionPath }}
+		Use:   "{{ .Name }}{{ optionalPathParamUsage .Parameters }}",
 {{- else }}
 		Use:   "{{ .Name }}{{ pathParamUsage .Parameters }}",
 {{- end }}
@@ -2259,6 +2282,20 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// "patch a b c --scaffold" print the template and discard three
 			// positionals, which is issue 350 reached through a flag.
 			if flagScaffold {
+				return cobra.MaximumNArgs({{ pathParamCount .Parameters }})(cmd, args)
+			}
+			return cobra.ExactArgs({{ pathParamCount .Parameters }})(cmd, args)
+		},
+{{- else if .BulkActionPath }}
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --all addresses the whole collection, so it stands in for every
+			// identifier the {id} path carries. Same shape as --scaffold above,
+			// and reachable for the same reason: cobra validates Args before
+			// RunE, so a bare ExactArgs refuses before the --all branch is
+			// reached and the flag cannot be used at all. Only the floor moves —
+			// the RunE branch itself refuses --all combined with a positional,
+			// which is the error worth reading.
+			if flagAll {
 				return cobra.MaximumNArgs({{ pathParamCount .Parameters }})(cmd, args)
 			}
 			return cobra.ExactArgs({{ pathParamCount .Parameters }})(cmd, args)

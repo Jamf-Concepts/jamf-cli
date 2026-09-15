@@ -195,6 +195,7 @@ func NestedResourceCommands() map[string]func(*registry.CLIContext) *cobra.Comma
 		"self-service settings":                         NewSelfServiceSettingsCmd,
 		"self-service-plus settings":                    NewSelfServicePlusSettingsCmd,
 		"sso-settings cert":                             NewSsoSettingsCertCmd,
+		"sso-settings oidc-broker-config":               NewSsoSettingsOidcBrokerConfigCmd,
 	}
 }
 

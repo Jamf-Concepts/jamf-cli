@@ -70,12 +70,13 @@ func newJamfProNotificationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newJamfProNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
+		flagAll    bool
 		flagYes    bool
 		flagDryRun bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id> <type>",
+		Use:   "delete [<id>] [<type>]",
 		Short: "Delete Notifications",
 		Long:  "Deletes notifications with given type and id.",
 		Example: `  # Delete a jamf-pro-notification (with confirmation)
@@ -84,9 +85,52 @@ func newJamfProNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
   # Delete without confirmation prompt
   jamf-cli pro jamf-pro-notifications delete 1 2 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Dismiss Notifications", "jamf:api": "pro", "jamf:gateway-privileges": "dismiss-notifications:execute"},
-		Args:        cobra.ExactArgs(2),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --all addresses the whole collection, so it stands in for every
+			// identifier the {id} path carries. Same shape as --scaffold above,
+			// and reachable for the same reason: cobra validates Args before
+			// RunE, so a bare ExactArgs refuses before the --all branch is
+			// reached and the flag cannot be used at all. Only the floor moves —
+			// the RunE branch itself refuses --all combined with a positional,
+			// which is the error worth reading.
+			if flagAll {
+				return cobra.MaximumNArgs(2)(cmd, args)
+			}
+			return cobra.ExactArgs(2)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --all: hit the collection-level delete endpoint, which applies
+			// the action across every jamf-pro-notification in a single server-side
+			// call (no per-resource {id} needed).
+			if flagAll {
+				if len(args) > 0 {
+					return fmt.Errorf("--all applies to every jamf-pro-notification; do not combine it with an <id>")
+				}
+				// Tenant-wide blast radius: delete across every
+				// jamf-pro-notification in one call. Gate behind an explicit
+				// confirmation, matching this codebase's convention for
+				// wide-reaching mutations.
+				if !flagYes {
+					noInput, _ := cmd.Flags().GetBool("no-input")
+					if noInput {
+						return fmt.Errorf("--all delete applies to every jamf-pro-notification; pass --yes to confirm when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  --all will delete across every jamf-pro-notification in this tenant. Type 'yes' to confirm: ")
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				resp, err := ctx.Client.Do(reqCtx, "DELETE", "/v1/notifications", nil)
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				return ctx.Output.PrintResponse(resp)
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -144,6 +188,7 @@ func newJamfProNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Apply to every jamf-pro-notification in one call (collection-level delete endpoint)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	return cmd
