@@ -656,6 +656,56 @@ too, as whole resources), so no capability moves.
   landed ahead of the JSON error block in combined output and the envelope's `hint` field
   was empty — on the one hint a CI job would most want to read structurally.
 
+### Added — Jamf Pro 11.32 and jamfplatform-go-sdk v1.1.0
+
+The SDK moved to the `jamf` GitHub org and its module path with it
+(`github.com/jamf/jamfplatform-go-sdk`). That is an import change inside this repo and
+nothing a CLI user sees. `v1.0.0` under the old `Jamf-Concepts` path keeps working and
+gets no further releases.
+
+- **`pro sso-settings oidc-broker-config get` and `update`** are new — `GET` and
+  `PUT /v3/sso/oidc-broker-config`, added in Jamf Pro 11.32. A sub-path carrying its own
+  `PUT` is an independently-writable object, so its verbs sit one token deeper, the same
+  shape as its sibling `pro sso-settings cert`. Nothing moved: there is no earlier
+  spelling of this command, the endpoint not having existed before.
+- **`pro jamf-pro-notifications delete` gains `--all`**, which dismisses every
+  dismissible notification for the user and site in one server-side call
+  (`DELETE /v1/notifications`, new in 11.32). It refuses to be combined with an `<id>`
+  and prompts for confirmation unless `--yes` is passed, like every other tenant-wide
+  `--all`. **`delete <id> <type>` is unchanged** — same positionals, same endpoint.
+
+  `-n, --dry-run` covers it: `delete --all -n` reports what it would send and sends
+  nothing. That needed its own code — a destructive generated command declares its own
+  `--dry-run`, which shadows the root persistent one, so the command's own branch is the
+  only thing honouring `-n` on it, and `--all` returns before that branch is reached.
+
+  Worth knowing why that needed saying: the new collection-level `DELETE` derives the
+  same `delete` name as the existing per-notification one, and the collection addresses
+  the resource root, so the plain verb went to it and the per-notification operation was
+  dropped. Left alone, `pro jamf-pro-notifications delete` would have silently changed
+  from removing one notification to dismissing all of them, and the per-notification
+  capability would have gone. Both are now the same command.
+- **Two filter fields and one preference** arrived with 11.32 and are visible in
+  `--help`: `general.awaitingConfiguration` and `security.lockdownModeEnabled` on
+  `pro computer-inventory list --filter`, and `showDirectoryGroupUuidColumn` on
+  `pro jamf-pro-account-preferences update --set`.
+
+### Changed — Jamf AI Governance commands are marked Preview
+
+Upstream declares all twelve AI Governance operations preview endpoints, subject to
+breaking change without warning, with general availability expected by 2027-03-03.
+
+- Each command's `Short` now opens with `Preview - ` and its `Long` with the preview
+  notice, both from the published spec. Anything parsing `platform ai-policies --help`
+  or `platform ai-tools --help` text sees new wording.
+- `jamf-cli commands -o json` carries `"preview": true` on those commands (thirteen: the
+  spec's twelve operations plus the synthesized `apply`), which is what to key on rather
+  than the help prose. Present only when true, so its absence means "nothing declared"
+  rather than "GA"; it is a JSON field only, table and CSV columns coming from the first
+  row.
+- Help text no longer carries markdown `**bold**` or `_italic_` markers on any platform
+  command; backticks, which quote a field or a value, are unchanged.
+
 ## v1.28.0
 
 The Jamf Platform API reached general availability on 2026-09-03. Most of this release is

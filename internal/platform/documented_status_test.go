@@ -5,7 +5,7 @@ package platform
 import (
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
 const searchDomainNotSet = `{"httpStatus":404,"traceId":"abc123","errors":[{"code":"SEARCH_DOMAIN_NOT_SET","description":"No search domain configured."}]}`

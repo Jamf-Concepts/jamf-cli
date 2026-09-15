@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
 func TestIsNotFound(t *testing.T) {

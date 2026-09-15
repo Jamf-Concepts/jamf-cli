@@ -452,10 +452,24 @@ func Normalise(source, specsDir string) (string, error) {
 // disappearing used to rename commands, and even now that it cannot, an ingest
 // that silently deleted 163 files would be indistinguishable from one that
 // failed halfway.
+//
+// A spec this run could not have produced is never pruned, whatever keep says.
+// The App Installer specs come from the gateway's published Pro API spec, not
+// from any monolith — App Installers sits under hiddenapi/ in jamf/jss, so
+// neither the jss bundle nor an instance's own /api/schema/ carries it — so a
+// `make sync-spec` run derives them from nothing and they were absent from
+// keep. That deleted specs/AppInstallers.yaml and all four App Installer
+// commands with it, reported as a routine prune, on a route CLAUDE.md
+// documents as legitimately dropping private endpoints. Deriving the exemption
+// from the route table rather than a second list is what keeps it honest: a
+// family added to AppInstallerSpecs is protected without a matching edit here.
 func PruneStaleSpecs(specsDir string, keep []string) ([]string, error) {
 	wanted := make(map[string]bool, len(keep))
 	for _, k := range keep {
 		wanted[filepath.Base(k)] = true
+	}
+	for _, s := range AppInstallerSpecs {
+		wanted[s.Filename] = true
 	}
 	entries, err := os.ReadDir(specsDir)
 	if err != nil {

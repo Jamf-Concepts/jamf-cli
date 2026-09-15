@@ -14,9 +14,9 @@ import (
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/devicegroups"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/devices"
 )
 
 // uuidPattern matches the standard UUID format (8-4-4-4-12 hex digits).

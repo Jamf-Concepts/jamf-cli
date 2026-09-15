@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strings"
 
-	jamfplatform "github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	jamfplatform "github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"

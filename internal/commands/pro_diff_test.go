@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 	"gopkg.in/yaml.v3"
 )
 
