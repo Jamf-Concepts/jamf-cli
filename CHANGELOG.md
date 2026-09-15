@@ -674,6 +674,11 @@ gets no further releases.
   and prompts for confirmation unless `--yes` is passed, like every other tenant-wide
   `--all`. **`delete <id> <type>` is unchanged** — same positionals, same endpoint.
 
+  `-n, --dry-run` covers it: `delete --all -n` reports what it would send and sends
+  nothing. That needed its own code — a destructive generated command declares its own
+  `--dry-run`, which shadows the root persistent one, so the command's own branch is the
+  only thing honouring `-n` on it, and `--all` returns before that branch is reached.
+
   Worth knowing why that needed saying: the new collection-level `DELETE` derives the
   same `delete` name as the existing per-notification one, and the collection addresses
   the resource root, so the plain verb went to it and the per-notification operation was

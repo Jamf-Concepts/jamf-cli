@@ -2324,6 +2324,19 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if len(args) > 0{{ if opHasNameLookup . $ }} || flagName != ""{{ end }} {
 					return fmt.Errorf("--all applies to every {{ $.NameSingular }}; do not combine it with an <id>{{ if opHasNameLookup . $ }} or --name{{ end }}")
 				}
+{{- if .IsDestructive }}
+				// The preview comes before the confirmation, and before the
+				// request. A destructive command declares its own --dry-run,
+				// which shadows the root persistent one — so dryRunClient is
+				// never installed for it and this branch is the only thing
+				// honouring -n. Reaching the request from here sent a live
+				// tenant-wide {{ .Name }} under --dry-run; the id path's own
+				// check sits further down, after this block returns.
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "Would {{ .Name }} every {{ $.NameSingular }} ({{ .Method }} {{ .BulkActionPath }})\n")
+					return nil
+				}
+{{- end }}
 				// Tenant-wide blast radius: {{ .Name }} across every
 				// {{ $.NameSingular }} in one call. Gate behind an explicit
 				// confirmation, matching this codebase's convention for

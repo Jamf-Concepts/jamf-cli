@@ -108,6 +108,17 @@ func newJamfProNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if len(args) > 0 {
 					return fmt.Errorf("--all applies to every jamf-pro-notification; do not combine it with an <id>")
 				}
+				// The preview comes before the confirmation, and before the
+				// request. A destructive command declares its own --dry-run,
+				// which shadows the root persistent one — so dryRunClient is
+				// never installed for it and this branch is the only thing
+				// honouring -n. Reaching the request from here sent a live
+				// tenant-wide delete under --dry-run; the id path's own
+				// check sits further down, after this block returns.
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "Would delete every jamf-pro-notification (DELETE /v1/notifications)\n")
+					return nil
+				}
 				// Tenant-wide blast radius: delete across every
 				// jamf-pro-notification in one call. Gate behind an explicit
 				// confirmation, matching this codebase's convention for
