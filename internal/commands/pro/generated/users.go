@@ -32,6 +32,8 @@ func NewUsersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newUsersCreateCmd(ctx))
 	cmd.AddCommand(newUsersUpdateCmd(ctx))
 	cmd.AddCommand(newUsersDeleteCmd(ctx))
+	cmd.AddCommand(newUsersRecalculateCmd(ctx))
+	cmd.AddCommand(newUsersRecalculateSmartGroupsCmd(ctx))
 	cmd.AddCommand(newUsersApplyCmd(ctx))
 
 	return cmd
@@ -694,6 +696,150 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+
+	return cmd
+}
+
+func newUsersRecalculateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "recalculate [<id>]",
+		Short:       "Recalculate the smart group for the given id and then return the ids for the users in the smart group",
+		Long:        "Recalculates the smart group for the given id and then returns the ids for the users in the smart group",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart User Groups", "jamf:api": "pro", "jamf:gateway-privileges": "user-groups:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/users", "username", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/smart-user-groups/{id}/recalculate"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
+
+	return cmd
+}
+
+func newUsersRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "recalculate-smart-groups [<id>]",
+		Short:       "Recalculate a smart group for the given user id and then return the count of smart groups the user falls into",
+		Long:        "Recalculates a smart group for the given user id and then returns the count of smart groups the user falls into",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart User Groups", "jamf:api": "pro", "jamf:gateway-privileges": "user-groups:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/users", "username", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/users/{id}/recalculate-smart-groups"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	return cmd
 }

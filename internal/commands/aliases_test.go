@@ -3,6 +3,9 @@
 package commands
 
 import (
+	"sort"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -10,7 +13,7 @@ import (
 
 func TestApplyAliases(t *testing.T) {
 	parent := &cobra.Command{Use: "pro"}
-	parent.AddCommand(&cobra.Command{Use: "computers-inventory"})
+	parent.AddCommand(&cobra.Command{Use: "computer-inventory"})
 	parent.AddCommand(&cobra.Command{Use: "mobile-devices"})
 	parent.AddCommand(&cobra.Command{Use: "scripts"})
 	parent.AddCommand(&cobra.Command{Use: "buildings"})
@@ -25,7 +28,7 @@ func TestApplyAliases(t *testing.T) {
 		name    string
 		aliases []string
 	}{
-		{"computers-inventory", []string{"computers", "comp"}},
+		{"computer-inventory", []string{"computers", "comp"}},
 		{"mobile-devices", []string{"md"}},
 		{"scripts", []string{"scr"}},
 		{"buildings", []string{"bld"}},
@@ -74,5 +77,68 @@ func TestApplyRootAliases(t *testing.T) {
 		if cmd.Name() == "version" && len(cmd.Aliases) > 0 {
 			t.Errorf("version should have no aliases, got %v", cmd.Aliases)
 		}
+	}
+}
+
+// No command may answer to one alias twice.
+//
+// applyDeprecatedNames runs before applyAliases and appends aliases of its own,
+// so two tables can name one alias — `jcds` did, from both, until it was
+// promoted to a curated alias and dropped from deprecatedNames. A duplicate
+// resolves fine and then prints twice in the `Aliases:` line of --help and
+// twice in the `commands -o json` catalog, which reads as a defect in the
+// listing rather than in a table.
+func TestNoCommandAnswersToAnAliasTwice(t *testing.T) {
+	root := NewRootCmd("test", "test", "test", "test")
+	var dupes []string
+	var walk func(*cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		seen := map[string]int{}
+		for _, a := range cmd.Aliases {
+			seen[a]++
+		}
+		for a, n := range seen {
+			if n > 1 {
+				dupes = append(dupes, cmd.CommandPath()+" answers to "+a+" "+strconv.Itoa(n)+" times")
+			}
+		}
+		for _, sub := range cmd.Commands() {
+			walk(sub)
+		}
+	}
+	walk(root)
+	sort.Strings(dupes)
+	if len(dupes) > 0 {
+		t.Errorf("%d duplicated alias(es):\n  %s", len(dupes), strings.Join(dupes, "\n  "))
+	}
+}
+
+// An alias must not collide with a live command name under the same parent, in
+// either direction: cobra resolves the name first, so the alias is dead, and
+// nothing reports it.
+func TestNoAliasShadowsASiblingName(t *testing.T) {
+	root := NewRootCmd("test", "test", "test", "test")
+	var bad []string
+	var walk func(*cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		names := map[string]bool{}
+		for _, sub := range cmd.Commands() {
+			names[sub.Name()] = true
+		}
+		for _, sub := range cmd.Commands() {
+			for _, a := range sub.Aliases {
+				if names[a] {
+					bad = append(bad, cmd.CommandPath()+": alias "+a+" on "+sub.Name()+" is also a sibling's name")
+				}
+			}
+		}
+		for _, sub := range cmd.Commands() {
+			walk(sub)
+		}
+	}
+	walk(root)
+	sort.Strings(bad)
+	if len(bad) > 0 {
+		t.Errorf("%d alias(es) shadowed by a live name:\n  %s", len(bad), strings.Join(bad, "\n  "))
 	}
 }

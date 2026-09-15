@@ -156,11 +156,22 @@ func TestRefusalNamesTheCommandAndTheRemedy(t *testing.T) {
 // The refusal used to offer exactly one remedy — provision a second credential
 // against a Jamf Pro instance — even for a command whose replacement ships in
 // the same binary and works on the profile already in hand.
+//
+// Exercised through a test-local entry, successors being empty: the one live
+// entry it held redirected the withdrawn v2 computer-groups command at its v3
+// sibling, and spec-derived resource identity folded the two versions into one
+// resource, so there is no v2 command left to refuse. The idiom is this repo's
+// standard for a mechanism whose live case resolved — see
+// generator/gateway's TestProbedEntriesCarryTheProbeBasis and
+// TestDropUnroutedPlatformOps — and it is the right one here because the
+// wording is the whole value of the table: the next withdrawal that does have a
+// shipped replacement has to render correctly on arrival.
 func TestRefusalNamesACuratedSuccessorFirst(t *testing.T) {
-	msg := Refusal("jamf-cli pro static-computer-groups list", BasisUnpublished,
+	defer installTestSuccessor(t)()
+	msg := Refusal("jamf-cli pro example-withdrawn list", BasisUnpublished,
 		"not declared by the gateway's Jamf Pro API 11.31.0")
 	for _, want := range []string{
-		"Use `jamf-cli pro computer-groups-static-groups` instead",
+		"Use `jamf-cli pro example-successor` instead",
 		"served by the gateway",
 		// The instance remedy stays, demoted: it is still the answer for anyone
 		// who wants the withdrawn endpoint itself rather than its replacement.
@@ -179,14 +190,18 @@ func TestRefusalNamesACuratedSuccessorFirst(t *testing.T) {
 // from the invocation rather than assumed, so a renamed binary still renders a
 // runnable command.
 func TestSuccessorMatchesTheLongestCommandPathPrefix(t *testing.T) {
+	defer installTestSuccessor(t)()
 	for _, tc := range []struct {
 		path string
 		want string
 	}{
-		{"jamf-cli pro static-computer-groups list", "jamf-cli pro computer-groups-static-groups"},
-		{"jamf-cli pro static-computer-groups delete", "jamf-cli pro computer-groups-static-groups"},
-		{"jamf pro static-computer-groups apply", "jamf pro computer-groups-static-groups"},
+		{"jamf-cli pro example-withdrawn list", "jamf-cli pro example-successor"},
+		{"jamf-cli pro example-withdrawn delete", "jamf-cli pro example-successor"},
+		{"jamf pro example-withdrawn apply", "jamf pro example-successor"},
 		{"jamf-cli pro api-roles list", ""},
+		// A sibling whose name merely starts the same way must not inherit the
+		// entry: the match is on whole path segments, not a string prefix.
+		{"jamf-cli pro example-withdrawn-elsewhere list", ""},
 		{"jamf-cli", ""},
 		{"", ""},
 	} {
@@ -203,13 +218,28 @@ func TestSuccessorMatchesTheLongestCommandPathPrefix(t *testing.T) {
 	}
 }
 
+// installTestSuccessor adds a synthetic entry to successors for the duration of
+// a test and returns the undo. The names are deliberately unlike any shipped
+// command, so a reader cannot mistake the fixture for a live entry the way a
+// plausible one would invite.
+func installTestSuccessor(t *testing.T) func() {
+	t.Helper()
+	// Through the exported hook rather than the map, so this package's own tests
+	// exercise the entry point internal/commands uses instead of a second copy
+	// of the same insert.
+	return InstallSuccessorForTest(t, "pro example-withdrawn", "pro example-successor",
+		"it serves the same endpoint at the version the gateway publishes")
+}
+
 // Every curated entry has to be renderable: a Why that is empty or a Command
 // that is blank produces a sentence pointing nowhere. Whether the commands
 // actually exist is checked in internal/commands, which has the tree.
+//
+// The fixture is installed so the loop and the SuccessorTable check are never
+// vacuous: with successors empty both would pass over nothing, and
+// SuccessorTable dropping every entry would read as agreement at 0 == 0.
 func TestEverySuccessorEntryRenders(t *testing.T) {
-	if len(successors) == 0 {
-		t.Skip("no successors curated")
-	}
+	defer installTestSuccessor(t)()
 	for key, s := range successors {
 		if s.Command == "" || s.Why == "" {
 			t.Errorf("%q: incomplete entry %+v", key, s)

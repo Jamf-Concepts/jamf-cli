@@ -341,6 +341,7 @@ func NewClassicMobileAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "mobiledeviceapplications",
 		SingularKey: "mobile_device_application",
+		CLIName:     "classic-mobile-apps",
 	}))
 
 	return cmd

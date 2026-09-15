@@ -83,33 +83,38 @@ func enclosingFunc(lines []string, i int) string {
 func withdrawnGeneralFields(t *testing.T) map[string]bool {
 	t.Helper()
 
-	props := func(path, schema string) map[string]yaml.Node {
-		raw, err := os.ReadFile(filepath.Join("..", "..", "specs", path))
-		if err != nil {
-			t.Fatalf("reading specs/%s: %v\n"+
-				"This guard reads the two general-section schemas; if a file has moved, "+
-				"update the path rather than deleting the guard.", path, err)
-		}
-		var doc struct {
-			Components struct {
-				Schemas map[string]struct {
-					Properties map[string]yaml.Node `yaml:"properties"`
-				} `yaml:"schemas"`
-			} `yaml:"components"`
-		}
-		if err := yaml.Unmarshal(raw, &doc); err != nil {
-			t.Fatalf("parsing specs/%s: %v", path, err)
-		}
+	// One document. Both schemas used to sit in different per-resource files —
+	// ComputerGeneral in the shared library, ComputerGeneralV4 in
+	// ComputersInventory.yaml — and the spec tree is now a single normalised
+	// document, so the lookup is by schema name alone.
+	const specFile = "JamfProAPI.yaml"
+	raw, err := os.ReadFile(filepath.Join("..", "..", "specs", specFile))
+	if err != nil {
+		t.Fatalf("reading specs/%s: %v\n"+
+			"This guard reads the two general-section schemas; if the spec document has "+
+			"moved, update the path rather than deleting the guard.", specFile, err)
+	}
+	var doc struct {
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]yaml.Node `yaml:"properties"`
+			} `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parsing specs/%s: %v", specFile, err)
+	}
+	props := func(schema string) map[string]yaml.Node {
 		s, ok := doc.Components.Schemas[schema]
 		if !ok || len(s.Properties) == 0 {
 			t.Fatalf("%s carries no properties in specs/%s — the spec shape has changed, "+
-				"so this guard would pass vacuously", schema, path)
+				"so this guard would pass vacuously", schema, specFile)
 		}
 		return s.Properties
 	}
 
-	v1 := props("_MonolithLibrary.yaml", "ComputerGeneral")
-	v4 := props("ComputersInventory.yaml", "ComputerGeneralV4")
+	v1 := props("ComputerGeneral")
+	v4 := props("ComputerGeneralV4")
 
 	withdrawn := map[string]bool{}
 	for name := range v1 {

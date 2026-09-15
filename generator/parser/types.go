@@ -2,6 +2,8 @@
 
 package parser
 
+import "strings"
+
 // LookupField represents an alternate identifier that can be used to resolve a
 // resource ID instead of the primary name field (e.g. serial number for computers).
 type LookupField struct {
@@ -54,6 +56,90 @@ type Resource struct {
 	DefaultSections   []string      // Default --section values for list (when set, fetches these sections for table output)
 	GetDetailPath     string        // When set, "get" uses this path by default (returns all sections). If the get op has a section param, --section overrides back to the original path.
 	UpdateTokenOp     *Operation    // Optional: auxiliary PUT endpoint for file-field payloads (e.g. PUT /{id}/upload-token). When set, update/apply route the file-field flag to this endpoint instead of the main update body, and no standalone subcommand is emitted for it.
+
+	// Root is the literal (non-parameter, non-version) path segments that
+	// identify this resource — the group's own root, or a sub-resource's
+	// sub-path.
+	//
+	// Carried rather than re-derived, because every attempt to infer it has
+	// been wrong in a different way. "The shallowest no-param path" answers
+	// `/inventory-preload/csv` for a resource whose declared root
+	// `/v1/inventory-preload` is dropped, and `/mdm/commands` for `pro mdm`;
+	// "the path every other sits beneath" answers nothing for `enrollment`,
+	// whose group holds `/v1/adue-session-token-settings`. Three passes in
+	// parser.go took a root parameter for exactly this reason; a field is what
+	// stops the next consumer inventing a fourth heuristic.
+	Root []string
+	// Parent is the name of the resource this one nests under, empty for a
+	// top-level resource. See subresource.go: an independently-writable
+	// sub-path becomes a resource of its own so its verbs stop reading as the
+	// parent's.
+	Parent string
+	// SubResources are the nested sub-resources, each a Resource in its own
+	// right so every per-resource pass applies to it unchanged — singleton
+	// detection and the naming passes are exactly what has to run again over a
+	// sub-resource's own root, and reusing them is what makes `cert get`
+	// rather than `cert list` fall out.
+	SubResources []*Resource
+}
+
+// QualifiedName is the resource's name prefixed by its parent's, the key a
+// resource-name-keyed override table has to use to reach a sub-resource.
+//
+// Separate from Name because Name is the cobra token: a sub-resource's Use is
+// `cert`, and its identity across the generator is `sso-settings cert`.
+func (r *Resource) QualifiedName() string {
+	if r.Parent == "" {
+		return r.Name
+	}
+	return r.Parent + " " + r.Name
+}
+
+// CmdPath is the invocation path beneath `pro`, which for every resource is its
+// qualified name. Named separately because that is what it means at the call
+// sites that build --help examples.
+func (r *Resource) CmdPath() string { return r.QualifiedName() }
+
+// FileBase is the stem of the generated file, distinct from Name because two
+// sub-resources legitimately share a terminal segment (`settings` appears three
+// times) and one file per resource is what the stale-file prune assumes.
+func (r *Resource) FileBase() string {
+	return strings.ReplaceAll(r.QualifiedName(), " ", "-")
+}
+
+// AllOperations returns this resource's operations and every sub-resource's,
+// which is what a consumer keyed on the endpoint rather than on the command
+// needs.
+//
+// Every such consumer has to use it, and the failure mode when one does not is
+// silent: gateway stamping reads Operations, and an unstamped operation is not
+// refused pre-flight, so a nested command on a withdrawn endpoint would go out
+// to the bare 403 the refusal exists to pre-empt.
+func (r *Resource) AllOperations() []*Operation {
+	ops := append([]*Operation(nil), r.Operations...)
+	for _, sub := range r.SubResources {
+		ops = append(ops, sub.AllOperations()...)
+	}
+	return ops
+}
+
+// Flatten returns this resource and every sub-resource, depth first, for the
+// passes that key on a resource name.
+func (r *Resource) Flatten() []*Resource {
+	out := []*Resource{r}
+	for _, sub := range r.SubResources {
+		out = append(out, sub.Flatten()...)
+	}
+	return out
+}
+
+// FlattenResources is Flatten over a slice.
+func FlattenResources(resources []*Resource) []*Resource {
+	var out []*Resource
+	for _, r := range resources {
+		out = append(out, r.Flatten()...)
+	}
+	return out
 }
 
 // Operation represents an API operation (endpoint)

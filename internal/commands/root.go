@@ -28,6 +28,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/security"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -752,6 +753,12 @@ in the config file. It never runs in CI, when output is piped, or under
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// First, before anything can return early. A deprecated resource
+			// name has to warn on every path that reaches a command through it
+			// — including --scaffold and the products that resolve their own
+			// client and return below.
+			warnIfDeprecatedName(cmd)
+
 			// Respect NO_COLOR env var (https://no-color.org)
 			if _, ok := os.LookupEnv("NO_COLOR"); ok {
 				noColor = true
@@ -1001,6 +1008,15 @@ in the config file. It never runs in CI, when output is piped, or under
 				// auto-remediate (a renamed flag) was the one they could not
 				// read structurally.
 				e.Hint = fmt.Sprintf("did you mean --%s?", s)
+			} else if cats := c.Annotations[scope.AnnotationCategories]; cats != "" {
+				// A scope command registers only the categories its own
+				// resource carries, so a category belonging to another device
+				// family is an unknown flag rather than a refusal the scope
+				// matrix can explain. Naming this resource's vocabulary is the
+				// answer a caller needs: "--computer-group on a mobile
+				// configuration profile" is the commonest scope mistake and
+				// the server's own answer to it is a page of HTML.
+				e.Hint = "scope categories for this resource: " + cats
 			}
 		}
 		return e
@@ -1092,9 +1108,24 @@ in the config file. It never runs in CI, when output is piped, or under
 	// instead of silently printing help and exiting 0.
 	guardUnknownSubcommands(cmd)
 
+	// After that walk, not before: it wraps the RunE guardUnknownSubcommands
+	// installs, and a group parent made runnable first would be skipped there —
+	// losing the "did you mean" refusal for a typo beneath it.
+	guardFormerLeafGroups(cmd)
+
 	// cobra supplies no default Args validator, so a leaf that takes only flags
 	// accepts any positional and discards it. Refuse it instead.
 	guardStrayPositionals(cmd)
+
+	// The same shape as guardFormerLeafGroups one level down: a verb that
+	// resolves and exits 0 under a deprecated resource name while addressing a
+	// different object than it did.
+	//
+	// After guardStrayPositionals, not before, because it fronts the leaf's Args
+	// as well as its RunE — and that walk installs a validator only on a leaf
+	// that has none, so running first made `pro enrollment-customization create`
+	// look already-guarded and it accepted a stray positional again.
+	guardDeprecatedNameVerbMoves(cmd)
 
 	// A sibling walk rather than part of the one above, which returns early for
 	// every command that has an argument validator — a leaf has no subcommands.

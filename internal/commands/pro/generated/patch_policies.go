@@ -32,6 +32,11 @@ func NewPatchPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPatchPoliciesPolicyDetailsCmd(ctx))
 	cmd.AddCommand(newPatchPoliciesDashboardCmd(ctx))
 	cmd.AddCommand(newPatchPoliciesCreateDashboardCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesLogsCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesEligibleRetryCountCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesRetryCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesRetryAllCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesDetailsCmd(ctx))
 
 	return cmd
 }
@@ -680,6 +685,426 @@ func newPatchPoliciesCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
+
+	return cmd
+}
+
+func newPatchPoliciesLogsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "logs [<id>]",
+		Short:       "Retrieve Patch Policy Logs",
+		Long:        "Retrieves Patch Policy Logs",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v2/patch-policies/{id}/logs"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				prog.Stop()
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is deviceName:asc. Multiple sort criteria are supported and must be separated with a comma.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Policy Logs collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: deviceId, deviceName, statusCode, statusDate, attemptNumber, ignoredForPatchPolicyId. This param can be combined with paging and sorting.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
+
+	return cmd
+}
+
+func newPatchPoliciesEligibleRetryCountCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "eligible-retry-count [<id>]",
+		Short:       "Return the count of the Patch Policy Logs for the patch policy id that are eligible for a retry attempt",
+		Long:        "return the count of the patch policy logs for the patch policy id that  are eligible for a retry attempt",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs/eligible-retry-count"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
+
+	return cmd
+}
+
+func newPatchPoliciesRetryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "retry [<id>]",
+		Short:       "Send retry attempts for specific devices",
+		Long:        "Send retry attempts for specific devices",
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "deviceIds": [
+    "1",
+    "3"
+  ]
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs/retry"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
+
+	return cmd
+}
+
+func newPatchPoliciesRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "retry-all [<id>]",
+		Short:       "Send retry attempts for all devices",
+		Long:        "Send retry attempts for all devices",
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs/retry-all"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
+
+	return cmd
+}
+
+func newPatchPoliciesDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "details <id> <deviceId>",
+		Short:       "Return attempt details for a specific log",
+		Long:        "Return attempt details for a specific log",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
+		Args:        cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs/{deviceId}/details"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

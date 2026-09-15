@@ -204,13 +204,13 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:   "get [<id>]",
 		Short: "Get Static Group by Id",
 		Long:  "Get Static Group by Id",
-		Example: `  # Get a mobile-device-groups-static-groups by ID
+		Example: `  # Get a mobile-device-groups-static-group by ID
   jamf-cli pro mobile-device-groups-static-groups get 1
 
-  # Get a mobile-device-groups-static-groups by name
+  # Get a mobile-device-groups-static-group by name
   jamf-cli pro mobile-device-groups-static-groups get --name "Example"
 
-  # Get a mobile-device-groups-static-groups and output as YAML
+  # Get a mobile-device-groups-static-group and output as YAML
   jamf-cli pro mobile-device-groups-static-groups get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
@@ -254,7 +254,7 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-groups by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-group by name")
 
 	return cmd
 }
@@ -269,13 +269,13 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
 		Use:   "create",
 		Short: "Create a static group",
 		Long:  "Create a static group",
-		Example: `  # Show the JSON template for creating a mobile-device-groups-static-groups
+		Example: `  # Show the JSON template for creating a mobile-device-groups-static-group
   jamf-cli pro mobile-device-groups-static-groups create --scaffold
 
-  # Create a mobile-device-groups-static-groups from JSON
+  # Create a mobile-device-groups-static-group from JSON
   echo '{"name":"Example"}' | jamf-cli pro mobile-device-groups-static-groups create
 
-  # Get a mobile-device-groups-static-groups, modify it, and create a copy
+  # Get a mobile-device-groups-static-group, modify it, and create a copy
   jamf-cli pro mobile-device-groups-static-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-static-groups create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -352,7 +352,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 		Use:   "delete [<id>]",
 		Short: "Remove Static Group by Id",
 		Long:  "Remove Static Group by Id. Returns 422 if the group has dependencies.",
-		Example: `  # Delete a mobile-device-groups-static-groups (with confirmation)
+		Example: `  # Delete a mobile-device-groups-static-group (with confirmation)
   jamf-cli pro mobile-device-groups-static-groups delete 1
 
   # Delete by name
@@ -393,7 +393,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no mobile-device-groups-static-groups found matching %q", entry)
+							return fmt.Errorf("no mobile-device-groups-static-group found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -412,7 +412,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-groups-static-groups %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-groups-static-group %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -436,7 +436,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 					delPath := strings.Replace("/v2/mobile-device-groups/static-groups/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete mobile-device-groups-static-groups %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete mobile-device-groups-static-group %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -445,14 +445,14 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete mobile-device-groups-static-groups %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete mobile-device-groups-static-group %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted mobile-device-groups-static-groups %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted mobile-device-groups-static-group %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -469,7 +469,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no mobile-device-groups-static-groups found with groupName %q", flagName)
+					return fmt.Errorf("no mobile-device-groups-static-group found with groupName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -482,9 +482,9 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-groups-static-groups %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-groups-static-group %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-groups-static-groups %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-groups-static-group %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -494,9 +494,9 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete mobile-device-groups-static-groups %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete mobile-device-groups-static-group %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete mobile-device-groups-static-groups %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete mobile-device-groups-static-group %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -546,7 +546,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-groups by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-group by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
@@ -670,7 +670,7 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 			"groupDescription=", "groupName=", "siteId=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-groups by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-group by name")
 
 	return cmd
 }
@@ -685,27 +685,27 @@ func newMobileDeviceGroupsStaticGroupsApplyCmd(ctx *registry.CLIContext) *cobra.
 
 	cmd := &cobra.Command{
 		Use:         "apply",
-		Short:       "Create or replace a mobile-device-groups-static-groups by name",
+		Short:       "Create or replace a mobile-device-groups-static-group by name",
 		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create,device-groups:read"},
-		Long: `Create or replace a mobile-device-groups-static-groups. Reads JSON or YAML from --from-file or stdin.
+		Long: `Create or replace a mobile-device-groups-static-group. Reads JSON or YAML from --from-file or stdin.
 
 The groupName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a mobile-device-groups-static-groups from a JSON file
-  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json
+		Example: `  # Apply a mobile-device-groups-static-group from a JSON file
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-group.json
 
-  # Apply a mobile-device-groups-static-groups from a YAML file
-  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.yaml
+  # Apply a mobile-device-groups-static-group from a YAML file
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-group.yaml
 
   # Apply from stdin
-  cat mobile-device-groups-static-groups.json | jamf-cli pro mobile-device-groups-static-groups apply
+  cat mobile-device-groups-static-group.json | jamf-cli pro mobile-device-groups-static-groups apply
 
   # Apply without replacement confirmation
-  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --yes
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-group.json --yes
 
   # Preview what would happen
-  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --dry-run`,
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-group.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {
@@ -751,7 +751,7 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile-device-groups-static-groups %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile-device-groups-static-group %q\n", name)
 					return nil
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/mobile-device-groups/static-groups", bytes.NewReader(data))
@@ -759,20 +759,20 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created mobile-device-groups-static-groups %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created mobile-device-groups-static-group %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile-device-groups-static-groups %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile-device-groups-static-group %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("mobile-device-groups-static-groups %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("mobile-device-groups-static-group %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "mobile-device-groups-static-groups %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "mobile-device-groups-static-group %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -787,7 +787,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced mobile-device-groups-static-groups %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced mobile-device-groups-static-group %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

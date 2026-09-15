@@ -19,7 +19,7 @@ things across Pro, Platform, Protect, and School.
 |------|---------|
 | **UAPI** / **modern API** | The newer Pro JSON REST API at `/api/v1/...` (and `/v2`, `/v3`). What new feature work targets. |
 | **Classic API** | The legacy XML API at `/JSSResource/...`. Still widely used; many resources have no UAPI equivalent. Routed through `/proclassic/...` under Platform gateway auth, with the scope in a request header. |
-| **JCDS** | Jamf Cloud Distribution Service — file storage for installer packages. Commands: `pro jcds upload`, `pro jcds download`, `pro jcds sync`. |
+| **JCDS** | Jamf Cloud Distribution Service — file storage for installer packages. Commands: `pro packages upload`, `pro jamf-cloud-distribution-service download`, `pro jamf-cloud-distribution-service sync`, `pro jamf-cloud-distribution-service-files list`. |
 | **API integration** / **API client** | An OAuth2 client-credentials pairing registered in Pro (Settings > System > API Roles & Clients). Distinct from a generic API token. |
 
 ## Authentication
@@ -55,7 +55,7 @@ which API you call and which device-side mechanism applies the config.
 | Term | Meaning |
 |------|---------|
 | **Smart group** | A dynamic group whose membership is computed from criteria (e.g., "all Macs running macOS 14"). Pro has `smart-computer-groups`, `mobile-device-smart-groups`. Membership refreshes on inventory updates. |
-| **Static group** | A manually-curated list of devices. Pro has `static-computer-groups`, `mobile-device-static-groups`. Add/remove by ID. |
+| **Static group** | A manually-curated list of devices. Pro has `computer-groups-static-groups`, `mobile-device-groups-static-groups`. Add/remove by ID. |
 | **Advanced search** | A saved inventory query with a chosen set of display columns. It reports; it does not deliver configuration. **Not a smart group:** a smart group is a scopable set of devices, and an advanced search cannot be a scope target. Jamf calls it an "advanced search"; **"smart search" is a common informal name for the same object** and appears in issue #341, but `smart-groups` is already a different `--resources` token, so the CLI uses Jamf's name. The token is `advanced-searches`, and it covers both halves: computers come from the Classic API (`classic-advanced-computer-searches`) because `specs/` carries no modern computer-search spec, mobile devices from the Pro API (`advanced-mobile-device-searches`). |
 | **Scope** | In Jamf Pro, **scope is the unified concept** for "which computers/mobile devices/users receive a remote management task." It comprises three sub-functions: **targets**, **limitations**, and **exclusions** (see below). Classic API exposes scope as `<scope>` XML; UAPI as a `scope` JSON object. Scope can be based on individual devices/users, groups, departments, buildings, directory groups, network segments, classes, or iBeacon regions — the available items vary per task type. **Scope cannot be based on personally owned devices.** |
 | **Target** (scope sub-function) | The initial pool of intended recipients for a management task. **Required** to deploy any task. *Not* a separate Platform-only concept — targets are part of Pro scope. |

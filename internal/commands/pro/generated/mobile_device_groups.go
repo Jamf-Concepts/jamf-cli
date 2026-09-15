@@ -329,7 +329,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-group %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device-group %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -337,7 +337,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobile-device-groups. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"erase\" on %d mobile-device-groups. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -351,9 +351,9 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("/v2/mobile-device-groups/{id}/erase", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete mobile-device-group %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device-group %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -362,18 +362,18 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete mobile-device-group %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device-group %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted mobile-device-group %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Ran \"erase\" on mobile-device-group %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-device-groups deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-device-groups erase actions")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -399,9 +399,9 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would erase mobile-device-group %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device-group %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would erase mobile-device-group %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device-group %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -411,9 +411,9 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will erase mobile-device-group %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"erase\" on mobile-device-group %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will erase mobile-device-group %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"erase\" on mobile-device-group %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -472,7 +472,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"erase\" on (one per line, # comments ignored)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-group by name")
 

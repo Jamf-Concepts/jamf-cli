@@ -6,12 +6,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/spf13/cobra"
 )
@@ -26,8 +23,6 @@ func NewComputerInventoryCollectionSettingsCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.AddCommand(newComputerInventoryCollectionSettingsListCmd(ctx))
-	cmd.AddCommand(newComputerInventoryCollectionSettingsCreateCmd(ctx))
-	cmd.AddCommand(newComputerInventoryCollectionSettingsDeleteCmd(ctx))
 	cmd.AddCommand(newComputerInventoryCollectionSettingsPatchCmd(ctx))
 
 	return cmd
@@ -70,153 +65,6 @@ func newComputerInventoryCollectionSettingsListCmd(ctx *registry.CLIContext) *co
 		},
 	}
 
-	return cmd
-}
-
-func newComputerInventoryCollectionSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create Computer Inventory Collection Settings Custom Path",
-		Long:  "Creates a custom search path to use when collecting applications.",
-		Example: `  # Show the JSON template for creating a computer-inventory-collection-setting
-  jamf-cli pro computer-inventory-collection-settings create --scaffold
-
-  # Create a computer-inventory-collection-setting from JSON
-  echo '{"name":"Example"}' | jamf-cli pro computer-inventory-collection-settings create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Custom Paths", "jamf:api": "pro", "jamf:gateway-privileges": "custom-paths:create"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "path": "/Example/Path/",
-  "scope": "APP"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v2/computer-inventory-collection-settings/custom-path"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	return cmd
-}
-
-func newComputerInventoryCollectionSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete Custom Path from Computer Inventory Collection Settings",
-		Long:  "Delete Custom Path from Computer Inventory Collection Settings",
-		Example: `  # Delete a computer-inventory-collection-setting (with confirmation)
-  jamf-cli pro computer-inventory-collection-settings delete 1
-
-  # Delete without confirmation prompt
-  jamf-cli pro computer-inventory-collection-settings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Custom Paths", "jamf:api": "pro", "jamf:gateway-privileges": "custom-paths:delete"},
-		Args:        cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Confirmation for destructive action
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
-				return nil
-			}
-			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			// Destructive cooldown enforcement
-			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
-				return err
-			}
-
-			// Build request path
-			path := "/v2/computer-inventory-collection-settings/custom-path/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-			vft := newVersionFallback("/v2/computer-inventory-collection-settings/custom-path/{id}")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v1/computer-inventory-collection-settings/custom-path/{id}"})
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				cooldown.Record(ctx.ProfileName)
-				fmt.Fprintln(os.Stderr, "Deleted successfully")
-				return nil
-			}
-
-			err = ctx.Output.PrintResponse(resp)
-			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				cooldown.Record(ctx.ProfileName)
-			}
-			return err
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	return cmd
 }
 

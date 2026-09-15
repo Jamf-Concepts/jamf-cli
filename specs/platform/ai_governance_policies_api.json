@@ -1,6 +1,26 @@
 {
   "components": {
+    "headers": {
+      "JamfPreview": {
+        "description": "Present on every successful (2xx) response from a preview endpoint. See\nthe API description for preview status and expected graduation.\n",
+        "schema": {
+          "enum": [
+            true
+          ],
+          "type": "boolean"
+        }
+      }
+    },
     "parameters": {
+      "IfMatch": {
+        "description": "Optimistic-lock precondition. Supply the ETag from a prior GET (e.g. `\"7\"`) to\nmake the update conditional on the policy still being at that version; a mismatch\nyields 409 (POLICY_VERSION_CONFLICT). A weak validator (`W/\"7\"`) is also accepted.\nOmit the header or send `*` for an unconditional update.\n",
+        "example": "\"7\"",
+        "in": "header",
+        "name": "If-Match",
+        "schema": {
+          "type": "string"
+        }
+      },
       "PageParam": {
         "description": "0-based page number",
         "in": "query",
@@ -121,6 +141,14 @@
             },
             "type": "array"
           },
+          "httpStatus": {
+            "description": "HTTP status of the response",
+            "example": 404,
+            "format": "int32",
+            "maximum": 599,
+            "minimum": 400,
+            "type": "integer"
+          },
           "traceId": {
             "description": "Trace ID for request correlation",
             "example": "abc123def456",
@@ -128,6 +156,7 @@
           }
         },
         "required": [
+          "httpStatus",
           "traceId",
           "errors"
         ],
@@ -319,6 +348,13 @@
           },
           "settings": {
             "$ref": "#/components/schemas/VendorSettings"
+          },
+          "version": {
+            "description": "Optimistic-lock counter, incremented on each PATCH. Surfaced as the strong\nETag response header and used as the If-Match precondition. Null for legacy\ndocuments that predate versioning.\n",
+            "example": 7,
+            "format": "int64",
+            "nullable": true,
+            "type": "integer"
           }
         },
         "required": [
@@ -708,7 +744,15 @@
                 }
               }
             },
-            "description": "Paginated list of policies"
+            "description": "Paginated list of policies",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -761,6 +805,9 @@
             },
             "description": "Policy created",
             "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              },
               "Location": {
                 "description": "URL of the created policy",
                 "schema": {
@@ -800,7 +847,7 @@
     },
     "/v1/policies/{policyId}": {
       "delete": {
-        "description": "Archives the policy. All published versions are retained for audit trail integrity.\n\n**Required Permissions:** `ai-policies:delete`",
+        "description": "Archives the policy. All published versions are retained for audit trail\nintegrity. Returns 409 (POLICY_IN_USE) if one or more Blueprints currently\nreference this policy — remove the policy from all Blueprints before archiving.\n\n\n**Required Permissions:** `ai-policies:delete`",
         "operationId": "archivePolicy",
         "parameters": [
           {
@@ -809,7 +856,12 @@
         ],
         "responses": {
           "204": {
-            "description": "Policy archived"
+            "description": "Policy archived",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -819,6 +871,26 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Policy is referenced by one or more Blueprints (POLICY_IN_USE)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Upstream Blueprints service unavailable during the reference check"
           }
         },
         "security": [
@@ -837,7 +909,7 @@
         ]
       },
       "get": {
-        "description": "Returns the policy with its current draft settings. schemaDrift indicates whether\nthe draft was authored against an older schema version. hasDraft indicates whether\nunpublished changes exist.\n\n\n**Required Permissions:** `ai-policies:read`",
+        "description": "Returns the policy with its current draft settings. schemaDrift indicates whether\nthe draft was authored against an older schema version. hasDraft indicates whether\nunpublished changes exist.\n\nThe response carries a strong ETag derived from the optimistic-lock version\ncounter (omitted for legacy documents that predate versioning). Pass this value\nback in an If-Match header on PATCH to guard against lost updates.\n\n\n**Required Permissions:** `ai-policies:read`",
         "operationId": "getPolicy",
         "parameters": [
           {
@@ -853,7 +925,19 @@
                 }
               }
             },
-            "description": "Policy detail"
+            "description": "Policy detail",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator for the policy's current version, e.g. `\"7\"`. Absent for\nlegacy documents that have no version counter. Echo it in the If-Match\nheader on a subsequent PATCH.\n",
+                "example": "\"7\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -886,11 +970,14 @@
         }
       ],
       "patch": {
-        "description": "Validates settings against the vendor schema and updates the draft settings on\nthe policy. Does NOT create a published version. Call POST /policies/{policyId}/publish\nto snapshot the draft into an immutable version.\n\n\n**Required Permissions:** `ai-policies:update`",
+        "description": "Validates settings against the vendor schema and updates the draft settings on\nthe policy. Does NOT create a published version. Call POST /policies/{policyId}/publish\nto snapshot the draft into an immutable version.\n\nSupports optimistic concurrency control for concurrent draft edits. Supply the\nETag returned by GET in an If-Match header; if the policy's version has since\nadvanced, the write is rejected with 409 (POLICY_VERSION_CONFLICT) and no changes\nare made. Omit If-Match (or send `*`) for an unconditional update.\n\n\n**Required Permissions:** `ai-policies:update`",
         "operationId": "updatePolicy",
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
           }
         ],
         "requestBody": {
@@ -905,7 +992,12 @@
         },
         "responses": {
           "204": {
-            "description": "Draft settings saved"
+            "description": "Draft settings saved",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
@@ -918,6 +1010,16 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "The policy was modified by another writer since the supplied If-Match version\n(POLICY_VERSION_CONFLICT). Re-read the policy to obtain the current ETag and\nretry.\n"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -957,7 +1059,12 @@
                 }
               }
             },
-            "description": "Deployment state for all blueprints referencing this policy"
+            "description": "Deployment state for all blueprints referencing this policy",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1025,6 +1132,9 @@
             },
             "description": "Version published",
             "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              },
               "Location": {
                 "description": "URL of the created policy version",
                 "schema": {
@@ -1097,7 +1207,15 @@
                 }
               }
             },
-            "description": "Paginated list of policy versions"
+            "description": "Paginated list of policy versions",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1148,7 +1266,15 @@
                 }
               }
             },
-            "description": "Policy version detail"
+            "description": "Policy version detail",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1209,7 +1335,12 @@
                 }
               }
             },
-            "description": "List of available tools"
+            "description": "List of available tools",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1252,7 +1383,12 @@
                 }
               }
             },
-            "description": "Tool detail"
+            "description": "Tool detail",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1316,7 +1452,15 @@
                 }
               }
             },
-            "description": "Vendor JSON Schema"
+            "description": "Vendor JSON Schema",
+            "headers": {
+              "Jamf-Preview": {
+                "$ref": "#/components/headers/JamfPreview"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1333,6 +1477,16 @@
               }
             },
             "description": "Tool or schema version not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Schema version is not a known version for this tool (SCHEMA_VERSION_UNKNOWN)"
           }
         },
         "security": [
@@ -1403,6 +1557,10 @@
       "description": "Read-only endpoints for discovering available vendor tools and their JSON Schemas.\nUse these to populate toolId and schemaVersion values when creating or editing\npolicies.\n",
       "name": "tools"
     }
+  ],
+  "x-preview": true,
+  "x-preview-owners": [
+    "ai-policy-builder-backend"
   ],
   "x-scope-types": [
     "environment"

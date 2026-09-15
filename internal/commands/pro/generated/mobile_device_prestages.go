@@ -33,11 +33,19 @@ func NewMobileDevicePrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicePrestagesCreateCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesUpdateCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesDeleteCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesHistoryCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesAttachmentsCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesUploadCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesAttachmentsCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesAttachmentsDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesSyncsCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesScopeCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesScopeByIdCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesCreateScopeCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesUpdateScopeCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesScopeDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesSyncsByIdCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesLatestCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesApplyCmd(ctx))
 
 	return cmd
@@ -84,6 +92,7 @@ func newMobileDevicePrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/mobile-device-prestages")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -111,7 +120,7 @@ func newMobileDevicePrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/mobile-device-prestages"})
 					if err != nil {
 						return err
 					}
@@ -160,7 +169,7 @@ func newMobileDevicePrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/mobile-device-prestages"})
 			if err != nil {
 				return err
 			}
@@ -241,9 +250,10 @@ func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/mobile-device-prestages/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/mobile-device-prestages/{id}"})
 			if err != nil {
 				return err
 			}
@@ -827,9 +837,10 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/mobile-device-prestages/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v2/mobile-device-prestages/{id}"})
 			if err != nil {
 				return err
 			}
@@ -852,234 +863,6 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
-	return cmd
-}
-
-func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes      bool
-		flagDryRun   bool
-		fromFile     string
-		flagIds      []string
-		flagScaffold bool
-		flagName     string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-multiple [<id>]",
-		Short: "Remove an attachment for a Mobile Device Prestage",
-		Long:  "Remove an attachment for a Mobile Device Prestage",
-		Example: `  # Delete multiple mobile-device-prestages by IDs
-  jamf-cli pro mobile-device-prestages delete-multiple 1 --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:delete"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "ids": []
-}`, ctx.Output.Format())
-			}
-
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
-				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
-				}
-				type bulkEntry struct{ id, label string }
-				bulk := make([]bulkEntry, 0, len(entries))
-				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry, noInputBulk)
-							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no mobile-device-prestage found matching %q", entry)
-						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
-				if flagDryRun {
-					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-prestage %q (id: %s)\n", e.label, e.id)
-					}
-					return nil
-				}
-				if !flagYes {
-					if noInputBulk {
-						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobile-device-prestages. Type 'yes' to confirm: ", len(bulk))
-					var confirm string
-					fmt.Scanln(&confirm)
-					if confirm != "yes" {
-						return fmt.Errorf("aborted")
-					}
-				}
-				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
-					return err
-				}
-				var okCount, failCount int
-				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v3/mobile-device-prestages/{id}/attachments/delete-multiple", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete mobile-device-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
-						if firstErr == nil {
-							firstErr = err
-						}
-						failCount++
-						continue
-					}
-					resp.Body.Close()
-					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete mobile-device-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
-						if firstErr == nil {
-							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
-						}
-						failCount++
-						continue
-					}
-					fmt.Fprintf(os.Stderr, "Deleted mobile-device-prestage %q (id: %s)\n", e.label, e.id)
-					okCount++
-				}
-				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-device-prestages deletes")
-			}
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			var resolvedByName string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				if rid == "" {
-					return fmt.Errorf("no mobile-device-prestage found with displayName %q", flagName)
-				}
-				resolvedID = rid
-				resolvedByName = flagName
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Confirmation for destructive action (after name lookup)
-			if flagDryRun {
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete-multiple mobile-device-prestage %q (id: %s)\n", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete-multiple mobile-device-prestage %s\n", resolvedID)
-				}
-				return nil
-			}
-			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple mobile-device-prestage %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple mobile-device-prestage %s. Type 'yes' to confirm: ", resolvedID)
-				}
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			// Destructive cooldown enforcement
-			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
-				return err
-			}
-
-			// Build request path
-			path := "/v3/mobile-device-prestages/{id}/attachments/delete-multiple"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			// Handle --ids flag for bulk operations
-			if len(flagIds) > 0 {
-				payload := struct {
-					IDs []string `json:"ids"`
-				}{IDs: flagIds}
-				idsJSON, err := json.Marshal(payload)
-				if err != nil {
-					return fmt.Errorf("encoding ids: %w", err)
-				}
-				body = strings.NewReader(string(idsJSON))
-			} else {
-				stat, _ := os.Stdin.Stat()
-				if (stat.Mode() & os.ModeCharDevice) == 0 {
-					body = os.Stdin
-				}
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			err = ctx.Output.PrintResponse(resp)
-			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				cooldown.Record(ctx.ProfileName)
-			}
-			return err
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
@@ -1146,6 +929,7 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/mobile-device-prestages/{id}/history")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -1174,7 +958,7 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/mobile-device-prestages/{id}/history"})
 					if err != nil {
 						return err
 					}
@@ -1223,7 +1007,7 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/mobile-device-prestages/{id}/history"})
 			if err != nil {
 				return err
 			}
@@ -1340,61 +1124,6 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 	return cmd
 }
 
-func newMobileDevicePrestagesAttachmentsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
-
-	cmd := &cobra.Command{
-		Use:         "attachments [<id>]",
-		Short:       "Get attachments for a Mobile Device Prestage",
-		Long:        "Get attachments for a Mobile Device Prestage",
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Build request path
-			path := "/v3/mobile-device-prestages/{id}/attachments"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
-
-	return cmd
-}
-
 func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagFile string
@@ -1463,6 +1192,943 @@ func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to the file to upload (required; --file, not --from-file: a multipart upload needs a name and a length, so it cannot be piped)")
 	_ = cmd.MarkFlagRequired("file")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesAttachmentsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "attachments [<id>]",
+		Short:       "Get attachments for a Mobile Device Prestage",
+		Long:        "Get attachments for a Mobile Device Prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v3/mobile-device-prestages/{id}/attachments"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+			vft := newVersionFallback("/v3/mobile-device-prestages/{id}/attachments")
+
+			// Make request
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/mobile-device-prestages/{id}/attachments"})
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesAttachmentsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes      bool
+		flagDryRun   bool
+		fromFile     string
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "attachments-delete-multiple [<id>]",
+		Short:       "Remove an attachment for a Mobile Device Prestage",
+		Long:        "Remove an attachment for a Mobile Device Prestage",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:delete"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "ids": []
+}`, ctx.Output.Format())
+			}
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no mobile-device-prestage found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"attachments-delete-multiple\" on mobile-device-prestage %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"attachments-delete-multiple\" on %d mobile-device-prestages. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v3/mobile-device-prestages/{id}/attachments/delete-multiple", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "run \"attachments-delete-multiple\" on mobile-device-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "run \"attachments-delete-multiple\" on mobile-device-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Ran \"attachments-delete-multiple\" on mobile-device-prestage %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-device-prestages attachments-delete-multiple actions")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device-prestage found with displayName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"attachments-delete-multiple\" on mobile-device-prestage %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"attachments-delete-multiple\" on mobile-device-prestage %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"attachments-delete-multiple\" on mobile-device-prestage %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"attachments-delete-multiple\" on mobile-device-prestage %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v3/mobile-device-prestages/{id}/attachments/delete-multiple"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"attachments-delete-multiple\" on (one per line, # comments ignored)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesSyncsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "syncs",
+		Short:       "Get all Prestage sync States for all prestages",
+		Long:        "Get all prestage sync states for all prestages",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/syncs"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newMobileDevicePrestagesScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "scope",
+		Short:       "Get all Device Scope for all Mobile Device Prestages",
+		Long:        "Get all device scope for all mobile device prestages",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/scope"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newMobileDevicePrestagesScopeByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "scope-by-id [<id>]",
+		Short:       "Get Device Scope for a specific Mobile Device Prestage",
+		Long:        "Get device scope for a specific mobile device prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "create-scope [<id>]",
+		Short:       "Add Device Scope for a specific Mobile Device Prestage",
+		Long:        "Add device scope for a specific mobile device prestage",
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "update-scope [<id>]",
+		Short:       "Replace Device Scope for a specific Mobile Device Prestage",
+		Long:        "Replace device scope for a specific mobile device prestage",
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesScopeDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes      bool
+		flagDryRun   bool
+		fromFile     string
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "scope-delete-multiple [<id>]",
+		Short:       "Remove Device Scope for a specific Mobile Device Prestage",
+		Long:        "Remove device scope for a specific mobile device prestage",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`, ctx.Output.Format())
+			}
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no mobile-device-prestage found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"scope-delete-multiple\" on mobile-device-prestage %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"scope-delete-multiple\" on %d mobile-device-prestages. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v2/mobile-device-prestages/{id}/scope/delete-multiple", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "run \"scope-delete-multiple\" on mobile-device-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "run \"scope-delete-multiple\" on mobile-device-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Ran \"scope-delete-multiple\" on mobile-device-prestage %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-device-prestages scope-delete-multiple actions")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device-prestage found with displayName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"scope-delete-multiple\" on mobile-device-prestage %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"scope-delete-multiple\" on mobile-device-prestage %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"scope-delete-multiple\" on mobile-device-prestage %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"scope-delete-multiple\" on mobile-device-prestage %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/scope/delete-multiple"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, strings.TrimSuffix(path, "/delete-multiple"))
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"scope-delete-multiple\" on (one per line, # comments ignored)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesSyncsByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "syncs-by-id [<id>]",
+		Short:       "Get all prestage sync states for a single prestage",
+		Long:        "Get all prestage sync states for a single prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/syncs"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesLatestCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "latest [<id>]",
+		Short:       "Get the latest Sync State for a single Prestage",
+		Long:        "Get the latest sync state for a single prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/syncs/latest"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd

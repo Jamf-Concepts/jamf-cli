@@ -13,9 +13,17 @@ import (
 
 // Resource identifies a Classic API resource that supports scope operations.
 type Resource struct {
-	APIPath       string // URL segment under /JSSResource/, e.g. "policies"
-	SingularKey   string // XML root key for a single object, e.g. "policy"
-	ResolveByList bool   // when true, resolve name→ID by listing all (no /name/ endpoint)
+	APIPath     string // URL segment under /JSSResource/, e.g. "policies"
+	SingularKey string // XML root key for a single object, e.g. "policy"
+
+	// CLIName is the command name this resource ships under, e.g.
+	// "classic-policies". It exists so --help examples are invocations a
+	// caller can paste rather than fragments starting at "scope add".
+	CLIName string
+
+	// ResolveByList resolves name→ID by listing the collection, for the two
+	// resources with no /name/ endpoint.
+	ResolveByList bool
 }
 
 // ScopeTarget holds a resolved flag name and value from a scope add/remove command.
@@ -92,93 +100,64 @@ func (s ScopeItemSlice) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Items)
 }
 
-// ScopeStringSlice is a list of plain string elements under a single XML parent.
-// Used for policy limitation user groups (limit_to_users/user_groups), where
-// items are bare strings rather than objects with name sub-elements.
-type ScopeStringSlice struct {
-	Items    []string
-	ElemName string
-}
-
-func (s *ScopeStringSlice) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	for {
-		tok, err := d.Token()
-		if err != nil {
-			return err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			s.ElemName = t.Name.Local
-			var val string
-			if err := d.DecodeElement(&val, &t); err != nil {
-				return err
-			}
-			s.Items = append(s.Items, val)
-		case xml.EndElement:
-			return nil
-		}
-	}
-}
-
-func (s ScopeStringSlice) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	if err := e.EncodeToken(start); err != nil {
-		return err
-	}
-	elemName := s.ElemName
-	if elemName == "" {
-		elemName = strings.TrimSuffix(start.Name.Local, "s")
-	}
-	for _, val := range s.Items {
-		if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: elemName}}); err != nil {
-			return err
-		}
-	}
-	return e.EncodeToken(start.End())
-}
-
-func (s ScopeStringSlice) MarshalJSON() ([]byte, error) {
-	if s.Items == nil {
-		return []byte("[]"), nil
-	}
-	return json.Marshal(s.Items)
-}
-
 // ScopeXML models the complete <scope> section of a Classic API resource.
 //
 // All scopeable item slices are present unconditionally so that an unmarshal →
 // modify → marshal round-trip preserves every section the server returned. A
 // missing field here would cause CLI scope add/remove to silently wipe data
-// the user set elsewhere (e.g. individual mobile devices added via UI).
+// the user set elsewhere (e.g. individual mobile devices added via UI), since
+// a scope PUT replaces the whole <scope> subtree.
+//
+// FIELD ORDER IS LOAD-BEARING. The Classic API's XML binding reads scope
+// children in schema order and silently ignores whatever arrives out of it,
+// answering 200 either way — so a body assembled in the order a GET happens to
+// return (which differs per resource: macapplications answers <exclusions> as
+// buildings, departments, mobile_device_groups, users, …) is accepted and
+// applied to nothing. This order is the schema order and is what makes
+// PutScope's marshalled body take effect; re-ordering these fields to match
+// any one resource's GET breaks the others. Wire-checked 2026-09-12.
+//
+// Fields a given resource does not carry are emitted empty and ignored by the
+// server; only a POPULATED foreign category is refused, with a 409 naming it
+// ("Mobile device groups cannot be assigned to an macOS profile"), which is
+// what the matrix in matrix.go refuses client-side.
+//
+// <limit_to_users> is deliberately absent. The server denormalises
+// <limitations><user_groups> into <limit_to_users><user_groups> on every write
+// and back again on every read, so the two wire paths always carry identical
+// values and modelling both meant a policy-only special case in five
+// functions. Wire-checked 2026-09-12 in both directions: writing only
+// limitations.user_groups populates limit_to_users, writing only
+// limit_to_users populates limitations.user_groups, and an empty
+// limitations.user_groups with limit_to_users omitted clears both.
 type ScopeXML struct {
-	XMLName            xml.Name         `xml:"scope" json:"-"`
-	AllComputers       bool             `xml:"all_computers" json:"all_computers"`
-	AllMobileDevices   bool             `xml:"all_mobile_devices,omitempty" json:"all_mobile_devices,omitempty"`
-	AllJSSUsers        bool             `xml:"all_jss_users" json:"all_jss_users"`
-	Computers          ScopeItemSlice   `xml:"computers" json:"computers"`
-	ComputerGroups     ScopeItemSlice   `xml:"computer_groups" json:"computer_groups"`
-	MobileDevices      ScopeItemSlice   `xml:"mobile_devices" json:"mobile_devices"`
-	MobileDeviceGroups ScopeItemSlice   `xml:"mobile_device_groups" json:"mobile_device_groups"`
-	JSSUsers           ScopeItemSlice   `xml:"jss_users" json:"jss_users"`
-	JSSUserGroups      ScopeItemSlice   `xml:"jss_user_groups" json:"jss_user_groups"`
-	Buildings          ScopeItemSlice   `xml:"buildings" json:"buildings"`
-	Departments        ScopeItemSlice   `xml:"departments" json:"departments"`
-	Classes            ScopeItemSlice   `xml:"classes" json:"classes"`
-	LimitToUsers       *LimitToUsersXML `xml:"limit_to_users,omitempty" json:"limit_to_users,omitempty"`
-	Limitations        *LimitationsXML  `xml:"limitations,omitempty" json:"limitations,omitempty"`
-	Exclusions         *ExclusionsXML   `xml:"exclusions,omitempty" json:"exclusions,omitempty"`
-}
-
-// LimitToUsersXML models the <limit_to_users> section (policies only).
-type LimitToUsersXML struct {
-	UserGroups ScopeStringSlice `xml:"user_groups" json:"user_groups"`
+	XMLName            xml.Name        `xml:"scope" json:"-"`
+	AllComputers       bool            `xml:"all_computers" json:"all_computers"`
+	AllMobileDevices   bool            `xml:"all_mobile_devices,omitempty" json:"all_mobile_devices,omitempty"`
+	AllJSSUsers        bool            `xml:"all_jss_users" json:"all_jss_users"`
+	Computers          ScopeItemSlice  `xml:"computers" json:"computers"`
+	ComputerGroups     ScopeItemSlice  `xml:"computer_groups" json:"computer_groups"`
+	MobileDevices      ScopeItemSlice  `xml:"mobile_devices" json:"mobile_devices"`
+	MobileDeviceGroups ScopeItemSlice  `xml:"mobile_device_groups" json:"mobile_device_groups"`
+	JSSUsers           ScopeItemSlice  `xml:"jss_users" json:"jss_users"`
+	JSSUserGroups      ScopeItemSlice  `xml:"jss_user_groups" json:"jss_user_groups"`
+	Buildings          ScopeItemSlice  `xml:"buildings" json:"buildings"`
+	Departments        ScopeItemSlice  `xml:"departments" json:"departments"`
+	Classes            ScopeItemSlice  `xml:"classes" json:"classes"`
+	Limitations        *LimitationsXML `xml:"limitations,omitempty" json:"limitations,omitempty"`
+	Exclusions         *ExclusionsXML  `xml:"exclusions,omitempty" json:"exclusions,omitempty"`
 }
 
 // LimitationsXML models the <limitations> section.
+//
+// There is no computer_groups field: no scopeable resource returns one in its
+// limitations block (a computer group narrows nothing — it is a target), and
+// the field this struct used to carry was write-only noise nothing populated
+// and nothing read.
 type LimitationsXML struct {
 	Users           ScopeItemSlice `xml:"users" json:"users"`
 	UserGroups      ScopeItemSlice `xml:"user_groups" json:"user_groups"`
 	NetworkSegments ScopeItemSlice `xml:"network_segments" json:"network_segments"`
-	ComputerGroups  ScopeItemSlice `xml:"computer_groups" json:"computer_groups"`
 	IBeacons        ScopeItemSlice `xml:"ibeacons" json:"ibeacons"`
 }
 
@@ -232,6 +211,8 @@ var flagToElemName = map[string]string{
 	"user-group":          "user_group",
 	"jss-user-group":      "user_group",
 	"jss-user":            "jss_user",
+	"ibeacon":             "ibeacon",
+	"class":               "class",
 }
 
 // scopeFlagNames is the ordered list of scope item flags.
@@ -239,4 +220,5 @@ var scopeFlagNames = []string{
 	"computer", "computer-group", "mobile-device", "mobile-device-group",
 	"building", "department", "network-segment",
 	"user", "user-group", "jss-user-group", "jss-user",
+	"ibeacon", "class",
 }

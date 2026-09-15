@@ -92,9 +92,9 @@ var BackupResources = []BackupResource{
 	// it made `backup` and `diff` send a request that
 	// `pro static-computer-groups list` refuses on the same profile — and under
 	// --allow-partial-failure produced a backup silently missing every static
-	// computer group. DeduplicateVersioned keys a family on a V<n> name suffix,
-	// so a pair whose derived names differ is never collapsed and both survive:
-	// picking between them is this file's job.
+	// computer group. Version consolidation happens inside one resource, per
+	// version-stripped path shape, so two distinct path roots under one tag both
+	// survive: picking between them is this file's job.
 	{Key: "computer-groups-smart-groups", FilterName: "smart-groups", SubDir: "smart-groups/computers"},
 	{Key: "computer-groups-static-groups", FilterName: "static-groups", SubDir: "static-groups/computers"},
 

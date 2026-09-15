@@ -32,6 +32,11 @@ func NewComputerPrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newComputerPrestagesCreateCmd(ctx))
 	cmd.AddCommand(newComputerPrestagesUpdateCmd(ctx))
 	cmd.AddCommand(newComputerPrestagesDeleteCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesScopeCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesScopeByIdCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesCreateScopeCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesUpdateScopeCmd(ctx))
 	cmd.AddCommand(newComputerPrestagesApplyCmd(ctx))
 
 	return cmd
@@ -841,6 +846,531 @@ func newComputerPrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+
+	return cmd
+}
+
+func newComputerPrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes      bool
+		flagDryRun   bool
+		fromFile     string
+		flagIds      []string
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-multiple [<id>]",
+		Short: "Remove device Scope for a specific Computer Prestage",
+		Long:  "Remove device scope for a specific computer prestage",
+		Example: `  # Delete multiple computer-prestages by IDs
+  jamf-cli pro computer-prestages delete-multiple 1 --ids 1,2,3 --yes`,
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`, ctx.Output.Format())
+			}
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no computer-prestage found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"delete-multiple\" on computer-prestage %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on %d computer-prestages. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v2/computer-prestages/{id}/scope/delete-multiple", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "run \"delete-multiple\" on computer-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "run \"delete-multiple\" on computer-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Ran \"delete-multiple\" on computer-prestage %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "computer-prestages delete-multiple actions")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no computer-prestage found with displayName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"delete-multiple\" on computer-prestage %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"delete-multiple\" on computer-prestage %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on computer-prestage %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on computer-prestage %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v2/computer-prestages/{id}/scope/delete-multiple"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			// Handle --ids flag for bulk operations
+			if len(flagIds) > 0 {
+				payload := struct {
+					IDs []string `json:"ids"`
+				}{IDs: flagIds}
+				idsJSON, err := json.Marshal(payload)
+				if err != nil {
+					return fmt.Errorf("encoding ids: %w", err)
+				}
+				body = strings.NewReader(string(idsJSON))
+			} else {
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+					if err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
+					normalized, err := normalizeInputToJSON(raw)
+					if err != nil {
+						return err
+					}
+					vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, strings.TrimSuffix(path, "/delete-multiple"))
+					if vlErr != nil {
+						return vlErr
+					}
+					normalized, vlErr = injectVersionLocks(normalized, vlResp)
+					if vlErr != nil {
+						return vlErr
+					}
+					body = bytes.NewReader(normalized)
+				}
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"delete-multiple\" on (one per line, # comments ignored)")
+	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+
+	return cmd
+}
+
+func newComputerPrestagesScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "scope",
+		Short:       "Get all device Scope for all Computer Prestages",
+		Long:        "Get all device scope for all computer prestages",
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/computer-prestages/scope"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newComputerPrestagesScopeByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "scope-by-id [<id>]",
+		Short:       "Get device Scope for a specific Computer Prestage",
+		Long:        "Get device scope for a specific computer prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/computer-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
+
+	return cmd
+}
+
+func newComputerPrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "create-scope [<id>]",
+		Short:       "Add device Scope for a specific Computer Prestage",
+		Long:        "Add device scope for a specific computer prestage",
+		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/computer-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
+
+	return cmd
+}
+
+func newComputerPrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "update-scope [<id>]",
+		Short:       "Replace device Scope for a specific Computer Prestage",
+		Long:        "Replace device scope for a specific computer prestage",
+		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v2/computer-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
 
 	return cmd
 }

@@ -192,7 +192,7 @@ func newAiPoliciesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete <policyId>",
 		Short:       "Archive an AI governance policy (soft delete)",
-		Long:        "Archives the policy. All published versions are retained for audit trail integrity.",
+		Long:        "Archives the policy. All published versions are retained for audit trail integrity. Returns 409 (POLICY_IN_USE) if one or more Blueprints currently reference this policy — remove the policy from all Blueprints before archiving.",
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ai-policies:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

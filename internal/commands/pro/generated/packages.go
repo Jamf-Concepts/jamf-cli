@@ -38,6 +38,7 @@ func NewPackagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPackagesAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newPackagesExportCmd(ctx))
 	cmd.AddCommand(newPackagesHistoryExportCmd(ctx))
+	cmd.AddCommand(newPackagesManifestDeleteCmd(ctx))
 	cmd.AddCommand(newPackagesUploadCmd(ctx))
 	cmd.AddCommand(newPackagesApplyCmd(ctx))
 
@@ -764,7 +765,7 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-multiple\n")
+				fmt.Fprintf(os.Stderr, "Would run \"delete-multiple\" on this package\n")
 				return nil
 			}
 			if !flagYes {
@@ -772,7 +773,7 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will run \"delete-multiple\" on this package. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1364,6 +1365,210 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up package by name")
+
+	return cmd
+}
+
+func newPackagesManifestDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+		fromFile   string
+		flagName   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "manifest-delete [<id>]",
+		Short:       "Delete the manifest for a specified package",
+		Long:        "Delete the manifest file for a specified package",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Packages,Read Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:read,packages:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no package found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete package %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d packages. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v1/packages/{id}/manifest", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete package %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete package %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted package %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "packages deletes")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "packageName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no package found with packageName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete package %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete package %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete package %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete package %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v1/packages/{id}/manifest"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
+				return nil
+			}
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up package by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }

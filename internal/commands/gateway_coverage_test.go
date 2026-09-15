@@ -4,6 +4,7 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -244,7 +245,7 @@ func asExitcode(err error, out **exitcode.Error) bool {
 }
 
 // The catalog skipped every command named "commands", not just the root's own
-// catalog command — so `pro mdm-commands commands` was absent from the
+// catalog command — so `pro mdm commands` was absent from the
 // machine-readable listing, gateway refusal and all.
 func TestCommandsCatalogIncludesANestedCommandNamedCommands(t *testing.T) {
 	root := NewRootCmd("test", "", "", "")
@@ -255,7 +256,7 @@ func TestCommandsCatalogIncludesANestedCommandNamedCommands(t *testing.T) {
 		if e.Command == "commands" {
 			t.Error("the root catalog command listed itself")
 		}
-		if e.Command == "pro mdm-commands commands" {
+		if e.Command == "pro mdm commands" {
 			found = true
 			if e.Gateway == "" {
 				t.Errorf("%s listed without its gateway verdict", e.Command)
@@ -263,7 +264,7 @@ func TestCommandsCatalogIncludesANestedCommandNamedCommands(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("pro mdm-commands commands is missing from the catalog")
+		t.Error("pro mdm commands is missing from the catalog")
 	}
 }
 
@@ -582,27 +583,40 @@ func TestAllowUnpublishedDoesNotApplyToAProbedEndpoint(t *testing.T) {
 // The refusal used to offer one remedy — provision a second credential against a
 // Jamf Pro instance — even where swapping one command name on the profile in hand
 // would do. Where a replacement ships in this same binary, say so first.
+//
+// gateway.successors is unexported and currently empty, so this cannot install a
+// fixture the way internal/gateway's own tests do (its
+// TestRefusalNamesACuratedSuccessorFirst pins the wording and the ordering over
+// a test-local entry). What this side owns is the delegation: checkAPIMatch must
+// render gateway.Refusal verbatim rather than composing a message of its own,
+// because that is the property that makes whatever the table holds reach the
+// operator. Asserted as equality, so a hand-rolled message cannot pass by
+// happening to contain the same phrases — and it holds at any table size, where
+// a string match on one entry's wording only holds while that entry lives.
 func TestTheRefusalNamesAWorkingSuccessorWhereOneShips(t *testing.T) {
-	_, _, leaf := unservedLeaf("static-computer-groups", "list", gateway.BasisUnpublished)
+	const detail = "not declared by the gateway's Jamf Pro API 11.31.0"
+	_, _, leaf := unservedLeaf("api-roles", "list", gateway.BasisUnpublished)
 	err := checkAPIMatch(leaf, &auth.PlatformOAuth2Provider{}, "platform-ga")
 	if err == nil {
 		t.Fatal("expected a refusal")
 	}
-	msg := err.Error()
-	if !strings.Contains(msg, "jamf-cli pro computer-groups-static-groups") {
-		t.Errorf("the refusal does not name the successor:\n%s", msg)
+	var coded *exitcode.Error
+	if !errors.As(err, &coded) {
+		t.Fatalf("refusal does not carry an exit code: %T", err)
 	}
-	// The instance remedy stays, demoted: it is still the answer for anyone who
-	// wants the withdrawn endpoint itself.
-	if !strings.Contains(msg, "Failing that, run it against a Jamf Pro instance") {
-		t.Errorf("the instance remedy went missing or was not demoted:\n%s", msg)
+	want := gateway.Refusal(leaf.CommandPath(), gateway.BasisUnpublished, detail)
+	if coded.Message != want {
+		t.Errorf("the refusal is not gateway.Refusal's message, so a curated successor would not reach it:\ngot:  %q\nwant: %q", coded.Message, want)
 	}
-	// A refused command with no curated successor must not gain a sentence.
-	_, _, plain := unservedLeaf("api-roles", "list", gateway.BasisUnpublished)
-	if err := checkAPIMatch(plain, &auth.PlatformOAuth2Provider{}, "p"); err == nil {
-		t.Fatal("expected a refusal")
-	} else if strings.Contains(err.Error(), "instead") {
-		t.Errorf("a successor was invented for a command that has none:\n%s", err)
+	// The instance remedy is there whatever the table holds; it is only demoted
+	// behind a successor when one exists, which internal/gateway pins.
+	if !strings.Contains(coded.Message, "Run it against a Jamf Pro instance") {
+		t.Errorf("the instance remedy went missing:\n%s", coded.Message)
+	}
+	// A refused command with no curated successor must not gain a sentence. That
+	// is every refused command this binary ships today, so it is the live half.
+	if strings.Contains(coded.Message, "instead") {
+		t.Errorf("a successor was invented for a command that has none:\n%s", coded.Message)
 	}
 }
 
@@ -611,21 +625,87 @@ func TestTheRefusalNamesAWorkingSuccessorWhereOneShips(t *testing.T) {
 // first `--help`, listed every subcommand with no caveat when all of them are
 // refused.
 func TestGroupHelpCarriesTheCaveatWhenEveryLeafIsRefused(t *testing.T) {
-	root, group, _ := unservedLeaf("static-computer-groups", "list", gateway.BasisUnpublished)
+	root, group, _ := unservedLeaf("api-roles", "list", gateway.BasisUnpublished)
 	applyGatewayCoverageHelp(root)
 	if !strings.Contains(group.Long, gatewayHelpMarker) {
 		t.Fatalf("the group carries no caveat though every leaf is refused:\n%q", group.Long)
 	}
-	for _, want := range []string{"every subcommand here is refused", "jamf-cli pro computer-groups-static-groups"} {
-		if !strings.Contains(group.Long, want) {
-			t.Errorf("the group caveat does not say %q:\n%s", want, group.Long)
-		}
+	if !strings.Contains(group.Long, "every subcommand here is refused") {
+		t.Errorf("the group caveat does not say every subcommand is refused:\n%s", group.Long)
+	}
+	// A refused group with no curated successor must not gain a sentence. That is
+	// every refused group this binary ships today, successors being empty.
+	if strings.Contains(group.Long, "instead") {
+		t.Errorf("a successor was invented for a group that has none:\n%s", group.Long)
 	}
 	// Idempotent, like the leaf note: NewRootCmd is built more than once.
 	once := group.Long
 	applyGatewayCoverageHelp(root)
 	if group.Long != once {
 		t.Errorf("the group caveat was appended twice:\n%s", group.Long)
+	}
+}
+
+// The group caveat's successor tail is a dead code path while successors is
+// empty: deleting successorHelp from gatewayGroupCoverageHelp changes nothing
+// observable for any input the shipped tree can produce, so the sibling above
+// cannot see it. Installed fixture, therefore — the wording itself belongs to
+// internal/gateway and is asserted by comparison rather than re-spelled, so
+// --help and the runtime refusal cannot drift.
+func TestGroupHelpRendersACuratedSuccessorWhenOneExists(t *testing.T) {
+	defer gateway.InstallSuccessorForTest(t, "pro example-withdrawn", "pro example-successor",
+		"it serves the same endpoint at the version the gateway publishes")()
+
+	root, group, _ := unservedLeaf("example-withdrawn", "list", gateway.BasisUnpublished)
+	applyGatewayCoverageHelp(root)
+	want := gateway.SuccessorNote(group.CommandPath())
+	if want == "" {
+		t.Fatal("the fixture did not reach gateway.SuccessorNote, so this test asserts nothing")
+	}
+	if !strings.HasSuffix(group.Long, want) {
+		t.Errorf("the group caveat does not end with the curated successor note %q:\n%s", want, group.Long)
+	}
+}
+
+// The leaf caveat carries the same tail, from the same helper, and is dead for
+// the same reason. Both are asserted because the two renderers are separate
+// functions and one has been changed without the other.
+func TestLeafHelpRendersACuratedSuccessorWhenOneExists(t *testing.T) {
+	defer gateway.InstallSuccessorForTest(t, "pro example-withdrawn", "pro example-successor",
+		"it serves the same endpoint at the version the gateway publishes")()
+
+	root, _, leaf := unservedLeaf("example-withdrawn", "list", gateway.BasisUnpublished)
+	applyGatewayCoverageHelp(root)
+	want := gateway.SuccessorNote(leaf.CommandPath())
+	if want == "" {
+		t.Fatal("the fixture did not reach gateway.SuccessorNote, so this test asserts nothing")
+	}
+	if !strings.Contains(leaf.Long, want) {
+		t.Errorf("the leaf caveat does not carry the curated successor note %q:\n%s", want, leaf.Long)
+	}
+}
+
+// The runtime refusal is the third renderer of the same entry. The sibling above
+// pins that checkAPIMatch delegates to gateway.Refusal at all; this pins that a
+// curated entry survives the trip, which the delegation check cannot show while
+// the table is empty.
+func TestTheRefusalRendersACuratedSuccessorWhenOneExists(t *testing.T) {
+	defer gateway.InstallSuccessorForTest(t, "pro example-withdrawn", "pro example-successor",
+		"it serves the same endpoint at the version the gateway publishes")()
+
+	_, _, leaf := unservedLeaf("example-withdrawn", "list", gateway.BasisUnpublished)
+	err := checkAPIMatch(leaf, &auth.PlatformOAuth2Provider{}, "platform-ga")
+	if err == nil {
+		t.Fatal("expected a refusal")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "jamf-cli pro example-successor") {
+		t.Errorf("the refusal does not name the curated successor:\n%s", msg)
+	}
+	// Demoted, not dropped: it is still the answer for anyone who wants the
+	// withdrawn endpoint itself rather than its replacement.
+	if !strings.Contains(msg, "Failing that, run it against a Jamf Pro instance") {
+		t.Errorf("the instance remedy went missing or was not demoted:\n%s", msg)
 	}
 }
 
@@ -758,7 +838,7 @@ func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 	// test passed against a call shape production never makes.
 	entries := collectCommands(root, "", "", "")
 
-	var refused, withSuccessor int
+	var refused int
 	for _, e := range entries {
 		if e.Gateway != string(gateway.Unserved) {
 			// A served command must never advertise a replacement: that would
@@ -769,10 +849,22 @@ func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 			continue
 		}
 		refused++
+		// Every refused entry must carry exactly what the curated table renders
+		// for its command path — binary name included, which is the half that
+		// broke: the lookup was handed collectCommands' deliberately binary-less
+		// prefix, so "static-computer-groups" missed a table keyed
+		// "pro static-computer-groups" and the field was never emitted.
+		// Recomputed here rather than compared against a non-empty count,
+		// because the count only holds while the table does: successors is empty
+		// today and this still fails if the projection starts inventing values,
+		// or stops passing the binary name, or is dropped.
+		want, _, _ := gateway.Successor(root.Name() + " " + e.Command)
+		if e.GatewaySuccessor != want {
+			t.Errorf("%s: catalog says successor %q, the curated table says %q", e.Command, e.GatewaySuccessor, want)
+		}
 		if e.GatewaySuccessor == "" {
 			continue
 		}
-		withSuccessor++
 		// The successor must be a command the binary actually ships, or the
 		// catalog sends a consumer to something that does not exist.
 		fields := strings.Fields(e.GatewaySuccessor)
@@ -788,8 +880,36 @@ func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 	if refused == 0 {
 		t.Fatal("no refused command in the catalog — the coverage manifest is not being read")
 	}
-	if withSuccessor == 0 {
-		t.Fatal("no refused command carries a successor; gateway.Successor is not reaching the catalog")
+}
+
+// The sweep above agrees with the table at any table size, including empty,
+// which is the state that ships. What it cannot do while the table is empty is
+// show that a curated entry travels: gatewaySuccessorOf could return "" for
+// every input and the agreement would hold. This installs one over a synthetic
+// tree, so the lookup and the projection are both exercised end to end.
+//
+// Synthetic rather than a fixture keyed on a real refused command, so nothing in
+// the test asserts a replacement for a command that has none — the table's own
+// argument is that a wrong answer there is worse than no answer.
+func TestCatalogCarriesACuratedSuccessorWhenOneExists(t *testing.T) {
+	defer gateway.InstallSuccessorForTest(t, "pro example-withdrawn", "pro example-successor",
+		"it serves the same endpoint at the version the gateway publishes")()
+
+	root, _, _ := unservedLeaf("example-withdrawn", "list", gateway.BasisUnpublished)
+	entries := collectCommands(root, "", "", "")
+
+	var found bool
+	for _, e := range entries {
+		if e.Command != "pro example-withdrawn list" {
+			continue
+		}
+		found = true
+		if e.GatewaySuccessor != "jamf-cli pro example-successor" {
+			t.Errorf("GatewaySuccessor = %q, want %q — the curated entry did not reach the catalog", e.GatewaySuccessor, "jamf-cli pro example-successor")
+		}
+	}
+	if !found {
+		t.Fatal("the synthetic refused leaf was not collected, so this test asserts nothing")
 	}
 }
 
@@ -804,40 +924,59 @@ func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 // Asserted on the map keys alone, never on commandEntry, so the test cannot
 // pass by re-reading the value the copy was supposed to move.
 func TestCatalogJSONCarriesTheSuccessorKey(t *testing.T) {
-	root := NewRootCmd("test", "commit", "date", "11.31.0")
-	entries := collectCommands(root, "", "", "")
+	// Both directions over hand-built entries, because the key is positive-only
+	// and the shipped tree currently supplies only the negative half: successors
+	// is empty, so no real command carries a value and the presence direction
+	// would pass over nothing. commandEntriesToMaps is a pure function of its
+	// entries, so feeding it the two rows is the whole of what the projection
+	// sees in production.
+	entries := []commandEntry{
+		{
+			Command:          "pro example-withdrawn list",
+			Gateway:          string(gateway.Unserved),
+			GatewayBasis:     string(gateway.BasisUnpublished),
+			GatewayDetail:    "not declared by the gateway's Jamf Pro API 11.31.0",
+			GatewaySuccessor: "jamf-cli pro example-successor",
+		},
+		{Command: "pro categories list"},
+	}
 	// true is what `commands -o json` passes: isFullDetailFormat covers every
 	// structured format, and the compact table carries none of these fields.
 	maps := commandEntriesToMaps(entries, true)
 
-	var refused, withSuccessor int
-	for _, m := range maps {
-		successor, hasSuccessor := m["gatewaySuccessor"].(string)
+	successor, ok := maps[0]["gatewaySuccessor"].(string)
+	if !ok {
+		t.Error("gatewaySuccessor is missing from a refused row that has one; the field is computed but not marshaled")
+	} else if successor != entries[0].GatewaySuccessor {
+		t.Errorf("gatewaySuccessor = %q, want %q", successor, entries[0].GatewaySuccessor)
+	}
+	// A served command must not advertise a replacement, and the key must be
+	// absent rather than empty: an empty string on every row would read as "no
+	// replacement exists".
+	if v, present := maps[1]["gatewaySuccessor"]; present {
+		t.Errorf("a served row carries gatewaySuccessor %#v — absence is the contract", v)
+	}
+
+	// And the shipped tree must not be inventing one, which is the half the rows
+	// above cannot see.
+	root := NewRootCmd("test", "commit", "date", "11.31.0")
+	live := commandEntriesToMaps(collectCommands(root, "", "", ""), true)
+	var refused int
+	for _, m := range live {
+		v, present := m["gatewaySuccessor"]
 		if m["gateway"] != string(gateway.Unserved) {
-			// A served command must not advertise a replacement, and the key
-			// must be absent rather than empty: an empty string on every row
-			// would read as "no replacement exists".
-			if hasSuccessor {
-				t.Errorf("%v is served but its JSON carries gatewaySuccessor %q", m["command"], successor)
+			if present {
+				t.Errorf("%v is served but its JSON carries gatewaySuccessor %#v", m["command"], v)
 			}
 			continue
 		}
 		refused++
-		if !hasSuccessor {
-			continue
-		}
-		if successor == "" {
+		if present && v == "" {
 			t.Errorf("%v: gatewaySuccessor is present but empty", m["command"])
-			continue
 		}
-		withSuccessor++
 	}
-
 	if refused == 0 {
 		t.Fatal("no refused command in the catalog — the coverage manifest is not being read")
-	}
-	if withSuccessor == 0 {
-		t.Fatal("no gatewaySuccessor key in the JSON catalog; the field is computed but not marshaled")
 	}
 }
 

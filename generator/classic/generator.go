@@ -87,7 +87,38 @@ func (g *Generator) Generate(resource ClassicResource) (string, error) {
 }
 
 // GenerateRegistry writes the classic_registry.go file that registers all Classic commands.
+// CheckRegistryCollisions refuses a manifest whose resources would register one
+// constructor twice, or write two resources to one file.
+//
+// Same refusal as the modern generator's (see parser.CheckRegistryCollisions and
+// #362), and it matters here for a different reason: these resources come from a
+// hand-edited manifest, specs/classic/resources.yaml, so a repeated cli_name is
+// an edit rather than a derivation. Both symptoms are silent — a duplicate
+// AddCommand compiles and ships the resource twice in `pro --help` with the
+// second subtree unreachable, and a shared file name makes the second Generate
+// overwrite the first and lose its operations.
+func CheckRegistryCollisions(resources []ClassicResource) error {
+	cliNames := make(map[string]bool)
+	goNames := make(map[string]bool)
+	for _, r := range resources {
+		if cliNames[r.CLIName] {
+			return fmt.Errorf("two classic resources share the CLI name %q: the registry would register it twice and the second generated file would overwrite the first — fix specs/classic/resources.yaml", r.CLIName)
+		}
+		cliNames[r.CLIName] = true
+
+		if goNames[r.GoName] {
+			return fmt.Errorf("two classic resources share the Go name %q: the package cannot declare New%sCmd twice — fix specs/classic/resources.yaml", r.GoName, r.GoName)
+		}
+		goNames[r.GoName] = true
+	}
+	return nil
+}
+
 func (g *Generator) GenerateRegistry(resources []ClassicResource) (string, error) {
+	if err := CheckRegistryCollisions(resources); err != nil {
+		return "", err
+	}
+
 	tmpl, err := template.New("classic_registry").Funcs(templateFuncs()).Parse(classicRegistryTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
@@ -525,8 +556,9 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{ if needsScope . }}
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
-		APIPath:       "{{ .Path }}",
-		SingularKey:   "{{ .Singular }}",
+		APIPath:     "{{ .Path }}",
+		SingularKey: "{{ .Singular }}",
+		CLIName:     "{{ .CLIName }}",
 		{{- if scopeResolveByList . }}
 		ResolveByList: true,
 		{{- end }}

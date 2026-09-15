@@ -1525,18 +1525,24 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 	if len(s.Departments.Items) > 0 {
 		warnings = append(warnings, fmt.Sprintf("%d department scope(s) dropped — not supported in blueprints", len(s.Departments.Items)))
 	}
+	// Count every category the section carries. This used to count a
+	// limitations computer_groups field that no resource returns (so always
+	// zero) while omitting iBeacons from both sections, which under-reported
+	// what a conversion silently dropped.
 	if s.Limitations != nil {
 		total := len(s.Limitations.Users.Items) + len(s.Limitations.UserGroups.Items) +
-			len(s.Limitations.NetworkSegments.Items) + len(s.Limitations.ComputerGroups.Items)
+			len(s.Limitations.NetworkSegments.Items) + len(s.Limitations.IBeacons.Items)
 		if total > 0 {
 			warnings = append(warnings, fmt.Sprintf("%d scope limitation(s) dropped — not supported in blueprints", total))
 		}
 	}
 	if s.Exclusions != nil {
 		total := len(s.Exclusions.Computers.Items) + len(s.Exclusions.ComputerGroups.Items) +
+			len(s.Exclusions.MobileDevices.Items) + len(s.Exclusions.MobileDeviceGroups.Items) +
 			len(s.Exclusions.Buildings.Items) + len(s.Exclusions.Departments.Items) +
 			len(s.Exclusions.Users.Items) + len(s.Exclusions.UserGroups.Items) +
-			len(s.Exclusions.NetworkSegments.Items)
+			len(s.Exclusions.JSSUsers.Items) + len(s.Exclusions.JSSUserGroups.Items) +
+			len(s.Exclusions.NetworkSegments.Items) + len(s.Exclusions.IBeacons.Items)
 		if total > 0 {
 			warnings = append(warnings, fmt.Sprintf("%d scope exclusion(s) dropped — not supported in blueprints", total))
 		}

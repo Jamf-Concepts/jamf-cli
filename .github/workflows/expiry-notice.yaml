@@ -1,0 +1,37 @@
+name: Deprecation expiry notice
+
+# The advance signal for the `pro` resource-name aliases.
+#
+# TestDeprecatedNamesHaveNotExpired fails the build on the removal date, which
+# is the right forcing function and fires once — on whatever pull request
+# happens to run CI that day. The work it forces is a real PR, so this job turns
+# the weekly build red 60 days out instead, naming what has to go.
+#
+# Deliberately separate from CI: it must never block a pull request, and Go has
+# no warning level for a test. JAMF_CLI_EXPIRY_NOTICE is what arms it, and
+# nothing else sets that variable.
+
+on:
+  schedule:
+    # Mondays, 08:00 UTC.
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Deprecation expiry notice
+        env:
+          JAMF_CLI_EXPIRY_NOTICE: '1'
+        run: go test ./internal/commands/ -run 'TestDeprecatedNamesExpiryNotice' -v

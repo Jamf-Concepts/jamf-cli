@@ -16,12 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSelfServiceSettingsCmd creates the self-service-settings command group
+// NewSelfServiceSettingsCmd creates the self-service settings command group
 func NewSelfServiceSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "self-service-settings",
-		Short:       "Manage self-service-settings",
-		Long:        `Manage self-service-settings in Jamf Pro.`,
+		Use:         "settings",
+		Short:       "Manage self-service settings",
+		Long:        `Manage self-service settings in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
@@ -40,11 +40,11 @@ func newSelfServiceSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get",
 		Short: "Get an object representation of Self Service settings",
 		Long:  "gets an object representation of Self Service settings",
-		Example: `  # Get self-service-settings
-  jamf-cli pro self-service-settings get
+		Example: `  # Get self-service settings
+  jamf-cli pro self-service settings get
 
-  # Get self-service-settings and output as YAML
-  jamf-cli pro self-service-settings get -o yaml`,
+  # Get self-service settings and output as YAML
+  jamf-cli pro self-service settings get -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -83,13 +83,13 @@ func newSelfServiceSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Put an object representation of Self Service settings",
 		Long:  "puts an object representation of Self Service settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  configurationSettings.alertUserApprovedMdm   boolean\n  configurationSettings.bookmarksName          string\n  configurationSettings.defaultHomeCategoryId  integer\n  configurationSettings.defaultLandingPage     string\n  configurationSettings.notificationsEnabled   boolean\n  installSettings.installAutomatically         boolean\n  installSettings.installLocation              string\n  loginSettings.allowRememberMe                boolean\n  loginSettings.authType                       string\n  loginSettings.useFido2                       boolean\n  loginSettings.userLoginLevel                 string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  configurationSettings                        object\n  installSettings                              object\n  loginSettings                                object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro self-service-settings update --set field=value
+  jamf-cli pro self-service settings update --set field=value
 
-  # Replace self-service-settings from a full JSON document
-  jamf-cli pro self-service-settings get -o json | jq '.field = "value"' | jamf-cli pro self-service-settings update
+  # Replace self-service settings from a full JSON document
+  jamf-cli pro self-service settings get -o json | jq '.field = "value"' | jamf-cli pro self-service settings update
 
   # Update from a file
-  jamf-cli pro self-service-settings update --from-file self-service-settings.json`,
+  jamf-cli pro self-service settings update --from-file self-service-settings.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -140,7 +140,7 @@ func newSelfServiceSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current self-service-settings for --set: %w", err)
+						return fmt.Errorf("parsing current settings for --set: %w", err)
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"configurationSettings": &fieldFilter{fields: map[string]*fieldFilter{"alertUserApprovedMdm": nil, "bookmarksName": nil, "defaultHomeCategoryId": nil, "defaultLandingPage": nil, "notificationsEnabled": nil}}, "installSettings": &fieldFilter{fields: map[string]*fieldFilter{"installAutomatically": nil, "installLocation": nil}}, "loginSettings": &fieldFilter{fields: map[string]*fieldFilter{"allowRememberMe": nil, "authType": nil, "useFido2": nil, "userLoginLevel": nil}}}}).apply(current)
@@ -210,8 +210,8 @@ func newSelfServiceSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get a page of Self Service settings history",
 		Long:  "Get a page of Self Service settings history",
-		Example: `  # Get history for the self-service-settings
-  jamf-cli pro self-service-settings history`,
+		Example: `  # Get history for the settings
+  jamf-cli pro self-service settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -198,13 +198,13 @@ func newSelfServiceBrandingMacosGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "get [<id>]",
 		Short: "Read a single Self Service macOS branding configuration indicated by the provided id",
 		Long:  "Read a single Self Service macOS branding configuration indicated by the provided id.",
-		Example: `  # Get a self-service-branding-macos by ID
+		Example: `  # Get a self-service-branding-maco by ID
   jamf-cli pro self-service-branding-macos get 1
 
-  # Get a self-service-branding-macos by name
+  # Get a self-service-branding-maco by name
   jamf-cli pro self-service-branding-macos get --name "Example"
 
-  # Get a self-service-branding-macos and output as YAML
+  # Get a self-service-branding-maco and output as YAML
   jamf-cli pro self-service-branding-macos get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
 		Args:        cobra.MaximumNArgs(1),
@@ -247,7 +247,7 @@ func newSelfServiceBrandingMacosGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up self-service-branding-macos by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up self-service-branding-maco by name")
 
 	return cmd
 }
@@ -261,13 +261,13 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "create",
 		Short: "Create a Self Service macOS branding configuration with the supplied",
 		Long:  "Create a Self Service macOS branding configuration with the supplied details",
-		Example: `  # Show the JSON template for creating a self-service-branding-macos
+		Example: `  # Show the JSON template for creating a self-service-branding-maco
   jamf-cli pro self-service-branding-macos create --scaffold
 
-  # Create a self-service-branding-macos from JSON
+  # Create a self-service-branding-maco from JSON
   echo '{"name":"Example"}' | jamf-cli pro self-service-branding-macos create
 
-  # Get a self-service-branding-macos, modify it, and create a copy
+  # Get a self-service-branding-maco, modify it, and create a copy
   jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "Copy"' | jamf-cli pro self-service-branding-macos create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -341,13 +341,13 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro self-service-branding-macos update 1 --set field=value
 
-  # Replace a self-service-branding-macos from JSON
+  # Replace a self-service-branding-maco from JSON
   echo '{"name":"Updated"}' | jamf-cli pro self-service-branding-macos update 1
 
   # Update by name
   jamf-cli pro self-service-branding-macos get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro self-service-branding-macos update --name "Example"
 
-  # Get a self-service-branding-macos, modify, and update
+  # Get a self-service-branding-maco, modify, and update
   jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "New Name"' | jamf-cli pro self-service-branding-macos update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:update"},
 		Args:        cobra.MaximumNArgs(1),
@@ -406,7 +406,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current self-service-branding-macos for --set: %w", err)
+						return fmt.Errorf("parsing current self-service-branding-maco for --set: %w", err)
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"applicationName": nil, "brandingHeaderImageId": nil, "brandingName": nil, "brandingNameSecondary": nil, "homeHeading": nil, "homeSubheading": nil, "iconId": nil}}).apply(current)
@@ -453,7 +453,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up self-service-branding-macos by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up self-service-branding-maco by name")
 
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -476,7 +476,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "delete [<id>]",
 		Short: "Delete the Self Service macOS branding configuration indicated by the provided id",
 		Long:  "Delete the Self Service macOS branding configuration indicated by the provided id.",
-		Example: `  # Delete a self-service-branding-macos (with confirmation)
+		Example: `  # Delete a self-service-branding-maco (with confirmation)
   jamf-cli pro self-service-branding-macos delete 1
 
   # Delete by name
@@ -517,7 +517,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no self-service-branding-macos found matching %q", entry)
+							return fmt.Errorf("no self-service-branding-maco found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -536,7 +536,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-macos %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-maco %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -560,7 +560,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					delPath := strings.Replace("/v1/self-service/branding/macos/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete self-service-branding-macos %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete self-service-branding-maco %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -569,14 +569,14 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete self-service-branding-macos %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete self-service-branding-maco %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted self-service-branding-macos %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted self-service-branding-maco %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -593,7 +593,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no self-service-branding-macos found with brandingName %q", flagName)
+					return fmt.Errorf("no self-service-branding-maco found with brandingName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -606,9 +606,9 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-macos %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-maco %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-macos %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-maco %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -618,9 +618,9 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete self-service-branding-macos %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete self-service-branding-maco %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete self-service-branding-macos %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete self-service-branding-maco %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -669,7 +669,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up self-service-branding-macos by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up self-service-branding-maco by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
@@ -686,27 +686,27 @@ func newSelfServiceBrandingMacosApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:         "apply",
-		Short:       "Create or replace a self-service-branding-macos by name",
+		Short:       "Create or replace a self-service-branding-maco by name",
 		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "self-service:create,self-service:read,self-service:update"},
-		Long: `Create or replace a self-service-branding-macos. Reads JSON or YAML from --from-file or stdin.
+		Long: `Create or replace a self-service-branding-maco. Reads JSON or YAML from --from-file or stdin.
 
 The brandingName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a self-service-branding-macos from a JSON file
-  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.json
+		Example: `  # Apply a self-service-branding-maco from a JSON file
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-maco.json
 
-  # Apply a self-service-branding-macos from a YAML file
-  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.yaml
+  # Apply a self-service-branding-maco from a YAML file
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-maco.yaml
 
   # Apply from stdin
-  cat self-service-branding-macos.json | jamf-cli pro self-service-branding-macos apply
+  cat self-service-branding-maco.json | jamf-cli pro self-service-branding-macos apply
 
   # Apply without replacement confirmation
-  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.json --yes
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-maco.json --yes
 
   # Preview what would happen
-  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.json --dry-run`,
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-maco.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {
@@ -750,7 +750,7 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create self-service-branding-macos %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create self-service-branding-maco %q\n", name)
 					return nil
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/self-service/branding/macos", bytes.NewReader(data))
@@ -758,20 +758,20 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created self-service-branding-macos %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created self-service-branding-maco %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace self-service-branding-macos %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace self-service-branding-maco %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("self-service-branding-macos %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("self-service-branding-maco %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "self-service-branding-macos %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "self-service-branding-maco %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -785,7 +785,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced self-service-branding-macos %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced self-service-branding-maco %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

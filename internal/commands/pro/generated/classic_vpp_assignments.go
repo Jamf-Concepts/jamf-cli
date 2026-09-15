@@ -138,6 +138,7 @@ func NewClassicVppAssignmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:       "vppassignments",
 		SingularKey:   "vpp_assignment",
+		CLIName:       "classic-vpp-assignments",
 		ResolveByList: true,
 	}))
 

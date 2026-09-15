@@ -21,7 +21,7 @@ package gateway
 const (
 	ProAPIVersion     = "11.31.0"
 	ClassicAPIVersion = "11.28.0"
-	SDKCommit         = "d4ab4f4"
+	SDKCommit         = "bed9af9"
 )
 
 // unserved is sorted by path then method. Paths are gateway-form with every
@@ -32,8 +32,6 @@ var unserved = []Finding{
 	{Method: "POST", Path: "/pro/auth/current", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/auth/invalidateToken", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/auth/keepAlive", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "GET", Path: "/pro/settings/obj/policyProperties", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "PUT", Path: "/pro/settings/obj/policyProperties", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "GET", Path: "/pro/v1/api-integrations", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/api-integrations", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "DELETE", Path: "/pro/v1/api-integrations/{}", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
@@ -51,19 +49,12 @@ var unserved = []Finding{
 	{Method: "POST", Path: "/pro/v1/auth/invalidate-token", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/auth/keep-alive", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/auth/token", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "POST", Path: "/pro/v1/computer-inventory/{}/erase", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "POST", Path: "/pro/v1/computer-inventory/{}/remove-mdm-profile", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "GET", Path: "/pro/v1/macos-managed-software-updates/available-updates", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/oauth/token", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "GET", Path: "/pro/v1/oauth2/session-tokens", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/system/initialize", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/system/initialize-database-connection", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v1/system/platform-initialize", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "GET", Path: "/pro/v2/computer-groups/static-groups", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "POST", Path: "/pro/v2/computer-groups/static-groups", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "DELETE", Path: "/pro/v2/computer-groups/static-groups/{}", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "GET", Path: "/pro/v2/computer-groups/static-groups/{}", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
-	{Method: "PUT", Path: "/pro/v2/computer-groups/static-groups/{}", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "GET", Path: "/pro/v2/environment-type", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro API 11.31.0"},
 	{Method: "POST", Path: "/pro/v2/mdm/commands", Level: Unserved, Basis: BasisUnpublished, Detail: "the gateway's Jamf Pro API 11.31.0 declares GET on this path but not POST"},
 	{Method: "PUT", Path: "/proclassic/allowedfileextensions/**", Level: Unserved, Basis: BasisUnpublished, Detail: "the gateway's Classic API 11.28.0 declares no PUT on this resource"},
@@ -398,6 +389,7 @@ var scopeRules = []scopeRule{
 	{Method: "GET", Path: "/pro/v1/mdm-renewal/device-common-details/{}", Scopes: []string{"device-actions:read"}},
 	{Method: "DELETE", Path: "/pro/v1/mdm-renewal/renewal-strategies/{}", Scopes: []string{"device-actions:execute"}},
 	{Method: "GET", Path: "/pro/v1/mdm-renewal/renewal-strategies/{}", Scopes: []string{"device-actions:read"}},
+	{Method: "GET", Path: "/pro/v1/mdm/commands", Scopes: []string{"device-actions:read"}},
 	{Method: "POST", Path: "/pro/v1/mdm/renew-profile", Scopes: []string{"device-actions:execute"}},
 	{Method: "GET", Path: "/pro/v1/mobile-device-enrollment-profile/{}/download-profile", Scopes: []string{"enrollment-profiles:read"}},
 	{Method: "GET", Path: "/pro/v1/mobile-device-extension-attributes", Scopes: []string{"extension-attributes:read"}},

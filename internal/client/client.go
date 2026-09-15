@@ -526,9 +526,52 @@ func httpStatusError(status int, method, path string, body []byte) error {
 			"rate limited (HTTP 429): server is throttling requests").
 			WithHint("retry shortly, or lower batch concurrency")
 	default:
+		if reason := classicHTMLErrorReason(body); reason != "" {
+			return exitcode.New(exitcode.General,
+				fmt.Sprintf("request failed (HTTP %d): %s", status, reason))
+		}
 		return exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", status, string(body)))
 	}
 }
+
+// classicHTMLErrorReason pulls the one useful sentence out of a Classic API
+// error, or returns "" when the body is not one of its HTML status pages.
+//
+// The Classic API reports a refused write as an HTML page rather than JSON,
+// and the reason it carries is specific and actionable — "Error: Unable to
+// match computer group", "Error: Mobile device groups cannot be assigned to an
+// macOS profile", "Unable to update the database". Passing the page through
+// verbatim buried that in ~400 bytes of markup and inline CSS, which in a JSON
+// error envelope arrives as one escaped line; every scope and classic-write
+// failure read as a wall of noise with the answer in the middle of it.
+//
+// The page's shape is stable: a styled <p> carrying the HTTP status name, a
+// bare <p> carrying the reason, then a bare <p> of boilerplate links. So the
+// attribute-less paragraphs are the candidates, minus the boilerplate. When
+// nothing matches, the caller falls back to the raw body rather than swallowing
+// a page this does not recognise.
+func classicHTMLErrorReason(body []byte) string {
+	if !bytes.Contains(body, []byte("<title>Status page</title>")) {
+		return ""
+	}
+	var reasons []string
+	for _, m := range bareParagraphRe.FindAllSubmatch(body, -1) {
+		text := strings.TrimSpace(stripTagsRe.ReplaceAllString(string(m[1]), ""))
+		text = strings.Join(strings.Fields(text), " ")
+		if text == "" || strings.Contains(text, "technical details") || strings.Contains(text, "continue your visit") {
+			continue
+		}
+		reasons = append(reasons, text)
+	}
+	return strings.Join(reasons, "; ")
+}
+
+// bareParagraphRe matches a <p> with no attributes — the Classic status page
+// styles its status-name paragraph and leaves the reason unstyled.
+var bareParagraphRe = regexp.MustCompile(`(?s)<p>(.*?)</p>`)
+
+// stripTagsRe removes the <a> and <br> markup the boilerplate paragraph holds.
+var stripTagsRe = regexp.MustCompile(`<[^>]*>`)
 
 // edgeBlockedNote recognises a CloudFront/WAF refusal and returns a hint for it,
 // or "" when the body is not one.
