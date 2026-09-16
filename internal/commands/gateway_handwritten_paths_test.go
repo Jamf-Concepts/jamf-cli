@@ -371,6 +371,10 @@ var handWrittenUndeterminedMethods = map[string][]string{
 	// request itself is jcdsListFiles, a read.
 	"/pro/v1/jcds/files": {"GET"},
 
+	// open.go, proServerURLPath — a const read by proWebURL through fetchJSON,
+	// which hardcodes the method, so no literal appears at either site.
+	"/pro/v1/jamf-pro-server-url": {"GET"},
+
 	// pro_blueprints.go, classicProfilePath — the helper only assembles the
 	// path; its one caller reads the profile (`Do(ctx, "GET", ...)`).
 	// Also expanded by handWrittenDynamicCollections above, since the

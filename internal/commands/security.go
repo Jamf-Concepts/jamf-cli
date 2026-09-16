@@ -21,6 +21,7 @@ func newSecurityCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// to three independent API credential pairs) that isn't a spec-driven
 	// CRUD operation.
 	cmd.AddCommand(newSecuritySetupCmd())
+	cmd.AddCommand(newSecurityOpenCmd(cliCtx))
 
 	// Generated: every Risk/Device Lifecycle/SSE operation maps cleanly to a
 	// single HTTP call, so — per the same contract Platform commands follow —
