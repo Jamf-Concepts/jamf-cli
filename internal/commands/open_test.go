@@ -5,14 +5,18 @@ package commands
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -112,6 +116,52 @@ func TestOpenOrPrintEmitsTheURLAsData(t *testing.T) {
 // TestOpenOrPrintPrintsUnderDryRun covers the rule that -n must not be a
 // documented no-op: launching a browser is the whole effect of this command,
 // so under --dry-run it prints instead.
+// TestOpenOrPrintPrintsWhenAFlagAsksForTheURLAsData is the second finding this
+// pins. --out-file does not make stdout a non-terminal — PersistentPreRunE
+// points the formatter at the file and leaves stdout alone — so on a terminal
+// the launch branch ran, printRows never did, and the file the caller named was
+// created and left at zero bytes, exit 0, no warning. --field and --select had
+// the same shape.
+//
+// Asserted through wantsURLAsData rather than by driving a pty, because the
+// defect is in the condition and a pty test would pass with any one of the
+// three still missing from it.
+func TestOpenOrPrintPrintsWhenAFlagAsksForTheURLAsData(t *testing.T) {
+	prevOut, prevField, prevSelect := outFile, fieldName, selectFields
+	defer func() { outFile, fieldName, selectFields = prevOut, prevField, prevSelect }()
+
+	outFile, fieldName, selectFields = "", "", nil
+	if wantsURLAsData() {
+		t.Fatal("wantsURLAsData() with no output flag set")
+	}
+
+	for _, tc := range []struct {
+		name string
+		set  func()
+	}{
+		{"--out-file", func() { outFile = "/dev/null" }},
+		{"--field", func() { fieldName = "url" }},
+		{"--select", func() { selectFields = []string{"url"} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			outFile, fieldName, selectFields = "", "", nil
+			tc.set()
+			if !wantsURLAsData() {
+				t.Fatalf("%s did not put openOrPrint on the print path", tc.name)
+			}
+			// And the print path really emits the row, rather than the flag
+			// merely being observed.
+			out, err := captureOpenOutput(t, "https://tenant.jamfcloud.com", false, nil)
+			if err != nil {
+				t.Fatalf("openOrPrint: %v", err)
+			}
+			if !strings.Contains(out, "tenant.jamfcloud.com") {
+				t.Errorf("nothing reached the destination: %q", out)
+			}
+		})
+	}
+}
+
 func TestOpenOrPrintPrintsUnderDryRun(t *testing.T) {
 	out, err := captureOpenOutput(t, "https://tenant.jamfcloud.com", false, &registry.CLIContext{DryRun: true})
 	if err != nil {
@@ -216,10 +266,20 @@ func TestProWebURLReadsTheAPIOnlyOnAGatewayProfile(t *testing.T) {
 // three request-free products share. It stops at the profile here — reading one
 // would need a config file — and the profile arm is the documented tail.
 func TestConfiguredWebURLPrefersTheFlagThenTheEnvironment(t *testing.T) {
-	target := openTarget{product: "protect", label: "Jamf Protect", envVars: []string{"JAMFPROTECT_URL", "JAMF_URL"}, setup: "protect setup"}
+	target := openTarget{product: "protect", label: "Jamf Protect", envVars: []string{"JAMFPROTECT_URL"}, fallbackEnvVars: []string{"JAMF_URL"}, setup: "protect setup"}
 
 	prev := serverURL
-	defer func() { serverURL = prev }()
+	prevProfile := profile
+	defer func() { serverURL, profile = prev, prevProfile }()
+
+	// Isolated from the developer's own config, which the fallback ladder now
+	// reaches: the profile sits ahead of JAMF_URL, so a real profile on the
+	// machine answered before the variable this test is about.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("JAMF_PROFILE", "")
+	profile = ""
 
 	serverURL = "https://from-flag.example.com"
 	t.Setenv("JAMFPROTECT_URL", "https://from-env.example.com")
@@ -241,6 +301,115 @@ func TestConfiguredWebURLPrefersTheFlagThenTheEnvironment(t *testing.T) {
 	t.Setenv("JAMF_URL", "https://generic.example.com")
 	if got, err = configuredWebURL(target); err != nil || got != "https://generic.example.com" {
 		t.Errorf("got (%q, %v), want the generic environment variable", got, err)
+	}
+}
+
+// TestOpenTargetLaddersMatchTheirProductsClient is the finding this split
+// exists for. resolveProtectClient reads JAMFPROTECT_URL before the profile
+// and JAMF_URL only after it; configuredWebURL read both before the profile,
+// so a Protect profile in a shell exporting JAMF_URL — the ordinary shape in
+// any shell that also runs `pro` commands — sent `protect open` to the Jamf
+// Pro instance under a "Jamf Protect" label, while every other protect command
+// in that shell used the profile.
+//
+// Asserted against the wired commands rather than a literal, so a later edit to
+// either entry has to move this test too.
+func TestOpenTargetLaddersMatchTheirProductsClient(t *testing.T) {
+	// resolveProtectClient: serverURL, JAMFPROTECT_URL, profile, JAMF_URL.
+	// resolveSchoolClient: serverURL, JAMFSCHOOL_URL, profile — no generic
+	// fallback at all, so School must declare none.
+	want := map[string]struct{ env, fallback []string }{
+		"protect": {env: []string{"JAMFPROTECT_URL"}, fallback: []string{"JAMF_URL"}},
+		"school":  {env: []string{"JAMFSCHOOL_URL"}, fallback: nil},
+	}
+	got := map[string]openTarget{
+		"protect": protectOpenTarget(),
+		"school":  schoolOpenTarget(),
+	}
+	for product, w := range want {
+		g := got[product]
+		if !slices.Equal(g.envVars, w.env) {
+			t.Errorf("%s envVars = %v, want %v", product, g.envVars, w.env)
+		}
+		if !slices.Equal(g.fallbackEnvVars, w.fallback) {
+			t.Errorf("%s fallbackEnvVars = %v, want %v", product, g.fallbackEnvVars, w.fallback)
+		}
+		for _, name := range g.envVars {
+			if slices.Contains(g.fallbackEnvVars, name) {
+				t.Errorf("%s names %s on both sides of the profile", product, name)
+			}
+		}
+	}
+}
+
+// TestConfiguredWebURLPutsAFallbackVariableBehindTheProfile pins the order
+// through the function rather than through the table, because the table being
+// right is only half of it: the loop over fallbackEnvVars has to sit after the
+// profile read, and both loops look identical from the call site.
+func TestConfiguredWebURLPutsAFallbackVariableBehindTheProfile(t *testing.T) {
+	target := protectOpenTarget()
+
+	prev := serverURL
+	prevProfile := profile
+	defer func() { serverURL, profile = prev, prevProfile }()
+	serverURL = ""
+	profile = "prot"
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	dir := filepath.Join(home, ".config", "jamf-cli")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfgYAML := "default-profile: prot\nprofiles:\n  prot:\n    url: https://protect.example.com\n    product: protect\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(cfgYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("JAMFPROTECT_URL", "")
+	t.Setenv("JAMF_URL", "https://pro-instance.example.com")
+
+	got, err := configuredWebURL(target)
+	if err != nil {
+		t.Fatalf("configuredWebURL: %v", err)
+	}
+	if got != "https://protect.example.com" {
+		t.Errorf("got %q, want the profile to win over JAMF_URL — opening the Jamf Pro instance is the bug this test exists for", got)
+	}
+
+	// The product's own variable still wins over the profile.
+	t.Setenv("JAMFPROTECT_URL", "https://from-env.example.com")
+	if got, err = configuredWebURL(target); err != nil || got != "https://from-env.example.com" {
+		t.Errorf("got (%q, %v), want the product's own environment variable to win over the profile", got, err)
+	}
+}
+
+// TestEnvPhraseNamesEveryVariableOnBothSidesOfTheProfile — the not-configured
+// message is the whole answer, so a fallback the function does read must not be
+// missing from it.
+func TestEnvPhraseNamesEveryVariableOnBothSidesOfTheProfile(t *testing.T) {
+	prev := serverURL
+	prevProfile := profile
+	defer func() { serverURL, profile = prev, prevProfile }()
+	serverURL = ""
+	profile = "nosuchprofile"
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("JAMFPROTECT_URL", "")
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_PROFILE", "")
+
+	_, err := configuredWebURL(protectOpenTarget())
+	if err == nil {
+		t.Fatal("configuredWebURL succeeded with nothing configured")
+	}
+	for _, name := range []string{"JAMFPROTECT_URL", "JAMF_URL"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("message %q does not name %s", err.Error(), name)
+		}
 	}
 }
 
@@ -385,15 +554,15 @@ func TestProSectionURL(t *testing.T) {
 	// question is always whether the result can still leave the instance.
 	t.Run("refusals", func(t *testing.T) {
 		for _, arg := range []string{
-			"policies",      // placeholder, replaced below
 			"nosuchsection", // a typo: not opened as a path
 			"https://evil.example.com",
 			"../../etc.html",
 			"view/../../x.html",
+			// The encoded spelling a browser normalises the same way. The
+			// literal check above missed it, which left the guard holding for
+			// the form nobody types.
+			"view/%2e%2e/%2e%2e/x",
 		} {
-			if arg == "policies" {
-				continue
-			}
 			if got, err := proSectionURL(base, arg); err == nil {
 				t.Errorf("proSectionURL(%q) = %q, want an error", arg, got)
 			}
@@ -455,6 +624,33 @@ func TestCompleteProSectionsOffersNamesWithTheirPageHeading(t *testing.T) {
 	}
 	if len(completeProSections("nosuchprefix")) != 0 {
 		t.Error("completions returned for a prefix nothing matches")
+	}
+}
+
+// TestListRefusesASectionBesideIt — the two halves describe different
+// invocations, so there is no reading of `pro open --list policies` that both
+// satisfy. It used to print all 139 rows and say nothing about the argument.
+func TestListRefusesASectionBesideIt(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	open := findSubcommand(findSubcommand(root, "pro"), "open")
+	if open == nil {
+		t.Fatal("pro open not wired")
+	}
+	if err := open.Flags().Set("list", "true"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = open.Flags().Set("list", "false") }()
+
+	err := open.RunE(open, []string{"policies"})
+	if err == nil {
+		t.Fatal("--list with a section succeeded, want a refusal")
+	}
+	var ec *exitcode.Error
+	if !errors.As(err, &ec) || ec.Code != exitcode.Usage {
+		t.Errorf("err = %v, want an exitcode.Usage error", err)
+	}
+	if !strings.Contains(err.Error(), "policies") {
+		t.Errorf("message %q does not name the argument it refused", err.Error())
 	}
 }
 

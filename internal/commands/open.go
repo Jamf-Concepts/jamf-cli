@@ -38,7 +38,8 @@ const proServerURLPath = "/v1/jamf-pro-server-url"
 const openLongTail = `
 
 The URL is printed instead of opened when --print is passed, when stdin is
-not interactive (--no-input), under --dry-run, or when stdout is not a
+not interactive (--no-input), under --dry-run, when a flag asks for it as
+data (--out-file, --field, --select), or when stdout is not a
 terminal — so
 "jamf-cli ... open | pbcopy" and a CI job both give you the URL rather than
 trying to launch a browser. Use -o json or --field url to consume it.
@@ -109,6 +110,16 @@ Jamf Pro host.` + openLongTail,
 			// binary's own table, so it must not need credentials, a reachable
 			// instance or a gateway round trip.
 			if list {
+				// Refused rather than ignored: --list answers a question about
+				// this binary's table and a section names a page to open, so
+				// there is no invocation both halves describe. Discarding the
+				// positional silently made `pro open --list policies` print all
+				// 139 rows with nothing saying the argument went nowhere.
+				if len(args) == 1 {
+					return exitcode.New(exitcode.Usage,
+						fmt.Sprintf("--list lists every section name and takes no section: drop --list to open %q", args[0])).
+						WithHint("run \"jamf-cli pro open --list\" to see the names, then \"jamf-cli pro open <section>\"")
+				}
 				return printProSections(cliCtx)
 			}
 			base, err := proWebURL(cmd.Context(), cliCtx)
@@ -191,7 +202,18 @@ func looksLikeUIPath(arg string) bool {
 	}
 	// No page is reached through a parent segment, and a browser resolves one
 	// before sending, so ".." can only obscure where the caller is being sent.
-	for _, seg := range strings.Split(arg, "/") {
+	//
+	// Decoded first, because the segment walk compares strings: "%2e%2e" is a
+	// different string from ".." and passed the literal check untouched, so
+	// the guard held for the spelling nobody uses and not for the one a
+	// browser normalises identically. No host escape either way — the
+	// host/scheme comparison below is what contains that — but a guard that
+	// only catches the obvious spelling is not a guard.
+	decoded := arg
+	if unescaped, err := url.PathUnescape(arg); err == nil {
+		decoded = unescaped
+	}
+	for _, seg := range strings.Split(decoded, "/") {
 		if seg == ".." {
 			return false
 		}
@@ -281,22 +303,44 @@ func printProSections(cliCtx *registry.CLIContext) error {
 // newProtectOpenCmd opens the Jamf Protect web interface, which is served at
 // the root of the same host the API is on.
 func newProtectOpenCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newProfileURLOpenCmd(cliCtx, openTarget{
+	return newProfileURLOpenCmd(cliCtx, protectOpenTarget())
+}
+
+// protectOpenTarget mirrors resolveProtectClient's URL ladder: JAMFPROTECT_URL
+// before the profile, JAMF_URL only after it. A function rather than a literal
+// inline so a test can assert the ladder against the client's without copying
+// the values, which is how the two came to disagree.
+func protectOpenTarget() openTarget {
+	return openTarget{
 		product: "protect",
 		label:   "Jamf Protect",
-		envVars: []string{"JAMFPROTECT_URL", "JAMF_URL"},
-		setup:   "protect setup",
-	})
+		envVars: []string{"JAMFPROTECT_URL"},
+		// resolveProtectClient reads JAMF_URL only after the profile, so this
+		// one does too: a Protect profile beside an exported JAMF_URL is the
+		// ordinary shape in a shell that also runs `pro` commands, and reading
+		// the generic variable first opened the Jamf Pro instance under a
+		// "Jamf Protect" label while every other protect command in the same
+		// shell used the profile.
+		fallbackEnvVars: []string{"JAMF_URL"},
+		setup:           "protect setup",
+	}
 }
 
 // newSchoolOpenCmd opens the Jamf School web interface.
 func newSchoolOpenCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newProfileURLOpenCmd(cliCtx, openTarget{
+	return newProfileURLOpenCmd(cliCtx, schoolOpenTarget())
+}
+
+// schoolOpenTarget mirrors resolveSchoolClient, which has no generic URL
+// fallback at all — so neither does this, and the absence is asserted rather
+// than left to be read as an omission.
+func schoolOpenTarget() openTarget {
+	return openTarget{
 		product: "school",
 		label:   "Jamf School",
 		envVars: []string{"JAMFSCHOOL_URL"},
 		setup:   "school setup",
-	})
+	}
 }
 
 // newSecurityOpenCmd opens Jamf Security Cloud (Radar).
@@ -328,10 +372,15 @@ JWT — so this command needs no credentials and makes no request.` + openLongTa
 type openTarget struct {
 	product string
 	label   string
-	// envVars are consulted in order after --url and before the profile,
-	// mirroring each product's own credential ladder in root.go.
-	envVars []string
-	setup   string
+	// envVars are consulted in order after --url and before the profile, and
+	// fallbackEnvVars after the profile — mirroring each product's own
+	// credential ladder in root.go, order included. The split is the whole
+	// point: resolveProtectClient reads JAMFPROTECT_URL before the profile and
+	// JAMF_URL after it, and a ladder that merges the two disagrees with the
+	// client for exactly the profile that is configured correctly.
+	envVars         []string
+	fallbackEnvVars []string
+	setup           string
 }
 
 // newProfileURLOpenCmd builds the `open` command for a product whose web
@@ -369,12 +418,14 @@ func addPrintFlag(cmd *cobra.Command, printOnly *bool) {
 }
 
 // configuredWebURL resolves a product's base URL without resolving auth:
-// --url, then the product's own environment variables, then the profile.
+// --url, the product's own environment variables, the profile, then any
+// generic variable the product's client reads only as a last resort.
 //
 // The ladder is duplicated from resolveProtectClient and resolveSchoolClient
 // rather than shared with them, because those two resolve credentials in the
 // same pass and fail when a credential is missing — which is the wrong answer
-// for a command that only needs a hostname.
+// for a command that only needs a hostname. Duplicated means duplicated in
+// order as well as in membership: see openTarget.fallbackEnvVars.
 func configuredWebURL(t openTarget) (string, error) {
 	if serverURL != "" {
 		return serverURL, nil
@@ -395,9 +446,14 @@ func configuredWebURL(t openTarget) (string, error) {
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil && p.URL != "" {
 		return p.URL, nil
 	}
+	for _, name := range t.fallbackEnvVars {
+		if v := os.Getenv(name); v != "" {
+			return v, nil
+		}
+	}
 	return "", exitcode.New(exitcode.Usage,
 		fmt.Sprintf("no %s URL configured: use --url, %s, or run \"jamf-cli %s\"",
-			t.label, envPhrase(t.envVars), t.setup))
+			t.label, envPhrase(append(append([]string{}, t.envVars...), t.fallbackEnvVars...)), t.setup))
 }
 
 // envPhrase names the environment variables for the not-configured message.
@@ -444,6 +500,13 @@ func proWebURL(ctx context.Context, cliCtx *registry.CLIContext) (string, error)
 	return url, nil
 }
 
+// wantsURLAsData reports whether a global output flag asked for the URL as a
+// value rather than as an effect. Each of these three is a destination or a
+// projection, and none of them is satisfiable by launching a browser.
+func wantsURLAsData() bool {
+	return outFile != "" || fieldName != "" || len(selectFields) > 0
+}
+
 // openOrPrint launches a browser, or prints the URL when a browser cannot be
 // the answer.
 //
@@ -460,7 +523,15 @@ func openOrPrint(cliCtx *registry.CLIContext, rawURL string, printOnly bool) err
 	// --dry-run prints rather than launches: a browser launch is the whole
 	// effect of this command, so running it under -n would make the flag a
 	// documented no-op.
-	if printOnly || noInput || cliCtx.DryRun || !output.IsTerminal(os.Stdout.Fd()) {
+	//
+	// So does any flag that asks for the URL as data. --out-file does not make
+	// stdout a non-terminal — PersistentPreRunE points the formatter at the
+	// file and leaves stdout alone — so on a terminal the launch branch ran,
+	// printRows never did, and the file the caller named was created and left
+	// at zero bytes, exit 0, no warning. --field and --select had the same
+	// shape: they emitted nothing and launched a browser instead. A data
+	// request must not be answered by a side effect.
+	if printOnly || noInput || cliCtx.DryRun || wantsURLAsData() || !output.IsTerminal(os.Stdout.Fd()) {
 		return printRows(cliCtx, []map[string]any{{"url": url}})
 	}
 	if _, err := browser.Open(url, os.Getenv("BROWSER")); err != nil {
