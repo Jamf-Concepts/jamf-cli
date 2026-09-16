@@ -877,6 +877,21 @@ in the config file. It never runs in CI, when output is piped, or under
 				return nil
 			}
 
+			// A command that is auth-free under one of its own flags. Same
+			// reasoning as --scaffold above, except the flag is named by the
+			// command rather than known to the root: `pro open --list` prints
+			// this binary's own section table and asks the instance nothing,
+			// but the command it sits on does resolve auth, so without this it
+			// demanded credentials to answer a local question. An annotation
+			// rather than a second name in the flag check, so the bypass
+			// cannot be inherited by every other command that comes to declare
+			// a --list.
+			if flag := cmd.Annotations[noAuthWhenFlagAnnotation]; flag != "" {
+				if set, err := cmd.Flags().GetBool(flag); err == nil && set {
+					return nil
+				}
+			}
+
 			// Determine product type from command hierarchy or profile
 			product := resolveProduct(cmd, cfg)
 
@@ -2176,6 +2191,16 @@ func classifyArgsErrors(cmd *cobra.Command) {
 // silent auth bypass for any other command that happens to share it, and what
 // rootOnlySkip exists to contain.
 const noAuthAnnotation = "jamf:no-auth"
+
+// noAuthWhenFlagAnnotation names a bool flag on the command it is set on that
+// makes the command auth-free — it answers from this binary alone and sends no
+// request. The value is the flag name.
+//
+// It exists because auth is resolved per command, not per invocation, so a
+// command that usually needs credentials and sometimes does not had no way to
+// say so: `pro open --list` renders a table compiled into the binary and was
+// refused for a missing server URL.
+const noAuthWhenFlagAnnotation = "jamf:no-auth-when-flag"
 
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made
 // runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
