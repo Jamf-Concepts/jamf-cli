@@ -5,6 +5,7 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -805,11 +806,28 @@ func ParseLoadedSpec(doc *openapi3.T, specPath string) ([]*Resource, error) {
 // untouched and still become their own commands. Matches on path structure
 // rather than operation name, and MUST run before disambiguateSameTerminalOps so
 // the surviving per-{id} op keeps its clean terminal name.
+//
+// A plain item DELETE pairs with a collection DELETE on the same terms, which
+// the x-action rule alone could not express. Jamf Pro 11.32 added DELETE
+// /v1/notifications — dismiss every notification — beside the existing DELETE
+// /v1/notifications/{type}/{id}, and neither name survived: both derive
+// "delete", the collection one addresses the resource root so it keeps the
+// plain verb, and the per-item one has no non-parameterised segment of its own
+// for qualifyDuplicateVerbsOutsideTheRoot to qualify it with. So
+// dedupeOperations dropped it, and `pro jamf-pro-notifications delete` silently
+// changed from deleting one notification to dismissing all of them, with the
+// per-item capability gone. Pairing them is what that shape means: --all is
+// this CLI's established spelling for "apply across the collection in one
+// server-side call", and it keeps the pre-11.32 `delete <type> <id>` signature
+// exactly. Restricted to DELETE, because a collection-level DELETE is
+// unambiguously "delete them all" where a collection PUT or POST is a replace
+// or a create and would pair spuriously — the very reason the {id}-terminal
+// exclusion below exists for actions.
 func pairCollectionBulkActions(ops []*Operation) []*Operation {
 	// Index collection-level (no path param) actions by path.
 	bulkByPath := make(map[string]*Operation)
 	for _, op := range ops {
-		if op.IsAction && !hasPathParam(op.Path) {
+		if bulkCandidate(op) && !hasPathParam(op.Path) {
 			bulkByPath[op.Path] = op
 		}
 	}
@@ -819,21 +837,32 @@ func pairCollectionBulkActions(ops []*Operation) []*Operation {
 
 	remove := make(map[*Operation]bool)
 	for _, op := range ops {
-		if !op.IsAction || !hasPathParam(op.Path) {
+		if !bulkCandidate(op) || !hasPathParam(op.Path) {
 			continue
 		}
-		// The per-{id} op must end in a literal verb segment (e.g. .../installation-retry).
+		// An action must end in a literal verb segment (e.g. .../installation-retry).
 		// A path ending in the {id} param itself (e.g. PUT /accounts/{id}) is a CRUD
 		// op the spec mis-tagged x-action — its stripped path would spuriously match a
 		// collection-level create/list, so exclude it.
-		if strings.HasSuffix(op.Path, "}") {
+		//
+		// A DELETE is the exception, and the {id}-terminal form is the only
+		// shape it takes: an item delete addresses the item, so its path ends
+		// in the parameter that names it. The spurious match that exclusion
+		// guards against cannot arise, because the sibling must also be a
+		// DELETE and a collection DELETE means "all of them".
+		if strings.HasSuffix(op.Path, "}") && op.Method != http.MethodDelete {
 			continue
 		}
-		// Exactly one path param: stripping it must yield the collection-level bulk
-		// path. A multi-param action (e.g. .../{id}/computers/{computerId}/installation-retry)
+		// One path param for an action: stripping it must yield the collection-level
+		// bulk path. A multi-param action (e.g. .../{id}/computers/{computerId}/installation-retry)
 		// pairs with its own single-param parent, not the no-param bulk endpoint, so
 		// it stays a standalone command rather than claiming --all.
-		if strings.Count(op.Path, "{") != 1 {
+		//
+		// A DELETE is allowed more than one, because an item is not always
+		// named by a single parameter: a notification is addressed by its type
+		// and its id together. Every parameter is stripped either way, so the
+		// pairing is still the same collection path.
+		if strings.Count(op.Path, "{") != 1 && op.Method != http.MethodDelete {
 			continue
 		}
 		// The bulk sibling is this path with every {param} segment removed, and must
@@ -857,6 +886,15 @@ func pairCollectionBulkActions(ops []*Operation) []*Operation {
 		}
 	}
 	return kept
+}
+
+// bulkCandidate reports whether an operation may take part in the bulk pairing:
+// an x-action, or a DELETE. Nothing else, because pairing turns two commands
+// into one and the collection sibling has to mean "the same thing, across the
+// whole collection" — true of a declared action and of a delete, and not of a
+// collection POST or PUT, which create and replace.
+func bulkCandidate(op *Operation) bool {
+	return op.IsAction || op.Method == http.MethodDelete
 }
 
 // stripParamSegments removes every {param} segment from a path,
@@ -1924,6 +1962,16 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 		// (default sections, output array key, singleton detection). See #245.
 		IsPaginated: strings.ToUpper(method) == "GET" && hasPaginationParams(op),
 		APIVersion:  extractAPIVersion(path),
+	}
+
+	// Parse x-preview: the operation is published but subject to breaking
+	// change. Read per operation rather than from the spec root, because a spec
+	// can graduate one endpoint at a time and two specs can merge into one
+	// resource.
+	if preview, ok := op.Extensions["x-preview"]; ok {
+		if b, ok := preview.(bool); ok {
+			operation.Preview = b
+		}
 	}
 
 	// Parse x-required-privileges extension

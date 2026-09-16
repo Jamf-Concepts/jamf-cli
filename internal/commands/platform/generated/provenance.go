@@ -12,10 +12,10 @@ type SpecSource struct {
 // Sources lists every spec file consumed when this package was generated.
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
-	{File: "specs/platform/account_licensing_api.json", SHA256: "12dc1dd124d8a38706ac6be70882c0d915be67abef424bf01558510ed9a7e97c"},
+	{File: "specs/platform/account_licensing_api.json", SHA256: "95fd9ccdb1134ac882141fe6696fb77ebdb24f04588409e1588b1830e88117e6"},
 	{File: "specs/platform/account_partners_api.json", SHA256: "2cd9861989bddb7774a3e3b7c02413c09509758954d697b92936e0286ed774b6"},
-	{File: "specs/platform/account_sso_api.json", SHA256: "1666b749cd3af48e15d4b7ab0f6360665205767541eb63fd328976baf6214b09"},
-	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "c8aa7179373f0798b4f03c16c397ddc8a6ee3b0f4baec33509dfb0435de1ec53"},
+	{File: "specs/platform/account_sso_api.json", SHA256: "ece78396d0c7056a59e1a145947cfcd8d99cdf68c46b95525d19307701f36a80"},
+	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "680bc2ca47e01cbd037c292c60b1bdf65f5fd6d8c52e9b60c9cc74321348dc76"},
 	{File: "specs/platform/audit_api.json", SHA256: "91c2bc728040703da48194160da8605de3b9c35c734fe04f93a8a7cf88359881"},
 	{File: "specs/platform/blueprints_api.json", SHA256: "43276c66813acb8a360ce9ae41a2b6062bc33e3ab1d327f11beeba5dac943654"},
 	{File: "specs/platform/compliance_benchmark_engine.json", SHA256: "5db95f8e71eee86fcf6677f1ec246a800fffbbe02715e72fdff80f4b0859f92d"},

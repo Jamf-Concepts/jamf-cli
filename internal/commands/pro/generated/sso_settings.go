@@ -35,6 +35,7 @@ func NewSsoSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
 	cmd.AddCommand(NewSsoSettingsCertCmd(ctx))
+	cmd.AddCommand(NewSsoSettingsOidcBrokerConfigCmd(ctx))
 
 	return cmd
 }

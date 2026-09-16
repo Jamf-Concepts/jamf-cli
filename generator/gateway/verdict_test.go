@@ -282,3 +282,70 @@ func TestApplyEmitsASubtreeMethodEntryUnderThatMethod(t *testing.T) {
 		t.Errorf("got %s %s, want GET /proclassic/patchsoftwaretitles/**", entries[0].Method, entries[0].Path)
 	}
 }
+
+// The "which trails the Pro API's version" caveat exists because a Classic
+// resource added since the Classic spec was cut is indistinguishable here from
+// one withdrawn. The SDK's v1.1.0 ingest brought both specs to 11.32.0, so the
+// clause became false — and it was being asserted of computerconfigurations,
+// which the instance 404s too. A caveat about a disagreement is the first thing
+// to go stale when the disagreement is fixed.
+func TestTheTrailingVersionCaveatIsOnlyClaimedWhenClassicActuallyTrails(t *testing.T) {
+	const caveat = "trails the Pro API's version"
+
+	trailing := &Coverage{Sources: Sources{
+		Pro:     SpecSource{Title: "Jamf Pro API", Version: "11.31.0"},
+		Classic: SpecSource{Title: "Classic API", Version: "11.28.0"},
+	}}
+	if d := trailing.VerdictSubtree("/proclassic/computerconfigurations").Detail; !strings.Contains(d, caveat) {
+		t.Errorf("Classic 11.28.0 behind Pro 11.31.0: detail %q, want the caveat", d)
+	}
+
+	level := &Coverage{Sources: Sources{
+		Pro:     SpecSource{Title: "Jamf Pro API", Version: "11.32.0"},
+		Classic: SpecSource{Title: "Classic API", Version: "11.32.0"},
+	}}
+	v := level.VerdictSubtree("/proclassic/computerconfigurations")
+	if strings.Contains(v.Detail, caveat) {
+		t.Errorf("both specs at 11.32.0: detail %q, want no caveat", v.Detail)
+	}
+	// The refusal itself is unchanged — only the explanation for it.
+	if v.Level != Unserved || v.Basis != BasisUnpublished {
+		t.Errorf("verdict: got %q/%q, want Unserved/unpublished", v.Level, v.Basis)
+	}
+	if !strings.Contains(v.Detail, "Classic API 11.32.0") {
+		t.Errorf("detail %q should still name the spec and version", v.Detail)
+	}
+}
+
+func TestCompareDottedVersions(t *testing.T) {
+	cases := []struct {
+		a, b string
+		want string // "lt", "eq" or "gt"
+	}{
+		{"11.28.0", "11.31.0", "lt"},
+		{"11.32.0", "11.32.0", "eq"},
+		{"11.32", "11.32.0", "eq"}, // a missing segment is zero
+		{"11.32.1", "11.32.0", "gt"},
+		{"11.9.0", "11.10.0", "lt"}, // numeric, not lexical
+		{"", "", "eq"},
+		// An unparseable version compares equal, which withholds the caveat
+		// rather than asserting it: the clause has to be earned.
+		{"unknown", "11.32.0", "lt"},
+		{"unknown", "unknown", "eq"},
+	}
+	for _, c := range cases {
+		got := compareDottedVersions(c.a, c.b)
+		var label string
+		switch {
+		case got < 0:
+			label = "lt"
+		case got > 0:
+			label = "gt"
+		default:
+			label = "eq"
+		}
+		if label != c.want {
+			t.Errorf("compareDottedVersions(%q, %q) = %d (%s), want %s", c.a, c.b, got, label, c.want)
+		}
+	}
+}

@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
 // ErrNoPlatformClient is returned, wrapped, when no platform client could be
