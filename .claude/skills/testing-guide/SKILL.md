@@ -1,4 +1,8 @@
 ---
+name: testing-guide
+description: Use when writing or debugging tests, or before pushing — covers CI verification targets, the key guard tests (gateway coverage, positional contract, output routing, generator, auth, classic schema), and how to run smoke tests safely.
+---
+
 # Testing — Key Tests and CI Guards
 
 ## CI Verification Targets

@@ -1,4 +1,8 @@
 ---
+name: where-to-make-changes
+description: Use when you know what to change but not where — a lookup table mapping a desired change (privileges, 403 hints, generator behavior, classic/platform/security/protect commands, output, config, site) to the exact file and symbol to edit.
+---
+
 # Where to Make Changes
 
 | I want to... | Edit this file |

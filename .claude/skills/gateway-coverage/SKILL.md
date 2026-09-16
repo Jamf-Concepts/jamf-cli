@@ -1,4 +1,8 @@
 ---
+name: gateway-coverage
+description: Use when working with the platform gateway's published-API contract — coverage verdicts, why a command is refused on a gateway profile, the 403 privilege/permission vocabulary split, exit codes, and the JAMF_CLI_ALLOW_UNPUBLISHED escape hatch.
+---
+
 # Gateway Coverage
 
 ## The Published-Surface Contract

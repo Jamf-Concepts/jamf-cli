@@ -1,4 +1,8 @@
 ---
+name: common-workflows
+description: Use when adding a feature, syncing Jamf Pro/Platform/Security specs, adding an endpoint or handwritten command, refreshing gateway coverage or the permissions map, or running smoke tests.
+---
+
 # Common Workflows
 
 ## Adding a feature to all generated commands
