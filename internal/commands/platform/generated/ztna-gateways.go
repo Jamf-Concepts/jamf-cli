@@ -233,7 +233,7 @@ func newZtnaGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <gatewayId>",
 		Short:       "Get a Gateway",
-		Long:        "Get a single dedicated Gateway. All fields are flat at the top level. Returns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming the existence of gateways owned by other tenants (Gateway IDs are 16-bit enumerable; a `403` would be an existence oracle).",
+		Long:        "Get a single dedicated Gateway. All fields are flat at the top level. Returns `404` if the gateway does not exist or belongs to a different tenant — never `403`, to avoid confirming the existence of gateways owned by other tenants (Gateway IDs are 16-bit enumerable; a `403` would be an existence oracle).",
 		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

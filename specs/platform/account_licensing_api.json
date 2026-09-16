@@ -245,12 +245,6 @@
             "description": "Display title of the license.",
             "example": "Jamf Pro",
             "type": "string"
-          },
-          "type": {
-            "deprecated": true,
-            "description": "Legacy asset-type classification of the license.",
-            "example": "JAMF_PRO_SUBSCRIPTION",
-            "type": "string"
           }
         },
         "type": "object"
@@ -319,7 +313,7 @@
         "type": "string"
       },
       "ProductTopLine": {
-        "description": "Product top line a license belongs to. Mirrors the top-line taxonomy of the Jamf commercial asset ledger.",
+        "description": "Product top line a license belongs to.",
         "enum": [
           "APPLE_UNLIMITED",
           "COMPLIANCE_REPORTER",
@@ -404,7 +398,7 @@
       "name": "Jamf Developer",
       "url": "https://developer.jamf.com"
     },
-    "description": "Read the licenses held by your Jamf organization",
+    "description": "Operations related to licenses purchased from Jamf",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
     "title": "Jamf Account Licensing API",
     "version": "1.0.0"
@@ -413,7 +407,7 @@
   "paths": {
     "/v1/licenses": {
       "get": {
-        "description": "Returns every license held by the organization resolved from the access token, wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no licenses returns an empty `results` array and a `totalCount` of 0.",
+        "description": "Returns every license held by the organization resolved from the access token. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated.  An organization with no licenses returns an empty `results` array and a `totalCount` of 0.",
         "operationId": "listLicenses",
         "responses": {
           "200": {
@@ -435,8 +429,7 @@
                       "renewalDate": "2027-03-31T00:00:00Z",
                       "sku": "JAMF-PRO-SUB",
                       "startDate": "2026-04-01T00:00:00Z",
-                      "title": "Jamf Pro",
-                      "type": "JAMF_PRO_SUBSCRIPTION"
+                      "title": "Jamf Pro"
                     }
                   ],
                   "totalCount": 1
@@ -484,9 +477,7 @@
           "default": "us",
           "description": "Select the regional gateway",
           "enum": [
-            "us",
-            "eu",
-            "apac"
+            "us"
           ]
         }
       }
@@ -494,7 +485,7 @@
   ],
   "tags": [
     {
-      "description": "Operations for the licenses held by the organization.",
+      "description": "Operations related to licenses purchased from Jamf",
       "name": "licenses"
     }
   ]

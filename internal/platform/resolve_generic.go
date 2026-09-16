@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
 // ResolveIDByName finds a resource ID by its human-readable name on a Platform

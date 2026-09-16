@@ -38,7 +38,7 @@ func newSsoConnectionsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List Connections",
-		Long:        "Returns every identity provider connection enabled for the organization resolved from the access token, across all Auth0 regions, with the verified domains each connection serves and the Jamf products it is enabled for.",
+		Long:        "Returns every identity provider connection enabled for the organization resolved from the access token, across all configured regions, with the verified domains each connection serves and the Jamf products it is enabled for.",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

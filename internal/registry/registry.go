@@ -14,9 +14,9 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/security"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
 // HTTPClient interface for making API requests.

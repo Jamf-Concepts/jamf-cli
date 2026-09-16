@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -181,7 +182,7 @@ func (c *Coverage) VerdictSubtree(path string) Verdict {
 	}
 
 	ns, apiName, apiVersion := c.namespace(key)
-	if ns == ClassicPrefix {
+	if ns == ClassicPrefix && c.classicTrailsPro() {
 		return Verdict{
 			Level: Unserved,
 			Basis: BasisUnpublished,
@@ -194,6 +195,51 @@ func (c *Coverage) VerdictSubtree(path string) Verdict {
 		Basis:  BasisUnpublished,
 		Detail: fmt.Sprintf("not declared by the gateway's %s %s", apiName, apiVersion),
 	}
+}
+
+// classicTrailsPro reports whether the published Classic spec is older than the
+// published Pro one.
+//
+// The caveat it gates is the reason forceServed exists for Classic: while the
+// two specs were versioned apart (11.28.0 against 11.31.0 for most of this
+// repo's history), a Classic resource ADDED since the Classic spec was cut is
+// indistinguishable here from one withdrawn, so the refusal has to say the
+// absence may be staleness rather than a withdrawal. The SDK's v1.1.0 ingest
+// brought both specs to 11.32.0 and the clause became false — asserted of
+// computerconfigurations, which the instance 404s too, so the one live case was
+// told its absence might be a lag on a version that no longer lags. A caveat
+// about a disagreement is the first thing to go stale when the disagreement is
+// fixed, so it is derived from the two versions rather than stated.
+func (c *Coverage) classicTrailsPro() bool {
+	return compareDottedVersions(c.Sources.Classic.Version, c.Sources.Pro.Version) < 0
+}
+
+// compareDottedVersions orders two dotted-integer version strings, returning a
+// value <0, 0 or >0 as a sorts before, with or after b. A segment that is not an
+// integer compares as 0, and a missing segment as 0, so "11.32" and "11.32.0"
+// are equal. An unparseable pair therefore compares equal, which withholds the
+// caveat rather than asserting it: the clause has to be earned.
+func compareDottedVersions(a, b string) int {
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	for i := range max(len(as), len(bs)) {
+		if av, bv := dottedSegment(as, i), dottedSegment(bs, i); av != bv {
+			return av - bv
+		}
+	}
+	return 0
+}
+
+// dottedSegment reads segment i of a split version string as an integer,
+// answering 0 for an absent or non-numeric one.
+func dottedSegment(segs []string, i int) int {
+	if i >= len(segs) {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(segs[i]))
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // VerdictSubtreeMethod answers for one method across a whole subtree: does the

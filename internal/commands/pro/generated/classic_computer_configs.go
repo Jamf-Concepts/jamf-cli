@@ -29,7 +29,7 @@ func NewClassicComputerConfigsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "classic-computer-configs",
 		Short:       "Computer configurations (Classic API)",
 		Long:        `Manage computer configurations via the Jamf Pro Classic API (/JSSResource/).`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.32.0"},
 	}
 
 	cmd.AddCommand(newClassicComputerConfigsListCmd(ctx))
@@ -56,7 +56,7 @@ func newClassicComputerConfigsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computerconfigurations and extract IDs
   jamf-cli pro classic-computer-configs list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerconfigurations", nil)
@@ -113,7 +113,7 @@ func newClassicComputerConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer_configuration and output as YAML
   jamf-cli pro classic-computer-configs get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.32.0"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -172,7 +172,7 @@ func newClassicComputerConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "create",
 		Short:       "Create a computer_configuration",
 		Long:        `Create a new computer_configuration. Reads the XML body from --from-file, --set or stdin.`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.32.0"},
 		Example: `  # Create a computer_configuration from an XML file
   jamf-cli pro classic-computer-configs create --from-file computer_configuration.xml
 
@@ -214,7 +214,7 @@ func newClassicComputerConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 
 The Classic API applies a partial update: fields the body omits keep their
 current values, so a body carrying one element changes only that element.`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.32.0"},
 		Example: `  # Update a computer_configuration from an XML file
   jamf-cli pro classic-computer-configs update 1 --from-file computer_configuration.xml
 
@@ -277,7 +277,7 @@ func newClassicComputerConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Delete without confirmation prompt
   jamf-cli pro classic-computer-configs delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.32.0"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -450,7 +450,7 @@ func newClassicComputerConfigsApplyCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a computer_configuration by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.32.0"},
 		Long: `Create or replace a computer_configuration. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
