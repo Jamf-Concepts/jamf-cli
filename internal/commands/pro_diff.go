@@ -21,8 +21,8 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
 // diffChangeKind classifies a single diff result.

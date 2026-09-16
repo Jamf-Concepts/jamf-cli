@@ -2,13 +2,13 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Jamf Pro Classic API resource schemas",
-    "version": "11.28.0"
+    "version": "11.32.0"
   },
   "x-jamf-source": {
     "spec": "classic_api_resource_documentation.json",
     "title": "Classic API",
-    "version": "11.28.0",
-    "sdkCommit": "bed9af9",
+    "version": "11.32.0",
+    "sdkCommit": "9f9835d",
     "schemas": 165,
     "resources": 44,
     "unresolved": 1

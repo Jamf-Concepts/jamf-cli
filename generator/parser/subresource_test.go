@@ -35,6 +35,11 @@ func TestSubResourcePartitionIsPinned(t *testing.T) {
 		"self-service settings":                         "GET,PUT /v1/self-service/settings",
 		"self-service-plus settings":                    "GET,PUT /v1/self-service-plus/settings",
 		"sso-settings cert":                             "DELETE,GET,POST,PUT /v2/sso/cert",
+		// New in Jamf Pro 11.32, so nothing moved and there is no prior
+		// spelling to migrate from: the sub-path arrived carrying its own PUT,
+		// which is what the rule admits. Its sibling `sso-settings cert` is the
+		// same shape on the same resource.
+		"sso-settings oidc-broker-config": "GET,PUT /v3/sso/oidc-broker-config",
 	}
 
 	resources := parseCommittedSpecs(t)

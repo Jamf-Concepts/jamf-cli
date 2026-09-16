@@ -94,3 +94,50 @@ func populatedEntry(t *testing.T) commandEntry {
 	}
 	return e
 }
+
+// TestCatalogCarriesPreviewPositiveOnly pins the preview field's contract in
+// both directions, which the key-presence sweep above cannot see.
+//
+// Preview is a claim about an endpoint's stability that only a spec can make,
+// and most commands' specs say nothing — so `false` on every row would read as
+// "this one is GA" rather than "nothing was declared". That is the opposite
+// choice from `destructive`, which is emitted unconditionally so table and CSV
+// output keep the column, and the two are easy to confuse when adding a field.
+//
+// Asserted against the shipped tree rather than a synthetic entry, because the
+// question is whether the annotation survives the generators and the wiring: the
+// prose in --help already carries "Preview - " from upstream's summary, so a
+// broken annotation would leave the catalog silently disagreeing with the help
+// text a reader was told not to parse.
+func TestCatalogCarriesPreviewPositiveOnly(t *testing.T) {
+	entries := collectCommands(NewRootCmd("test", "none", "none", "none"), "", "", "")
+	maps := commandEntriesToMaps(entries, true)
+
+	var preview, plain int
+	for i, m := range maps {
+		v, present := m["preview"]
+		if entries[i].Preview {
+			preview++
+			if v != true {
+				t.Errorf("%q is a preview command but the catalog says preview=%v (present=%v)", entries[i].Command, v, present)
+			}
+			continue
+		}
+		plain++
+		if present {
+			t.Errorf("%q is not a preview command but the catalog carries preview=%v; absence has to mean \"nothing declared\", not \"GA\"", entries[i].Command, v)
+		}
+	}
+
+	// Jamf AI Governance declares all twelve of its operations preview, and the
+	// synthesized apply inherits it. If upstream graduates them this drops to
+	// zero and the guard stops being exercised — update it then rather than
+	// letting it pass vacuously.
+	if preview == 0 {
+		t.Error("no command carries preview, so the positive half is unasserted — either the specs graduated (update this test) or jamf:preview stopped reaching the catalog")
+	}
+	if plain == 0 {
+		t.Fatal("every command is preview, which no drop has ever been — suspect the annotation")
+	}
+	t.Logf("%d preview commands, %d without the key", preview, plain)
+}

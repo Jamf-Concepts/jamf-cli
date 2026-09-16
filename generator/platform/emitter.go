@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -319,6 +320,14 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 			if len(op.ScopeTypes) > 0 {
 				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:scopes", strings.Join(op.ScopeTypes, ",")))
 			}
+			// The published spec marks this endpoint a preview: it works, and
+			// its request and response shape may change without warning.
+			// Stamped from x-preview so a consumer has something better to key
+			// on than the "Preview - " prefix upstream renders into the summary
+			// — prose nobody here controls, on the surface most likely to move.
+			if op.Preview {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:preview", "true"))
+			}
 			if len(pairs) == 0 {
 				return ""
 			}
@@ -507,6 +516,14 @@ func applyAnnotations(a *applySpec) string {
 	if len(a.ScopeTypes) > 0 {
 		pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:scopes", strings.Join(a.ScopeTypes, ",")))
 	}
+	// apply is preview when either write it composes is: the composed verb is no
+	// more stable than its least stable part, and every AI Governance operation
+	// is preview today, so the alternative would be the one verb built from
+	// preview requests claiming to be GA. Taken from the two writes, as
+	// Privileges and ScopeTypes are — the list op's own values reach neither.
+	if a.Preview {
+		pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:preview", "true"))
+	}
 	return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 }
 
@@ -588,6 +605,7 @@ type applySpec struct {
 	Privileges       []string // union of the three ops' privileges, for the annotation
 	ScopeTypes       []string // union of the scope levels those ops declare, for the annotation
 	PatchReplaces    string   // field a non-merging PATCH replaces wholesale; empty when the method behaves as documented
+	Preview          bool     // any op apply composes is a preview endpoint, for the annotation
 }
 
 // applyNameFields are the body properties that can carry a resource's
@@ -708,6 +726,7 @@ func buildApplySpec(r *parser.Resource, ownListPath string, nameLookupField stri
 		ScopeTypes:       unionScopeTypes(create, update),
 		PatchReplaces:    platformPatchDoesNotMerge[r.Name],
 		AfterApply:       platformApplyCaveats[r.Name],
+		Preview:          create.Preview || update.Preview,
 	}
 }
 
@@ -887,24 +906,107 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 	}, nil
 }
 
-// firstParagraph returns the leading paragraph of s, with internal newlines
-// folded to spaces. Used to keep cobra Long text concise — the spec
-// description often has multi-paragraph markdown that doesn't render well in
-// a terminal help dump.
+// firstParagraph returns the description text worth putting in a cobra Long:
+// any leading admonition paragraphs, then the first substantive one, with
+// internal newlines folded to spaces. A spec description is multi-paragraph
+// markdown that does not render well in a terminal help dump, so everything
+// after the substantive paragraph is dropped.
+//
+// It keeps the leading admonitions because assuming the first paragraph is the
+// substantive one is how twelve commands came to explain nothing. SDK v1.1.0
+// prefixed every AI Governance description with two preview banners, and taking
+// the first paragraph left each Long as the banner alone — `platform ai-policies
+// list --help` said the endpoint may change and no longer said what it lists.
+// Reading past a banner to find the description is a property of the shape, not
+// of that one spec: any admonition upstream adds does the same.
+//
+// The "Required Permissions:" admonition is dropped wherever it appears. It is
+// the tail of every platform description, it is already the jamf:privileges
+// annotation and the 403 hint, and a description whose only paragraph is that
+// one would otherwise render as a Long saying nothing but a grant name.
 func firstParagraph(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return ""
+	var notes []string
+	for _, para := range splitParagraphs(s) {
+		label, isAdmonition := admonitionLabel(para)
+		switch {
+		case isAdmonition && strings.EqualFold(label, "Required Permissions"):
+			continue
+		case isAdmonition:
+			notes = append(notes, para)
+		default:
+			return flattenHelpText(strings.Join(append(notes, para), "\n\n"))
+		}
 	}
-	if idx := strings.Index(s, "\n\n"); idx >= 0 {
-		s = s[:idx]
+	// Nothing substantive: the admonitions are all there is to say.
+	return flattenHelpText(strings.Join(notes, "\n\n"))
+}
+
+// splitParagraphs breaks s on blank lines, trimming each paragraph and dropping
+// empty ones.
+func splitParagraphs(s string) []string {
+	var out []string
+	for _, para := range strings.Split(strings.TrimSpace(s), "\n\n") {
+		if p := strings.TrimSpace(para); p != "" {
+			out = append(out, p)
+		}
 	}
-	s = strings.ReplaceAll(s, "\n", " ")
-	// Collapse runs of whitespace introduced by the join.
+	return out
+}
+
+// admonitionLabel reports whether a paragraph opens with a markdown bold label
+// ending in a colon or full stop — "**Preview:** …", "**Required Permissions:**
+// …" — and returns that label without its punctuation. This is the shape
+// upstream uses for a callout, and it is what distinguishes one from the
+// paragraph that describes the operation.
+func admonitionLabel(para string) (string, bool) {
+	if !strings.HasPrefix(para, "**") {
+		return "", false
+	}
+	end := strings.Index(para[2:], "**")
+	if end < 0 {
+		return "", false
+	}
+	label := para[2 : 2+end]
+	if label == "" {
+		return "", false
+	}
+	trimmed := strings.TrimRight(label, ":.")
+	if trimmed == label {
+		// Bold text that is not a label — a bolded word opening a sentence.
+		return "", false
+	}
+	return trimmed, true
+}
+
+// flattenHelpText folds every newline to a space, collapses the runs that join
+// produces, and drops markdown emphasis, so a paragraph wrapped in the spec
+// reads as one plain line here.
+func flattenHelpText(s string) string {
+	s = strings.ReplaceAll(strings.TrimSpace(s), "\n", " ")
 	for strings.Contains(s, "  ") {
 		s = strings.ReplaceAll(s, "  ", " ")
 	}
-	return s
+	return stripMarkdownEmphasis(s)
+}
+
+// stripMarkdownEmphasis removes **bold** and _italic_ markers from help text.
+// Cobra dumps Long verbatim to a terminal, so a marker is punctuation the
+// reader has to look past: the SDK v1.1.0 preview banners open every AI
+// Governance description with "**Preview:** _This endpoint…_" and four other
+// specs bold a word mid-sentence.
+//
+// Backticks are deliberately left alone — they quote a field or a value, where
+// the marks help rather than hinder, and they are already all over this help
+// text. Underscores are only stripped as a matched pair at word boundaries, so
+// a snake_case identifier keeps both of its own.
+var (
+	markdownBold   = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+	markdownItalic = regexp.MustCompile(`(^|[\s(\[])_([^_\s][^_]*)_($|[\s).,;:\]])`)
+)
+
+func stripMarkdownEmphasis(s string) string {
+	s = markdownBold.ReplaceAllString(s, "$1")
+	return markdownItalic.ReplaceAllString(s, "$1$2$3")
 }
 
 // apiLabel names the API a resource is served by, for its help text.

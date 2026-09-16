@@ -221,6 +221,16 @@ type Operation struct {
 	// platform-devices and platform-device-groups (probed 2026-09-05). So it
 	// is reported and hinted with, never used to refuse a command.
 	ScopeTypes []string
+
+	// Preview is true when the published spec marks this operation as a preview
+	// endpoint, from the per-operation x-preview extension.
+	//
+	// Structured rather than read off the prose, although the prose says it too:
+	// upstream renders a "Preview - " prefix into the summary and a markdown
+	// admonition into the description, and both are wording nobody here
+	// controls. The AI Governance spec is the only one carrying it as of SDK
+	// v1.1.0, where all twelve operations are preview with a stated GA date.
+	Preview bool
 }
 
 // StatusResult is a non-2xx response the API documents as a meaningful outcome

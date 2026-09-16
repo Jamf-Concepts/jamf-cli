@@ -425,6 +425,7 @@ func AllSmokeEndpoints() []SmokeEndpoint {
 		{Resource: "sso-settings", Operation: "history", Method: "GET", Path: "/v3/sso/history", IsList: true, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "sso-settings cert", Operation: "download", Method: "GET", Path: "/v2/sso/cert/download", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "sso-settings cert", Operation: "get", Method: "GET", Path: "/v2/sso/cert", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
+		{Resource: "sso-settings oidc-broker-config", Operation: "get", Method: "GET", Path: "/v3/sso/oidc-broker-config", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "startup-status", Operation: "list", Method: "GET", Path: "/startup-status", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "static-user-groups", Operation: "get", Method: "GET", Path: "/v1/static-user-groups/{id}", IsList: false, HasPathParams: true, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "static-user-groups", Operation: "list", Method: "GET", Path: "/v1/static-user-groups", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},

@@ -1110,3 +1110,55 @@ func movedAliasSpellings() int {
 	}
 	return n
 }
+
+// TestBulkAllFlagIsReachable is the --all twin of the --scaffold test above, and
+// it exists because the two flags hit the same trap for the same reason.
+//
+// A command carrying a BulkActionPath addresses the whole collection when --all
+// is set, so it needs none of the identifiers its {id} path carries. Cobra
+// validates Args before RunE, so a bare ExactArgs refuses before the --all
+// branch is reached and the flag cannot be used at all — issue 363 through a
+// different flag. It went unnoticed while every such command also had a --name
+// lookup, whose MaximumNArgs(1) relaxed the floor by accident; Jamf Pro 11.32's
+// `jamf-pro-notifications delete` is the first with neither a name lookup nor a
+// scaffold, and its --all was unreachable.
+//
+// Both ends again: the floor drops to zero and the declared ceiling holds, so a
+// validator that is too strict fails here rather than passing as "bounded".
+func TestBulkAllFlagIsReachable(t *testing.T) {
+	leaves := runnableLeaves(NewRootCmd("test", "none", "none", "none"))
+
+	checked := 0
+	for _, l := range leaves {
+		all := l.cmd.Flags().Lookup("all")
+		// --all is also the pagination flag on a list command, which takes no
+		// positional and declares no Args to relax. The bulk one is the flag on
+		// a command whose Use carries a placeholder.
+		count, variadic := declaredPositionals(l.cmd.Use, l.cmd.Name())
+		if all == nil || l.cmd.Args == nil || count == 0 || variadic {
+			continue
+		}
+		if !strings.Contains(all.Usage, "in one call") {
+			continue
+		}
+		if err := l.cmd.Flags().Set("all", "true"); err != nil {
+			t.Fatalf("leaf %q: setting --all: %v", l.path, err)
+		}
+		checked++
+
+		if err := l.cmd.Args(l.cmd, nil); err != nil {
+			t.Errorf("leaf %q cannot reach its own --all: %v", l.path, err)
+		}
+		if err := l.cmd.Args(l.cmd, strayArgs(count)); err != nil {
+			t.Errorf("leaf %q with --all refused the %d positional(s) its Use %q documents: %v", l.path, count, l.cmd.Use, err)
+		}
+		if err := l.cmd.Args(l.cmd, strayArgs(count+1)); err == nil {
+			t.Errorf("leaf %q with --all accepted %d positional(s), one more than its Use %q documents", l.path, count+1, l.cmd.Use)
+		}
+	}
+
+	if checked == 0 {
+		t.Fatal("no leaf carries a bulk --all beside a positional placeholder, so this guard would pass vacuously — check pairCollectionBulkActions and the flag's usage string")
+	}
+	t.Logf("verified %d bulk --all leaves can reach their own flag", checked)
+}

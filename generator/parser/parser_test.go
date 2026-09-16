@@ -2309,6 +2309,77 @@ func TestPairCollectionBulkActions(t *testing.T) {
 		}
 	})
 
+	// Jamf Pro 11.32 added DELETE /v1/notifications beside the existing
+	// DELETE /v1/notifications/{type}/{id}. Both derive "delete", the
+	// collection one addresses the resource root so it keeps the plain verb,
+	// and the per-item one has no non-parameterised segment for
+	// qualifyDuplicateVerbsOutsideTheRoot to qualify it with — so it was
+	// dropped, and `delete` silently changed from removing one notification to
+	// dismissing all of them.
+	t.Run("pairs an item DELETE with a collection DELETE and keeps the item command", func(t *testing.T) {
+		list := &Operation{Name: "list", Method: "GET", Path: "/v1/notifications", IsList: true}
+		item := &Operation{Name: "delete", Method: "DELETE", Path: "/v1/notifications/{type}/{id}", IsDestructive: true}
+		all := &Operation{Name: "delete", Method: "DELETE", Path: "/v1/notifications", IsDestructive: true}
+
+		got := pairCollectionBulkActions([]*Operation{list, item, all})
+
+		if containsOp(got, all) {
+			t.Error("the collection DELETE should have been folded into --all, not kept as a second command")
+		}
+		if !containsOp(got, item) {
+			t.Error("the item DELETE is the capability that was being lost — it must survive")
+		}
+		if item.BulkActionPath != all.Path {
+			t.Errorf("item.BulkActionPath = %q, want %q", item.BulkActionPath, all.Path)
+		}
+		// Two path params, and neither the pairing nor --all cares how many:
+		// every parameter segment is stripped to find the collection.
+		if !containsOp(got, list) {
+			t.Error("the list op must be untouched")
+		}
+	})
+
+	// The {id}-terminal and single-param exclusions are relaxed for DELETE and
+	// must stay in force for everything else, because a collection POST creates
+	// and a collection PUT replaces — neither is "the same thing, across the
+	// collection".
+	t.Run("does not pair a write that is not a DELETE or an action", func(t *testing.T) {
+		create := &Operation{Name: "create", Method: "POST", Path: "/v1/accounts"}
+		update := &Operation{Name: "update", Method: "PUT", Path: "/v1/accounts/{id}"}
+		replaceAll := &Operation{Name: "update", Method: "PUT", Path: "/v1/accounts"}
+
+		got := pairCollectionBulkActions([]*Operation{create, update, replaceAll})
+
+		if len(got) != 3 {
+			t.Errorf("expected all three ops retained, got %d", len(got))
+		}
+		if update.BulkActionPath != "" {
+			t.Errorf("a PUT /{id} must not claim a collection PUT as its bulk sibling, got %q", update.BulkActionPath)
+		}
+	})
+
+	t.Run("does not pair an item DELETE with a collection op of another method", func(t *testing.T) {
+		item := &Operation{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"}
+		post := &Operation{Name: "create", Method: "POST", Path: "/v1/things", IsAction: true}
+
+		got := pairCollectionBulkActions([]*Operation{item, post})
+
+		if len(got) != 2 || item.BulkActionPath != "" {
+			t.Errorf("cross-method pairing; got %d ops, BulkActionPath=%q", len(got), item.BulkActionPath)
+		}
+	})
+
+	t.Run("does not pair an item DELETE with no collection DELETE at all", func(t *testing.T) {
+		item := &Operation{Name: "delete", Method: "DELETE", Path: "/v1/categories/{id}"}
+		list := &Operation{Name: "list", Method: "GET", Path: "/v1/categories", IsList: true}
+
+		got := pairCollectionBulkActions([]*Operation{list, item})
+
+		if len(got) != 2 || item.BulkActionPath != "" {
+			t.Errorf("an ordinary delete must not gain --all; got %d ops, BulkActionPath=%q", len(got), item.BulkActionPath)
+		}
+	})
+
 	t.Run("leaves a lone collection action (no per-id sibling) untouched", func(t *testing.T) {
 		export := &Operation{Name: "export", Method: "POST", Path: "/v1/deployments/export", IsAction: true}
 		list := &Operation{Name: "list", Method: "GET", Path: "/v1/deployments", IsList: true}

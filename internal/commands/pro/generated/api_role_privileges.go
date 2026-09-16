@@ -37,7 +37,7 @@ func newApiRolePrivilegesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List api-role-privileges and extract IDs
   jamf-cli pro api-role-privileges list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,7 +74,7 @@ func newApiRolePrivilegesSearchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "search",
 		Short:       "Search the current Jamf API Role Privileges",
 		Long:        "Search role privileges",
-		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
