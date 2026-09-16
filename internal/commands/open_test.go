@@ -7,6 +7,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -256,5 +258,216 @@ func TestEnvPhraseReadsAsEnglish(t *testing.T) {
 		if got := envPhrase(names); got != want {
 			t.Errorf("envPhrase(%v) = %q, want %q", names, got, want)
 		}
+	}
+}
+
+// TestProSectionTableIsWellFormed guards the table itself, which is 139 hand
+// landed entries derived from a web session: a duplicated path means two names
+// for one page, a leading slash or a scheme means the join in proSectionURL
+// would produce something unopenable, and an empty label leaves completion
+// with nothing to recognise the page by.
+func TestProSectionTableIsWellFormed(t *testing.T) {
+	if len(proUISections) < 100 {
+		t.Fatalf("proUISections has %d entries — the table has been truncated", len(proUISections))
+	}
+	seen := map[string]string{}
+	for name, s := range proUISections {
+		if name != strings.ToLower(name) || strings.ContainsAny(name, " _") {
+			t.Errorf("section %q: names are lower-case and kebab-cased", name)
+		}
+		if strings.HasPrefix(s.Path, "/") || strings.Contains(s.Path, "://") {
+			t.Errorf("section %q: path %q must be relative and carry no scheme", name, s.Path)
+		}
+		if s.Label == "" {
+			t.Errorf("section %q has no label — completion shows it as the page's own heading", name)
+		}
+		// The dashboard is the one empty path, being the base URL itself.
+		if s.Path == "" && name != "dashboard" {
+			t.Errorf("section %q has an empty path", name)
+		}
+		if s.Path != "" {
+			if prev, dup := seen[s.Path]; dup {
+				t.Errorf("sections %q and %q both open %q", prev, name, s.Path)
+			}
+			seen[s.Path] = name
+		}
+	}
+}
+
+// TestProSectionNamesTrackTheCLIsOwnResourceNames is the reason the names were
+// not taken from the interface's own URLs verbatim: someone who knows `pro
+// policies list` should be able to guess where `pro open` sends them.
+//
+// It measures the overlap rather than listing a sample, because a sample of
+// hand-picked names is a list that goes stale silently — the first version of
+// this test asserted six names that are not `pro` commands at all, `pro
+// policies` among them (the modern API has no policies resource; it is
+// classic-policies). The floor is a little under the 42 names that overlap
+// today, so a rename that costs one is not a failure and a table rewritten
+// against the interface's own vocabulary is.
+func TestProSectionNamesTrackTheCLIsOwnResourceNames(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	pro := findSubcommand(root, "pro")
+
+	commandNames := map[string]bool{}
+	for _, c := range pro.Commands() {
+		commandNames[c.Name()] = true
+		for _, alias := range c.Aliases {
+			commandNames[alias] = true
+		}
+	}
+
+	var shared []string
+	for name := range proUISections {
+		// A settings page is prefixed; the resource name is the tail.
+		if commandNames[strings.TrimPrefix(name, "settings/")] {
+			shared = append(shared, name)
+		}
+	}
+	if len(shared) < 35 {
+		t.Errorf("only %d of %d section names are also pro command names or aliases (%v) — "+
+			"names should follow this CLI's own vocabulary where the page and the resource are the same thing",
+			len(shared), len(proUISections), shared)
+	}
+
+	// Spot-checks from that set, so the count cannot be met by accident while
+	// the obvious names are wrong.
+	for _, name := range []string{"computers", "settings/packages", "blueprints", "settings/categories", "settings/buildings", "settings/scripts"} {
+		if _, ok := proUISections[name]; !ok {
+			t.Errorf("no section named %q", name)
+		}
+	}
+}
+
+func TestProSectionURL(t *testing.T) {
+	const base = "https://tenant.jamfcloud.com"
+
+	t.Run("a named section becomes its path", func(t *testing.T) {
+		got, err := proSectionURL(base, "policies")
+		if err != nil || got != base+"/policies.html" {
+			t.Errorf("got (%q, %v)", got, err)
+		}
+	})
+
+	t.Run("no section opens the base URL", func(t *testing.T) {
+		for _, section := range []string{"", "dashboard"} {
+			got, err := proSectionURL(base+"/", section)
+			if err != nil || got != base {
+				t.Errorf("section %q: got (%q, %v), want the trimmed base URL", section, got, err)
+			}
+		}
+	})
+
+	// A section name carrying a slash must not be read as a path, or the
+	// settings sections would all resolve to a literal /settings/<x> that the
+	// interface does not serve — the category segment is the whole point of
+	// the table.
+	t.Run("a name wins over a path", func(t *testing.T) {
+		got, err := proSectionURL(base, "settings/sso")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != base+"/view/settings/system-settings/sso" {
+			t.Errorf("got %q, want the table's path rather than the name", got)
+		}
+	})
+
+	t.Run("an unrecognised path is passed through", func(t *testing.T) {
+		for _, arg := range []string{"policies.html", "computers.html?id=42", "view/settings/anything"} {
+			got, err := proSectionURL(base, arg)
+			if err != nil || got != base+"/"+arg {
+				t.Errorf("arg %q: got (%q, %v), want it opened verbatim", arg, got, err)
+			}
+		}
+	})
+
+	// The refusals. Each one is user text being glued onto a URL, so the
+	// question is always whether the result can still leave the instance.
+	t.Run("refusals", func(t *testing.T) {
+		for _, arg := range []string{
+			"policies",      // placeholder, replaced below
+			"nosuchsection", // a typo: not opened as a path
+			"https://evil.example.com",
+			"../../etc.html",
+			"view/../../x.html",
+		} {
+			if arg == "policies" {
+				continue
+			}
+			if got, err := proSectionURL(base, arg); err == nil {
+				t.Errorf("proSectionURL(%q) = %q, want an error", arg, got)
+			}
+		}
+	})
+
+	// A host-relative URL is the one that would actually leave the instance,
+	// and it survives Validate because it is not a scheme. TrimLeft is what
+	// contains it: the result has to stay on the configured host.
+	t.Run("a host-relative path stays on the instance", func(t *testing.T) {
+		got, err := proSectionURL(base, "//evil.example.com/x.html")
+		if err != nil {
+			return // refused outright is also a correct answer
+		}
+		u, perr := url.Parse(got)
+		if perr != nil {
+			t.Fatal(perr)
+		}
+		if u.Host != "tenant.jamfcloud.com" {
+			t.Errorf("got %q, which resolves to host %q", got, u.Host)
+		}
+	})
+}
+
+// TestUnknownSectionNamesTheNearestOnes — the table is too large to guess
+// from, so a refusal that only says "unknown" leaves the caller stuck. The
+// substring pass is what makes the common shape work: someone reaching for SSO
+// settings types "sso", which is three edits from nothing.
+func TestUnknownSectionNamesTheNearestOnes(t *testing.T) {
+	cases := map[string]string{
+		"sso":      "settings/sso",
+		"policy":   "policies",
+		"packages": "settings/packages",
+	}
+	for typed, want := range cases {
+		near := nearestProSections(typed, 5)
+		if !slices.Contains(near, want) {
+			t.Errorf("nearestProSections(%q) = %v, want it to include %q", typed, near, want)
+		}
+	}
+	if near := nearestProSections("zzzzzzzzzz", 5); len(near) != 0 {
+		t.Errorf("nearestProSections on nonsense returned %v, want nothing", near)
+	}
+}
+
+func TestCompleteProSectionsOffersNamesWithTheirPageHeading(t *testing.T) {
+	got := completeProSections("settings/ss")
+	if len(got) == 0 {
+		t.Fatal("no completions for a real prefix")
+	}
+	for _, c := range got {
+		name, label, ok := strings.Cut(c, "\t")
+		if !ok || label == "" {
+			t.Errorf("completion %q carries no description", c)
+		}
+		if !strings.HasPrefix(name, "settings/ss") {
+			t.Errorf("completion %q does not match the prefix", c)
+		}
+	}
+	if len(completeProSections("nosuchprefix")) != 0 {
+		t.Error("completions returned for a prefix nothing matches")
+	}
+}
+
+// TestListNeedsNoCredentials pins the annotation rather than the flag: the
+// table is compiled into the binary, so asking for it must not require a
+// server URL. It was refused for a missing one before the annotation existed.
+func TestListNeedsNoCredentials(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	open := findSubcommand(findSubcommand(root, "pro"), "open")
+	if got := open.Annotations[noAuthWhenFlagAnnotation]; got != "list" {
+		t.Errorf("%s = %q, want \"list\"", noAuthWhenFlagAnnotation, got)
+	}
+	if open.Flags().Lookup("list") == nil {
+		t.Error("the annotation names a --list flag the command does not declare")
 	}
 }
