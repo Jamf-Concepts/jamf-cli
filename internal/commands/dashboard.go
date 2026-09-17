@@ -21,8 +21,8 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
 func newDashboardCmd(cliCtx *registry.CLIContext) *cobra.Command {

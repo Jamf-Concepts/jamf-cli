@@ -9,8 +9,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/securitycloud"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/securitycloud"
 )
 
 func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client, data *DashboardData, status *collectStatus) {

@@ -8,9 +8,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
 func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data *DashboardData, status *collectStatus) {
