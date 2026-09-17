@@ -18,6 +18,7 @@ func newSchoolCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Core
 	cmd.AddCommand(newSchoolSetupCmd())
 	cmd.AddCommand(newSchoolOverviewCmd(cliCtx))
+	cmd.AddCommand(newSchoolOpenCmd(cliCtx))
 
 	// Devices
 	cmd.AddCommand(newSchoolDevicesCmd(cliCtx))

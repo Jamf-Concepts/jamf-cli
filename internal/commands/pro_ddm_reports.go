@@ -11,7 +11,7 @@ import (
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/ddmreport"
 )
 
 // ddmAllDeclarationsFilter matches every declaration. The filtered DDM report

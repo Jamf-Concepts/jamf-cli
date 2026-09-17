@@ -368,7 +368,7 @@
                 "$ref": "#/components/schemas/Region"
               }
             ],
-            "description": "Auth0 region to create the connection in. Cannot be changed once the connection exists.",
+            "description": "Region to create the connection in. Cannot be changed once the connection exists.",
             "example": "US"
           },
           "sendNonce": {
@@ -549,7 +549,7 @@
                 "$ref": "#/components/schemas/Region"
               }
             ],
-            "description": "Auth0 region the connection lives in.",
+            "description": "Region the connection lives in.",
             "example": "US"
           },
           "scopes": {
@@ -728,7 +728,7 @@
                 "$ref": "#/components/schemas/Region"
               }
             ],
-            "description": "Auth0 region the connection lives in.",
+            "description": "Region the connection lives in.",
             "example": "US"
           },
           "syncUserProfileAttributesAtLogin": {
@@ -855,7 +855,7 @@
             "type": "boolean"
           },
           "verificationExpirationDate": {
-            "description": "When the current verification lapses, being 14 days after the last successful verification, or after the domain was claimed if it has never verified.",
+            "description": "When the current verification lapses, being 14 days after the last successful verification, or after the domain was claimed if it has never verified. Jamf will attempt to automatically reverify the domain on this date.",
             "example": "2026-05-18T14:31:08Z",
             "format": "date-time",
             "type": "string"
@@ -911,24 +911,24 @@
             "type": "string"
           },
           "assignedConnectionOrgId": {
-            "description": "Identifier of the Auth0 organization the connection is assigned through. Managed by Jamf; informational only.",
+            "description": "Identifier of the organization the connection is assigned through. Managed by Jamf; informational only. Note - different from the standard Jamf Org UUID and used only for identity operations.",
             "example": "org_7Yt4RmZq2WbK",
             "type": "string"
           },
-          "authZeroRegion": {
+          "region": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/Region"
               }
             ],
-            "description": "Auth0 region the connection lives in.",
+            "description": "Region the connection lives in.",
             "example": "US"
           }
         },
         "required": [
           "assignedConnection",
           "assignedConnectionOrgId",
-          "authZeroRegion"
+          "region"
         ],
         "type": "object"
       },
@@ -1548,7 +1548,7 @@
         "type": "string"
       },
       "Region": {
-        "description": "Auth0 region a connection lives in. A connection cannot be moved between regions once created.",
+        "description": "Region a connection lives in. A connection cannot be moved between regions once created.",
         "enum": [
           "US",
           "EU",
@@ -1618,7 +1618,7 @@
   "paths": {
     "/v1/connections": {
       "get": {
-        "description": "Returns every identity provider connection enabled for the organization resolved from the access token, across all Auth0 regions, with the verified domains each connection serves and the Jamf products it is enabled for.\n\nThis is a summary view: it does not include the provider settings. Read a single connection with `GET /connections/{connectionId}` for those. The response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no connections returns an empty `results` array and a `totalCount` of 0.",
+        "description": "Returns every identity provider connection enabled for the organization resolved from the access token, across all configured regions, with the verified domains each connection serves and the Jamf products it is enabled for.\n\nThis is a summary view: it does not include the provider settings. Read a single connection with `GET /connections/{connectionId}` for those. The response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no connections returns an empty `results` array and a `totalCount` of 0.",
         "operationId": "listConnections",
         "responses": {
           "200": {
@@ -1674,7 +1674,7 @@
         ]
       },
       "post": {
-        "description": "Creates an identity provider connection and assigns it to the domains and products named in the request, in a single call. Returns the created connection as `GET /connections/{connectionId}` would.\n\n`connectionType` selects which provider settings are expected in `connection`; `connection.region` selects the Auth0 region the connection is created in. `domains` must all be verified — see `POST /domains/{domainId}/actions/verify`. `enabledProducts` names the products, and the tenants of those products, the connection signs users in to; use `enabledEnvironments` instead for products scoped by environment.\n\nCreation and assignment are applied together: if the connection is created but cannot be assigned, it is deleted again rather than left behind for you to find. Only `OIDC`, `WAAD`, `OKTA`, and `GOOGLE_APPS` connections can be created.",
+        "description": "Creates an identity provider connection and assigns it to the domains and products named in the request, in a single call. Returns the created connection as `GET /connections/{connectionId}` would.\n\n`connectionType` selects which provider settings are expected in `connection`; `connection.region` selects the region the connection is created in. `domains` must all be verified — see `POST /domains/{domainId}/actions/verify`. `enabledProducts` names the products, and the tenants of those products, the connection signs users in to; use `enabledEnvironments` instead for products scoped by environment.\n\nCreation and assignment are applied together: if the connection is created but cannot be assigned, it is deleted again rather than left behind for you to find. Only `OIDC`, `WAAD`, `OKTA`, and `GOOGLE_APPS` connections can be created.",
         "operationId": "addConnection",
         "requestBody": {
           "content": {
@@ -1981,7 +1981,7 @@
     },
     "/v1/domains": {
       "get": {
-        "description": "Returns every domain claimed by the organization resolved from the access token, in every status, together with the domains other organizations have shared with it. A shared domain is marked with `sharedDomain: true` and carries the owning organization's `accountId`.\n\nThe response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no domains returns an empty `results` array and a `totalCount` of 0.",
+        "description": "Returns every domain claimed by the organization resolved from the access token, in every status, together with the domains other organizations have shared with it. A shared domain is marked with `sharedDomain: true` and carries the owning organization's `accountId` - note this is different than an `organizationId` and is calculated by Jamf on response. It does not need to be provided on update. A domain with a non-null `verifiedTldId` inherited  its verification from its TLD, not it's own TXT record.\n\nThe response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no domains returns an empty `results` array and a `totalCount` of 0.",
         "operationId": "listDomains",
         "responses": {
           "200": {
@@ -2048,7 +2048,7 @@
         ]
       },
       "post": {
-        "description": "Claims a domain for the organization resolved from the access token and returns it with the `verificationKey` to publish. The domain is created in `PENDING` status and cannot be assigned to a connection until it has been verified.\n\nPublish the returned `verificationKey` as a TXT record on the domain, then call `POST /domains/{domainId}/actions/verify`. The key stays valid for 14 days from `verificationExpirationDate`; a domain whose key has lapsed must be added again.\n\nOnly the `domain` field is read from the request body — every other field is assigned by Jamf and is ignored if supplied. A domain already claimed by this organization is rejected with `409`; a domain already verified by a different organization is rejected on verification, not here.",
+        "description": "Claims a domain for the organization resolved from the access token and returns it with the `verificationKey` to publish. The domain is created in `PENDING` status and cannot be assigned to a connection until it has been verified.\n\nPublish the returned `verificationKey` as a TXT record on the domain, then call `POST /domains/{domainId}/actions/verify`.\n\nOnly the `domain` field is read from the request body — every other field is assigned by Jamf and is ignored if supplied. A domain already claimed by this organization is rejected with `409`; a domain already verified by a different organization is rejected on verification, not here.",
         "operationId": "addDomain",
         "requestBody": {
           "content": {
@@ -2134,7 +2134,7 @@
                     {
                       "assignedConnection": "con_9Xk2LpQr7TvB3mNd",
                       "assignedConnectionOrgId": "org_7Yt4RmZq2WbK",
-                      "authZeroRegion": "US"
+                      "region": "US"
                     }
                   ],
                   "domain": "example.com",
@@ -2291,9 +2291,7 @@
           "default": "us",
           "description": "Select the regional gateway",
           "enum": [
-            "us",
-            "eu",
-            "apac"
+            "us"
           ]
         }
       }

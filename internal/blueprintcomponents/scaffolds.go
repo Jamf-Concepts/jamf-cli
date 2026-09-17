@@ -7,7 +7,7 @@ import (
 	"maps"
 	"sort"
 
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 )
 
 // Scaffolds maps blueprint component identifiers to example JSON configurations.

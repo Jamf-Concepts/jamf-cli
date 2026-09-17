@@ -97,9 +97,10 @@ func TestSecurityCommandsDeclareTheirAPI(t *testing.T) {
 
 	for _, cmd := range security.Commands() {
 		switch cmd.Name() {
-		case "help", "setup":
-			// setup writes credentials to config and the keychain; it calls
-			// neither API, so it declares neither.
+		case "help", "setup", "open":
+			// setup writes credentials to config and the keychain, and open
+			// launches a browser at a constant URL. Neither calls either API,
+			// so neither declares one.
 			continue
 		}
 

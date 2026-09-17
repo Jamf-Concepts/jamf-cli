@@ -23,8 +23,8 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
 // Concurrency defaults for the backup command. The API can be pushed to 429s

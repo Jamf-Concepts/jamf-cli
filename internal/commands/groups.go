@@ -161,6 +161,7 @@ var proGroupMap = map[string]string{
 	"setup":    groupCore,
 	"overview": groupCore,
 	"auth":     groupCore,
+	"open":     groupCore,
 	"device":   groupCore,
 
 	// Power Commands
@@ -544,6 +545,7 @@ var protectGroupMap = map[string]string{
 	"setup":    groupProtectCore,
 	"overview": groupProtectCore,
 	"auth":     groupProtectCore,
+	"open":     groupProtectCore,
 	"backup":   groupProtectCore,
 	"restore":  groupProtectCore,
 
@@ -610,6 +612,7 @@ var schoolGroups = []*cobra.Group{
 var schoolGroupMap = map[string]string{
 	"setup":    groupSchoolCore,
 	"overview": groupSchoolCore,
+	"open":     groupSchoolCore,
 
 	"devices":       groupSchoolDevices,
 	"device-groups": groupSchoolDevices,
@@ -666,6 +669,7 @@ var securityGroups = []*cobra.Group{
 
 var securityGroupMap = map[string]string{
 	"setup": groupSecurityCore,
+	"open":  groupSecurityCore,
 
 	"risk":             groupSecurityRisk,
 	"device-lifecycle": groupSecurityRisk,

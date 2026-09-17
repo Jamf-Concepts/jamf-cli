@@ -218,7 +218,7 @@ func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <groupedGatewayId>",
 		Short:       "Get a Grouped Gateway",
-		Long:        "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants.",
+		Long:        "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`, to avoid confirming existence of grouped gateways owned by other tenants.",
 		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

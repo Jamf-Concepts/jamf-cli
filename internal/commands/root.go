@@ -877,6 +877,21 @@ in the config file. It never runs in CI, when output is piped, or under
 				return nil
 			}
 
+			// A command that is auth-free under one of its own flags. Same
+			// reasoning as --scaffold above, except the flag is named by the
+			// command rather than known to the root: `pro open --list` prints
+			// this binary's own section table and asks the instance nothing,
+			// but the command it sits on does resolve auth, so without this it
+			// demanded credentials to answer a local question. An annotation
+			// rather than a second name in the flag check, so the bypass
+			// cannot be inherited by every other command that comes to declare
+			// a --list.
+			if flag := cmd.Annotations[noAuthWhenFlagAnnotation]; flag != "" {
+				if set, err := cmd.Flags().GetBool(flag); err == nil && set {
+					return nil
+				}
+			}
+
 			// Determine product type from command hierarchy or profile
 			product := resolveProduct(cmd, cfg)
 
@@ -1148,7 +1163,15 @@ type commandEntry struct {
 	Product     string   `json:"product,omitempty"`
 	Group       string   `json:"group,omitempty"`
 	Destructive bool     `json:"destructive,omitempty"`
-	Privileges  []string `json:"privileges,omitempty"`
+	// Preview is true when the API's published spec marks this operation a
+	// preview endpoint: it works, and its request and response shape may change
+	// without warning. Carried here because the catalog is the machine surface —
+	// the fact also reaches the help text, but only as prose upstream authors and
+	// can reword at any ingest, which is the wrong thing for a script to match
+	// on. Set for all twelve Jamf AI Governance commands as of SDK v1.1.0, which
+	// names 2027-03-03 as the expected GA date in their --help.
+	Preview    bool     `json:"preview,omitempty"`
+	Privileges []string `json:"privileges,omitempty"`
 	// API is which Jamf API serves the command, and so which credentials it
 	// needs — "platform-gateway" or "radar". It matters most under `security`,
 	// where both appear side by side and take different credentials.
@@ -1298,6 +1321,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Product:     childProduct,
 				Group:       childGroup,
 				Destructive: child.Annotations["jamf:destructive"] == "true",
+				Preview:     child.Annotations["jamf:preview"] == "true",
 				Privileges:  privileges,
 				API:         child.Annotations["jamf:api"],
 
@@ -1369,6 +1393,15 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// which derive their columns from the first row, carry the field for
 			// every row rather than dropping it when the first row isn't destructive.
 			m["destructive"] = e.Destructive
+			// Positive-only, unlike destructive above: preview is a claim about
+			// the endpoint's stability that only a spec can make, and most
+			// commands' specs say nothing — so false on every row would read as
+			// "this one is GA" rather than "nothing was declared". The cost is
+			// that CSV and table output derive their columns from row 0 and will
+			// not show it; it is a JSON signal, like privileges below.
+			if e.Preview {
+				m["preview"] = true
+			}
 			// Privileges, unlike destructive above, is positive-only: an empty
 			// array would falsely assert "needs no privileges" for commands that
 			// simply don't declare them (classic, platform, handwritten), so the
@@ -2161,6 +2194,16 @@ func classifyArgsErrors(cmd *cobra.Command) {
 // silent auth bypass for any other command that happens to share it, and what
 // rootOnlySkip exists to contain.
 const noAuthAnnotation = "jamf:no-auth"
+
+// noAuthWhenFlagAnnotation names a bool flag on the command it is set on that
+// makes the command auth-free — it answers from this binary alone and sends no
+// request. The value is the flag name.
+//
+// It exists because auth is resolved per command, not per invocation, so a
+// command that usually needs credentials and sometimes does not had no way to
+// say so: `pro open --list` renders a table compiled into the binary and was
+// refused for a missing server URL.
+const noAuthWhenFlagAnnotation = "jamf:no-auth-when-flag"
 
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made
 // runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
