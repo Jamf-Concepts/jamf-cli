@@ -19,8 +19,10 @@ func TestCollectPatchCompliance_ComputesPercentageFromWire(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v3/patch-software-title-configurations": {200, `{"totalCount":1,"results":[{"id":"10"}]}`},
-			"/v3/patch-software-title-configurations/10/patch-summary": {200,
-				`{"title":"Google Chrome","latestVersion":"120.0","upToDate":90,"outOfDate":10}`},
+			"/v3/patch-software-title-configurations/10/patch-summary": {
+				200,
+				`{"title":"Google Chrome","latestVersion":"120.0","upToDate":90,"outOfDate":10}`,
+			},
 			"/v3/patch-software-title-configurations/10/patch-summary/versions": {200, `[]`},
 		},
 	}
@@ -51,8 +53,10 @@ func TestCollectPatchCompliance_ZeroTotalIsZeroPercentNotDivideByZero(t *testing
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v3/patch-software-title-configurations": {200, `{"totalCount":1,"results":[{"id":"7"}]}`},
-			"/v3/patch-software-title-configurations/7/patch-summary": {200,
-				`{"title":"Idle Title","upToDate":0,"outOfDate":0}`},
+			"/v3/patch-software-title-configurations/7/patch-summary": {
+				200,
+				`{"title":"Idle Title","upToDate":0,"outOfDate":0}`,
+			},
 			"/v3/patch-software-title-configurations/7/patch-summary/versions": {200, `[]`},
 		},
 	}
