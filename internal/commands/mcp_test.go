@@ -40,6 +40,8 @@ func TestBuildChildArgs_RejectsInstanceAndCredentialFlags(t *testing.T) {
 		{"--token-file=/tmp/tok"},
 		{"--tenant-id", "999"},
 		{"--tenant-id=999"},
+		{"--environment-id", "999"},
+		{"--environment-id=999"},
 	}
 	for _, override := range blocked {
 		args := append([]string{"pro", "computers", "list"}, override...)
@@ -278,7 +280,7 @@ func TestCreateReportFile_CreatesInsideReportDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if filepath.Dir(f.Name()) != dir {
 		t.Errorf("file created at %q, want it inside %q", f.Name(), dir)

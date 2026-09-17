@@ -750,8 +750,13 @@ tr:hover td{background:var(--card-hover)}
         <tr><td>Disabled Policies</td><td>{{comma .Cleanup.DisabledPolicies}}</td></tr>
         <tr><td>Unscoped Policies</td><td>{{comma .Cleanup.UnscopedPolicies}}</td></tr>
         <tr><td>Unscoped Profiles</td><td>{{comma .Cleanup.UnscopedProfiles}}</td></tr>
+        {{if .Cleanup.PackageScriptUsageReliable}}
         <tr><td>Unused Packages</td><td>{{comma .Cleanup.UnusedPackages}}</td></tr>
         <tr><td>Unused Scripts</td><td>{{comma .Cleanup.UnusedScripts}}</td></tr>
+        {{else}}
+        <tr><td>Unused Packages</td><td>not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
+        <tr><td>Unused Scripts</td><td>not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
+        {{end}}
       </tbody>
     </table>
   </div>
@@ -796,8 +801,8 @@ tr:hover td{background:var(--card-hover)}
     <div class="org-group">
       <div class="subsection-title">Categories ({{len .OrgStructure.Categories}})</div>
       <table>
-        <thead><tr><th>Name</th><th>Items</th></tr></thead>
-        <tbody>{{range .OrgStructure.Categories}}<tr><td>{{.Name}}</td><td>{{comma .Count}}</td></tr>{{end}}</tbody>
+        <thead><tr><th>Name</th></tr></thead>
+        <tbody>{{range .OrgStructure.Categories}}<tr><td>{{.Name}}</td></tr>{{end}}</tbody>
       </table>
     </div>
     {{end}}

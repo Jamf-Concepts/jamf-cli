@@ -13,7 +13,7 @@ import (
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
-func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data *DashboardData) {
+func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data *DashboardData, status *collectStatus) {
 	bp := blueprints.New(client)
 	cb := compliancebenchmarks.New(client)
 
@@ -29,6 +29,7 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 		bps, err := bp.ListBlueprints(ctx, nil, "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: blueprints: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		entries := make([]blueprintEntry, 0, len(bps))
@@ -53,6 +54,7 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 		resp, err := cb.ListBenchmarks(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: benchmarks: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		entries := make([]benchmarkEntry, 0, len(resp.Benchmarks))
@@ -60,11 +62,13 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 			pct, err := cb.GetBenchmarkCompliancePercentage(ctx, b.ID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s compliance: %v\n", b.ID, err)
+				status.recordFailure()
 				continue
 			}
 			rules, err := cb.ListBenchmarkRulesStats(ctx, b.ID, "", "")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s rules: %v\n", b.ID, err)
+				status.recordFailure()
 				continue
 			}
 			failingRules := 0

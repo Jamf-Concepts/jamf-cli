@@ -2135,6 +2135,12 @@ func TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands(t *testing.T) {
 		// through a deprecation alias and so still passes — but an alias is not
 		// what this asserts, and the aliases expire.
 		{"pro", "mdm", "commands"},
+		// A generated Jamf Pro resource is also named `dashboard`, and there is a
+		// `dashboard` operation on two others. The cross-product `dashboard` leaf
+		// opts out of auth with a jamf:no-auth annotation rather than a name in
+		// chainSkip — a name would match these nested commands too and make them
+		// return before cliCtx.Client is built, panicking in the generated RunE.
+		{"pro", "dashboard", "list"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			resetGlobals()

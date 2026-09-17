@@ -206,13 +206,15 @@ func errorResult(text string) *mcp.CallToolResult {
 	}
 }
 
-// blockedChildFlags are flags a connecting model must not be able to set. The
-// first four would point the child at a different instance or swap the
-// credentials the server was launched with; --out-file would let the model
-// write command output to an arbitrary host path. The operator pins the target,
-// identity, and output destination once via `mcp serve`; the model only chooses
-// which command to run.
-var blockedChildFlags = []string{"--profile", "--url", "--token-file", "--tenant-id", "--out-file"}
+// blockedChildFlags are flags a connecting model must not be able to set. All
+// but --out-file would point the child at a different instance or scope, or
+// swap the credentials the server was launched with; --tenant-id and
+// --environment-id are the two mutually-exclusive gateway scope selectors and
+// both redirect the request, so blocking one without the other leaves the hole
+// open. --out-file would let the model write command output to an arbitrary
+// host path. The operator pins the target, identity, scope, and output
+// destination once via `mcp serve`; the model only chooses which command to run.
+var blockedChildFlags = []string{"--profile", "--url", "--token-file", "--tenant-id", "--environment-id", "--out-file"}
 
 func isBlockedChildFlag(arg string) bool {
 	// Short-flag form (single dash, not "--"): pflag accepts the --profile

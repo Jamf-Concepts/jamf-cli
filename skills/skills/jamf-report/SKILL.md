@@ -77,8 +77,21 @@ Two limits apply to the MCP route only:
   `--include-profile`.
 - **No choice of destination.** The file name and directory are server-derived —
   the administrator sets the directory once with
-  `jamf-cli pro setup --report-dir <dir>`, and `generate_report` refuses until
+  `jamf-cli config set-report-dir <dir>`, and `generate_report` refuses until
   they have. For a specific path, use the CLI form with `--out-file`.
+
+### Fast/full confirmation protocol (MCP `generate_report`)
+
+`generate_report` collects in two tiers. **Call it without `full: true` first.**
+The fast report (~20 API calls) covers fleet counts, security posture, OS
+distribution, check-in compliance, audit findings, and environment stats. After
+it completes, report the fleet size and offer the extended report before running
+it: *"The instance has N managed devices. I can run a full report that also
+includes patch compliance, hardware models, cleanup analysis, and org structure —
+this adds roughly 200-500 additional API calls and may take 60-120 seconds on a
+large instance. Would you like the full report?"* Only set `full: true` after
+explicit confirmation. (The CLI form runs the fast tier by default and the full
+tier with `--full`; no confirmation prompt applies there.)
 
 ## Presentation Workflow
 

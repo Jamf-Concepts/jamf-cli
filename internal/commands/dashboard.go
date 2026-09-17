@@ -10,6 +10,7 @@ import (
 	"net/http/cookiejar"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -18,6 +19,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
@@ -34,6 +36,9 @@ func newDashboardCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dashboard",
 		Short: "Generate a cross-product HTML fleet dashboard",
+		Annotations: map[string]string{
+			noAuthAnnotation: "true",
+		},
 		Long: `Generate a self-contained HTML report aggregating fleet health, security
 posture, audit findings, and more across Jamf Pro, Protect, and Platform
 products.
@@ -129,11 +134,33 @@ type dashboardOptions struct {
 }
 
 type resolvedClients struct {
-	profile        dashboardProfile
-	pro            registry.HTTPClient
-	protect        registry.ProtectClient
-	platform       *jamfplatform.Client
+	profile          dashboardProfile
+	pro              registry.HTTPClient
+	protect          registry.ProtectClient
+	platform         *jamfplatform.Client
 	hasSecurityCloud bool
+}
+
+// collectStatus is the shared failure tally the collectors write to. Each
+// section that cannot be fetched still prints its warning to stderr and leaves
+// its data field nil, but it also records the miss here so runDashboard can
+// exit non-zero — a report with silently-dropped sections must not report
+// success. Its methods are safe to call from the collector goroutines.
+type collectStatus struct {
+	mu     sync.Mutex
+	failed int
+}
+
+func (s *collectStatus) recordFailure() {
+	s.mu.Lock()
+	s.failed++
+	s.mu.Unlock()
+}
+
+func (s *collectStatus) failures() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.failed
 }
 
 func runDashboard(ctx context.Context, w io.Writer, opts dashboardOptions) error {
@@ -159,19 +186,20 @@ func runDashboard(ctx context.Context, w io.Writer, opts dashboardOptions) error
 		CLIVersion:  cliVersion,
 	}
 
+	status := &collectStatus{}
 	for _, rc := range clients {
 		data.Profiles = append(data.Profiles, rc.profile)
 
 		switch rc.profile.Product {
 		case "pro":
-			collectProData(ctx, rc.pro, data, opts.SmartGroups, opts.Full)
+			collectProData(ctx, rc.pro, data, opts.SmartGroups, opts.Full, status)
 		case "protect":
-			collectProtectData(ctx, rc.protect, data)
+			collectProtectData(ctx, rc.protect, data, status)
 		case "platform":
-			collectProData(ctx, rc.pro, data, opts.SmartGroups, opts.Full)
-			collectPlatformData(ctx, rc.platform, data)
+			collectProData(ctx, rc.pro, data, opts.SmartGroups, opts.Full, status)
+			collectPlatformData(ctx, rc.platform, data, status)
 			if rc.hasSecurityCloud {
-				collectSecurityCloudData(ctx, rc.platform, data)
+				collectSecurityCloudData(ctx, rc.platform, data, status)
 			}
 		}
 	}
@@ -179,7 +207,20 @@ func runDashboard(ctx context.Context, w io.Writer, opts dashboardOptions) error
 	// Phase 3: Render HTML. The writer comes from the output formatter, so
 	// the global --out-file already points it at the file it opened; opening
 	// the path a second time here would truncate what root is holding.
-	return renderDashboard(w, data)
+	if err := renderDashboard(w, data); err != nil {
+		return err
+	}
+
+	// The report is written whether or not every section was collected, but a
+	// run that dropped sections must not exit 0: a pipeline treating the report
+	// as authoritative needs to know it is incomplete. The per-section warnings
+	// already named what failed on stderr; this is the machine-readable signal.
+	if failed := status.failures(); failed > 0 {
+		return exitcode.New(exitcode.PartialFailure,
+			fmt.Sprintf("dashboard rendered with %d section(s) missing — see warnings above", failed)).
+			WithDetails(map[string]any{"failed_sections": failed})
+	}
+	return nil
 }
 
 func resolveDashboardProfile(cfg *config.Config, profileName string) (resolvedClients, error) {

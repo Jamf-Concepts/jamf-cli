@@ -55,7 +55,11 @@ Example:
   jamf-cli config set-report-dir ~/Reports`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir := args[0]
+			// Expand a leading ~ here so the directory this command creates is the
+			// same one the report path resolves to at read time. ReportDirPath
+			// expands on every read; storing the raw "~/Reports" would make this
+			// command create a literal "~" directory the reader never looks in.
+			dir := (&config.Config{ReportDir: args[0]}).ReportDirPath()
 
 			info, err := os.Stat(dir)
 			if err == nil && !info.IsDir() {
@@ -70,9 +74,13 @@ Example:
 				}
 			}
 
+			// A missing config is not an error — Load returns an empty config on
+			// first run. A read or parse error, though, means there is an existing
+			// config we cannot see; swallowing it and saving a fresh empty config
+			// here would wipe every profile the file holds.
 			cfg, loadErr := config.Load()
 			if loadErr != nil {
-				cfg = &config.Config{}
+				return fmt.Errorf("loading config: %w", loadErr)
 			}
 			cfg.ReportDir = dir
 			if saveErr := config.Save(cfg); saveErr != nil {

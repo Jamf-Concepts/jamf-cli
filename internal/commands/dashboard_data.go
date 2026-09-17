@@ -24,11 +24,11 @@ type DashboardData struct {
 	EnvStats            *environmentStats
 	Checkin             *checkinStatus
 	Hardware            *hardwareModels
-	Protect       *protectCoverage
-	Platform      *platformStatus
-	SecurityCloud *securityCloudStatus
-	Cleanup       *cleanupAnalysis
-	OrgStructure  *orgStructure
+	Protect             *protectCoverage
+	Platform            *platformStatus
+	SecurityCloud       *securityCloudStatus
+	Cleanup             *cleanupAnalysis
+	OrgStructure        *orgStructure
 }
 
 type dashboardProfile struct {
@@ -245,10 +245,25 @@ type cleanupAnalysis struct {
 	UnscopedProfiles int
 	UnusedPackages   int
 	UnusedScripts    int
+	// PoliciesSkipped is the number of policy detail fetches that failed. When
+	// non-zero the reference sets are incomplete, so UnusedPackages/UnusedScripts
+	// would over-count and must not be presented as figures.
+	PoliciesSkipped int
+}
+
+// PackageScriptUsageReliable reports whether every policy detail was read. Unused
+// package/script counts derive from the union of references across all policies,
+// so a single unread policy can make an in-use package look unused.
+func (c *cleanupAnalysis) PackageScriptUsageReliable() bool {
+	return c.PoliciesSkipped == 0
 }
 
 func (c *cleanupAnalysis) Total() int {
-	return c.DisabledPolicies + c.UnscopedPolicies + c.UnscopedProfiles + c.UnusedPackages + c.UnusedScripts
+	total := c.DisabledPolicies + c.UnscopedPolicies + c.UnscopedProfiles
+	if c.PackageScriptUsageReliable() {
+		total += c.UnusedPackages + c.UnusedScripts
+	}
+	return total
 }
 
 type orgStructure struct {

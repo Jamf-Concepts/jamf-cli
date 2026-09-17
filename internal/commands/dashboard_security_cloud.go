@@ -13,10 +13,11 @@ import (
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/securitycloud"
 )
 
-func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client, data *DashboardData) {
+func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client, data *DashboardData, status *collectStatus) {
 	sc := securitycloud.New(platform)
 
 	var result securityCloudStatus
+	var succeeded bool
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -28,6 +29,7 @@ func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client
 		apps, err := sc.ListZtnaAppsV1(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: security cloud ztna apps: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		counts := map[string]int{}
@@ -51,6 +53,7 @@ func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client
 		mu.Lock()
 		result.ZtnaApps = len(apps)
 		result.AppsByCategory = cats
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -60,10 +63,12 @@ func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client
 		resp, err := sc.ListZtnaGatewaysV1(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: security cloud ztna gateways: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
 		result.ZtnaGateways = len(resp.Results)
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -73,10 +78,12 @@ func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client
 		resp, err := sc.ListDeviceGroupsV2(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: security cloud device groups: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
 		result.DeviceGroups = len(resp.Groups)
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -86,10 +93,12 @@ func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client
 		resp, err := sc.ListDnsZonesV1(ctx, "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: security cloud dns zones: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
 		result.DnsZones = len(resp.Results)
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -99,9 +108,17 @@ func collectSecurityCloudData(ctx context.Context, platform *jamfplatform.Client
 	connectors, err := sc.ListUemConnectorsV1(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "dashboard: security cloud uem connectors: %v\n", err)
+		status.recordFailure()
 	} else {
 		result.UemConnector = len(connectors.Results) > 0
+		succeeded = true
 	}
 
-	data.SecurityCloud = &result
+	// Only attach the section if at least one call returned. Every call failing
+	// leaves an all-zeros result that would render identically to a genuinely
+	// empty tenant; suppressing it keeps the failures (already recorded above)
+	// from masquerading as real data.
+	if succeeded {
+		data.SecurityCloud = &result
+	}
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-func collectProtectData(ctx context.Context, client registry.ProtectClient, data *DashboardData) {
+func collectProtectData(ctx context.Context, client registry.ProtectClient, data *DashboardData, status *collectStatus) {
 	var protect protectCoverage
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -24,6 +24,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		plans, err := client.ListPlans(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect plans: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -37,6 +38,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		analytics, err := client.ListAnalytics(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect analytics: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -51,6 +53,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		computers, err := client.ListComputers(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect computers: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -64,6 +67,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		sets, err := client.ListAnalyticSets(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect analytic sets: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -77,6 +81,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		sets, err := client.ListExceptionSets(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect exception sets: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()

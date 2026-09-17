@@ -850,7 +850,6 @@ in the config file. It never runs in CI, when output is piped, or under
 				"diff":          true,
 				"setup":         true,
 				"multi":         true,
-				"dashboard":     true,
 				"doctor":        true,
 				"mcp":           true,
 				"agent-context": true,

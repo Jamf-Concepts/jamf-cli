@@ -4,6 +4,7 @@ package commands
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -248,13 +249,16 @@ func TestSecurityPosturePct(t *testing.T) {
 func TestFleetManagedPct(t *testing.T) {
 	f := &fleetSummary{ManagedComputers: 1200, UnmanagedComputers: 50, ManagedMobile: 800, UnmanagedMobile: 25}
 
+	// 1200/1250 = 96.0 exactly; 800/825 = 96.9696…. Bands loose enough to
+	// straddle a swapped numerator/denominator or a dropped ×100 let a mutant
+	// live, so both are pinned to their arithmetic within 0.01.
 	cpct := f.ComputerManagedPct()
-	if cpct < 95.0 || cpct > 96.5 {
-		t.Errorf("ComputerManagedPct() = %v, want ~96.0", cpct)
+	if math.Abs(cpct-96.0) > 0.01 {
+		t.Errorf("ComputerManagedPct() = %v, want 96.0", cpct)
 	}
 
 	mpct := f.MobileManagedPct()
-	if mpct < 96.0 || mpct > 97.5 {
+	if math.Abs(mpct-96.9697) > 0.01 {
 		t.Errorf("MobileManagedPct() = %v, want ~96.97", mpct)
 	}
 

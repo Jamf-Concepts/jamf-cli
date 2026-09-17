@@ -25,7 +25,7 @@ To change generated command behavior, edit the **generator templates** — see `
 
 ## Build & Dev Commands
 
-See the `dev-commands` skill (`.claude/skills/dev-commands.md`).
+See the `dev-commands` skill (`.claude/skills/dev-commands/SKILL.md`).
 
 ## Architecture (overview)
 
@@ -45,10 +45,15 @@ split out so Claude loads it only when it's actually relevant:
 - `common-workflows` — recipes for adding features, syncing specs, adding endpoints/commands
 - `dev-commands` — build/run/dev commands
 
-**Always-loaded rules** (`.claude/rules/`) — injected every session:
+**Always-loaded rules** (`.claude/rules/`) — imported below so every session
+loads them regardless of harness:
 - `credentials-and-auth.md` — credential policy, auth resolution, scope levels (CRITICAL)
 - `coding-style.md` — output routing, flag rules, positional contract, Go conventions
 - `classic-api.md` — Classic API paths, body input, wire behavior, schema quirks
+
+@.claude/rules/credentials-and-auth.md
+@.claude/rules/coding-style.md
+@.claude/rules/classic-api.md
 
 **Subdirectory CLAUDE.md files** — loaded only when Claude reads a file in that subtree:
 - `internal/protect/CLAUDE.md` — Jamf Protect integration

@@ -17,17 +17,17 @@ import (
 // The fast tier (~20 API calls) always runs. The full tier (patch compliance,
 // hardware models, cleanup analysis, org structure) runs only when full is true —
 // it scales with instance size and can add hundreds of calls on large instances.
-func collectProData(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, full bool) {
-	collectProDataFast(ctx, client, data, smartGroupNames)
+func collectProData(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, full bool, status *collectStatus) {
+	collectProDataFast(ctx, client, data, smartGroupNames, status)
 	if full {
-		collectProDataFull(ctx, client, data, smartGroupNames)
+		collectProDataFull(ctx, client, data, smartGroupNames, status)
 	}
 }
 
 // collectProDataFast runs the fixed-cost collectors (~20 API calls total,
 // independent of instance size). Covers fleet counts, security posture,
 // OS distribution, check-in compliance, audit findings, and environment stats.
-func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string) {
+func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, status *collectStatus) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -38,6 +38,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		fleet, err := collectFleetCounts(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: fleet counts: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -50,6 +51,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		security, err := collectSecurityPosture(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: security posture: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -72,6 +74,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		devices, err := collectDeviceCompliance(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: device compliance: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -84,6 +87,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		osDist, err := collectOSDistribution(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: OS distribution: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -96,6 +100,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		envStats, err := collectEnvironmentStats(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: environment stats: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -108,6 +113,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		checkin, err := collectCheckinStatus(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: check-in status: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -120,6 +126,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		sg, err := collectSmartGroups(ctx, client, "/v3/computer-groups/smart-groups", smartGroupNames, "membershipCount")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: computer smart groups: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -138,7 +145,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 // instance size: 2 calls per patch title + 1 call per policy + 1 per profile.
 // A mid-sized instance (30 patch titles, 200 policies, 100 profiles) adds ~360
 // additional API calls beyond the fast tier.
-func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string) {
+func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, status *collectStatus) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -149,6 +156,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		patch, spread, err := collectPatchCompliance(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: patch compliance: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -162,6 +170,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		hw, err := collectHardwareModels(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: hardware models: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -174,6 +183,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		cleanup, err := collectCleanupAnalysis(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: cleanup analysis: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -186,6 +196,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		org, err := collectOrgStructure(ctx, client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: org structure: %v\n", err)
+			status.recordFailure()
 			return
 		}
 		mu.Lock()
@@ -200,6 +211,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 	mgSG, err := collectSmartGroups(ctx, client, "/v2/mobile-device-groups/smart-groups", smartGroupNames, "count")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: mobile smart groups: %v\n", err)
+		status.recordFailure()
 	} else {
 		mu.Lock()
 		data.MobileSmartGroups = mgSG
@@ -728,7 +740,7 @@ func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*c
 		return nil, fmt.Errorf("policies: %w", err)
 	}
 
-	var disabledPolicies, unscopedPolicies int
+	var disabledPolicies, unscopedPolicies, skippedPolicies int
 	referencedPackages := make(map[string]bool)
 	referencedScripts := make(map[string]bool)
 
@@ -743,6 +755,12 @@ func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*c
 		}
 		detail, err := fetchJSON(ctx, client, "/JSSResource/policies/id/"+id)
 		if err != nil {
+			// A missed policy detail leaves its packages/scripts out of the
+			// reference sets, which would make in-use items look unused. Track
+			// it so the report withholds the derived counts rather than
+			// publishing an under-referenced tally as fact.
+			skippedPolicies++
+			fmt.Fprintf(os.Stderr, "WARNING: cleanup analysis: policy %s detail: %v\n", id, err)
 			continue
 		}
 		pol, _ := detail["policy"].(map[string]any)
@@ -848,6 +866,7 @@ func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*c
 		UnscopedProfiles: unscopedProfiles,
 		UnusedPackages:   unusedPackages,
 		UnusedScripts:    unusedScripts,
+		PoliciesSkipped:  skippedPolicies,
 	}, nil
 }
 
@@ -887,18 +906,6 @@ func collectOrgStructure(ctx context.Context, client registry.HTTPClient) (*orgS
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	org := &orgStructure{}
-
-	type orgTask struct {
-		target *[]orgEntry
-		path   string
-		key    string
-	}
-
-	tasks := []orgTask{
-		{&org.Sites, "/JSSResource/sites", "site"},
-		{&org.Buildings, "/JSSResource/buildings", "building"},
-		{&org.Departments, "/JSSResource/departments", "department"},
-	}
 
 	// Fetch all computer inventory once to count per site/building/department.
 	allComputers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL", 500)
@@ -950,7 +957,9 @@ func collectOrgStructure(ctx context.Context, client registry.HTTPClient) (*orgS
 	org.Buildings = toEntries(buildingCounts)
 	org.Departments = toEntries(deptCounts)
 
-	// Categories: fetch list + item count per category in parallel.
+	// Categories: fetch the list of category names in parallel. The Classic
+	// and Pro APIs expose no per-category item count without a full inventory
+	// crawl, so categories carry only a name.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -975,7 +984,6 @@ func collectOrgStructure(ctx context.Context, client registry.HTTPClient) (*orgS
 		mu.Unlock()
 	}()
 
-	_ = tasks // used above via direct count maps
 	wg.Wait()
 
 	return org, nil
