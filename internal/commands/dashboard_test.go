@@ -208,6 +208,73 @@ func TestRenderDashboard_NoSectionsWhenNil(t *testing.T) {
 	}
 }
 
+func TestRenderDashboard_IncompleteBannerShownWhenSectionsMissing(t *testing.T) {
+	// The exit code and stderr warnings signal partiality to a pipeline and an
+	// operator, but a recipient who receives only the file sees neither. The
+	// in-HTML banner is the one signal that travels with the artifact.
+	data := &DashboardData{
+		Title:              "Partial Dashboard",
+		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:         "1.0.0",
+		IncompleteSections: 3,
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "Incomplete report:") {
+		t.Error("HTML must carry the incomplete banner when sections are missing")
+	}
+	if !strings.Contains(html, "3 sections could not be collected") {
+		t.Errorf("banner must name the count and pluralise: got %q", html)
+	}
+}
+
+func TestRenderDashboard_IncompleteBannerAbsentWhenComplete(t *testing.T) {
+	// A complete report (zero missing) must not carry the banner — a false
+	// "incomplete" notice on an authoritative report is its own defect.
+	data := &DashboardData{
+		Title:              "Complete Dashboard",
+		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:         "1.0.0",
+		IncompleteSections: 0,
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	if strings.Contains(buf.String(), "Incomplete report:") {
+		t.Error("HTML must not carry the incomplete banner when every section was collected")
+	}
+}
+
+func TestRenderDashboard_IncompleteBannerSingularForOneSection(t *testing.T) {
+	data := &DashboardData{
+		Title:              "One Missing",
+		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:         "1.0.0",
+		IncompleteSections: 1,
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "1 section could not be collected") {
+		t.Errorf("banner must read singular for one section: got %q", html)
+	}
+	if strings.Contains(html, "1 sections") {
+		t.Error("banner pluralised incorrectly for a single missing section")
+	}
+}
+
 func TestRenderDashboard_DarkThemeDefault(t *testing.T) {
 	data := &DashboardData{
 		Title:       "Theme Test",

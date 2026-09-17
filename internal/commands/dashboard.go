@@ -207,6 +207,7 @@ func runDashboard(ctx context.Context, w io.Writer, opts dashboardOptions) error
 	// Phase 3: Render HTML. The writer comes from the output formatter, so
 	// the global --out-file already points it at the file it opened; opening
 	// the path a second time here would truncate what root is holding.
+	data.IncompleteSections = status.failures()
 	if err := renderDashboard(w, data); err != nil {
 		return err
 	}

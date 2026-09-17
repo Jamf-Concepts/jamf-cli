@@ -232,6 +232,12 @@ tr:hover td{background:var(--card-hover)}
 .alert-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:.85rem;font-weight:700;color:var(--red)}
 .alert-lbl{font-size:.72rem;color:var(--text2)}
 
+/* ── Incomplete Banner ────────────────────── */
+.incomplete-banner{margin:0 1.5rem 1rem;padding:.7rem 1rem;border-radius:.5rem;
+  background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);
+  color:var(--amber);font-size:.8rem;display:flex;align-items:center;gap:.5rem}
+.incomplete-banner strong{color:var(--amber)}
+
 
 
 /* ── Protect Stat Grid ────────────────────── */
@@ -297,6 +303,12 @@ tr:hover td{background:var(--card-hover)}
     </div>
   </div>
 </div>
+
+{{if .IncompleteSections}}
+<div class="incomplete-banner">
+  ⚠ <span><strong>Incomplete report:</strong> {{.IncompleteSections}} section{{if gt .IncompleteSections 1}}s{{end}} could not be collected and {{if gt .IncompleteSections 1}}are{{else}}is{{end}} missing below. Figures shown do not cover the whole fleet — do not read this report as complete.</span>
+</div>
+{{end}}
 
 {{if or .Fleet .Protect .Audit}}
 <div class="hero">

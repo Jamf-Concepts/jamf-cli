@@ -11,6 +11,13 @@ type DashboardData struct {
 	CLIVersion  string
 	Profiles    []dashboardProfile
 
+	// IncompleteSections is the number of sections whose data could not be
+	// fetched. It drives an in-HTML banner: a recipient who receives only the
+	// file (not the stderr warnings, not the exit code) can otherwise not tell a
+	// failed section from a genuinely empty one, and would read a partial report
+	// as authoritative.
+	IncompleteSections int
+
 	// Conditional sections — nil means "don't render this section"
 	Fleet               *fleetSummary
 	Security            *securityPosture
