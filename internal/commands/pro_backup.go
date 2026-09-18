@@ -464,9 +464,9 @@ func listResourceItemsAndMaps(ctx context.Context, client registry.HTTPClient, d
 			}
 		}
 	default:
-		raw, err = FetchAllPaginated(ctx, client, def.ListPath, 100)
+		raw, err = FetchAllPaginated(ctx, client, def.ListPath, PageSizeFromPath)
 		if err != nil && isBackup404(err) && def.FallbackListPath != "" {
-			raw, err = FetchAllPaginated(ctx, client, def.FallbackListPath, 100)
+			raw, err = FetchAllPaginated(ctx, client, def.FallbackListPath, PageSizeFromPath)
 			if err == nil {
 				fmt.Fprintf(os.Stderr, "warning: GET %s returned 404; falling back to %s (tenant may be on older Jamf Pro)\n", def.ListPath, def.FallbackListPath)
 				def.ListPath = def.FallbackListPath

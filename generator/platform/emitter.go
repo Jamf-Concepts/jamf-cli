@@ -229,6 +229,7 @@ type templateOp struct {
 	HasResult          bool          // operation returns a JSON response body to unmarshal/print
 	QueryParams        []queryParam  // user-facing query flags (excludes pagination params we manage internally)
 	Paginate           bool          // op exposes page+page-size — emit a pagination loop
+	PageSize           int           // page size the pagination loop requests (parser.PageSizeFromSpec)
 	ListArrayKey       string        // JSON key holding the result array on a list response (empty if response shouldn't be unwrapped)
 	ListTableColumns   []tableColumn // preferred columns for table output on a list op (empty = emit raw)
 	Scaffold           string        // pretty-printed JSON template for the request body, surfaced via --scaffold (empty when the body has no shape to show)
@@ -880,6 +881,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			HasResult:      hasResult,
 			QueryParams:    buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path), hasPaginationParams(opCopy.Parameters)),
 			Paginate:       hasPaginationParams(opCopy.Parameters),
+			PageSize:       parser.PageSizeFromSpec(opCopy.Parameters),
 			ListArrayKey: func() string {
 				if opCopy.Name == "list" || opCopy.IsList {
 					return detectListArrayKey(&opCopy)

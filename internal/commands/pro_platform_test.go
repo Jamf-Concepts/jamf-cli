@@ -421,6 +421,10 @@ func (o *captureOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
+func (o *captureOutput) NotePageSizeIgnoredByAll(_, _ int) {}
+
+func (o *captureOutput) NotePageSizeClamped(_, _ int) {}
+
 // writeTempJSON marshals v to a temporary JSON file, returning the path. Caller must remove it.
 func writeTempJSON(t *testing.T, v any) string {
 	t.Helper()

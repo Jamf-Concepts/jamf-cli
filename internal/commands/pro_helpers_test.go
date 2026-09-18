@@ -212,7 +212,7 @@ func TestFetchAllPaginated(t *testing.T) {
 func TestFetchAllPaginated_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/scripts?page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v1/scripts?page=0&page-size=2000": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -229,7 +229,7 @@ func TestFetchAllPaginated_ArrayResponse(t *testing.T) {
 	// Endpoints like /v1/computer-groups, /v1/sites return plain arrays
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/sites?page=0&page-size=100": `[{"id":"1","name":"Main"},{"id":"2","name":"Branch"},{"id":"3","name":"Remote"}]`,
+			"/v1/sites?page=0&page-size=2000": `[{"id":"1","name":"Main"},{"id":"2","name":"Branch"},{"id":"3","name":"Remote"}]`,
 		},
 	}
 
@@ -248,7 +248,7 @@ func TestFetchAllPaginated_ArrayResponse(t *testing.T) {
 func TestFetchAllPaginated_EmptyArray(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computer-groups?page=0&page-size=100": `[]`,
+			"/v1/computer-groups?page=0&page-size=2000": `[]`,
 		},
 	}
 

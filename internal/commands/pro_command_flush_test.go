@@ -98,6 +98,10 @@ func (d *discardOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
+func (d *discardOutput) NotePageSizeIgnoredByAll(_, _ int) {}
+
+func (d *discardOutput) NotePageSizeClamped(_, _ int) {}
+
 const classicGroupXML = `<?xml version="1.0" encoding="UTF-8"?>
 <computer_group>
   <id>7</id>

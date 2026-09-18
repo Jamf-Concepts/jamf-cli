@@ -1065,20 +1065,30 @@ func TestFetchPaginatedCount_ExistingQueryParams(t *testing.T) {
 	}
 }
 
+// cdpFilePath is the JCDS files request the count walk sends for one page.
+// Built off ProMaxPageSize rather than a literal so these tests keep covering
+// the multi-page path if the endpoint's ceiling ever moves — a literal 100 here
+// is what silently stopped page 1 being reached when the walk went up to 2000.
+func cdpFilePath(page int) string {
+	return fmt.Sprintf("/v1/cloud-distribution-point/files?page=%d&page-size=%d", page, ProMaxPageSize)
+}
+
+// cdpFilePage renders n JCDS file rows starting at offset.
+func cdpFilePage(offset, n int) string {
+	rows := make([]string, n)
+	for i := range rows {
+		rows[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, offset+i)
+	}
+	return strings.Join(rows, ",")
+}
+
 func TestFetchCDPFileCount_MultiPage(t *testing.T) {
-	// 150 files = page 0 (100) + page 1 (50)
-	page0 := make([]string, 100)
-	for i := range page0 {
-		page0[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, i)
-	}
-	page1 := make([]string, 50)
-	for i := range page1 {
-		page1[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, 100+i)
-	}
+	// One full page plus a partial one. totalCount is deliberately wrong here,
+	// as it is on the wire — the walk counts rows rather than trusting it.
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"totalCount":100,"results":[` + strings.Join(page0, ",") + `]}`},
-			"/v1/cloud-distribution-point/files?page=1&page-size=100": {200, `{"totalCount":50,"results":[` + strings.Join(page1, ",") + `]}`},
+			cdpFilePath(0): {200, `{"totalCount":0,"results":[` + cdpFilePage(0, ProMaxPageSize) + `]}`},
+			cdpFilePath(1): {200, `{"totalCount":0,"results":[` + cdpFilePage(ProMaxPageSize, 50) + `]}`},
 		},
 	}
 
@@ -1086,21 +1096,17 @@ func TestFetchCDPFileCount_MultiPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "150" {
-		t.Errorf("got %q, want %q", got, "150")
+	if want := formatCount(float64(ProMaxPageSize + 50)); got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
 func TestFetchCDPFileCount_ExactlyOnePage(t *testing.T) {
-	// Exactly 100 files — must fetch page 1 to confirm it's empty.
-	page0 := make([]string, 100)
-	for i := range page0 {
-		page0[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, i)
-	}
+	// Exactly one full page — must fetch page 1 to confirm it's empty.
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"totalCount":100,"results":[` + strings.Join(page0, ",") + `]}`},
-			"/v1/cloud-distribution-point/files?page=1&page-size=100": {200, `{"totalCount":0,"results":[]}`},
+			cdpFilePath(0): {200, `{"totalCount":0,"results":[` + cdpFilePage(0, ProMaxPageSize) + `]}`},
+			cdpFilePath(1): {200, `{"totalCount":0,"results":[]}`},
 		},
 	}
 
@@ -1108,15 +1114,15 @@ func TestFetchCDPFileCount_ExactlyOnePage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "100" {
-		t.Errorf("got %q, want %q", got, "100")
+	if want := formatCount(float64(ProMaxPageSize)); got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
 func TestFetchCDPFileCount_BadResponse(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"error":"unexpected"}`},
+			cdpFilePath(0): {200, `{"error":"unexpected"}`},
 		},
 	}
 

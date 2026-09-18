@@ -299,6 +299,50 @@ func (f *Formatter) reportProjectionMiss(rows []map[string]any) {
 	_, _ = fmt.Fprintf(w, "%s matched no field in %d row(s)\n", flag, len(rows))
 }
 
+// NotePageSizeIgnoredByAll says on stderr that --page-size was set alongside
+// --all and not used, naming the page size the walk used instead.
+//
+// --all deliberately chooses its own page size (see parser.MaxPageSize): an
+// oversized one is clamped by the server without saying so, and the walk reads
+// a short page as the last page, so honouring the flag would turn a too-large
+// value into a silently truncated result. Ignoring it is right; ignoring it in
+// silence is what issue 385 was filed about — the reporter watched every
+// request go out at page-size=100 with --page-size 2000 on the command line and
+// had no way to tell the flag had been dropped.
+//
+// Suppressed by --quiet, which asks for no non-error output, and NOT by
+// --no-hints: that flag turns off advisory tips like the large-result narrowing
+// hint, and this is not a tip. It is the only signal that a flag the caller
+// typed did nothing.
+func (f *Formatter) NotePageSizeIgnoredByAll(requested, used int) {
+	f.note("--page-size %d ignored: --all fetches every page at this endpoint's maximum of %d. Pass --all=false to request a single page of %d.",
+		requested, used, requested)
+}
+
+// NotePageSizeClamped says on stderr that a single-page --page-size above the
+// endpoint's ceiling was lowered to it.
+//
+// Without this the request went out carrying the caller's number and the server
+// answered with its own: `--all=false --page-size 20000` returned 2000 rows of
+// a 9000-row collection, with totalCount reporting 9000 and nothing reporting
+// the substitution.
+func (f *Formatter) NotePageSizeClamped(requested, ceiling int) {
+	f.note("--page-size %d exceeds this endpoint's maximum of %d; requesting %d.",
+		requested, ceiling, ceiling)
+}
+
+// note writes one advisory line to stderr, suppressed by --quiet alone.
+func (f *Formatter) note(format string, args ...any) {
+	if f.quiet {
+		return
+	}
+	w := f.stderr
+	if w == nil {
+		w = os.Stderr
+	}
+	_, _ = fmt.Fprintf(w, format+"\n", args...)
+}
+
 // maybePrintListHint writes a one-line stderr hint suggesting how to
 // narrow large list output. Skipped in --quiet mode, when the count is
 // below threshold, and for table format (which already shows "(N total)"

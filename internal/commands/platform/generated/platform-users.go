@@ -53,7 +53,17 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				q.Set("filter", filter)
 			}
 			var body any
-			const pageSize = 100
+			// The largest page this endpoint declares it honours. Read from the
+			// spec rather than fixed at the API default, because each Platform
+			// namespace is its own service with its own ceiling: devices/v1
+			// declares 1000 and answers 400 above it, AI Governance declares
+			// 500, and an endpoint declaring nothing stays at the API default.
+			// See parser.PageSizeFromSpec.
+			const pageSize = 1000
+			// maxPages is a sanity backstop: the walk below ends on an EMPTY
+			// page rather than a short one, so a server that ignored the page
+			// parameter would otherwise loop forever.
+			const maxPages = 10000
 			// Initialised empty, not nil: a nil slice marshals to "null", so an
 			// empty collection used to answer -o json with "null" while the
 			// unpaginated list path answered "[]" for the identical wire response
@@ -79,8 +89,19 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("devices: %w", err)
 				}
 				aggregated = append(aggregated, pageResult.Results...)
-				if len(pageResult.Results) < pageSize {
+				// An EMPTY page ends the walk, not a short one. A short page is
+				// not evidence of the end: a Jamf service may answer an
+				// oversized page-size by silently clamping it to its own
+				// ceiling, and reading that first clamped page as the last one
+				// truncates the collection and reports success (the Jamf Pro
+				// half of issue 385). Ending on an empty page costs one extra
+				// request and cannot be wrong about it, whatever page size the
+				// server decided to use.
+				if len(pageResult.Results) == 0 {
 					break
+				}
+				if page+1 >= maxPages {
+					return fmt.Errorf("devices: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
 				}
 			}
 			b, err := json.MarshalIndent(aggregated, "", "  ")

@@ -429,7 +429,7 @@ func collectScaledAuditFindings(inv *proInventory, policies *policyDetailSet, st
 // collectPatchCompliance fetches all patch software title configurations and
 // then collects a per-title patch summary in parallel.
 func collectPatchCompliance(ctx context.Context, client registry.HTTPClient, status *collectStatus) (*patchCompliance, []patchVersionSpread, error) {
-	configs, err := FetchAllPaginated(ctx, client, "/v3/patch-software-title-configurations", 100)
+	configs, err := FetchAllPaginated(ctx, client, "/v3/patch-software-title-configurations", PageSizeFromPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("patch-software-title-configurations: %w", err)
 	}
@@ -455,7 +455,7 @@ func collectPatchCompliance(ctx context.Context, client registry.HTTPClient, sta
 		}
 
 		versionsPath := fmt.Sprintf("/v3/patch-software-title-configurations/%s/patch-summary/versions", id)
-		versions, vErr := FetchAllPaginated(ctx, client, versionsPath, 100)
+		versions, vErr := FetchAllPaginated(ctx, client, versionsPath, PageSizeFromPath)
 		if vErr != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: patch versions for %s: %v\n", id, vErr)
 			status.recordFailureErr(sectionPatch, vErr)
@@ -817,7 +817,7 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient, stat
 }
 
 func collectSmartGroups(ctx context.Context, client registry.HTTPClient, endpoint string, names []string, countField string) (*smartGroupSummary, error) {
-	allGroups, err := FetchAllPaginated(ctx, client, endpoint, 100)
+	allGroups, err := FetchAllPaginated(ctx, client, endpoint, PageSizeFromPath)
 	if err != nil {
 		return nil, fmt.Errorf("smart groups: %w", err)
 	}
@@ -1179,7 +1179,7 @@ func collectOrgStructure(ctx context.Context, client registry.HTTPClient, status
 	// that can hold one — see dashboard_pro_categories.go. The category list
 	// has to land first, because three of the four Pro collections carry a
 	// category id rather than a name.
-	cats, err := FetchAllPaginated(ctx, client, "/v1/categories", 100)
+	cats, err := FetchAllPaginated(ctx, client, "/v1/categories", PageSizeFromPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: categories: %v\n", err)
 		status.recordFailureErr(sectionOrgStructure, err)

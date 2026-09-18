@@ -69,6 +69,20 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 				flagSection = []string{"GENERAL", "HARDWARE"}
 			}
 
+			// --all requests the largest page this endpoint honours and ignores
+			// --page-size; a single page still takes --page-size, clamped to the
+			// same ceiling. Both are said out loud rather than applied silently:
+			// issue 385 was filed because the flag was dropped without a word.
+			pageSizeCeiling := 2000
+			paginateAll := flagAll && !cmd.Flags().Changed("page")
+			switch {
+			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
+				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
+			case !paginateAll && flagPageSize > pageSizeCeiling:
+				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
+				flagPageSize = pageSizeCeiling
+			}
+
 			// Build query string
 			var queryParts []string
 			if flagPage != 0 {
@@ -91,8 +105,13 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified.
+			//
+			// Keyed on whether --page was CHANGED, not on its value: --page 0
+			// is a legitimate request for the first page alone, and reading
+			// zero as "not set" left it unreachable — the only way to get page
+			// 0 on its own was --all=false with no --page at all (issue 385).
+			if paginateAll {
 				// Initialised empty, not nil — a nil slice marshals to "null", so
 				// "list --all" on an empty collection used to answer "null" where
 				// the single-page path answers "[]".
@@ -101,7 +120,17 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				pageSize := 100
+				// The endpoint's own ceiling, never --page-size: the Jamf Pro
+				// API clamps an oversized page-size silently, and the loop
+				// below reads a short page as the last one — so an oversized
+				// page size truncates the result and reports success. See
+				// parser.MaxPageSize.
+				pageSize := 2000
+				// A small --limit should stay a small request. Without this a
+				// --limit 5 would pull a full 2000-row page to return five.
+				if flagLimit > 0 && flagLimit < pageSize {
+					pageSize = flagLimit
+				}
 
 				for {
 					// Build page-specific query
@@ -201,8 +230,8 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
@@ -1068,6 +1097,20 @@ func newMobileDevicesPairedDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 			path := "/v2/mobile-devices/{id}/paired-devices"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
+			// --all requests the largest page this endpoint honours and ignores
+			// --page-size; a single page still takes --page-size, clamped to the
+			// same ceiling. Both are said out loud rather than applied silently:
+			// issue 385 was filed because the flag was dropped without a word.
+			pageSizeCeiling := 2000
+			paginateAll := flagAll && !cmd.Flags().Changed("page")
+			switch {
+			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
+				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
+			case !paginateAll && flagPageSize > pageSizeCeiling:
+				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
+				flagPageSize = pageSizeCeiling
+			}
+
 			// Build query string
 			var queryParts []string
 			if len(flagSection) > 0 {
@@ -1093,8 +1136,13 @@ func newMobileDevicesPairedDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified.
+			//
+			// Keyed on whether --page was CHANGED, not on its value: --page 0
+			// is a legitimate request for the first page alone, and reading
+			// zero as "not set" left it unreachable — the only way to get page
+			// 0 on its own was --all=false with no --page at all (issue 385).
+			if paginateAll {
 				// Initialised empty, not nil — a nil slice marshals to "null", so
 				// "list --all" on an empty collection used to answer "null" where
 				// the single-page path answers "[]".
@@ -1103,7 +1151,17 @@ func newMobileDevicesPairedDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				pageSize := 100
+				// The endpoint's own ceiling, never --page-size: the Jamf Pro
+				// API clamps an oversized page-size silently, and the loop
+				// below reads a short page as the last one — so an oversized
+				// page size truncates the result and reports success. See
+				// parser.MaxPageSize.
+				pageSize := 2000
+				// A small --limit should stay a small request. Without this a
+				// --limit 5 would pull a full 2000-row page to return five.
+				if flagLimit > 0 && flagLimit < pageSize {
+					pageSize = flagLimit
+				}
 
 				for {
 					// Build page-specific query
@@ -1205,8 +1263,8 @@ func newMobileDevicesPairedDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, Paired Devices section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is displayName:asc. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'enrollmentSessionTokenValid', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastContactDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp'  Example: 'sort=displayName:desc,username:asc' ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastContactDate', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp', 'groupId', 'groupName'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")

@@ -214,7 +214,11 @@ func resolveDeploymentTargetComputer(ctx context.Context, client registry.HTTPCl
 // filter 500s regardless of value, so there is no filter this call can
 // usefully send.
 func fetchDeploymentTasks(ctx context.Context, client registry.HTTPClient, deploymentID string) ([]map[string]any, error) {
-	const pageSize = 100
+	// The endpoint's verified ceiling, not the API default: a deployment across
+	// a large fleet carries one task per computer, so 100 a page was 90 requests
+	// for a 9000-device rollout. Same reason and same number as the generated
+	// --all walks (issue 385).
+	const pageSize = ProMaxPageSize
 	var all []map[string]any
 
 	for page := 0; ; page++ {
