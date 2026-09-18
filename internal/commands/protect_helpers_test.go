@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,4 +209,42 @@ type captureRawFormatter struct {
 func (c *captureRawFormatter) PrintRaw(data []byte) error {
 	c.raw = data
 	return nil
+}
+
+// jsonTaggedInput carries a camelCase `json` tag and a json.RawMessage, the two
+// shapes yaml.v3's own struct binding cannot read: it matches the lower-cased
+// Go field name, and it sees a json.RawMessage as the []byte underneath.
+type jsonTaggedInput struct {
+	LongDescription string          `json:"longDescription"`
+	Configuration   json.RawMessage `json:"configuration"`
+}
+
+func TestUnmarshalInput_YAMLBindsAJSONTagKeyAndARawMessage(t *testing.T) {
+	var out jsonTaggedInput
+	if err := unmarshalInput([]byte("longDescription: hello\nconfiguration:\n  Calculator:\n    Basic: true\n"), &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.LongDescription != "hello" {
+		t.Errorf("LongDescription = %q, want %q", out.LongDescription, "hello")
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(out.Configuration, &cfg); err != nil {
+		t.Fatalf("configuration is not JSON: %v (%s)", err, out.Configuration)
+	}
+	if _, ok := cfg["Calculator"].(map[string]any); !ok {
+		t.Errorf("configuration = %#v, want a Calculator object", cfg)
+	}
+}
+
+// The lower-cased spelling is what yaml.v3 itself used to write, so documents
+// already on disk have to keep binding — encoding/json matches a key
+// case-insensitively, which is what covers them.
+func TestUnmarshalInput_YAMLStillBindsTheLowerCasedKey(t *testing.T) {
+	var out jsonTaggedInput
+	if err := unmarshalInput([]byte("longdescription: hello\n"), &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.LongDescription != "hello" {
+		t.Errorf("LongDescription = %q, want %q", out.LongDescription, "hello")
+	}
 }

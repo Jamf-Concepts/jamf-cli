@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -311,6 +312,19 @@ type blueprintExport struct {
 	Description string                     `json:"description,omitempty" yaml:"description,omitempty"`
 	Scope       blueprintExportScope       `json:"scope" yaml:"scope"`
 	Steps       []blueprints.BlueprintStep `json:"steps" yaml:"steps"`
+}
+
+// MarshalYAML renders the export through its own JSON encoding so that
+// `export -o yaml` and `export -o json` carry the same document — see
+// jsonShaped for what yaml.v3's own struct binding does to a `json` tag and to
+// a component's json.RawMessage configuration.
+//
+// The hook sits on the type rather than in printExport because printExport is
+// shared with the Jamf Protect and Jamf School exports, whose input types carry
+// no `json` tags at all: normalising there would rewrite their YAML keys into
+// the Go field names, which their own apply path does not read back.
+func (e blueprintExport) MarshalYAML() (any, error) {
+	return jsonShaped(e)
 }
 
 func blueprintToExport(ctx context.Context, c *jamfplatform.Client, bp *blueprints.BlueprintDetail) blueprintExport {
@@ -1809,6 +1823,9 @@ func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.
 		if req.Name == "" {
 			return nil, fmt.Errorf("input must include a 'name' field")
 		}
+		if err := refuseNonObjectComponentConfiguration(req.Steps); err != nil {
+			return nil, err
+		}
 		if len(scopeOverrideIDs) > 0 {
 			req.Scope.DeviceGroups = scopeOverrideIDs
 		}
@@ -1822,6 +1839,9 @@ func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.
 	}
 	if exp.Name == "" {
 		return nil, fmt.Errorf("input must include a 'name' field")
+	}
+	if err := refuseNonObjectComponentConfiguration(exp.Steps); err != nil {
+		return nil, err
 	}
 
 	var groupIDs []string
@@ -1846,6 +1866,37 @@ func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.
 		req.Description = &exp.Description
 	}
 	return req, nil
+}
+
+// refuseNonObjectComponentConfiguration refuses a component whose
+// configuration is not a JSON object.
+//
+// It exists for one document in particular: a YAML export written by jamf-cli
+// 1.31.0 or earlier rendered `configuration` as the *bytes* of its own JSON
+// text, because yaml.v3 saw the json.RawMessage underneath as a []byte. That
+// document still binds — a sequence of integers is a valid JSON array — so the
+// byte sequence would travel to the gateway as the component's configuration
+// and come back a 400 naming nothing the caller can act on. Refuse it here and
+// name the remedy instead.
+func refuseNonObjectComponentConfiguration(steps []blueprints.BlueprintStep) error {
+	for i, step := range steps {
+		for j, comp := range step.Components {
+			trimmed := bytes.TrimSpace(comp.Configuration)
+			// An absent configuration is left alone: it is a shape the
+			// server decides on, not one this function can improve.
+			if len(trimmed) == 0 || trimmed[0] == '{' {
+				continue
+			}
+			named := comp.Identifier
+			if named == "" {
+				named = fmt.Sprintf("steps[%d].components[%d]", i, j)
+			}
+			return fmt.Errorf("component %s: configuration is not an object\n"+
+				"A YAML export written by jamf-cli 1.31.0 or earlier rendered it as a byte sequence. "+
+				"Re-export the blueprint with this version and apply that file", named)
+		}
+	}
+	return nil
 }
 
 // isPortableScopeFormat probes raw JSON/YAML data to detect whether the
