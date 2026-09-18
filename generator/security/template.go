@@ -113,7 +113,10 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .IsDestructive }}
 {{ confirmStmt . $.Name }}
 {{- end }}
-			const pageSize = 100
+			// The largest page this endpoint declares it honours — 100 for the
+			// three Risk API list endpoints, which are the only Security Cloud
+			// ops declaring a maximum. See parser.PageSizeFromSpec.
+			const pageSize = {{.PageSize}}
 			// maxPages is a sanity backstop: if the server ignores the page
 			// parameter and keeps returning full pages, fail loudly instead
 			// of hanging with an unbounded aggregated slice.

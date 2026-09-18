@@ -67,7 +67,7 @@ membership count, or name pattern (case-insensitive substring match).`,
 }
 
 func runGroupToolsList(ctx context.Context, cliCtx *registry.CLIContext, groupType string, emptyOnly bool, namePattern string) error {
-	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", 100)
+	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", PageSizeFromPath)
 	if err != nil {
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
@@ -131,7 +131,7 @@ func newGroupToolsMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name string) error {
-	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", 100)
+	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", PageSizeFromPath)
 	if err != nil {
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
@@ -268,7 +268,7 @@ var scopeableResources = []scopeableResource{
 
 func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext) error {
 	// Fetch all computer groups
-	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", 100)
+	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", PageSizeFromPath)
 	if err != nil {
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
@@ -403,7 +403,7 @@ func addReferencedGroupsFromClassic(ctx context.Context, client registry.HTTPCli
 
 // addReferencedGroupsFromPrestages checks computer prestage scopes (modern API).
 func addReferencedGroupsFromPrestages(ctx context.Context, client registry.HTTPClient, referenced map[string]bool) {
-	prestages, err := FetchAllPaginated(ctx, client, "/v3/computer-prestages", 100)
+	prestages, err := FetchAllPaginated(ctx, client, "/v3/computer-prestages", PageSizeFromPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to list computer prestages: %v\n", err)
 		return
@@ -466,7 +466,7 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 		return fmt.Errorf("unsupported format %q: must be yaml or json", format)
 	}
 
-	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", 100)
+	groups, err := FetchAllPaginated(ctx, cliCtx.Client, "/v1/computer-groups", PageSizeFromPath)
 	if err != nil {
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}

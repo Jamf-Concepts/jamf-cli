@@ -223,7 +223,7 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
 	// Fetch all computers with DISK_ENCRYPTION section to check FileVault status.
 	// v3 moved FileVault data from the SECURITY section to DISK_ENCRYPTION.
-	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=DISK_ENCRYPTION", 100)
+	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=DISK_ENCRYPTION", PageSizeFromPath)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func unencryptedDevicesFrom(records []map[string]any) *auditResult {
 
 func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
 	// Fetch all computers with SECURITY section to check Gatekeeper locally
-	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=SECURITY", 100)
+	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=SECURITY", PageSizeFromPath)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func checkFailedMDMCommands(ctx context.Context, client registry.HTTPClient, _ i
 
 func checkEmptySmartGroups(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
 	// /v1/computer-groups returns a plain array — FetchAllPaginated handles both formats
-	groups, err := FetchAllPaginated(ctx, client, "/v1/computer-groups", 100)
+	groups, err := FetchAllPaginated(ctx, client, "/v1/computer-groups", PageSizeFromPath)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +440,7 @@ func policiesNoScopeFrom(details []map[string]any, skipped int) *auditResult {
 }
 
 func checkEmptyCategories(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
-	cats, err := FetchAllPaginated(ctx, client, "/v1/categories", 100)
+	cats, err := FetchAllPaginated(ctx, client, "/v1/categories", PageSizeFromPath)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +470,7 @@ func checkEmptyCategories(ctx context.Context, client registry.HTTPClient, _ int
 // place to catch it. Blank serials are ignored — many pending/placeholder
 // records legitimately share an empty serial.
 func checkDuplicateSerials(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
-	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=HARDWARE", 100)
+	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=HARDWARE", PageSizeFromPath)
 	if err != nil {
 		return nil, err
 	}
@@ -585,7 +585,7 @@ func checkPrestageCoverage(ctx context.Context, client registry.HTTPClient, _ in
 // checkNotificationAlerts fetches /v1/notifications once and checks for
 // push certificate and VPP token issues. Returns the highest-severity finding.
 func checkNotificationAlerts(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
-	notifications, err := FetchAllPaginated(ctx, client, "/v1/notifications", 100)
+	notifications, err := FetchAllPaginated(ctx, client, "/v1/notifications", PageSizeFromPath)
 	if err != nil {
 		return nil, err
 	}

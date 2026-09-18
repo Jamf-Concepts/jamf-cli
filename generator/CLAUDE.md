@@ -125,7 +125,10 @@ hand-written `apply` commands do strictly more and would otherwise ship a
 duplicate subcommand cobra dispatches by declaration order.
 
 **Pagination and list shape.** `hasPaginationParams` gates the auto-pagination
-loop, and `ListArrayKey` names the property a list response unwraps.
+loop, `parser.MaxPageSize` (`generator/parser/pagesize.go`) sizes each page from
+the endpoint rather than from `--page-size` — read that file before changing a
+page size, it carries the wire evidence and the reason honouring the flag loses
+records — and `ListArrayKey` names the property a list response unwraps.
 `buildQueryParams` filters `page`/`page-size` **only when the op actually
 paginates** — filtering unconditionally, on the reasoning that the loop owns
 them, silently deleted `--page-size` from audit's cursor pager and `--page` from

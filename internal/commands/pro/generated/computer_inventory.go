@@ -80,6 +80,20 @@ func newComputerInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 				flagSection = []string{"GENERAL", "HARDWARE", "OPERATING_SYSTEM"}
 			}
 
+			// --all requests the largest page this endpoint honours and ignores
+			// --page-size; a single page still takes --page-size, clamped to the
+			// same ceiling. Both are said out loud rather than applied silently:
+			// issue 385 was filed because the flag was dropped without a word.
+			pageSizeCeiling := 2000
+			paginateAll := flagAll && !cmd.Flags().Changed("page")
+			switch {
+			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
+				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
+			case !paginateAll && flagPageSize > pageSizeCeiling:
+				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
+				flagPageSize = pageSizeCeiling
+			}
+
 			// Build query string
 			var queryParts []string
 			if len(flagSection) > 0 {
@@ -106,8 +120,13 @@ func newComputerInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			vft := newVersionFallback("/v4/computers-inventory")
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified.
+			//
+			// Keyed on whether --page was CHANGED, not on its value: --page 0
+			// is a legitimate request for the first page alone, and reading
+			// zero as "not set" left it unreachable — the only way to get page
+			// 0 on its own was --all=false with no --page at all (issue 385).
+			if paginateAll {
 				// Initialised empty, not nil — a nil slice marshals to "null", so
 				// "list --all" on an empty collection used to answer "null" where
 				// the single-page path answers "[]".
@@ -116,7 +135,17 @@ func newComputerInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				pageSize := 100
+				// The endpoint's own ceiling, never --page-size: the Jamf Pro
+				// API clamps an oversized page-size silently, and the loop
+				// below reads a short page as the last one — so an oversized
+				// page size truncates the result and reports success. See
+				// parser.MaxPageSize.
+				pageSize := 2000
+				// A small --limit should stay a small request. Without this a
+				// --limit 5 would pull a full 2000-row page to return five.
+				if flagLimit > 0 && flagLimit < pageSize {
+					pageSize = flagLimit
+				}
 
 				for {
 					// Build page-specific query
@@ -217,8 +246,8 @@ func newComputerInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'general.name:asc'. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'general.name', 'udid', 'id', 'general.assetTag', 'general.jamfBinaryVersion', 'general.lastCheckIn', 'general.lastContact', 'general.lastEnrolledDate', 'general.lastCloudBackupDate', 'general.reportDate', 'general.mdmCertificateExpiration', 'general.platform', 'general.lastLoggedInUsernameSelfService', 'general.lastLoggedInUsernameSelfServiceTimestamp', 'general.lastLoggedInUsernameBinary', 'general.lastLoggedInUsernameBinaryTimestamp', 'general.lastLoggedInUsernameMdm', 'general.lastLoggedInUsernameMdmTimestamp', 'hardware.make', 'hardware.model', 'operatingSystem.build', 'operatingSystem.supplementalBuildVersion', 'operatingSystem.rapidSecurityResponse', 'operatingSystem.name', 'operatingSystem.version', 'userAndLocation.realname', 'purchasing.lifeExpectancy', 'purchasing.warrantyDate'  Example: 'sort=udid:desc,general.name:asc'. ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter computer inventory collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'general.name', 'udid', 'id', 'general.assetTag', 'general.awaitingConfiguration', 'general.barcode1', 'general.barcode2', 'general.enrolledViaAutomatedDeviceEnrollment', 'general.lastIpAddress', 'general.itunesStoreAccountActive', 'general.jamfBinaryVersion', 'general.lastCheckIn', 'general.lastContact', 'general.lastEnrolledDate', 'general.lastCloudBackupDate', 'general.reportDate', 'general.lastReportedIp', 'general.lastReportedIpV4', 'general.lastReportedIpV6', 'general.managementId', 'general.remoteManagement.managed', 'general.mdmCapable.capable', 'general.mdmCertificateExpiration', 'general.platform', 'general.supervised', 'general.userApprovedMdm', 'general.declarativeDeviceManagementEnabled', 'general.lastLoggedInUsernameSelfService', 'general.lastLoggedInUsernameSelfServiceTimestamp', 'general.lastLoggedInUsernameBinary', 'general.lastLoggedInUsernameBinaryTimestamp', 'general.lastLoggedInUsernameMdm', 'general.lastLoggedInUsernameMdmTimestamp', 'hardware.bleCapable', 'hardware.macAddress', 'hardware.make', 'hardware.model', 'hardware.modelIdentifier', 'hardware.serialNumber', 'hardware.supportsIosAppInstalls','hardware.appleSilicon', 'operatingSystem.activeDirectoryStatus', 'operatingSystem.fileVault2Status', 'operatingSystem.build', 'operatingSystem.supplementalBuildVersion', 'operatingSystem.rapidSecurityResponse', 'operatingSystem.name', 'operatingSystem.version', 'security.activationLockEnabled', 'security.lockdownModeEnabled', 'security.recoveryLockEnabled','security.firewallEnabled','userAndLocation.buildingId', 'userAndLocation.departmentId', 'userAndLocation.email', 'userAndLocation.realname', 'userAndLocation.phone', 'userAndLocation.position','userAndLocation.room', 'userAndLocation.username', 'diskEncryption.fileVault2Enabled', 'purchasing.appleCareId', 'purchasing.lifeExpectancy', 'purchasing.purchased', 'purchasing.leased', 'purchasing.vendor', 'purchasing.warrantyDate',  This param can be combined with paging and sorting. Example: 'filter=general.name==\"Orchard\"' ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
@@ -984,6 +1013,20 @@ func newComputerInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Build request path
 			path := "/v4/computers-inventory/filevault"
 
+			// --all requests the largest page this endpoint honours and ignores
+			// --page-size; a single page still takes --page-size, clamped to the
+			// same ceiling. Both are said out loud rather than applied silently:
+			// issue 385 was filed because the flag was dropped without a word.
+			pageSizeCeiling := 2000
+			paginateAll := flagAll && !cmd.Flags().Changed("page")
+			switch {
+			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
+				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
+			case !paginateAll && flagPageSize > pageSizeCeiling:
+				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
+				flagPageSize = pageSizeCeiling
+			}
+
 			// Build query string
 			var queryParts []string
 			if flagPage != 0 {
@@ -997,8 +1040,13 @@ func newComputerInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			vft := newVersionFallback("/v4/computers-inventory/filevault")
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified.
+			//
+			// Keyed on whether --page was CHANGED, not on its value: --page 0
+			// is a legitimate request for the first page alone, and reading
+			// zero as "not set" left it unreachable — the only way to get page
+			// 0 on its own was --all=false with no --page at all (issue 385).
+			if paginateAll {
 				// Initialised empty, not nil — a nil slice marshals to "null", so
 				// "list --all" on an empty collection used to answer "null" where
 				// the single-page path answers "[]".
@@ -1007,7 +1055,17 @@ func newComputerInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				pageSize := 100
+				// The endpoint's own ceiling, never --page-size: the Jamf Pro
+				// API clamps an oversized page-size silently, and the loop
+				// below reads a short page as the last one — so an oversized
+				// page size truncates the result and reports success. See
+				// parser.MaxPageSize.
+				pageSize := 2000
+				// A small --limit should stay a small request. Without this a
+				// --limit 5 would pull a full 2000-row page to return five.
+				if flagLimit > 0 && flagLimit < pageSize {
+					pageSize = flagLimit
+				}
 
 				for {
 					// Build page-specific query
@@ -1107,8 +1165,8 @@ func newComputerInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd

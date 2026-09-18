@@ -24,6 +24,10 @@ import (
 type ndjsonOutput struct {
 	f   *output.Formatter
 	buf *bytes.Buffer
+	// ignoredBy records the (requested, used) pair of the last dropped
+	// --page-size notice, so a test can assert the drop was reported.
+	ignoredBy [2]int
+	clamped   [2]int
 }
 
 func newNDJSONOutput() *ndjsonOutput {
@@ -57,21 +61,37 @@ func (o *ndjsonOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
+func (o *ndjsonOutput) NotePageSizeIgnoredByAll(requested, used int) {
+	o.ignoredBy = [2]int{requested, used}
+}
+
+func (o *ndjsonOutput) NotePageSizeClamped(requested, ceiling int) {
+	o.clamped = [2]int{requested, ceiling}
+}
+
 // ── paginated fake HTTP client ────────────────────────────────────────────────
 
-// paginatedClient serves a two-page computers-inventory response keyed on the
-// "page" query parameter. Page 0 → 100 results; page 1 → 50 results (150 total).
+// paginatedClient serves a computers-inventory collection of totalCount rows,
+// HONOURING the page-size the command asked for, the way the Jamf Pro API does
+// up to its 2000 ceiling. It used to serve a fixed 100 rows a page whatever was
+// requested, which is a server that clamps — and that hid the defect in issue
+// 385 rather than exposing it, because the command only ever asked for 100.
+//
+// pageSizes records every page size seen, so a test can assert what went on the
+// wire and not just how many rows came back.
 type paginatedClient struct {
 	totalCount int
-	pageSize   int
 	// pagePrefix is the path prefix to match (without query string)
 	pathPrefix string
+	pageSizes  []int
 }
 
 func newComputersInventoryClient() *paginatedClient {
 	return &paginatedClient{
-		totalCount: 150,
-		pageSize:   100,
+		// Deliberately more than two full pages at the endpoint's 2000
+		// ceiling, so the walk is still a multi-page walk after the page size
+		// went up: 2000 + 2000 + 500.
+		totalCount: 4500,
 		pathPrefix: "/v4/computers-inventory",
 	}
 }
@@ -96,11 +116,13 @@ func (c *paginatedClient) Do(_ context.Context, method, path string, _ io.Reader
 		_, _ = fmt.Sscanf(rest[:end], "%d", &pageNum)
 	}
 
-	// Page 0: first 100 results. Page 1: remaining 50. Any other page: empty.
+	pageSize := queryInt(path, "page-size=", 100)
+	c.pageSizes = append(c.pageSizes, pageSize)
+
 	var results []json.RawMessage
-	start := pageNum * c.pageSize
+	start := pageNum * pageSize
 	total := c.totalCount
-	for i := start; i < start+c.pageSize && i < total; i++ {
+	for i := start; i < start+pageSize && i < total; i++ {
 		obj := json.RawMessage(fmt.Sprintf(`{"id":"%d","general":{"name":"computer-%d"}}`, i+1, i+1))
 		results = append(results, obj)
 	}
@@ -121,6 +143,24 @@ func (c *paginatedClient) Do(_ context.Context, method, path string, _ io.Reader
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+// queryInt reads the integer value of a query parameter from a raw path,
+// returning fallback when the parameter is absent.
+func queryInt(path, key string, fallback int) int {
+	_, after, ok := strings.Cut(path, key)
+	if !ok {
+		return fallback
+	}
+	end := 0
+	for end < len(after) && after[end] >= '0' && after[end] <= '9' {
+		end++
+	}
+	n := fallback
+	if _, err := fmt.Sscanf(after[:end], "%d", &n); err != nil {
+		return fallback
+	}
+	return n
+}
 
 // nonEmptyNDJSONLines splits output on newlines, dropping blank trailing lines.
 func nonEmptyNDJSONLines(s string) []string {
@@ -147,12 +187,13 @@ func assertNDJSONObjects(t *testing.T, lines []string) {
 	}
 }
 
-// ── TEST 5a: --all pagination produces 150 NDJSON lines ──────────────────────
+// ── TEST 5a: --all pagination produces one NDJSON line per record ────────────
 
 func TestAllPagination_NDJSON_PerRecord(t *testing.T) {
 	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
 	cliCtx := &registry.CLIContext{
-		Client: newComputersInventoryClient(),
+		Client: client,
 		Output: out,
 	}
 
@@ -164,18 +205,83 @@ func TestAllPagination_NDJSON_PerRecord(t *testing.T) {
 	}
 
 	lines := nonEmptyNDJSONLines(out.buf.String())
-	if len(lines) != 150 {
-		t.Errorf("expected 150 NDJSON lines (100+50 pages), got %d", len(lines))
+	if len(lines) != 4500 {
+		t.Errorf("expected 4500 NDJSON lines (2000+2000+500 pages), got %d", len(lines))
 	}
 	assertNDJSONObjects(t, lines)
+
+	// The page size, not just the row count: issue 385's whole symptom was a
+	// correct row count reached in 45 requests instead of 3.
+	if len(client.pageSizes) != 3 {
+		t.Errorf("expected 3 requests for 4500 rows at page-size 2000, got %d: %v", len(client.pageSizes), client.pageSizes)
+	}
+	for i, ps := range client.pageSizes {
+		if ps != 2000 {
+			t.Errorf("request %d asked for page-size=%d, want 2000 (the endpoint maximum)", i, ps)
+		}
+	}
+}
+
+// ── TEST 5a2: --page-size is ignored by --all, and said to be ────────────────
+
+func TestAllPagination_PageSizeIgnoredWithANotice(t *testing.T) {
+	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
+	cliCtx := &registry.CLIContext{
+		Client: client,
+		Output: out,
+	}
+
+	cmd := NewComputerInventoryCmd(cliCtx)
+	cmd.SetArgs([]string{"list", "--page-size", "100"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+
+	for i, ps := range client.pageSizes {
+		if ps != 2000 {
+			t.Errorf("request %d asked for page-size=%d; --all must use the endpoint maximum 2000, not --page-size", i, ps)
+		}
+	}
+	if len(nonEmptyNDJSONLines(out.buf.String())) != 4500 {
+		t.Error("--page-size alongside --all must not change which records are returned")
+	}
+	if out.ignoredBy != [2]int{100, 2000} {
+		t.Errorf("expected a dropped-flag notice of (requested 100, used 2000), got %v — a silently dropped flag is the defect", out.ignoredBy)
+	}
+}
+
+// ── TEST 5a3: --page 0 asks for the first page alone ─────────────────────────
+
+func TestAllPagination_ExplicitPageZeroIsASinglePage(t *testing.T) {
+	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
+	cliCtx := &registry.CLIContext{
+		Client: client,
+		Output: out,
+	}
+
+	cmd := NewComputerInventoryCmd(cliCtx)
+	cmd.SetArgs([]string{"list", "--page", "0", "--page-size", "10"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+
+	if len(client.pageSizes) != 1 {
+		t.Errorf("--page 0 must fetch one page, got %d requests: %v", len(client.pageSizes), client.pageSizes)
+	}
+	if got := len(nonEmptyNDJSONLines(out.buf.String())); got != 10 {
+		t.Errorf("--page 0 --page-size 10 returned %d records, want 10", got)
+	}
 }
 
 // ── TEST 5b: --limit 120 truncates to 120 lines ───────────────────────────────
 
 func TestAllPagination_NDJSON_Limit(t *testing.T) {
 	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
 	cliCtx := &registry.CLIContext{
-		Client: newComputersInventoryClient(),
+		Client: client,
 		Output: out,
 	}
 
@@ -190,6 +296,11 @@ func TestAllPagination_NDJSON_Limit(t *testing.T) {
 		t.Errorf("expected 120 NDJSON lines (--limit 120), got %d", len(lines))
 	}
 	assertNDJSONObjects(t, lines)
+
+	// A small --limit must not pull a full 2000-row page to satisfy it.
+	if len(client.pageSizes) != 1 || client.pageSizes[0] != 120 {
+		t.Errorf("--limit 120 should have asked for one page of 120, got %v", client.pageSizes)
+	}
 }
 
 // ── TEST 5c: classic list produces per-record NDJSON lines ───────────────────

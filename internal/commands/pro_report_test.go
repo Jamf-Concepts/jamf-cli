@@ -180,7 +180,7 @@ func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
 func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=2000": `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -263,7 +263,7 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=2000": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -279,7 +279,7 @@ func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 func TestRunReportDeviceCompliance_MissingGeneral(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=2000": `{
 				"totalCount": 1,
 				"results": [{"id": "42"}]
 			}`,
@@ -324,7 +324,7 @@ func TestRunReportDeviceCompliance_FetchError(t *testing.T) {
 func TestRunReportInventorySummary_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=2000": `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -391,7 +391,7 @@ func TestRunReportInventorySummary_Basic(t *testing.T) {
 func TestRunReportInventorySummary_UnknownModel(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=2000": `{
 				"totalCount": 1,
 				"results": [{"id": "1"}]
 			}`,
@@ -413,7 +413,7 @@ func TestRunReportInventorySummary_UnknownModel(t *testing.T) {
 func TestRunReportInventorySummary_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=2000": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -555,7 +555,7 @@ func TestIDLess(t *testing.T) {
 func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -609,7 +609,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -639,7 +639,7 @@ func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -661,7 +661,7 @@ func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 func TestRunReportSoftwareInstalls_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -680,7 +680,7 @@ func TestRunReportSoftwareInstalls_Empty(t *testing.T) {
 func TestRunReportSoftwareInstalls_BundleIDExtendsTheGroupingKey(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -735,7 +735,7 @@ func TestRunReportSoftwareInstalls_BundleIDExtendsTheGroupingKey(t *testing.T) {
 func TestRunReportSoftwareInstalls_PathExtendsTheGroupingKey(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -798,7 +798,7 @@ func TestRunReportSoftwareInstalls_PathExtendsTheGroupingKey(t *testing.T) {
 func TestRunReportSoftwareInstalls_DefaultRowsCarryOnlyTheThreeOriginalKeys(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -864,7 +864,7 @@ func TestRunReportSoftwareInstalls_DefaultRowsCarryOnlyTheThreeOriginalKeys(t *t
 func TestRunReportSoftwareInstalls_BundleIDAndPathTogether(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -961,7 +961,7 @@ func TestReportSoftwareInstalls_StrayPositionalIsRefused(t *testing.T) {
 func TestRunReportSoftwareInstalls_RowOrderFollowsEveryComparatorLevel(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -1015,7 +1015,7 @@ func TestRunReportSoftwareInstalls_RowOrderFollowsEveryComparatorLevel(t *testin
 func TestRunReportSoftwareInstalls_AppWithNoBundleIDKeepsTheKeyWithAnEmptyValue(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -1075,7 +1075,7 @@ func TestRunReportSoftwareInstalls_AppWithNoBundleIDKeepsTheKeyWithAnEmptyValue(
 func TestRunReportSoftwareInstalls_AppWithNoPathSurvivesTheDefaultSystemFilter(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=2000": `{
 				"totalCount": 2,
 				"results": [
 					{

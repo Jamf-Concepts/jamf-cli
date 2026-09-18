@@ -60,7 +60,7 @@ func runReportInventorySummary(ctx context.Context, client registry.HTTPClient, 
 			basePath, groupFilter)
 	}
 
-	computers, err := FetchAllPaginated(ctx, client, basePath, 100)
+	computers, err := FetchAllPaginated(ctx, client, basePath, PageSizeFromPath)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}

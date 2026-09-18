@@ -121,7 +121,11 @@ func fetchArrayCount(ctx context.Context, client registry.HTTPClient, path strin
 // (reflects page size, not actual total), so we count by page until exhausted.
 func fetchCDPFileCount(ctx context.Context, client registry.HTTPClient) (string, error) {
 	const (
-		pageSize = 100
+		// The endpoint's verified ceiling rather than the API default: a JCDS
+		// holding 9000 packages was 90 requests for one dashboard tile, and the
+		// short-page break below is only sound at a page size the server
+		// honours (issue 385).
+		pageSize = ProMaxPageSize
 		maxPages = 1000
 	)
 	total := 0
@@ -836,7 +840,11 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		data, err := fetchJSON(ctx, client, "/v1/volume-purchasing-locations?page-size=100")
+		// One page, sized to the endpoint's ceiling: the count comes from
+		// totalCount but the token expiries below come from the rows, so a
+		// tenant with more than a page of locations was silently missing the
+		// expiry of every location past the first hundred.
+		data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/volume-purchasing-locations?page-size=%d", ProMaxPageSize))
 		if err != nil {
 			send("vpp_locations", "", err)
 			return

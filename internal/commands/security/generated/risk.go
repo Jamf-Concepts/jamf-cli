@@ -38,6 +38,9 @@ func newRiskListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/risk/v2/devices"
 			var body any
+			// The largest page this endpoint declares it honours — 100 for the
+			// three Risk API list endpoints, which are the only Security Cloud
+			// ops declaring a maximum. See parser.PageSizeFromSpec.
 			const pageSize = 100
 			// maxPages is a sanity backstop: if the server ignores the page
 			// parameter and keeps returning full pages, fail loudly instead

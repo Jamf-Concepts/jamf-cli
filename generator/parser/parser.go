@@ -2000,6 +2000,9 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 		if param.Schema != nil && param.Schema.Value != nil {
 			p.Type = param.Schema.Value.Type.Slice()[0]
 			p.Default = param.Schema.Value.Default
+			if param.Schema.Value.Max != nil {
+				p.Maximum = int(*param.Schema.Value.Max)
+			}
 			if p.Type == "array" {
 				p.IsArray = true
 				if param.Schema.Value.Items != nil && param.Schema.Value.Items.Value != nil {
@@ -2175,6 +2178,7 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 	}
 
 	applyDocumentedStatusResults(operation)
+	annotatePaginationParams(operation)
 
 	return operation
 }

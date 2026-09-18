@@ -246,6 +246,11 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 		},
 		"applyGatewayAnn": applyGatewayAnn,
+		// maxPageSize is the page size the --all loop requests per page, read
+		// off the endpoint rather than off --page-size. See pagesize.go for why
+		// the caller's value cannot be trusted here.
+		"maxPageSize":      MaxPageSize,
+		"hasPageSizeParam": HasPageSizeParam,
 		"hasSectionParam": func(op *Operation) bool {
 			for _, p := range op.Parameters {
 				if p.In == "query" && p.Name == "section" {
@@ -2696,6 +2701,22 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				flagSection = []string{ {{- range $i, $s := $.DefaultSections }}{{ if $i }}, {{ end }}"{{ $s }}"{{- end }} }
 			}
 {{- end }}
+{{- if and .IsPaginated (hasPageSizeParam .) }}
+
+			// --all requests the largest page this endpoint honours and ignores
+			// --page-size; a single page still takes --page-size, clamped to the
+			// same ceiling. Both are said out loud rather than applied silently:
+			// issue 385 was filed because the flag was dropped without a word.
+			pageSizeCeiling := {{ maxPageSize . }}
+			paginateAll := flagAll && !cmd.Flags().Changed("page")
+			switch {
+			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
+				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
+			case !paginateAll && flagPageSize > pageSizeCeiling:
+				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
+				flagPageSize = pageSizeCeiling
+			}
+{{- end }}
 
 			// Build query string
 			var queryParts []string
@@ -2728,8 +2749,17 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if .IsPaginated }}
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified.
+			//
+			// Keyed on whether --page was CHANGED, not on its value: --page 0
+			// is a legitimate request for the first page alone, and reading
+			// zero as "not set" left it unreachable — the only way to get page
+			// 0 on its own was --all=false with no --page at all (issue 385).
+{{- if and .IsPaginated (hasPageSizeParam .) }}
+			if paginateAll {
+{{- else }}
+			if flagAll && !cmd.Flags().Changed("page") {
+{{- end }}
 				// Initialised empty, not nil — a nil slice marshals to "null", so
 				// "list --all" on an empty collection used to answer "null" where
 				// the single-page path answers "[]".
@@ -2738,7 +2768,17 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				pageSize := 100
+				// The endpoint's own ceiling, never --page-size: the Jamf Pro
+				// API clamps an oversized page-size silently, and the loop
+				// below reads a short page as the last one — so an oversized
+				// page size truncates the result and reports success. See
+				// parser.MaxPageSize.
+				pageSize := {{ maxPageSize . }}
+				// A small --limit should stay a small request. Without this a
+				// --limit 5 would pull a full 2000-row page to return five.
+				if flagLimit > 0 && flagLimit < pageSize {
+					pageSize = flagLimit
+				}
 
 				for {
 					// Build page-specific query
