@@ -335,6 +335,15 @@ func addPlatformReferencedGroups(ctx context.Context, c *jamfplatform.Client, re
 			if err != nil {
 				continue
 			}
+			// Scope is *BlueprintScope with omitempty, so a blueprint that
+			// targets nothing arrives with it nil. Dereferencing it crashed
+			// the whole command: `pro group-tools analyze --unused` panicked
+			// with a nil pointer dereference on any tenant holding one
+			// unscoped blueprint, and there is nothing an operator can do
+			// about that from the command line.
+			if detail.Scope == nil {
+				continue
+			}
 			for _, gid := range detail.Scope.DeviceGroups {
 				if name, ok := idToName[gid]; ok {
 					referenced[name] = true
@@ -347,6 +356,14 @@ func addPlatformReferencedGroups(ctx context.Context, c *jamfplatform.Client, re
 	resp, err := cb.ListBenchmarks(ctx)
 	if err == nil {
 		for _, b := range resp.Benchmarks {
+			// Same shape as the blueprint scope above — BenchmarkV2.Target is
+			// *TargetV2 with omitempty — and the same crash. This half had not
+			// fired yet only because the tenant that exposed the blueprint one
+			// happened to have every benchmark targeted; an untargeted
+			// benchmark reaches it identically.
+			if b.Target == nil {
+				continue
+			}
 			for _, gid := range b.Target.DeviceGroups {
 				if name, ok := idToName[gid]; ok {
 					referenced[name] = true
