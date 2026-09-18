@@ -11,6 +11,38 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — computer group member counts come from the collection that carries one
+
+`pro group-tools` and `pro audit` read member counts from
+`/v3/computer-groups/{smart,static}-groups` instead of `/v1/computer-groups`.
+The v1 collection carries no count at all — wire-checked against Jamf Pro 11.32
+on 2026-09-18, it answers `description`, `id`, `name` and `smartGroup` and
+nothing else — so the `memberCount` these commands type-asserted was **always
+absent and every group reported 0 members**. Three consequences a script can
+see:
+
+- **`memberCount` can now be the string `"unknown"`.** A group the collection
+  listed without a readable count is reported as such rather than as empty: an
+  absent count is not evidence that a group has no members. Anything doing
+  arithmetic on `memberCount` needs to handle a non-numeric value, and a stderr
+  warning names how many rows are affected.
+
+- **`pro group-tools list --empty` and `analyze --unused` return fewer rows.**
+  Both used to list every group, because every count read as 0. They now list
+  only groups proved empty — an unknown count is excluded from both, and
+  `--empty` says on stderr how many groups it left out for that reason.
+
+- **`pro audit` gains an `Empty smart groups` finding.** It could not fire
+  before: the count was always absent, so its `ok` was always false,
+  `emptyCount` never incremented and the check returned no finding on every
+  instance, including ones with dozens of empty smart groups.
+
+The two v3 collections share v1's id space, and both count fields are
+wire-confirmed — `membershipCount` for smart groups, `count` for static ones,
+the latter checked by loading 12 computers into an empty static group and
+reading 12 back. Same request cost as before: one paginated sweep per
+collection.
+
 ### Behaviour — `--all` chooses its own page size, and `--page 0` means page 0
 
 Fixes [#385](https://github.com/Jamf-Concepts/jamf-cli/issues/385). Three changes

@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -196,15 +197,17 @@ func TestCheckPrestageCoverage_HasPrestages(t *testing.T) {
 	}
 }
 
+// TestCheckEmptySmartGroups reads the collection that carries a member count.
+// The fixture is the real /v3/computer-groups/smart-groups payload shape —
+// only smart groups, each with membershipCount.
 func TestCheckEmptySmartGroups(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computer-groups": {200, `[
-				{"id":"1","name":"All Macs","smartGroup":true,"memberCount":50},
-				{"id":"2","name":"Empty Smart","smartGroup":true,"memberCount":0},
-				{"id":"3","name":"Empty Static","smartGroup":false,"memberCount":0},
-				{"id":"4","name":"Also Empty Smart","smartGroup":true,"memberCount":0}
-			]`},
+			"/v3/computer-groups/smart-groups": {200, `{"totalCount":3,"results":[
+				{"id":"1","name":"All Macs","siteId":"-1","membershipCount":50},
+				{"id":"2","name":"Empty Smart","siteId":"-1","membershipCount":0},
+				{"id":"4","name":"Also Empty Smart","siteId":"-1","membershipCount":0}
+			]}`},
 		},
 	}
 
@@ -217,7 +220,64 @@ func TestCheckEmptySmartGroups(t *testing.T) {
 		return
 	}
 	if result.AffectedCount != 2 {
-		t.Errorf("affected = %d, want 2 (only smart groups)", result.AffectedCount)
+		t.Errorf("affected = %d, want 2", result.AffectedCount)
+	}
+}
+
+// TestCheckEmptySmartGroups_DoesNotReadTheCountlessCollection is the
+// regression test for a check that could never fire. /v1/computer-groups
+// answers description, id, name and smartGroup and no count, so the
+// `if count, ok := g["memberCount"].(float64); ok` this check used to run was
+// false for every group and the check returned (nil, nil) on every instance,
+// including one with 29 empty smart groups. An instance serving only the
+// countless collection must now fail loudly instead.
+func TestCheckEmptySmartGroups_DoesNotReadTheCountlessCollection(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/computer-groups": {200, `[
+				{"id":"1","name":"Empty Smart","description":"","smartGroup":true},
+				{"id":"2","name":"Also Empty Smart","description":"","smartGroup":true}
+			]`},
+		},
+	}
+
+	result, err := checkEmptySmartGroups(context.Background(), client, 14)
+	if err == nil {
+		t.Fatalf("expected an error when the count collection is unreachable, got result %+v", result)
+	}
+	for _, req := range client.recorded() {
+		if strings.Contains(req, "/v1/computer-groups") {
+			t.Errorf("check requested %s, which carries no member count", req)
+		}
+	}
+}
+
+// TestCheckEmptySmartGroups_CountlessGroupIsNotEmpty holds that a group the
+// collection lists without a count is named in the recommendation rather than
+// counted as empty.
+func TestCheckEmptySmartGroups_CountlessGroupIsNotEmpty(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computer-groups/smart-groups": {200, `{"totalCount":2,"results":[
+				{"id":"1","name":"Empty Smart","membershipCount":0},
+				{"id":"2","name":"No Count"}
+			]}`},
+		},
+	}
+
+	result, err := checkEmptySmartGroups(context.Background(), client, 14)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected finding for the one empty smart group")
+		return
+	}
+	if result.AffectedCount != 1 {
+		t.Errorf("affected = %d, want 1", result.AffectedCount)
+	}
+	if !strings.Contains(result.Recommendation, "1 groups could not be checked") {
+		t.Errorf("recommendation = %q, want it to name the unchecked group", result.Recommendation)
 	}
 }
 

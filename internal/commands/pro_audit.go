@@ -340,32 +340,44 @@ func checkFailedMDMCommands(ctx context.Context, client registry.HTTPClient, _ i
 	}, nil
 }
 
+// checkEmptySmartGroups counts the smart computer groups with no members.
+//
+// It reads /v3/computer-groups/smart-groups rather than /v1/computer-groups,
+// because the v1 collection carries no member count: it answers description,
+// id, name and smartGroup only. The `memberCount` this check used to read was
+// therefore always absent, its `ok` was always false, emptyCount never
+// incremented and the check returned (nil, nil) on every instance — it could
+// not report a finding at all, including on an instance with 29 empty smart
+// groups. The v3 collection is the one that carries membershipCount, and it
+// returns only smart groups, so the smartGroup filter goes with it. Same
+// request cost: one paginated sweep either way.
 func checkEmptySmartGroups(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
-	// /v1/computer-groups returns a plain array — FetchAllPaginated handles both formats
-	groups, err := FetchAllPaginated(ctx, client, "/v1/computer-groups", PageSizeFromPath)
-	if err != nil {
+	var idx groupCountIndex
+	if err := idx.sweep(ctx, client, "/v3/computer-groups/smart-groups", "membershipCount"); err != nil {
 		return nil, err
 	}
 
 	emptyCount := 0
-	for _, g := range groups {
-		smart, _ := g["smartGroup"].(bool)
-		if !smart {
-			continue
-		}
-		if count, ok := g["memberCount"].(float64); ok && count == 0 {
+	for _, n := range idx.byID {
+		if n == 0 {
 			emptyCount++
 		}
 	}
 	if emptyCount == 0 {
 		return nil, nil
 	}
+	// A group the collection listed without a readable count is named rather
+	// than counted: an absent count is not evidence that a group is empty.
+	rec := "Review and remove unused smart groups to reduce evaluation overhead"
+	if idx.unreadable > 0 {
+		rec = fmt.Sprintf("%s (%d groups could not be checked)", rec, idx.unreadable)
+	}
 	return &auditResult{
 		Category:       "hygiene",
 		Severity:       severityInfo,
 		Name:           "Empty smart groups",
 		AffectedCount:  emptyCount,
-		Recommendation: "Review and remove unused smart groups to reduce evaluation overhead",
+		Recommendation: rec,
 	}, nil
 }
 

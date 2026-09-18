@@ -5,6 +5,7 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -72,6 +73,12 @@ func runGroupToolsList(ctx context.Context, cliCtx *registry.CLIContext, groupTy
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
 
+	counts, countErr := computerGroupCounts(ctx, cliCtx.Client)
+	unknown := warnUnknownCounts(groups, counts, countErr)
+	if unknown > 0 && emptyOnly {
+		fmt.Fprintf(os.Stderr, "WARNING: --empty lists only groups proved empty, so those %d are not listed\n", unknown)
+	}
+
 	var rows []map[string]any
 	for _, g := range groups {
 		// Type filter
@@ -87,10 +94,11 @@ func runGroupToolsList(ctx context.Context, cliCtx *registry.CLIContext, groupTy
 			}
 		}
 
-		// Empty filter
+		// Empty filter. An unknown count is not an empty group — see
+		// computerGroupCounts.
 		if emptyOnly {
-			count := groupMemberCount(g)
-			if count != 0 {
+			count, known := counts.count(g)
+			if !known || count != 0 {
 				continue
 			}
 		}
@@ -103,7 +111,7 @@ func runGroupToolsList(ctx context.Context, cliCtx *registry.CLIContext, groupTy
 			}
 		}
 
-		rows = append(rows, groupSummaryRow(g))
+		rows = append(rows, groupSummaryRow(g, counts))
 	}
 
 	if len(rows) == 0 {
@@ -233,9 +241,14 @@ func newGroupToolsAnalyzeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Analyze computer groups for hygiene issues",
 		Long: `Run hygiene analysis on computer groups.
 
---unused detects groups not referenced by any policy scope. When platform
-gateway auth is configured, also checks for platform device groups not
-referenced by any blueprint or compliance benchmark.`,
+--unused detects groups that no policy scope references and that hold no
+members. A group with members is not a removal candidate, so it is left out
+even when nothing scopes to it; a group whose member count cannot be read is
+left out too and reported on stderr, because an unreadable count is not
+evidence of emptiness.
+
+When platform gateway auth is configured, --unused also checks for platform
+device groups not referenced by any blueprint or compliance benchmark.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !unused {
 				return fmt.Errorf("specify an analysis mode: --unused")
@@ -244,7 +257,7 @@ referenced by any blueprint or compliance benchmark.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&unused, "unused", false, "find groups not referenced by any policy (includes platform groups when platform auth is active)")
+	cmd.Flags().BoolVar(&unused, "unused", false, "find empty groups not referenced by any policy (includes platform groups when platform auth is active)")
 
 	return cmd
 }
@@ -273,6 +286,12 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
 
+	counts, countErr := computerGroupCounts(ctx, cliCtx.Client)
+	unknown := warnUnknownCounts(groups, counts, countErr)
+	if unknown > 0 {
+		fmt.Fprintf(os.Stderr, "WARNING: %d group(s) are not listed below — an unreadable count cannot prove a group is empty, and this list names removal candidates\n", unknown)
+	}
+
 	referenced := make(map[string]bool)
 
 	// Check all scopeable Classic API resources
@@ -293,14 +312,20 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 
 	fmt.Fprintln(os.Stderr)
 
-	// Find groups not referenced by anything
+	// Find empty groups not referenced by anything. Membership gates the list
+	// because --unused names removal candidates: a group holding 45 computers
+	// that no policy scopes is a question for the administrator, not a group
+	// to delete. An unknown count is not empty, so it is excluded too.
 	var rows []map[string]any
 	for _, g := range groups {
 		name, _ := g["name"].(string)
 		if referenced[name] {
 			continue
 		}
-		rows = append(rows, groupSummaryRow(g))
+		if count, known := counts.count(g); !known || count != 0 {
+			continue
+		}
+		rows = append(rows, groupSummaryRow(g, counts))
 	}
 
 	if len(rows) == 0 {
@@ -484,31 +509,137 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 // Shared helpers
 // ─────────────────────────────────────────────────────────────────
 
+// memberCountUnknown is what a summary row carries in place of a member count
+// this CLI could not read. Deliberately not 0, and deliberately not an absent
+// key: a table's columns are the keys of its first row, so dropping the key
+// would drop the column for every row below it.
+const memberCountUnknown = "unknown"
+
+// groupCountIndex maps a computer group id to its member count.
+//
+// The zero value is a usable empty index that answers "unknown" for every
+// group, which is the point: the count is a fact about the instance that has
+// to be fetched, and a group missing from the index has an unknown count
+// rather than a count of zero.
+type groupCountIndex struct {
+	byID map[string]int
+
+	// unreadable counts the groups a collection listed without a usable count
+	// field. Such a group is left out of byID rather than entered as zero.
+	unreadable int
+}
+
+// count reports a group's member count. The second return is false when the
+// count is unknown, which every caller filtering on emptiness has to check —
+// unknown is not empty.
+func (idx groupCountIndex) count(g map[string]any) (int, bool) {
+	id := extractID(g)
+	if id == "" || idx.byID == nil {
+		return 0, false
+	}
+	n, ok := idx.byID[id]
+	return n, ok
+}
+
+// sweep reads one computer-group collection into the index, under the count
+// field that collection carries. A group whose count field is absent or
+// non-numeric is counted in unreadable and left out of the index.
+func (idx *groupCountIndex) sweep(ctx context.Context, client registry.HTTPClient, path, countField string) error {
+	// PageSizeFromPath, not a literal: both v3 collections are
+	// {totalCount, results} Jamf Pro endpoints, so this resolves to the
+	// wire-verified 2000 rather than the API default. It is the ceiling
+	// itself, which is what makes the short-page termination inside
+	// FetchAllPaginated sound here — do not raise it past that on these
+	// paths (see MaxPageSizeFor, and #385 for why an oversized page-size
+	// truncates instead of failing).
+	groups, err := FetchAllPaginated(ctx, client, path, PageSizeFromPath)
+	if err != nil {
+		return fmt.Errorf("listing %s: %w", path, err)
+	}
+	if idx.byID == nil {
+		idx.byID = make(map[string]int, len(groups))
+	}
+	for _, g := range groups {
+		id := extractID(g)
+		n, ok := g[countField].(float64)
+		if id == "" || !ok {
+			idx.unreadable++
+			continue
+		}
+		idx.byID[id] = int(n)
+	}
+	return nil
+}
+
+// computerGroupCounts builds the member-count index for every computer group.
+//
+// /v1/computer-groups carries no count at all. Wire-checked against Jamf Pro
+// 11.32 on 2026-09-18: it answers description, id, name and smartGroup and
+// nothing else, so the memberCount this file used to type-assert was always
+// absent and every group reported 0 members.
+//
+// The two v3 collections each carry one — smart groups under membershipCount,
+// static groups under count — and share /v1's id space, so two paginated
+// sweeps index the whole instance. Both are plain Jamf Pro API paths and both
+// are served on the platform gateway (/pro/v3/computer-groups/smart-groups and
+// .../static-groups, GET, in specs/gateway/coverage.json), so this works
+// unchanged on a token or oauth2 profile and on a gateway profile. Platform
+// /v2/groups carries the same counts but is gateway-only, which would have
+// made these commands gateway-only with it.
+//
+// The per-group alternatives cost a request each:
+// /v3/computer-groups/smart-group-membership/{id} for a smart group and the
+// Classic detail for a static one. Two sweeps answer for a 500-group instance
+// what 500 requests would.
+//
+// A sweep that fails returns its error and leaves its half of the index
+// absent. Every caller then sees those groups as unknown, never as empty.
+func computerGroupCounts(ctx context.Context, client registry.HTTPClient) (groupCountIndex, error) {
+	var idx groupCountIndex
+	smartErr := idx.sweep(ctx, client, "/v3/computer-groups/smart-groups", "membershipCount")
+	staticErr := idx.sweep(ctx, client, "/v3/computer-groups/static-groups", "count")
+	return idx, errors.Join(smartErr, staticErr)
+}
+
+// warnUnknownCounts reports on stderr how many of the listed groups have no
+// readable member count, and returns that number. A silent gap is what shipped
+// this bug, so the gap is named even when nothing filters on it.
+func warnUnknownCounts(groups []map[string]any, idx groupCountIndex, err error) int {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: member counts are incomplete: %v\n", err)
+	}
+	unknown := 0
+	for _, g := range groups {
+		if _, known := idx.count(g); !known {
+			unknown++
+		}
+	}
+	if unknown > 0 {
+		fmt.Fprintf(os.Stderr, "WARNING: %d of %d groups have no readable member count, reported as %q\n", unknown, len(groups), memberCountUnknown)
+	}
+	return unknown
+}
+
 // groupSummaryRow converts a computer group map to a summary row for output.
-func groupSummaryRow(g map[string]any) map[string]any {
+// The count comes from the index rather than from the group map: the
+// collection that lists groups does not carry one.
+func groupSummaryRow(g map[string]any, idx groupCountIndex) map[string]any {
 	smart, _ := g["smartGroup"].(bool)
 	groupTypeStr := "static"
 	if smart {
 		groupTypeStr = "smart"
 	}
-	return map[string]any{
-		"id":          extractID(g),
-		"name":        extractName(g, "", ""),
-		"type":        groupTypeStr,
-		"memberCount": groupMemberCount(g),
+	row := map[string]any{
+		"id":   extractID(g),
+		"name": extractName(g, "", ""),
+		"type": groupTypeStr,
 	}
-}
-
-// groupMemberCount extracts the member count from a group map.
-// The field may be "memberCount" (float64) or derived from the "members" array.
-func groupMemberCount(g map[string]any) int {
-	if mc, ok := g["memberCount"].(float64); ok {
-		return int(mc)
+	if n, known := idx.count(g); known {
+		row["memberCount"] = n
+	} else {
+		row["memberCount"] = memberCountUnknown
 	}
-	if members, ok := g["members"].([]any); ok {
-		return len(members)
-	}
-	return 0
+	return row
 }
 
 // unwrapClassicDetail is defined in backup.go; declared here as a reminder
