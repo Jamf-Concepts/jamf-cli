@@ -36,6 +36,7 @@ type templateOp struct {
 	HasScaffold     bool   // body carries enough shape for --scaffold to be worth offering (parser.HasScaffoldShape)
 	QueryParams     []queryParam
 	Paginate        bool   // op exposes page+pageSize — always fetch every page, aggregating the array named by UnwrapArrayKey
+	PageSize        int    // page size the pagination loop requests (parser.PageSizeFromSpec)
 	UnwrapArrayKey  string // response object property holding the result array (empty: print the raw response)
 	NeedsCustomerID bool   // Device Lifecycle ops with {customerId} in Path — filled from SecurityClient.LifecycleCustomerID at request time
 }
@@ -135,6 +136,7 @@ func buildTemplateResource(r *parser.Resource, scope string) (templateResource, 
 			HasScaffold:     scaffold != "",
 			QueryParams:     buildQueryParams(opCopy.Parameters),
 			Paginate:        paginate,
+			PageSize:        parser.PageSizeFromSpec(opCopy.Parameters),
 			UnwrapArrayKey:  unwrapKey,
 			NeedsCustomerID: strings.Contains(opCopy.Path, "{customerId}"),
 		})

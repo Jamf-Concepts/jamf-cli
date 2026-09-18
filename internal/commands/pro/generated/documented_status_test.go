@@ -49,6 +49,10 @@ func (o *jsonOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
+func (o *jsonOutput) NotePageSizeIgnoredByAll(_, _ int) {}
+
+func (o *jsonOutput) NotePageSizeClamped(_, _ int) {}
+
 // statusClient serves one canned status/body and records whether the request
 // context marked that status as an expected result.
 type statusClient struct {

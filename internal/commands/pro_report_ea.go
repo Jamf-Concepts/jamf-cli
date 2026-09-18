@@ -85,7 +85,7 @@ func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFil
 	}
 
 	// Fetch computer inventory with the EXTENSION_ATTRIBUTES section.
-	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL&section=EXTENSION_ATTRIBUTES", 100)
+	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL&section=EXTENSION_ATTRIBUTES", PageSizeFromPath)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}

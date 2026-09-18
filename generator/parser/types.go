@@ -249,6 +249,13 @@ type Parameter struct {
 	Type        string
 	Default     any
 	IsArray     bool
+	// Maximum is the spec-declared upper bound for a numeric parameter, 0 when
+	// the spec declares none. Carried for the pagination ceiling: a page-size
+	// param that names its own maximum is the only per-endpoint evidence of the
+	// cap that does not need a wire probe, and /v1/users is the one Jamf Pro
+	// endpoint that declares one (1000, against the 2000 every other paginated
+	// endpoint clamps to silently). See MaxPageSize.
+	Maximum int
 }
 
 // RequestBody represents a request body

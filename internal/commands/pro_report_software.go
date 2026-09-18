@@ -84,7 +84,7 @@ type softwareKey struct {
 // runReportSoftwareInstalls fetches computer inventory with the APPLICATIONS
 // section and aggregates device counts per softwareKey.
 func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, titleFilter string, includeSystem, showBundleID, showPath bool) ([]map[string]any, error) {
-	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=APPLICATIONS", 100)
+	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=APPLICATIONS", PageSizeFromPath)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}

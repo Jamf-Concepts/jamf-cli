@@ -399,12 +399,16 @@ func TestIsFailedTaskStatus(t *testing.T) {
 // --- fetchDeploymentTasks pagination ---
 
 func TestFetchDeploymentTasks_PagesUntilExhausted(t *testing.T) {
-	page0 := make([]string, 100)
+	// A full page plus one. Sized off ProMaxPageSize rather than a literal 100,
+	// which is what the walk now asks for — with the literal, page 0 came back
+	// short, the walk stopped there and the second page was never requested.
+	full := ProMaxPageSize
+	page0 := make([]string, full)
 	for i := range page0 {
 		page0[i] = fmt.Sprintf(`{"id":"%d","computerId":"1","status":"GAVE_UP"}`, i)
 	}
-	page0Body := fmt.Sprintf(`{"totalCount":101,"results":[%s]}`, strings.Join(page0, ","))
-	page1Body := `{"totalCount":101,"results":[{"id":"100","computerId":"1","status":"GAVE_UP"}]}`
+	page0Body := fmt.Sprintf(`{"totalCount":%d,"results":[%s]}`, full+1, strings.Join(page0, ","))
+	page1Body := fmt.Sprintf(`{"totalCount":%d,"results":[{"id":"%d","computerId":"1","status":"GAVE_UP"}]}`, full+1, full)
 
 	var gets []string
 	mock := &retryTasksMockClient{handler: func(method, path string, _ []byte) (int, string, error) {
@@ -422,8 +426,8 @@ func TestFetchDeploymentTasks_PagesUntilExhausted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(tasks) != 101 {
-		t.Errorf("len(tasks) = %d, want 101", len(tasks))
+	if len(tasks) != full+1 {
+		t.Errorf("len(tasks) = %d, want %d", len(tasks), full+1)
 	}
 	if len(gets) != 2 {
 		t.Errorf("GET calls = %d, want 2 (paginated)", len(gets))

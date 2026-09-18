@@ -22,6 +22,51 @@ func FetchJSON(ctx context.Context, client registry.HTTPClient, path string) (ma
 	return fetchJSON(ctx, client, path)
 }
 
+// ProMaxPageSize is the page size a fetch-everything walk of a Jamf Pro API
+// collection requests per request.
+//
+// The Jamf Pro API clamps a larger page-size silently rather than rejecting it
+// — wire-verified on /v1/departments through the platform gateway 2026-09-18
+// (page-size 2001, 2500, 5000 and 20000 each returned exactly 2000 of 2601
+// rows) and by the SDK across 33 endpoints on 2026-08-10. Kept equal to
+// parser.ProPageSizeCap, which is what the generated commands use;
+// TestFetchAllPaginatedNeverOutrunsASpecCeiling holds the two together and
+// would fail if the generator learned a different number.
+const ProMaxPageSize = 2000
+
+// PageSizeFromPath is FetchAllPaginated's pageSize for "use the largest page
+// this path is known to honour". Pass an explicit size only to request a
+// deliberately smaller page.
+const PageSizeFromPath = 0
+
+// proPageSizeCeilings names the Jamf Pro paths that honour LESS than
+// ProMaxPageSize, keyed on the path with no query string.
+//
+// Only an endpoint whose spec declares its own `maximum` belongs here, and a
+// declared maximum is the case that matters: an undeclared ceiling is enforced
+// by clamping, which FetchAllPaginated survives (it walks until totalCount is
+// reached rather than stopping at the first short page), while a declared one
+// tends to be enforced with a 400 that fails the whole call.
+// TestFetchAllPaginatedNeverOutrunsASpecCeiling derives the expected set from
+// the published specs, so a new declaration fails the build rather than a
+// customer's pull.
+var proPageSizeCeilings = map[string]int{
+	"/v1/users": 1000,
+}
+
+// MaxPageSizeFor returns the page size a fetch-everything walk of path should
+// request.
+func MaxPageSizeFor(path string) int {
+	bare := path
+	if i := strings.IndexByte(bare, '?'); i >= 0 {
+		bare = bare[:i]
+	}
+	if ceiling, ok := proPageSizeCeilings[bare]; ok {
+		return ceiling
+	}
+	return ProMaxPageSize
+}
+
 // FetchAllPaginated fetches all items from a modern API endpoint.
 // It auto-detects the response format:
 //   - Paginated: `{"totalCount": N, "results": [...]}` — fetches all pages
@@ -32,7 +77,7 @@ func FetchJSON(ctx context.Context, client registry.HTTPClient, path string) (ma
 // pagination params are provided. This function handles both transparently.
 func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath string, pageSize int) ([]map[string]any, error) {
 	if pageSize <= 0 {
-		pageSize = 100
+		pageSize = MaxPageSizeFor(basePath)
 	}
 
 	var all []map[string]any

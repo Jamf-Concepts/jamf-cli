@@ -28,6 +28,10 @@ func (m *mockFormatter) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
+func (m *mockFormatter) NotePageSizeIgnoredByAll(_, _ int) {}
+
+func (m *mockFormatter) NotePageSizeClamped(_, _ int) {}
+
 func TestPrintOne_MarshalsSingleItem(t *testing.T) {
 	type item struct {
 		Name string `json:"name"`

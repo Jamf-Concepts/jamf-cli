@@ -11,6 +11,45 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — `--all` chooses its own page size, and `--page 0` means page 0
+
+Fixes [#385](https://github.com/Jamf-Concepts/jamf-cli/issues/385). Three changes
+a script can see:
+
+- **`--all` ignores `--page-size` and requests the largest page the endpoint is
+  known to honour** — 2000 on the Jamf Pro API's `{totalCount, results}`
+  endpoints, 1000 on `/v1/users` and Platform `devices/v1`, 500 on AI
+  Governance, 100 where neither the spec nor a wire probe says more. A
+  9000-computer inventory pull is 5 requests instead of 95. `--page-size` still
+  applies to a single page (`--all=false`), clamped to the same ceiling.
+
+  Ignoring the flag is the safe reading, not the lazy one: the Jamf Pro API
+  answers an oversized `page-size` by **silently clamping** it, and the walk
+  read a short page as the last page — so passing `--page-size 2500` through
+  would have returned 2000 of 2601 records at exit 0. Wire-checked on
+  `/v1/departments` 2026-09-18.
+
+  Both substitutions are now reported on stderr naming the page size actually
+  used. Suppressed by `--quiet`; **not** suppressed by `--no-hints`, which turns
+  off advisory tips, and a flag that did nothing is not a tip.
+
+- **`--page 0` returns the first page alone.** It used to be read as "not set"
+  and fell through to fetching every page, leaving page 0 reachable only as
+  `--all=false` with no `--page`. Any invocation relying on `--page 0` meaning
+  "all pages" now gets one page.
+
+- **`--page` and `--page-size` have help text.** The published spec describes
+  neither, so both rendered blank, with nothing saying `--page` is zero-based or
+  what the page-size ceiling is.
+
+Every fetch-everything path moved with it, not just the generated `list`
+commands: `pro report *`, `pro audit`, `pro backup`, `pro group-tools`,
+`pro dashboard`, the `pro overview` JCDS and VPP tiles, and Jamf Protect
+deployment tasks. Platform `blueprints` and `device-groups` stay at 100 — no
+declared maximum and no probe — as does the generic Platform name resolver.
+Reasoning and the wire evidence:
+`docs/solutions/logic-errors/all-ignored-page-size-2026-09-18.md`.
+
 ### Breaking — `pro` command names come from the spec, not from spec filenames
 
 - **Resource names are derived from the API's own OpenAPI tags and URL paths.** They

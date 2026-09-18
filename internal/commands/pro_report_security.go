@@ -54,7 +54,7 @@ all three sections.` + multiSectionFormatNote,
 
 func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securityReport, error) {
 	computers, err := FetchAllPaginated(ctx, client,
-		"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=SECURITY&section=DISK_ENCRYPTION", 100)
+		"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=SECURITY&section=DISK_ENCRYPTION", PageSizeFromPath)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}

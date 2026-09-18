@@ -70,6 +70,20 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Build request path
 			path := "/v1/computer-extension-attributes"
 
+			// --all requests the largest page this endpoint honours and ignores
+			// --page-size; a single page still takes --page-size, clamped to the
+			// same ceiling. Both are said out loud rather than applied silently:
+			// issue 385 was filed because the flag was dropped without a word.
+			pageSizeCeiling := 2000
+			paginateAll := flagAll && !cmd.Flags().Changed("page")
+			switch {
+			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
+				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
+			case !paginateAll && flagPageSize > pageSizeCeiling:
+				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
+				flagPageSize = pageSizeCeiling
+			}
+
 			// Build query string
 			var queryParts []string
 			if flagPage != 0 {
@@ -90,8 +104,13 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified.
+			//
+			// Keyed on whether --page was CHANGED, not on its value: --page 0
+			// is a legitimate request for the first page alone, and reading
+			// zero as "not set" left it unreachable — the only way to get page
+			// 0 on its own was --all=false with no --page at all (issue 385).
+			if paginateAll {
 				// Initialised empty, not nil — a nil slice marshals to "null", so
 				// "list --all" on an empty collection used to answer "null" where
 				// the single-page path answers "[]".
@@ -100,7 +119,17 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				pageSize := 100
+				// The endpoint's own ceiling, never --page-size: the Jamf Pro
+				// API clamps an oversized page-size silently, and the loop
+				// below reads a short page as the last one — so an oversized
+				// page size truncates the result and reports success. See
+				// parser.MaxPageSize.
+				pageSize := 2000
+				// A small --limit should stay a small request. Without this a
+				// --limit 5 would pull a full 2000-row page to return five.
+				if flagLimit > 0 && flagLimit < pageSize {
+					pageSize = flagLimit
+				}
 
 				for {
 					// Build page-specific query
@@ -192,8 +221,8 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc.<br/> Default sort is name:asc.<br/> If using multiple criteria, separate with commas. Allows sort for id and name.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc.<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: id, name <br/> Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
@@ -826,6 +855,20 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 			path := "/v1/computer-extension-attributes/{id}/history"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
+			// --all requests the largest page this endpoint honours and ignores
+			// --page-size; a single page still takes --page-size, clamped to the
+			// same ceiling. Both are said out loud rather than applied silently:
+			// issue 385 was filed because the flag was dropped without a word.
+			pageSizeCeiling := 2000
+			paginateAll := flagAll && !cmd.Flags().Changed("page")
+			switch {
+			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
+				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
+			case !paginateAll && flagPageSize > pageSizeCeiling:
+				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
+				flagPageSize = pageSizeCeiling
+			}
+
 			// Build query string
 			var queryParts []string
 			if flagPage != 0 {
@@ -846,8 +889,13 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified.
+			//
+			// Keyed on whether --page was CHANGED, not on its value: --page 0
+			// is a legitimate request for the first page alone, and reading
+			// zero as "not set" left it unreachable — the only way to get page
+			// 0 on its own was --all=false with no --page at all (issue 385).
+			if paginateAll {
 				// Initialised empty, not nil — a nil slice marshals to "null", so
 				// "list --all" on an empty collection used to answer "null" where
 				// the single-page path answers "[]".
@@ -856,7 +904,17 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				pageSize := 100
+				// The endpoint's own ceiling, never --page-size: the Jamf Pro
+				// API clamps an oversized page-size silently, and the loop
+				// below reads a short page as the last one — so an oversized
+				// page size truncates the result and reports success. See
+				// parser.MaxPageSize.
+				pageSize := 2000
+				// A small --limit should stay a small request. Without this a
+				// --limit 5 would pull a full 2000-row page to return five.
+				if flagLimit > 0 && flagLimit < pageSize {
+					pageSize = flagLimit
+				}
 
 				for {
 					// Build page-specific query
@@ -949,8 +1007,8 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc. Default sort is ID:asc. If using multiple criteria, separate with commas.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
