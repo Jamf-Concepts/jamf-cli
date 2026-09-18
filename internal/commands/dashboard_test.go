@@ -1,0 +1,645 @@
+// Copyright 2026, Jamf Software LLC
+
+package commands
+
+import (
+	"bytes"
+	"math"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+)
+
+func TestRenderDashboard_ProOnly(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Jamf Environment Dashboard",
+		GeneratedAt: time.Date(2026, 4, 11, 14, 30, 0, 0, time.UTC),
+		CLIVersion:  "1.5.0",
+		Profiles: []dashboardProfile{
+			{Name: "production", Product: "pro", URL: "https://prod.jamfcloud.com"},
+		},
+		Fleet: &fleetSummary{
+			ManagedComputers:   1200,
+			UnmanagedComputers: 50,
+			ManagedMobile:      800,
+			UnmanagedMobile:    25,
+			Users:              950,
+		},
+		Security: &securityPosture{
+			Total:             200,
+			FileVaultEnabled:  180,
+			FirewallEnabled:   160,
+			GatekeeperEnabled: 195,
+			SIPEnabled:        198,
+		},
+		Audit: &auditSummary{
+			Results: []auditResult{
+				{Category: "Security", Severity: severityWarning, Name: "Weak Passwords", AffectedCount: 12, Recommendation: "Enforce stronger passwords"},
+				{Category: "Compliance", Severity: severityCritical, Name: "Missing Encryption", AffectedCount: 5, Recommendation: "Enable FileVault"},
+				{Category: "Inventory", Severity: severityInfo, Name: "Stale Records", AffectedCount: 3, Recommendation: "Clean up stale records"},
+			},
+		},
+		Patch: &patchCompliance{
+			Titles: []patchTitle{
+				{Name: "Google Chrome", LatestVersion: "120.0", UpToDate: 900, OutOfDate: 100, Total: 1000, CompliancePct: 90.0},
+				{Name: "Zoom", LatestVersion: "5.17", UpToDate: 600, OutOfDate: 400, Total: 1000, CompliancePct: 60.0},
+			},
+		},
+		Devices: &deviceCompliance{
+			StaleDevices:       15,
+			FailedMDMCommands:  3,
+			StaleThresholdDays: 14,
+		},
+		OSDist: &osDistribution{
+			Versions: []osVersionCount{
+				{Version: "macOS 14.2", Count: 500},
+				{Version: "macOS 13.6", Count: 300},
+				{Version: "macOS 12.7", Count: 100},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	mustContain := []string{
+		"Jamf Environment Dashboard",
+		"production",
+		"Security Posture",
+		"FileVault",
+		"Gatekeeper",
+		"CRITICAL",
+		"WARNING",
+		"INFO",
+		"Google Chrome",
+		"macOS 14.2",
+		"1.5.0",
+		"data-theme=\"dark\"",
+		"Fleet & Devices",
+		"Patch Compliance",
+		"OS Distribution",
+	}
+
+	for _, s := range mustContain {
+		if !strings.Contains(html, s) {
+			t.Errorf("HTML output missing expected string: %q", s)
+		}
+	}
+
+	// Verify no Chart.js reference
+	if strings.Contains(html, "new Chart") {
+		t.Error("HTML should not contain Chart.js references")
+	}
+}
+
+func TestRenderDashboard_ProtectSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Protect Dashboard",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.5.0",
+		Profiles: []dashboardProfile{
+			{Name: "protect-prod", Product: "protect", URL: "https://protect.jamfcloud.com"},
+		},
+		Protect: &protectCoverage{
+			Plans:           5,
+			AnalyticsTotal:  120,
+			AnalyticsActive: 95,
+			Endpoints:       2000,
+			AnalyticSets:    8,
+			ExceptionSets:   3,
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "Jamf Protect") {
+		t.Error("HTML output missing 'Jamf Protect' section")
+	}
+	if !strings.Contains(html, "accent-protect") {
+		t.Error("HTML output missing protect accent border")
+	}
+	if !strings.Contains(html, "2,000") {
+		t.Error("HTML output missing formatted endpoint count '2,000'")
+	}
+}
+
+func TestRenderDashboard_PlatformSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Platform Dashboard",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.5.0",
+		Platform: &platformStatus{
+			Blueprints: []blueprintEntry{
+				{Name: "Corp Mac Standard", DeploymentState: "ACTIVE"},
+			},
+			Benchmarks: []benchmarkEntry{
+				{Title: "CIS macOS 15", CompliancePct: 87.4, FailingRules: 19},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "Jamf Platform") {
+		t.Error("HTML output missing 'Jamf Platform' section")
+	}
+	if !strings.Contains(html, "accent-platform") {
+		t.Error("HTML output missing platform accent border")
+	}
+	if !strings.Contains(html, "Corp Mac Standard") {
+		t.Error("HTML output missing blueprint name")
+	}
+	if !strings.Contains(html, "CIS macOS 15") {
+		t.Error("HTML output missing benchmark title")
+	}
+}
+
+func TestRenderDashboard_NoSectionsWhenNil(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Empty Dashboard",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	absent := []string{
+		"Fleet & Devices",
+		"Jamf Protect",
+		"Security Posture",
+		"Audit Findings",
+		"Patch Compliance",
+		"Patch Version Spread",
+		"OS Distribution",
+		"Jamf Platform",
+		"Jamf Security Cloud",
+		"Check-in Status",
+		"Computer Models",
+		"Mobile Models",
+		"Environment",
+		"Computer Smart Groups",
+		"Mobile Smart Groups",
+		"Cleanup",
+		"Org Structure",
+	}
+	for _, s := range absent {
+		if strings.Contains(html, s) {
+			t.Errorf("HTML should not contain %q when all sections are nil", s)
+		}
+	}
+}
+
+func TestRenderDashboard_IncompleteBannerShownWhenSectionsMissing(t *testing.T) {
+	// The exit code and stderr warnings signal partiality to a pipeline and an
+	// operator, but a recipient who receives only the file sees neither. The
+	// in-HTML banner is the one signal that travels with the artifact.
+	data := &DashboardData{
+		Title:              "Partial Dashboard",
+		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:         "1.0.0",
+		IncompleteSections: []string{sectionCleanup, sectionPlatform, sectionSecurityCloud},
+		TotalSections:      9,
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "Incomplete report:") {
+		t.Error("HTML must carry the incomplete banner when sections are missing")
+	}
+	if !strings.Contains(html, "3 of 9 sections could not be collected") {
+		t.Errorf("banner must name the count against the total: got %q", html)
+	}
+	// Names, not just a count: a count is not checkable against the document
+	// the reader has in front of them.
+	for _, name := range []string{sectionCleanup, sectionPlatform, sectionSecurityCloud} {
+		if !strings.Contains(html, name) {
+			t.Errorf("banner must name the missing section %q: got %q", name, html)
+		}
+	}
+}
+
+func TestRenderDashboard_IncompleteBannerAbsentWhenComplete(t *testing.T) {
+	// A complete report (zero missing) must not carry the banner — a false
+	// "incomplete" notice on an authoritative report is its own defect.
+	data := &DashboardData{
+		Title:              "Complete Dashboard",
+		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:         "1.0.0",
+		IncompleteSections: nil,
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	if strings.Contains(buf.String(), "Incomplete report:") {
+		t.Error("HTML must not carry the incomplete banner when every section was collected")
+	}
+}
+
+func TestRenderDashboard_IncompleteBannerSingularForOneSection(t *testing.T) {
+	data := &DashboardData{
+		Title:              "One Missing",
+		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:         "1.0.0",
+		IncompleteSections: []string{sectionAudit},
+		TotalSections:      1,
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "1 of 1 section could not be collected") {
+		t.Errorf("banner must read singular for one section: got %q", html)
+	}
+	if strings.Contains(html, "1 sections") {
+		t.Error("banner pluralised incorrectly for a single missing section")
+	}
+	if !strings.Contains(html, sectionAudit) {
+		t.Errorf("banner must name the missing section: got %q", html)
+	}
+}
+
+func TestRenderDashboard_DarkThemeDefault(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Theme Test",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, `data-theme="dark"`) {
+		t.Error("HTML should default to dark theme")
+	}
+	if !strings.Contains(html, "toggleTheme") {
+		t.Error("HTML should include theme toggle function")
+	}
+	if !strings.Contains(html, `[data-theme="light"]`) {
+		t.Error("HTML should include light theme CSS")
+	}
+}
+
+func TestSecurityPosturePct(t *testing.T) {
+	s := &securityPosture{Total: 200, FileVaultEnabled: 180}
+	got := s.Pct(180)
+	if got != 90.0 {
+		t.Errorf("Pct(180) = %v, want 90.0", got)
+	}
+
+	zero := &securityPosture{Total: 0}
+	got = zero.Pct(0)
+	if got != 0 {
+		t.Errorf("Pct(0) with Total=0 = %v, want 0", got)
+	}
+}
+
+func TestFleetManagedPct(t *testing.T) {
+	f := &fleetSummary{ManagedComputers: 1200, UnmanagedComputers: 50, ManagedMobile: 800, UnmanagedMobile: 25}
+
+	// 1200/1250 = 96.0 exactly; 800/825 = 96.9696…. Bands loose enough to
+	// straddle a swapped numerator/denominator or a dropped ×100 let a mutant
+	// live, so both are pinned to their arithmetic within 0.01.
+	cpct := f.ComputerManagedPct()
+	if math.Abs(cpct-96.0) > 0.01 {
+		t.Errorf("ComputerManagedPct() = %v, want 96.0", cpct)
+	}
+
+	mpct := f.MobileManagedPct()
+	if math.Abs(mpct-96.9697) > 0.01 {
+		t.Errorf("MobileManagedPct() = %v, want ~96.97", mpct)
+	}
+
+	empty := &fleetSummary{}
+	if empty.ComputerManagedPct() != 0 {
+		t.Error("ComputerManagedPct() should be 0 for empty fleet")
+	}
+}
+
+func TestProtectActiveAnalyticsPct(t *testing.T) {
+	p := &protectCoverage{AnalyticsTotal: 120, AnalyticsActive: 95}
+	pct := p.ActiveAnalyticsPct()
+	if pct < 79.0 || pct > 80.0 {
+		t.Errorf("ActiveAnalyticsPct() = %v, want ~79.17", pct)
+	}
+
+	empty := &protectCoverage{}
+	if empty.ActiveAnalyticsPct() != 0 {
+		t.Error("ActiveAnalyticsPct() should be 0 for empty protect")
+	}
+}
+
+// TestDashboardInheritsRootFlags guards the Cobra shadowing trap documented in
+// CLAUDE.md: a local flag whose name matches a root persistent one causes
+// AddFlagSet to skip the inherited flag, taking its shorthand with it. The
+// dashboard previously declared its own --profile and --out-file, which silently
+// removed -p and -o from the command.
+func TestDashboardInheritsRootFlags(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+
+	var dash *cobra.Command
+	for _, c := range root.Commands() {
+		if c.Name() == "dashboard" {
+			dash = c
+			break
+		}
+	}
+	if dash == nil {
+		t.Fatal("dashboard command not registered on root")
+	}
+
+	flags := dash.InheritedFlags()
+	for _, tc := range []struct{ name, shorthand string }{
+		{"profile", "p"},
+		{"output", "o"},
+		{"out-file", ""},
+	} {
+		f := flags.Lookup(tc.name)
+		if f == nil {
+			t.Errorf("dashboard does not inherit --%s", tc.name)
+			continue
+		}
+		if f.Shorthand != tc.shorthand {
+			t.Errorf("--%s shorthand = %q, want %q", tc.name, f.Shorthand, tc.shorthand)
+		}
+		if tc.shorthand != "" && flags.ShorthandLookup(tc.shorthand) == nil {
+			t.Errorf("dashboard does not inherit -%s", tc.shorthand)
+		}
+	}
+
+	// The report-scoping flag must not reuse a root name.
+	if dash.Flags().Lookup("include-profile") == nil {
+		t.Error("dashboard is missing --include-profile")
+	}
+	for _, name := range []string{"profile", "out-file"} {
+		if f := dash.LocalNonPersistentFlags().Lookup(name); f != nil {
+			t.Errorf("dashboard declares a local --%s, shadowing the root persistent flag", name)
+		}
+	}
+}
+
+func TestDashboardProfileNames(t *testing.T) {
+	cfg := &config.Config{
+		DefaultProfile: "configured-default",
+		Profiles: map[string]config.Profile{
+			"configured-default": {}, "flag-pro": {}, "extra-protect": {},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		flag       string
+		env        string
+		extra      []string
+		wantResult []string
+	}{
+		{name: "default only", wantResult: []string{"configured-default"}},
+		{name: "flag wins over default", flag: "flag-pro", wantResult: []string{"flag-pro"}},
+		{name: "env wins over default", env: "env-pro", wantResult: []string{"env-pro"}},
+		{name: "flag wins over env", flag: "flag-pro", env: "env-pro", wantResult: []string{"flag-pro"}},
+		{
+			name: "primary then extras in order", flag: "flag-pro",
+			extra: []string{"extra-protect"}, wantResult: []string{"flag-pro", "extra-protect"},
+		},
+		{
+			name: "extras de-duplicated against primary", flag: "flag-pro",
+			extra:      []string{"flag-pro", "extra-protect", "extra-protect"},
+			wantResult: []string{"flag-pro", "extra-protect"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			old := profile
+			profile = tc.flag
+			t.Cleanup(func() { profile = old })
+			t.Setenv("JAMF_PROFILE", tc.env)
+
+			got := dashboardProfileNames(cfg, tc.extra)
+			if len(got) != len(tc.wantResult) {
+				t.Fatalf("got %v, want %v", got, tc.wantResult)
+			}
+			for i := range got {
+				if got[i] != tc.wantResult[i] {
+					t.Fatalf("got %v, want %v", got, tc.wantResult)
+				}
+			}
+		})
+	}
+}
+
+func TestRenderDashboard_CleanupSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Cleanup Test",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+		Cleanup: &cleanupAnalysis{
+			DisabledPolicies: 12,
+			UnscopedPolicies: 8,
+			UnscopedProfiles: 3,
+			UnusedPackages:   5,
+			UnusedScripts:    7,
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	html := buf.String()
+	for _, want := range []string{
+		"Cleanup",
+		"Disabled Policies",
+		"Unscoped Policies",
+		"Unscoped Profiles",
+		"Unused Packages",
+		"Unused Scripts",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML missing %q in Cleanup section", want)
+		}
+	}
+}
+
+func TestRenderDashboard_CleanupAbsentWhenNil(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Minimal Dashboard",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	if strings.Contains(buf.String(), "Cleanup") {
+		t.Error("HTML should not contain Cleanup section when Cleanup is nil")
+	}
+}
+
+func TestRenderDashboard_OrgStructureSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Org Test",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+		OrgStructure: &orgStructure{
+			Sites:       []orgEntry{{Name: "Headquarters", Count: 450}, {Name: "Remote", Count: 120}},
+			Buildings:   []orgEntry{{Name: "Building A", Count: 200}},
+			Departments: []orgEntry{{Name: "Engineering", Count: 180}, {Name: "Sales", Count: 95}},
+			Categories:  []orgEntry{{Name: "Productivity", Count: 22}},
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	html := buf.String()
+	for _, want := range []string{
+		"Org Structure",
+		"Sites",
+		"Buildings",
+		"Departments",
+		"Categories",
+		"Headquarters",
+		"Engineering",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML missing %q in Org Structure section", want)
+		}
+	}
+}
+
+func TestRenderDashboard_OrgStructureAbsentWhenNil(t *testing.T) {
+	data := &DashboardData{
+		Title:       "No Org",
+		GeneratedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	if strings.Contains(buf.String(), "Org Structure") {
+		t.Error("HTML should not contain Org Structure section when OrgStructure is nil")
+	}
+}
+
+func TestRenderDashboard_SecurityCloudSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Security Cloud Dashboard",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.5.0",
+		SecurityCloud: &securityCloudStatus{
+			ZtnaApps:     12,
+			ZtnaGateways: 3,
+			DeviceGroups: 7,
+			DnsZones:     2,
+			UemConnector: true,
+			AppsByCategory: []secCloudCategory{
+				{Name: "Business", Count: 8},
+				{Name: "Uncategorized", Count: 4},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	for _, want := range []string{
+		"Jamf Security Cloud",
+		"accent-teal",
+		"ZTNA Apps",
+		"ZTNA Gateways",
+		"Device Groups",
+		"DNS Zones",
+		"UEM Connect configured",
+		"Apps by Category",
+		"Business",
+		"Uncategorized",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML missing %q in Security Cloud section", want)
+		}
+	}
+}
+
+func TestRenderDashboard_SecurityCloudAbsentWhenNil(t *testing.T) {
+	data := &DashboardData{
+		Title:       "No Security Cloud",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	if strings.Contains(buf.String(), "Jamf Security Cloud") {
+		t.Error("HTML should not contain Security Cloud section when SecurityCloud is nil")
+	}
+}
+
+func TestRenderDashboard_SecurityCloudNoUemConnector(t *testing.T) {
+	data := &DashboardData{
+		Title:         "SC No UEM",
+		GeneratedAt:   time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:    "1.0.0",
+		SecurityCloud: &securityCloudStatus{ZtnaApps: 4, UemConnector: false},
+	}
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+	html := buf.String()
+	if !strings.Contains(html, "Jamf Security Cloud") {
+		t.Error("HTML missing Security Cloud section")
+	}
+	if strings.Contains(html, "UEM Connect configured") {
+		t.Error("HTML should not show UEM Connect indicator when UemConnector is false")
+	}
+}
+
+// A nil config with nothing selected must yield no profiles rather than panic —
+// config.Load() errors are tolerated by the RunE so it can still print the
+// "configure one first" hint.
+func TestDashboardProfileNames_NilConfig(t *testing.T) {
+	old := profile
+	profile = ""
+	t.Cleanup(func() { profile = old })
+	t.Setenv("JAMF_PROFILE", "")
+
+	if got := dashboardProfileNames(nil, nil); len(got) != 0 {
+		t.Errorf("got %v, want no profiles", got)
+	}
+}

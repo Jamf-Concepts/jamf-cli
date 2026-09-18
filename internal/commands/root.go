@@ -1106,6 +1106,9 @@ in the config file. It never runs in CI, when output is piped, or under
 	// Jamf Platform namespace
 	cmd.AddCommand(newPlatformCmd(cliCtx))
 
+	// Cross-product dashboard
+	cmd.AddCommand(newDashboardCmd(cliCtx))
+
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
 	applyRootGroups(cmd)

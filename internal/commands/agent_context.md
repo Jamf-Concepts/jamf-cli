@@ -81,7 +81,22 @@ not carry privilege data.
 
 ## MCP
 
-`jamf-cli mcp serve` exposes the command tree to MCP clients over stdio via two
-tools: `list_commands` (catalog) and `run_command` (execute). The server is
-pinned to the profile it was launched with; per-command credential/target flags
-are rejected.
+`jamf-cli mcp serve` exposes the command tree to MCP clients over stdio via three
+tools:
+
+- `list_commands` — the catalog.
+- `run_command` — execute one command and get its output back as text.
+- `generate_report` — write a self-contained HTML fleet report into the
+  directory `jamf-cli config set-report-dir` designates, and return its path and
+  size. Never the HTML.
+
+The server is pinned to the profile it was launched with; per-command
+credential- and target-selecting flags are rejected, as are `multi`, the config
+write subcommands and the two `backup` commands, which choose their own target
+or destination.
+
+**`dashboard` output belongs in a file, not a tool result.** The command writes
+a 320–800 KB HTML document to stdout (80k–200k tokens), so `run_command` refuses
+it and names `generate_report` instead. `run_command`'s output is capped at
+256 KB in any case. In a Bash-capable session, run
+`jamf-cli dashboard --out-file <path>` rather than capturing its stdout.

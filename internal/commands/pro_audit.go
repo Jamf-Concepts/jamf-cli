@@ -40,6 +40,17 @@ type auditCheck struct {
 	Category string
 	Name     string
 	Run      func(ctx context.Context, client registry.HTTPClient, days int) (*auditResult, error)
+
+	// FromInventory answers the check from a caller-supplied
+	// /v4/computers-inventory pass instead of sweeping the fleet itself. Set on
+	// the checks whose Run is O(computers); the dashboard reads it so the four
+	// fleet-scaled checks cost nothing beyond the pass it already made.
+	FromInventory func(records []map[string]any) *auditResult
+
+	// FromPolicies is the same arrangement for a check that is O(policies),
+	// answered from a shared policy-detail pass. skipped is the number of
+	// policy details that could not be read.
+	FromPolicies func(details []map[string]any, skipped int) *auditResult
 }
 
 func newAuditCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -75,27 +86,70 @@ type auditOptions struct {
 	Days   int
 }
 
-// allAuditChecks returns the full set of audit checks.
+// allAuditChecks returns the full set of audit checks. `pro audit` runs all of
+// them; the dashboard splits them by cost — see fixedCostAuditChecks and
+// fleetScaledAuditChecks.
 func allAuditChecks() []auditCheck {
-	return []auditCheck{
-		// Security
-		{Category: "security", Name: "Unencrypted devices", Run: checkUnencryptedDevices},
-		{Category: "security", Name: "Gatekeeper disabled", Run: checkGatekeeper},
+	return append(fixedCostAuditChecks(), fleetScaledAuditChecks()...)
+}
 
-		// Compliance
+// fixedCostAuditChecks are the checks whose request count does not grow with
+// the computer or the policy count. Their cost is bounded by the number of
+// configuration objects an administrator created by hand, which does not scale
+// with the fleet.
+//
+// The split exists because the dashboard's fast tier is documented as
+// fixed-cost, and four of these checks are not: three sweep
+// /v4/computers-inventory and one issues a Classic GET per policy, so a
+// 50,000-device, 500-policy instance turned a "~20 API call" tier into roughly
+// 2,000 strictly-serial requests.
+func fixedCostAuditChecks() []auditCheck {
+	return []auditCheck{
+		// Compliance — both are single filtered counts.
 		{Category: "compliance", Name: "Stale check-in", Run: checkStaleCheckin},
 		{Category: "compliance", Name: "Failed MDM commands", Run: checkFailedMDMCommands},
 
-		// Hygiene
+		// Hygiene — bounded by object counts, not by the fleet.
 		{Category: "hygiene", Name: "Empty smart groups", Run: checkEmptySmartGroups},
-		{Category: "hygiene", Name: "Policies with no scope", Run: checkPoliciesNoScope},
 		{Category: "hygiene", Name: "Empty categories", Run: checkEmptyCategories},
-		{Category: "hygiene", Name: "Duplicate serial numbers", Run: checkDuplicateSerials},
 
 		// Enrollment
 		{Category: "enrollment", Name: "DEP token expiry", Run: checkDEPTokenExpiry},
 		{Category: "enrollment", Name: "Prestage coverage", Run: checkPrestageCoverage},
 		{Category: "security", Name: "Notification alerts", Run: checkNotificationAlerts},
+	}
+}
+
+// fleetScaledAuditChecks are the checks whose request count grows with the
+// fleet (three inventory sweeps) or the policy count (one Classic GET each).
+// Each carries a FromInventory or FromPolicies twin so a caller holding a
+// shared pass can answer it without issuing a request.
+func fleetScaledAuditChecks() []auditCheck {
+	return []auditCheck{
+		{
+			Category:      "security",
+			Name:          "Unencrypted devices",
+			Run:           checkUnencryptedDevices,
+			FromInventory: unencryptedDevicesFrom,
+		},
+		{
+			Category:      "security",
+			Name:          "Gatekeeper disabled",
+			Run:           checkGatekeeper,
+			FromInventory: gatekeeperDisabledFrom,
+		},
+		{
+			Category:      "hygiene",
+			Name:          "Duplicate serial numbers",
+			Run:           checkDuplicateSerials,
+			FromInventory: duplicateSerialsFrom,
+		},
+		{
+			Category:     "hygiene",
+			Name:         "Policies with no scope",
+			Run:          checkPoliciesNoScope,
+			FromPolicies: policiesNoScopeFrom,
+		},
 	}
 }
 
@@ -173,8 +227,15 @@ func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ 
 	if err != nil {
 		return nil, err
 	}
+	return unencryptedDevicesFrom(all), nil
+}
+
+// unencryptedDevicesFrom is the check itself, over records a caller already
+// holds. Kept separate from the fetch so one inventory pass can answer it
+// alongside every other reader of the same records.
+func unencryptedDevicesFrom(records []map[string]any) *auditResult {
 	count := 0
-	for _, comp := range all {
+	for _, comp := range records {
 		diskEnc, _ := comp["diskEncryption"].(map[string]any)
 		if diskEnc == nil {
 			continue
@@ -185,7 +246,7 @@ func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ 
 		}
 	}
 	if count == 0 {
-		return nil, nil
+		return nil
 	}
 	return &auditResult{
 		Category:       "security",
@@ -193,7 +254,7 @@ func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ 
 		Name:           "Unencrypted devices",
 		AffectedCount:  count,
 		Recommendation: "Enable FileVault via configuration profile or policy",
-	}, nil
+	}
 }
 
 func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
@@ -202,8 +263,12 @@ func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*a
 	if err != nil {
 		return nil, err
 	}
+	return gatekeeperDisabledFrom(all), nil
+}
+
+func gatekeeperDisabledFrom(records []map[string]any) *auditResult {
 	count := 0
-	for _, comp := range all {
+	for _, comp := range records {
 		sec, _ := comp["security"].(map[string]any)
 		if sec == nil {
 			continue
@@ -214,7 +279,7 @@ func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*a
 		}
 	}
 	if count == 0 {
-		return nil, nil
+		return nil
 	}
 	return &auditResult{
 		Category:       "security",
@@ -222,7 +287,7 @@ func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*a
 		Name:           "Gatekeeper disabled",
 		AffectedCount:  count,
 		Recommendation: "Enable Gatekeeper via configuration profile",
-	}, nil
+	}
 }
 
 func checkStaleCheckin(ctx context.Context, client registry.HTTPClient, days int) (*auditResult, error) {
@@ -310,7 +375,7 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 		return nil, err
 	}
 
-	noScopeCount := 0
+	details := make([]map[string]any, 0, len(raw))
 	skippedCount := 0
 	for _, r := range raw {
 		m, ok := r.(map[string]any)
@@ -330,7 +395,19 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 			fmt.Fprintf(os.Stderr, "WARNING: skipping policy id=%s: %v\n", id, err)
 			continue
 		}
-		detail = unwrapClassicDetail(detail)
+		details = append(details, unwrapClassicDetail(detail))
+	}
+
+	return policiesNoScopeFrom(details, skippedCount), nil
+}
+
+// policiesNoScopeFrom is the check over policy details a caller already holds.
+// skipped is named in the recommendation rather than silently dropped: the
+// count is derived from the details that were read, so the reader has to know
+// how many were not.
+func policiesNoScopeFrom(details []map[string]any, skipped int) *auditResult {
+	noScopeCount := 0
+	for _, detail := range details {
 		scope, ok := detail["scope"].(map[string]any)
 		if !ok {
 			noScopeCount++
@@ -346,15 +423,12 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 		}
 	}
 
-	if noScopeCount == 0 && skippedCount == 0 {
-		return nil, nil
+	if noScopeCount == 0 {
+		return nil
 	}
 	rec := "Add scope to policies or disable/delete unscoped ones"
-	if skippedCount > 0 {
-		rec = fmt.Sprintf("%s (%d policies could not be checked)", rec, skippedCount)
-	}
-	if noScopeCount == 0 {
-		return nil, nil
+	if skipped > 0 {
+		rec = fmt.Sprintf("%s (%d policies could not be checked)", rec, skipped)
 	}
 	return &auditResult{
 		Category:       "hygiene",
@@ -362,7 +436,7 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 		Name:           "Policies with no scope",
 		AffectedCount:  noScopeCount,
 		Recommendation: rec,
-	}, nil
+	}
 }
 
 func checkEmptyCategories(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
@@ -400,9 +474,12 @@ func checkDuplicateSerials(ctx context.Context, client registry.HTTPClient, _ in
 	if err != nil {
 		return nil, err
 	}
+	return duplicateSerialsFrom(all), nil
+}
 
+func duplicateSerialsFrom(records []map[string]any) *auditResult {
 	counts := make(map[string]int)
-	for _, comp := range all {
+	for _, comp := range records {
 		hw, _ := comp["hardware"].(map[string]any)
 		if hw == nil {
 			continue
@@ -424,7 +501,7 @@ func checkDuplicateSerials(ctx context.Context, client registry.HTTPClient, _ in
 		}
 	}
 	if affectedRecords == 0 {
-		return nil, nil
+		return nil
 	}
 
 	return &auditResult{
@@ -433,7 +510,7 @@ func checkDuplicateSerials(ctx context.Context, client registry.HTTPClient, _ in
 		Name:           "Duplicate serial numbers",
 		AffectedCount:  affectedRecords,
 		Recommendation: fmt.Sprintf("%d serial(s) map to multiple computer records (typically a logic-board swap); run 'pro report duplicate-serials' to list the affected records, then delete the stale record for each so serial-based lookups resolve to one device", duplicatedSerials),
-	}, nil
+	}
 }
 
 func checkDEPTokenExpiry(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {

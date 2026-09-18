@@ -3,9 +3,18 @@
 package commands
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
 
 // The MCP server pins the instance/credentials at launch (the profile passed
@@ -30,6 +39,8 @@ func TestBuildChildArgs_RejectsInstanceAndCredentialFlags(t *testing.T) {
 		{"--token-file=/tmp/tok"},
 		{"--tenant-id", "999"},
 		{"--tenant-id=999"},
+		{"--environment-id", "999"},
+		{"--environment-id=999"},
 	}
 	for _, override := range blocked {
 		args := append([]string{"pro", "computers", "list"}, override...)
@@ -144,5 +155,427 @@ func TestBuildChildArgs_AllowsDestructiveWithYes(t *testing.T) {
 	joined := strings.Join(got, " ")
 	if !strings.Contains(joined, "delete") || !strings.Contains(joined, "--yes") {
 		t.Errorf("destructive command should pass through unchanged, got %v", got)
+	}
+}
+
+// The MCP report path has no filename parameter. reportFileName is what makes
+// that true in practice: it derives the name from the pinned profile and a UTC
+// timestamp, and takes no title, so a model-supplied title — which may echo an
+// admin-controlled device or policy name — cannot reach a path at all.
+
+func TestReportFileName_DerivesFromProfileAndTimestamp(t *testing.T) {
+	now := time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC)
+	got := reportFileName("prod", now)
+	want := "jamf-report-prod-20260828T104300Z.html"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestReportFileName_UsesDefaultWhenNoProfilePinned(t *testing.T) {
+	now := time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC)
+	got := reportFileName("", now)
+	want := "jamf-report-default-20260828T104300Z.html"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestReportFileName_NormalizesToUTC(t *testing.T) {
+	// The timestamp segment is UTC regardless of the server's local zone, so two
+	// reports from different hosts sort together.
+	zone := time.FixedZone("UTC+10", 10*60*60)
+	got := reportFileName("prod", time.Date(2026, 8, 28, 20, 43, 0, 0, zone))
+	want := "jamf-report-prod-20260828T104300Z.html"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestReportFileName_StaysInsideReportDir(t *testing.T) {
+	// A profile name is administrator-supplied, so it gets the same treatment a
+	// Protect object name does: whatever it contains, the result is one path
+	// segment that joins inside the report directory.
+	now := time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC)
+	for _, prof := range []string{"../../etc", "a/b", "..", ".", "with space", "nul\x00byte", "~", "-"} {
+		name := reportFileName(prof, now)
+		if strings.ContainsAny(name, `/\`) {
+			t.Errorf("profile %q produced a name with a separator: %q", prof, name)
+		}
+		if strings.Contains(name, "\x00") {
+			t.Errorf("profile %q produced a name with a NUL: %q", prof, name)
+		}
+		joined := filepath.Join("/reports", name)
+		if filepath.Dir(joined) != "/reports" {
+			t.Errorf("profile %q escaped the report dir: %q", prof, joined)
+		}
+		if !strings.HasSuffix(name, ".html") {
+			t.Errorf("profile %q produced %q, want a .html suffix", prof, name)
+		}
+	}
+}
+
+// The MCP report path has no destination parameter, so an unusable report-dir is
+// a refusal rather than something to work around. In particular a missing
+// directory is not created: a typo'd report-dir silently materialising a
+// directory tree is worse than an error, and `config set-report-dir` already
+// does the MkdirAll when the administrator names one.
+
+func TestResolveReportDir_RefusesWhenUnset(t *testing.T) {
+	_, err := resolveReportDir(&config.Config{})
+	if err == nil {
+		t.Fatal("expected a refusal when report-dir is unset, got nil")
+	}
+	if !strings.Contains(err.Error(), "config set-report-dir") {
+		t.Errorf("refusal must name the command that sets it, got: %v", err)
+	}
+}
+
+func TestResolveReportDir_RefusesNilConfig(t *testing.T) {
+	if _, err := resolveReportDir(nil); err == nil {
+		t.Fatal("expected a refusal for a nil config, got nil")
+	}
+}
+
+func TestResolveReportDir_RefusesMissingDirectory(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "not-created")
+	_, err := resolveReportDir(&config.Config{ReportDir: missing})
+	if err == nil {
+		t.Fatal("expected a refusal for a missing directory, got nil")
+	}
+	if _, statErr := os.Stat(missing); statErr == nil {
+		t.Error("a missing report-dir must be refused, not created")
+	}
+}
+
+func TestResolveReportDir_RefusesNonDirectory(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "report-dir")
+	if err := os.WriteFile(file, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := resolveReportDir(&config.Config{ReportDir: file})
+	if err == nil {
+		t.Fatal("expected a refusal when report-dir names a file, got nil")
+	}
+	if !strings.Contains(err.Error(), "not a directory") {
+		t.Errorf("refusal should say what is wrong, got: %v", err)
+	}
+}
+
+func TestResolveReportDir_AcceptsExistingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	got, err := resolveReportDir(&config.Config{ReportDir: dir})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != dir {
+		t.Errorf("got %q, want %q", got, dir)
+	}
+}
+
+func TestCreateReportFile_CreatesInsideReportDir(t *testing.T) {
+	dir := t.TempDir()
+	f, err := createReportFile(dir, "jamf-report-prod-20260828T104300Z.html")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if filepath.Dir(f.Name()) != dir {
+		t.Errorf("file created at %q, want it inside %q", f.Name(), dir)
+	}
+	info, err := os.Stat(f.Name())
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("file permissions = %o, want 0600", perm)
+	}
+}
+
+func TestCreateReportFile_CollisionIsAnError(t *testing.T) {
+	// O_EXCL: two reports generated inside the same second must not have the
+	// second silently overwrite the first.
+	dir := t.TempDir()
+	name := "jamf-report-prod-20260828T104300Z.html"
+
+	first, err := createReportFile(dir, name)
+	if err != nil {
+		t.Fatalf("unexpected error on first create: %v", err)
+	}
+	if _, err := first.WriteString("<html>first</html>"); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := createReportFile(dir, name); err == nil {
+		t.Fatal("expected a collision to error, got nil")
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "<html>first</html>" {
+		t.Errorf("the existing report was modified: %q", string(data))
+	}
+}
+
+func TestBuildReportArgs_BareInvocation(t *testing.T) {
+	// dashboard's --title already defaults to "Jamf Fleet Dashboard", so an
+	// omitted title means "use the default", not "pass an empty one".
+	got, err := buildReportArgs(generateReportInput{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"dashboard"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestBuildReportArgs_TitleAndRepeatedSmartGroups(t *testing.T) {
+	got, err := buildReportArgs(generateReportInput{
+		Title:       "Q3 Fleet Review",
+		SmartGroups: []string{"All Laptops", "Executives"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{
+		"dashboard",
+		"--title", "Q3 Fleet Review",
+		"--smart-groups", "All Laptops",
+		"--smart-groups", "Executives",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestBuildReportArgs_SkipsBlankValues(t *testing.T) {
+	got, err := buildReportArgs(generateReportInput{
+		Title:       "   ",
+		SmartGroups: []string{"", "  ", "All Laptops"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"dashboard", "--smart-groups", "All Laptops"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestBuildReportArgs_RefusesAValueThatWouldReachTheChildAsAFlag(t *testing.T) {
+	// The whole design rests on the report child never being handed a
+	// destination: stdout is a file the server opened, not a path the model
+	// named.
+	//
+	// A flag-shaped value is refused rather than dropped. Dropping it told
+	// nobody — the model asked for a title, got the default, and reported the
+	// title as applied.
+	cases := []struct {
+		name string
+		in   generateReportInput
+	}{
+		{"title", generateReportInput{Title: "--out-file /etc/passwd"}},
+		{"smart group", generateReportInput{SmartGroups: []string{"--include-profile"}}},
+		{"smart group with a value", generateReportInput{SmartGroups: []string{"--out-file=/etc/passwd"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := buildReportArgs(tc.in)
+			if err == nil {
+				t.Fatal("a value beginning with a dash must be refused, not silently dropped")
+			}
+			if !strings.Contains(err.Error(), "flag") {
+				t.Errorf("refusal must say why: got %q", err)
+			}
+		})
+	}
+}
+
+func TestBuildReportArgs_ThroughBuildChildArgsKeepsBoundary(t *testing.T) {
+	// The report child goes through the same gate run_command does, so it
+	// inherits the pinned profile and the enforced --no-input, and a title that
+	// looks like a blocked flag is rejected rather than smuggled through.
+	reportArgs, err := buildReportArgs(generateReportInput{Title: "Q3 Fleet Review"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, err := buildChildArgs("prod", reportArgs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"--profile", "prod", "--no-input", "dashboard", "--title", "Q3 Fleet Review"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	for _, a := range got {
+		if strings.HasPrefix(a, "--out-file") {
+			t.Errorf("--out-file must never reach the report child: %v", got)
+		}
+	}
+}
+
+func TestTailWarnings_KeepsShortOutputVerbatim(t *testing.T) {
+	in := []byte("WARNING: patch compliance: 403\n")
+	if got := tailWarnings(in); got != string(in) {
+		t.Errorf("got %q, want %q", got, string(in))
+	}
+}
+
+func TestTailWarnings_KeepsTheTailNotTheHead(t *testing.T) {
+	// A child that fails once per device must not spend the conversation's
+	// context on repeated warnings — and the last line is the one that explains
+	// the exit, so the tail is what survives.
+	head := strings.Repeat("WARNING: device skipped\n", 1000)
+	in := []byte(head + "FATAL: gateway refused the connection\n")
+	got := tailWarnings(in)
+
+	if len(got) > reportWarningTailBytes+128 {
+		t.Errorf("truncated output is %d bytes, want ~%d", len(got), reportWarningTailBytes)
+	}
+	if !strings.Contains(got, "FATAL: gateway refused the connection") {
+		t.Error("the last line must survive truncation")
+	}
+	if !strings.Contains(got, "omitted") {
+		t.Error("truncation must be visible, not silent")
+	}
+}
+
+func TestRunReportChild_RefusesBeforeStartingAChildWhenReportDirUnset(t *testing.T) {
+	// An empty XDG_CONFIG_HOME means config.Load() returns a config with no
+	// report-dir, which is the unconfigured administrator's state.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	res := runReportChild(context.Background(), "/nonexistent/jamf-cli", "prod",
+		generateReportInput{}, time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC))
+
+	if res == nil || !res.IsError {
+		t.Fatalf("expected an error result, got %+v", res)
+	}
+	if !strings.Contains(mcpResultText(res), "config set-report-dir") {
+		t.Errorf("refusal must name the command that sets it, got: %s", mcpResultText(res))
+	}
+}
+
+func TestRunReportChild_RemovesThePartialFileWhenTheChildFails(t *testing.T) {
+	// A non-zero exit leaves no half-written HTML behind: a truncated report is
+	// not a smaller report, it is a corrupt file. Pointing `executable` at a
+	// path that does not exist is the cheapest deterministic failure.
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	reportDir := t.TempDir()
+	writeTestConfig(t, xdg, "report-dir: "+reportDir+"\n")
+
+	res := runReportChild(context.Background(), filepath.Join(t.TempDir(), "absent-binary"),
+		"prod", generateReportInput{}, time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC))
+
+	if res == nil || !res.IsError {
+		t.Fatalf("expected an error result, got %+v", res)
+	}
+	entries, err := os.ReadDir(reportDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("partial report left behind: %v", entries)
+	}
+}
+
+func TestRunReportChild_ReportsPathAndSizeNeverTheHTML(t *testing.T) {
+	// A fake child stands in for `jamf-cli dashboard`: it writes a document to
+	// stdout and exits 0. The point under test is that the result carries the
+	// path and the size and never the document.
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	reportDir := t.TempDir()
+	writeTestConfig(t, xdg, "report-dir: "+reportDir+"\n")
+
+	child := writeFakeReportChild(t, "<!DOCTYPE html><html><body>report</body></html>", "", 0)
+
+	res := runReportChild(context.Background(), child, "",
+		generateReportInput{}, time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC))
+
+	if res == nil {
+		t.Fatal("expected a result")
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error result: %s", mcpResultText(res))
+	}
+	text := mcpResultText(res)
+	want := filepath.Join(reportDir, "jamf-report-default-20260828T104300Z.html")
+	if !strings.Contains(text, want) {
+		t.Errorf("result must carry the path %q, got: %s", want, text)
+	}
+	if strings.Contains(text, "<html") || strings.Contains(text, "<!DOCTYPE") {
+		t.Errorf("result must never carry the HTML, got: %s", text)
+	}
+}
+
+// writeTestConfig writes a config.yaml into an XDG_CONFIG_HOME the test owns.
+func writeTestConfig(t *testing.T, xdgDir, body string) {
+	t.Helper()
+	dir := filepath.Join(xdgDir, "jamf-cli")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// mcpResultText flattens a tool result's text content for assertions.
+func mcpResultText(res *mcp.CallToolResult) string {
+	var b strings.Builder
+	for _, c := range res.Content {
+		if tc, ok := c.(*mcp.TextContent); ok {
+			b.WriteString(tc.Text)
+		}
+	}
+	return b.String()
+}
+
+func TestNewMCPCmd_DocumentsGenerateReport(t *testing.T) {
+	// The help text is the only place an administrator learns the tool exists
+	// before wiring the server into a client, and it must not promise a
+	// destination the tool does not accept.
+	cmd := newMCPCmd()
+	long := cmd.Long
+	for _, want := range []string{"generate_report", "list_commands", "run_command", "report-dir"} {
+		if !strings.Contains(long, want) {
+			t.Errorf("mcp --help should mention %q, got:\n%s", want, long)
+		}
+	}
+
+	var serve *cobra.Command
+	for _, sub := range cmd.Commands() {
+		if sub.Name() == "serve" {
+			serve = sub
+		}
+	}
+	if serve == nil {
+		t.Fatal("mcp serve subcommand missing")
+	}
+}
+
+func TestMCPServeStartupHint_PrintsWhenReportDirUnset(t *testing.T) {
+	var buf strings.Builder
+	printMCPStartupHints(&buf, &config.Config{})
+	if !strings.Contains(buf.String(), "config set-report-dir") {
+		t.Errorf("expected startup hint naming config set-report-dir, got: %s", buf.String())
+	}
+}
+
+func TestMCPServeStartupHint_SilentWhenReportDirSet(t *testing.T) {
+	dir := t.TempDir()
+	var buf strings.Builder
+	printMCPStartupHints(&buf, &config.Config{ReportDir: dir})
+	if buf.Len() > 0 {
+		t.Errorf("expected no hint when report-dir is set, got: %s", buf.String())
 	}
 }

@@ -739,6 +739,7 @@ func newConfigSetupCmd() *cobra.Command {
 		fromFile      string
 		rotateCreds   bool
 		credentialSrc string
+		reportDir     string
 	)
 
 	cmd := &cobra.Command{
@@ -765,6 +766,11 @@ containing one Jamf Pro URL per line. Profiles are auto-named
 pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com). With
 --credentials existing, jamf-cli asks for a client per instance, since Jamf Pro
 issues an API client against the instance it lives on.
+
+Setup also asks for an HTML report directory. It is a single global
+setting rather than a per-profile one, and it is what the MCP server
+writes reports into — the server names the file itself and will not
+write anywhere else. Change it later with --report-dir.
 
 Deprecation notice for --credentials create:
 ` + jamfProAuthDeprecationNote,
@@ -893,6 +899,24 @@ Deprecation notice for --credentials create:
 				return err
 			}
 
+			// Report directory — a single global setting, so it is asked once
+			// regardless of how many instances follow. Skipped when the config
+			// already carries one, since re-running setup to add a profile
+			// should not re-litigate it; pass --report-dir to change it.
+			if reportDir == "" && cfg.ReportDir == "" {
+				_, _ = fmt.Fprint(w, "\nHTML report directory (optional, press Enter to skip): ")
+				line, _ := reader.ReadString('\n')
+				reportDir = strings.TrimSpace(line)
+			}
+			if reportDir != "" {
+				cfg.ReportDir = reportDir
+				resolved := cfg.ReportDirPath()
+				if err := os.MkdirAll(resolved, 0o700); err != nil {
+					return fmt.Errorf("creating report directory %s: %w", resolved, err)
+				}
+				_, _ = fmt.Fprintf(w, "  ✓ Reports will be written to %s\n", resolved)
+			}
+
 			multiInstance := len(urls) > 1 || fromFile != ""
 
 			// Single-instance mode: prompt for profile name, set as default
@@ -994,6 +1018,7 @@ Deprecation notice for --credentials create:
 	cmd.Flags().StringVar(&setupScope, "scope", "", fmt.Sprintf("API scope for --credentials create: %s (default: %s)", validScopeNames(), defaultScope))
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --from-file)")
 	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations (--credentials create only)")
+	cmd.Flags().StringVar(&reportDir, "report-dir", "", "directory HTML reports are written to (the MCP server writes only here)")
 	cmd.MarkFlagsMutuallyExclusive("url", "from-file")
 
 	return cmd

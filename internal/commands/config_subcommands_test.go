@@ -798,3 +798,185 @@ func TestConfigList_StructuredFormatsStillGetTheWideRowType(t *testing.T) {
 		}
 	}
 }
+
+// --- config set-report-dir tests ---
+
+func TestConfigSetReportDir_CreatesDirectoryAndSavesToConfig(t *testing.T) {
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
+
+	target := filepath.Join(t.TempDir(), "new-reports")
+
+	buf := &bytes.Buffer{}
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	if err := cmd.RunE(cmd, []string{target}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Directory should be created with 0700.
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("expected directory to be created: %v", err)
+	}
+	if !info.IsDir() {
+		t.Errorf("expected a directory at %s", target)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Errorf("expected perms 0700, got %04o", info.Mode().Perm())
+	}
+
+	// Config should persist the path.
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if loaded.ReportDir != target {
+		t.Errorf("ReportDir = %q, want %q", loaded.ReportDir, target)
+	}
+
+	// Confirmation should name the path.
+	if !strings.Contains(buf.String(), target) {
+		t.Errorf("expected path in output, got: %s", buf.String())
+	}
+}
+
+func TestConfigSetReportDir_AcceptsExistingDirectory(t *testing.T) {
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
+
+	existing := t.TempDir() // already exists
+
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.RunE(cmd, []string{existing}); err != nil {
+		t.Fatalf("unexpected error for existing directory: %v", err)
+	}
+
+	loaded, _ := config.Load()
+	if loaded.ReportDir != existing {
+		t.Errorf("ReportDir = %q, want %q", loaded.ReportDir, existing)
+	}
+}
+
+func TestConfigSetReportDir_ExpandsLeadingTilde(t *testing.T) {
+	// A ~/… argument the shell did not expand must create the directory under the
+	// real home and persist the expanded path — otherwise this command creates a
+	// literal "~" directory while ReportDirPath() looks under $HOME at read time.
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	rel := "cli-reports-" + t.Name()
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.RunE(cmd, []string{"~/" + rel}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expanded := filepath.Join(home, rel)
+	if info, err := os.Stat(expanded); err != nil || !info.IsDir() {
+		t.Errorf("expected expanded directory at %s, stat err=%v", expanded, err)
+	}
+	if _, err := os.Stat("~/" + rel); err == nil {
+		t.Errorf("a literal ~ directory was created instead of expanding")
+	}
+
+	loaded, _ := config.Load()
+	if loaded.ReportDir != expanded {
+		t.Errorf("ReportDir = %q, want expanded %q", loaded.ReportDir, expanded)
+	}
+}
+
+func TestConfigSetReportDir_RequiresExactlyOneArg(t *testing.T) {
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.Args(cmd, []string{}); err == nil {
+		t.Error("expected error with no args, got nil")
+	}
+	if err := cmd.Args(cmd, []string{"/a", "/b"}); err == nil {
+		t.Error("expected error with two args, got nil")
+	}
+}
+
+func TestConfigSetReportDir_RefusesWhenPathIsAFile(t *testing.T) {
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
+
+	f := filepath.Join(t.TempDir(), "not-a-dir")
+	_ = os.WriteFile(f, []byte("data"), 0o600)
+
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.RunE(cmd, []string{f}); err == nil {
+		t.Error("expected error when path is a file, got nil")
+	}
+}
+
+// A config that cannot be parsed must abort the command, not be swallowed and
+// overwritten with a blank one — Load returns an error only for an unreadable or
+// malformed file, never for a merely-absent one, so treating that error as
+// "start fresh" would wipe every profile the file holds.
+func TestConfigSetReportDir_CorruptConfigAbortsRatherThanWipes(t *testing.T) {
+	jDir := setupTempConfig(t)
+	cfgPath := filepath.Join(jDir, "config.yaml")
+	corrupt := []byte("default-profile: test\n\tbad: \tindentation\n")
+	_ = os.WriteFile(cfgPath, corrupt, 0o600)
+
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.RunE(cmd, []string{t.TempDir()}); err == nil {
+		t.Fatal("expected error when config cannot be parsed, got nil")
+	}
+
+	// The unreadable file must be left exactly as it was, not rewritten blank.
+	after, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("reading config after failed run: %v", err)
+	}
+	if !bytes.Equal(after, corrupt) {
+		t.Errorf("config was overwritten; got %q, want it left untouched", after)
+	}
+}
+
+// A successful set must preserve everything the config already holds — the
+// earlier bug swapped in a blank config, so any existing profiles vanished.
+func TestConfigSetReportDir_PreservesExistingProfiles(t *testing.T) {
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"),
+		[]byte("default-profile: keep\nprofiles:\n  keep:\n    url: https://example.jamfcloud.com\n"),
+		0o600)
+
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.RunE(cmd, []string{t.TempDir()}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if _, ok := loaded.Profiles["keep"]; !ok {
+		t.Errorf("existing profile was wiped; profiles = %v", loaded.Profiles)
+	}
+	if loaded.DefaultProfile != "keep" {
+		t.Errorf("DefaultProfile = %q, want %q", loaded.DefaultProfile, "keep")
+	}
+}

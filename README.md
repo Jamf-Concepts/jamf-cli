@@ -96,6 +96,9 @@ jamf-cli pro report security -o table
 
 # Run a command against multiple instances
 jamf-cli multi --filter 'pro-*' -- pro buildings apply --from-file building.json --yes
+
+# Shareable HTML fleet dashboard (add --full for patch, cleanup and org sections)
+jamf-cli dashboard --out-file report.html
 ```
 
 ### Jamf Platform (via Gateway)
@@ -166,6 +169,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Dry-run mode** — `--dry-run` previews writes without executing
 - **`--from-file` bulk operations** — `apply`, `delete`, and other write commands accept `--from-file <path>` for newline-separated names or a CSV. Pair with `--yes` and `--confirm-destructive` for unattended bulk cleanup
 - **`multi`** — Run any command against multiple profiles: `jamf-cli multi --filter 'pro-*' -- pro comp list`. Supports glob patterns, file input (profile names or URLs), and interactive selection
+- **`dashboard`** — One self-contained HTML fleet report across Jamf Pro, Protect and Platform: fleet counts, security posture, OS distribution, check-in compliance, audit findings and environment stats, with `--full` adding patch compliance, hardware models, cleanup analysis and org structure. Use the global `--out-file`; a partially-collected run says so in the document's own header and exits 7. `--include-profile` pulls a second *product* into the same report. `jamf-cli config set-report-dir <dir>` is the prerequisite for the MCP server's `generate_report` tool, which writes the same report and hands a connecting AI its path rather than its contents
 - **Destructive safeguards** — Delete and replace operations require `--yes` confirmation
 - **`setup`** — Bootstrap API roles and OAuth2 credentials from a username/password. Idempotent (safe to re-run): updates roles and integrations in place without rotating credentials. Use `--rotate-credentials` to explicitly regenerate secrets. Supports multi-instance setup via `--from-file` for MSPs
 - **System keychain** — Secrets stored via macOS Keychain or Linux secret-service

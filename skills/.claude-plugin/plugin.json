@@ -1,5 +1,5 @@
 {
   "name": "jamf-cli-skills",
   "description": "Conversational skills for Jamf administration — composes jamf-cli commands for audit, backup, bulk operations, reporting, migration, and ad-hoc investigation across Jamf Pro, Jamf Protect, and the Jamf Platform.",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }
