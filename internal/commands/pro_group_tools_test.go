@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -18,6 +19,13 @@ import (
 // groupToolsMockClient returns an overviewMockClient pre-populated with
 // a standard set of computer-group and policy responses suitable for most
 // group-tools tests.
+//
+// The /v1/computer-groups payload carries description, id, name and smartGroup
+// and nothing else, because that is all the endpoint answers — wire-checked on
+// Jamf Pro 11.32. An earlier fixture hand-fed a `memberCount` the API has
+// never returned, which is why every group reporting 0 members shipped with a
+// green suite. The counts live where the API puts them: membershipCount on the
+// v3 smart-group collection and count on the v3 static-group one.
 func groupToolsMockClient() *overviewMockClient {
 	return &overviewMockClient{
 		responses: map[string]overviewMockResponse{
@@ -25,10 +33,25 @@ func groupToolsMockClient() *overviewMockClient {
 			"/v1/computer-groups": {200, `{
 				"totalCount": 4,
 				"results": [
-					{"id": "1", "name": "All Computers",  "smartGroup": true,  "memberCount": 42},
-					{"id": "2", "name": "Empty Static",   "smartGroup": false, "memberCount": 0},
-					{"id": "3", "name": "Dev Machines",   "smartGroup": true,  "memberCount": 7},
-					{"id": "4", "name": "Prod Servers",   "smartGroup": false, "memberCount": 2}
+					{"id": "1", "name": "All Computers",  "description": "", "smartGroup": true},
+					{"id": "2", "name": "Empty Static",   "description": "", "smartGroup": false},
+					{"id": "3", "name": "Dev Machines",   "description": "", "smartGroup": true},
+					{"id": "4", "name": "Prod Servers",   "description": "", "smartGroup": false}
+				]
+			}`},
+			// The two collections that do carry a member count.
+			"/v3/computer-groups/smart-groups": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"id": "1", "name": "All Computers", "siteId": "-1", "membershipCount": 42},
+					{"id": "3", "name": "Dev Machines",  "siteId": "-1", "membershipCount": 7}
+				]
+			}`},
+			"/v3/computer-groups/static-groups": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"id": "2", "name": "Empty Static", "siteId": "-1", "count": 0},
+					{"id": "4", "name": "Prod Servers", "siteId": "-1", "count": 2}
 				]
 			}`},
 			// Smart group membership (id=1) — v2 returns integer IDs
@@ -134,22 +157,26 @@ func TestGroupToolsList_FilterStatic(t *testing.T) {
 
 func TestGroupToolsList_FilterEmpty(t *testing.T) {
 	client := groupToolsMockClient()
-	groups, err := FetchAllPaginated(context.Background(), client, "/v1/computer-groups", 100)
+	cliCtx := &registry.CLIContext{Client: client}
+
+	oldFmt := outputFmt
+	outputFmt = "json"
+	defer func() { outputFmt = oldFmt }()
+
+	var err error
+	out := captureStdout(t, func() {
+		err = runGroupToolsList(context.Background(), cliCtx, "", true, "")
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var empty []map[string]any
-	for _, g := range groups {
-		if groupMemberCount(g) == 0 {
-			empty = append(empty, g)
-		}
+	rows := decodeGroupRows(t, out)
+	if len(rows) != 1 {
+		t.Fatalf("got %d empty groups, want 1: %s", len(rows), out)
 	}
-	if len(empty) != 1 {
-		t.Errorf("got %d empty groups, want 1", len(empty))
-	}
-	if n, _ := empty[0]["name"].(string); n != "Empty Static" {
-		t.Errorf("empty group name = %q, want %q", n, "Empty Static")
+	if rows[0]["name"] != "Empty Static" {
+		t.Errorf("empty group name = %v, want %q", rows[0]["name"], "Empty Static")
 	}
 }
 
@@ -347,9 +374,14 @@ func TestGroupToolsList_ArrayFormat(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v1/computer-groups": {200, `[
-				{"id":"1","name":"All Macs","smartGroup":true,"memberCount":10},
-				{"id":"2","name":"Empty","smartGroup":true,"memberCount":0}
+				{"id":"1","name":"All Macs","description":"","smartGroup":true},
+				{"id":"2","name":"Empty","description":"","smartGroup":true}
 			]`},
+			"/v3/computer-groups/smart-groups": {200, `{"totalCount":2,"results":[
+				{"id":"1","name":"All Macs","membershipCount":10},
+				{"id":"2","name":"Empty","membershipCount":0}
+			]}`},
+			"/v3/computer-groups/static-groups": {200, `{"totalCount":0,"results":[]}`},
 		},
 	}
 
@@ -443,8 +475,13 @@ func TestGroupToolsAnalyze_AllReferenced(t *testing.T) {
 		responses: map[string]overviewMockResponse{
 			"/v1/computer-groups": {200, `{
 				"totalCount": 1,
-				"results": [{"id": "1", "name": "All Computers", "smartGroup": true, "memberCount": 5}]
+				"results": [{"id": "1", "name": "All Computers", "description": "", "smartGroup": true}]
 			}`},
+			"/v3/computer-groups/smart-groups": {200, `{
+				"totalCount": 1,
+				"results": [{"id": "1", "name": "All Computers", "membershipCount": 5}]
+			}`},
+			"/v3/computer-groups/static-groups": {200, `{"totalCount":0,"results":[]}`},
 			"/JSSResource/policies": {200, `{
 				"policies": [{"id": 1, "name": "P1"}]
 			}`},
@@ -499,9 +536,17 @@ func TestGroupToolsAnalyze_NoPolicies(t *testing.T) {
 			"/v1/computer-groups": {200, `{
 				"totalCount": 2,
 				"results": [
-					{"id": "1", "name": "Group A", "smartGroup": true,  "memberCount": 3},
-					{"id": "2", "name": "Group B", "smartGroup": false, "memberCount": 0}
+					{"id": "1", "name": "Group A", "description": "", "smartGroup": true},
+					{"id": "2", "name": "Group B", "description": "", "smartGroup": false}
 				]
+			}`},
+			"/v3/computer-groups/smart-groups": {200, `{
+				"totalCount": 1,
+				"results": [{"id": "1", "name": "Group A", "membershipCount": 3}]
+			}`},
+			"/v3/computer-groups/static-groups": {200, `{
+				"totalCount": 1,
+				"results": [{"id": "2", "name": "Group B", "count": 0}]
 			}`},
 			"/JSSResource/policies": {200, `{"policies":[]}`},
 		},
@@ -538,6 +583,72 @@ func TestGroupToolsAnalyze_NoPolicies(t *testing.T) {
 	}
 	if len(unused) != 2 {
 		t.Errorf("got %d unused groups, want 2", len(unused))
+	}
+}
+
+// TestGroupToolsAnalyzeUnused_ExcludesGroupsWithMembers drives the real
+// command. Of the four groups, two are referenced by a policy and one of the
+// remaining two holds members — so exactly one is a removal candidate. Before
+// the count came from the collection that carries it, all four read as empty
+// and the unreferenced two were both named.
+//
+// The Classic resources beyond policies and the prestage list are unmocked, so
+// their fetches warn on stderr and contribute no references, which is what
+// this test wants: the reference set comes from the policies alone.
+func TestGroupToolsAnalyzeUnused_ExcludesGroupsWithMembers(t *testing.T) {
+	client := groupToolsMockClient()
+	cliCtx := &registry.CLIContext{Client: client}
+
+	oldFmt := outputFmt
+	outputFmt = "json"
+	defer func() { outputFmt = oldFmt }()
+
+	var err error
+	out := captureStdout(t, func() {
+		err = runGroupToolsAnalyzeUnused(context.Background(), cliCtx)
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	rows := decodeGroupRows(t, out)
+	if len(rows) != 1 {
+		t.Fatalf("got %d unused groups, want 1 (Empty Static): %s", len(rows), out)
+	}
+	if rows[0]["name"] != "Empty Static" {
+		t.Errorf("unused group = %v, want %q", rows[0]["name"], "Empty Static")
+	}
+	if rows[0]["memberCount"] != float64(0) {
+		t.Errorf("memberCount = %v, want 0", rows[0]["memberCount"])
+	}
+}
+
+// TestGroupToolsAnalyzeUnused_ExcludesUnknownCounts holds the other half: a
+// group whose count could not be read is not named as a removal candidate,
+// because an unreadable count is not evidence that a group is empty.
+func TestGroupToolsAnalyzeUnused_ExcludesUnknownCounts(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/computer-groups":   {200, `[{"id":"1","name":"Orphan","description":"","smartGroup":true}]`},
+			"/JSSResource/policies": {200, `{"policies":[]}`},
+			// Neither count collection is mocked.
+		},
+	}
+	cliCtx := &registry.CLIContext{Client: client}
+
+	oldFmt := outputFmt
+	outputFmt = "json"
+	defer func() { outputFmt = oldFmt }()
+
+	var err error
+	out := captureStdout(t, func() {
+		err = runGroupToolsAnalyzeUnused(context.Background(), cliCtx)
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rows := decodeGroupRows(t, out); len(rows) != 0 {
+		t.Errorf("got %d unused groups, want 0: %s", len(rows), out)
 	}
 }
 
@@ -618,13 +729,9 @@ func TestGroupToolsExport_Empty(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────
 
 func TestGroupSummaryRow_Smart(t *testing.T) {
-	g := map[string]any{
-		"id":          "42",
-		"name":        "My Smart Group",
-		"smartGroup":  true,
-		"memberCount": float64(15),
-	}
-	row := groupSummaryRow(g)
+	idx := groupCountIndex{byID: map[string]int{"42": 15}}
+	g := map[string]any{"id": "42", "name": "My Smart Group", "smartGroup": true}
+	row := groupSummaryRow(g, idx)
 
 	if row["type"] != "smart" {
 		t.Errorf("type = %q, want %q", row["type"], "smart")
@@ -638,13 +745,9 @@ func TestGroupSummaryRow_Smart(t *testing.T) {
 }
 
 func TestGroupSummaryRow_Static(t *testing.T) {
-	g := map[string]any{
-		"id":          "7",
-		"name":        "Static Group",
-		"smartGroup":  false,
-		"memberCount": float64(0),
-	}
-	row := groupSummaryRow(g)
+	idx := groupCountIndex{byID: map[string]int{"7": 0}}
+	g := map[string]any{"id": "7", "name": "Static Group", "smartGroup": false}
+	row := groupSummaryRow(g, idx)
 
 	if row["type"] != "static" {
 		t.Errorf("type = %q, want %q", row["type"], "static")
@@ -654,31 +757,206 @@ func TestGroupSummaryRow_Static(t *testing.T) {
 	}
 }
 
-func TestGroupMemberCount_FromField(t *testing.T) {
-	g := map[string]any{"memberCount": float64(99)}
-	if c := groupMemberCount(g); c != 99 {
-		t.Errorf("groupMemberCount = %d, want 99", c)
+// TestGroupSummaryRow_UnknownCountIsNotZero is the regression test for the
+// whole defect: a count nobody could read must be distinguishable from a
+// group with no members.
+func TestGroupSummaryRow_UnknownCountIsNotZero(t *testing.T) {
+	g := map[string]any{"id": "9", "name": "Unindexed", "smartGroup": true}
+	row := groupSummaryRow(g, groupCountIndex{})
+
+	if row["memberCount"] != memberCountUnknown {
+		t.Errorf("memberCount = %v, want %q", row["memberCount"], memberCountUnknown)
+	}
+	if _, ok := row["memberCount"]; !ok {
+		t.Error("memberCount key must stay present — a table's columns are the keys of its first row")
 	}
 }
 
-func TestGroupMemberCount_FromArray(t *testing.T) {
-	g := map[string]any{
-		"members": []any{
-			map[string]any{"id": "1"},
-			map[string]any{"id": "2"},
-			map[string]any{"id": "3"},
+// TestGroupMemberCountIsNeverDerivedFromTheListedGroup pins the direction the
+// count travels. /v1/computer-groups carries no memberCount and no members, so
+// a count read off the group map is a count read off a field the API does not
+// send — it type-asserts to zero and every group reads as empty. Even when a
+// group map does carry such a field, the index is the only source.
+func TestGroupMemberCountIsNeverDerivedFromTheListedGroup(t *testing.T) {
+	tests := []struct {
+		name  string
+		group map[string]any
+	}{
+		{"real v1 shape", map[string]any{"id": "1", "name": "G", "description": "", "smartGroup": true}},
+		{"stray memberCount field", map[string]any{"id": "1", "memberCount": float64(99)}},
+		{"stray members array", map[string]any{"id": "1", "members": []any{map[string]any{"id": "1"}}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if n, known := (groupCountIndex{}).count(tc.group); known {
+				t.Errorf("count = (%d, true), want unknown — nothing on the group map is a member count", n)
+			}
+		})
+	}
+}
+
+func TestComputerGroupCounts_JoinsBothCollections(t *testing.T) {
+	client := groupToolsMockClient()
+	idx, err := computerGroupCounts(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]int{"1": 42, "2": 0, "3": 7, "4": 2}
+	for id, n := range want {
+		got, known := idx.byID[id]
+		if !known {
+			t.Errorf("group %s has no count", id)
+			continue
+		}
+		if got != n {
+			t.Errorf("group %s count = %d, want %d", id, got, n)
+		}
+	}
+	if idx.unreadable != 0 {
+		t.Errorf("unreadable = %d, want 0", idx.unreadable)
+	}
+}
+
+// TestComputerGroupCounts_FailedSweepLeavesCountsUnknown holds the failure
+// mode: a sweep that could not be read must not put a zero in the index.
+func TestComputerGroupCounts_FailedSweepLeavesCountsUnknown(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computer-groups/smart-groups": {200, `{"totalCount":1,"results":[{"id":"1","membershipCount":4}]}`},
+			// static-groups is unmocked, so its sweep fails.
 		},
 	}
-	if c := groupMemberCount(g); c != 3 {
-		t.Errorf("groupMemberCount = %d, want 3", c)
+	idx, err := computerGroupCounts(context.Background(), client)
+	if err == nil {
+		t.Fatal("expected the failed static sweep to be reported")
+	}
+	if n, known := idx.count(map[string]any{"id": "1"}); !known || n != 4 {
+		t.Errorf("smart count = (%d, %v), want (4, true)", n, known)
+	}
+	if _, known := idx.count(map[string]any{"id": "2"}); known {
+		t.Error("a group the failed sweep would have carried must read as unknown")
 	}
 }
 
-func TestGroupMemberCount_Missing(t *testing.T) {
-	g := map[string]any{"name": "No Count"}
-	if c := groupMemberCount(g); c != 0 {
-		t.Errorf("groupMemberCount = %d, want 0", c)
+// TestComputerGroupCounts_ListedWithoutACountIsUnreadable covers a group the
+// collection lists without a usable count field.
+func TestComputerGroupCounts_ListedWithoutACountIsUnreadable(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computer-groups/smart-groups":  {200, `{"totalCount":2,"results":[{"id":"1","membershipCount":4},{"id":"2"}]}`},
+			"/v3/computer-groups/static-groups": {200, `{"totalCount":0,"results":[]}`},
+		},
 	}
+	idx, err := computerGroupCounts(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx.unreadable != 1 {
+		t.Errorf("unreadable = %d, want 1", idx.unreadable)
+	}
+	if _, known := idx.count(map[string]any{"id": "2"}); known {
+		t.Error("a group listed without a count field must read as unknown, not 0")
+	}
+}
+
+// TestGroupToolsList_EmptyNeverSelectsAnUnknownCount drives the real command
+// against an instance whose count collections cannot be read.
+func TestGroupToolsList_EmptyNeverSelectsAnUnknownCount(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/computer-groups": {200, `[
+				{"id":"1","name":"A","description":"","smartGroup":true},
+				{"id":"2","name":"B","description":"","smartGroup":false}
+			]`},
+			// Neither v3 collection is mocked: both sweeps fail.
+		},
+	}
+	cliCtx := &registry.CLIContext{Client: client}
+
+	oldFmt := outputFmt
+	outputFmt = "json"
+	defer func() { outputFmt = oldFmt }()
+
+	var err error
+	out := captureStdout(t, func() {
+		err = runGroupToolsList(context.Background(), cliCtx, "", true, "")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rows := decodeGroupRows(t, out); len(rows) != 0 {
+		t.Errorf("got %d rows, want 0 — an unreadable count is not an empty group: %s", len(rows), out)
+	}
+
+	// Without --empty the groups are still listed, marked unknown.
+	out = captureStdout(t, func() {
+		err = runGroupToolsList(context.Background(), cliCtx, "", false, "")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	rows := decodeGroupRows(t, out)
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2: %s", len(rows), out)
+	}
+	for _, row := range rows {
+		if row["memberCount"] != memberCountUnknown {
+			t.Errorf("group %v memberCount = %v, want %q", row["name"], row["memberCount"], memberCountUnknown)
+		}
+	}
+}
+
+// TestGroupToolsList_ReportsTheRealCounts is the end-to-end shape of the bug:
+// every group used to report 0.
+func TestGroupToolsList_ReportsTheRealCounts(t *testing.T) {
+	client := groupToolsMockClient()
+	cliCtx := &registry.CLIContext{Client: client}
+
+	oldFmt := outputFmt
+	outputFmt = "json"
+	defer func() { outputFmt = oldFmt }()
+
+	var err error
+	out := captureStdout(t, func() {
+		err = runGroupToolsList(context.Background(), cliCtx, "", false, "")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := map[string]float64{"All Computers": 42, "Empty Static": 0, "Dev Machines": 7, "Prod Servers": 2}
+	rows := decodeGroupRows(t, out)
+	if len(rows) != len(want) {
+		t.Fatalf("got %d rows, want %d: %s", len(rows), len(want), out)
+	}
+	nonZero := 0
+	for _, row := range rows {
+		name, _ := row["name"].(string)
+		got, ok := row["memberCount"].(float64)
+		if !ok {
+			t.Errorf("group %q memberCount = %v, want a number", name, row["memberCount"])
+			continue
+		}
+		if got != want[name] {
+			t.Errorf("group %q memberCount = %v, want %v", name, got, want[name])
+		}
+		if got > 0 {
+			nonZero++
+		}
+	}
+	if nonZero != 3 {
+		t.Errorf("got %d groups with members, want 3", nonZero)
+	}
+}
+
+// decodeGroupRows decodes the JSON array a group-tools command printed.
+func decodeGroupRows(t *testing.T, out string) []map[string]any {
+	t.Helper()
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
+		t.Fatalf("decoding output %q: %v", out, err)
+	}
+	return rows
 }
 
 // ─────────────────────────────────────────────────────────────────

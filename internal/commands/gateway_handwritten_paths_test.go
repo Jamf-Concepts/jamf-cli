@@ -421,8 +421,13 @@ var handWrittenUndeterminedMethods = map[string][]string{
 	// collectSmartGroups (which reads the collection and filters client-side)
 	// and to paginatedCount; the mobile-devices path is an argument to
 	// fetchPaginatedCountInt and FetchAllPaginated. All reads.
-	"/pro/v3/computer-groups/smart-groups": {"GET"},
-	"/pro/v2/mobile-devices":               {"GET"},
+	//
+	// pro_group_tools.go and pro_audit.go send both computer-group collections
+	// as arguments to groupCountIndex.sweep, which reads each collection for
+	// its member count. Reads.
+	"/pro/v3/computer-groups/smart-groups":  {"GET"},
+	"/pro/v3/computer-groups/static-groups": {"GET"},
+	"/pro/v2/mobile-devices":                {"GET"},
 }
 
 // unservedHandWrittenPath is one accepted exception, keyed "METHOD gateway-path"
