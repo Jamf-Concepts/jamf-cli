@@ -174,3 +174,170 @@ These three surfaces are not Jamf Pro surfaces at all; a `pro ai-policies` would
 The Platform SDK client cannot be wrapped like `dryRunClient` (transport asserts an exact success status; a synthetic response would have to guess 200 vs 201 vs 204 per operation). Both generators emit a `cliCtx.DryRun` check on every non-GET operation. `dryRunGuardTransport` refuses hand-written platform command writes with 412 carrying `DRY_RUN` (a transport *error* would be retried).
 
 **The preview comes before the confirmation.** `ConfirmAction` errors when `--yes` is absent and stdin is not a terminal, so `--no-input -n delete <id>` used to report "requires --yes" and preview nothing. Fix: template emits the dry-run check before `ConfirmAction`. Name→ID resolution stays ahead of both; validations also stay ahead.
+
+## Groups and Aliases for the `platform` Namespace
+
+Aliases live in `platformAliases` (`internal/commands/aliases.go`) and groups in
+`platformGroups` (`groups.go`): `groupPlatformAI`, `groupPlatformAccount`
+("Jamf Account (US-only):" — the group title carries the constraint so
+`platform --help` says it without opening a subcommand) and
+`groupPlatformAudit`. `applyAccountUSOnly`
+(`internal/commands/platform_account.go`) appends the constraint to every
+account leaf's `Long` and wraps every leaf's `RunE`; the guard passes through a
+**nil** platform client rather than inventing a region complaint, because
+`--scaffold` runs without auth and `platform.RequirePlatformClient` already has
+a clearer error waiting.
+
+Short aliases: `lic`, `deals`, `dcfg`, `dpo`, `dq`, `ssoc`, `ssod`, `aip`,
+`ait`.
+
+## AI Governance Wire Facts
+
+Probed 2026-08-31, EU sandbox, environment-scoped credential. The whole surface
+is exercised through the CLI, writes included.
+
+- **`patch` replaces `settings` wholesale — it does not merge.** The method is
+  PATCH and the CLI sends `application/merge-patch+json`, but the server treats
+  `settings` as a full replacement: seed `{permissions:…, env:…}`, patch with
+  `{permissions:…}` alone, and `env` is gone. `name` and `description` *are*
+  leave-unchanged-if-omitted, so the two halves of one request body behave
+  differently. Both `schemaVersion` and `settings` are required, so there is no
+  partial-edit request to build in the first place — **`--set settings.x=y`
+  silently discards every other setting.** Read with `get`, edit the whole
+  `settings` object, send it with `--from-file`. `apply` inherits this, which is
+  what `platformPatchDoesNotMerge` (`generator/platform/emitter.go`) is for.
+- **A draft is separate from a published version.** `create` and `patch` write a
+  draft (`hasDraft: true`, `currentVersionNumber: null` on a fresh policy);
+  `publish` turns the draft into an immutable version and takes **no request
+  body**. Publishing with nothing pending answers `409 NO_DRAFT_TO_PUBLISH`, so
+  `publish` is not idempotent.
+- **Whether an unknown `settings` key is rejected is the vendor schema's
+  decision, not the API's.** `com.anthropic.claudecode` declares
+  `additionalProperties: true` and stores a bogus key silently;
+  `com.anthropic.claudefordesktop` omits the keyword (same effect);
+  `com.openai.codex` sets `false` and answers `422 SCHEMA_VALIDATION_FAILED`. So
+  a typo in `--set settings.…` is caught for some tools and silently persisted
+  for others — read `platform ai-tools schema <toolId> <schemaVersion>` to know
+  which. A *declared* field with a bad value is always caught, and the error
+  names the enum.
+- **Pagination and sort are honoured** — genuinely unusual on this gateway.
+  `page` is 0-based, `totalCount` is the unfiltered total, and `sort` is
+  `property:(asc|desc)` over `createdAt`/`updatedAt`/`name`, with anything else
+  a `400 VALIDATION_FAILED`. The generated `list` auto-paginates at 100.
+- **`schema-drift` is a flag, not a boolean filter.** `schema-drift=true`
+  narrows to drifted policies; `false` — and `maybe`, which is not rejected —
+  returns everything. The generated `--schema-drift` only sends the parameter
+  when true, which is correct by accident rather than design: keep it that way.
+- **`delete` is an archive and is not idempotent.** 204, then the policy is
+  invisible to `get` and `list` alike, and a second `delete` answers
+  `404 POLICY_NOT_FOUND`.
+- **`href` on `create` and `publish` is populated by the service**, not by the
+  gateway's href-injection plugin, so the gzip bug does not apply here. Neither
+  call returns a `Location` header.
+- **The error envelope is the service's own**, and v2121 finally declared all of
+  it: `httpStatus` is now required on `ApiError` and the SDK's probes confirm the
+  wire has always sent it, so this was a spec gap rather than a second envelope
+  shape. Codes worth knowing: `TOOL_ID_UNKNOWN`, `SCHEMA_VERSION_UNKNOWN`,
+  `SCHEMA_VALIDATION_FAILED`, `POLICY_NOT_FOUND`, `NO_DRAFT_TO_PUBLISH`.
+- `GET /tools/{toolId}/schemas/{schemaVersion}` for an unknown version answers
+  **422 `SCHEMA_VERSION_UNKNOWN`**, declared at v2121. A non-UUID `policyId` is
+  a 404, not a 400.
+- **`ai-tools schema` returns ~250 KB of JSON Schema** for
+  `com.anthropic.claudecode`. There is no table shape for it and none is
+  offered.
+- **v2121 added an ETag/If-Match concurrency protocol, and this CLI can reach
+  only the read half.** `PolicyDetail` gains a nullable `version` counter, the
+  detail `GET` returns it as a strong `ETag`, and `PATCH` takes an `If-Match`
+  precondition answering **409 `POLICY_VERSION_CONFLICT`**. Every part is
+  enforced on the wire: the server compares the *number* and tolerates bare `3`,
+  strong `"3"` and weak `W/"3"` alike, `*` and an absent header are
+  unconditional, and `garbage` is a 400 — so the header is parsed, not ignored.
+  **Every `PATCH` increments `version` whether or not it changes anything**, and
+  `version` is independent of `currentVersionNumber`, which only `publish`
+  moves. `version: null` is not an unpopulated field but a **legacy document
+  with no ETag at all**, so those can never be updated conditionally by anyone.
+  The platform emitter renders **query parameters only**, so a declared
+  `in: header` parameter produces no flag and no error: `patch` and `apply` send
+  no `If-Match` and are therefore always unconditional. That is the one real
+  capability gap this ingest opens.
+- **v2121 declared a `409 POLICY_IN_USE` on `delete`, and it is unverified — the
+  last probe says the opposite.** The 2026-08-30 full-surface probe found
+  archiving a blueprint-referenced policy answering a clean **204** and leaving
+  the blueprint pointing at a policy nothing can read. So the help text is now
+  ahead of the wire in the *safe* direction; treat the guard as a declaration
+  and not a fact.
+- **`x-preview` is per operation as of SDK v1.1.0, and it is read now.** v2192
+  declares it on all twelve operations, adds `Preview - ` to every summary and
+  opens every description with two markdown banners naming **2027-03-03** as the
+  expected GA date. Key on the catalog's `preview` field, the prose being
+  upstream's to reword. The two banners also broke `firstParagraph` — see the
+  `Long` rendering note.
+- **`ai/governance/visibility` is routed** (403 `BAD_PERMISSIONS` on a credential
+  holding the policies grants) and still has no published spec — the tell that
+  `ai/governance` is the product and `policies`/`visibility` are capabilities
+  beneath it. The hyphenated `ai-governance/policies` remains a bare
+  `404 page not found`.
+
+## Jamf Account Wire Facts
+
+- **Three error envelopes, none of them the gateway's.** The account services
+  answer `{classification, fields, message}` — not the gateway's
+  `{httpStatus, traceId, errors}`, nor AI Governance's `{traceId, errors}`.
+- **The account list endpoints served a bare JSON array until 2026-09-01 and the
+  declared `{results, totalCount}` envelope after.** The CLI needed no change
+  either way — the generated unwrap is `if obj, ok := result.(map[string]any)`
+  over a `result any`, so an array falls through and an envelope unwraps — but
+  **that tolerance is now the load-bearing part rather than luck**: the SDK,
+  which had hardcoded the array shape, failed *every* call in production for the
+  days between. So a generated platform list must keep decoding into `any`
+  rather than a declared struct.
+- **A spec-required query param is enforced client-side by `MarkFlagRequired`,
+  not by the emitted request**, and the two differ for an explicit empty value:
+  the template emits every query param behind an `if v != ""` guard, so
+  `--since ""` passes cobra's was-it-set check and then sends a request with
+  `since` missing. The server's answer to *absent* is worse than to *empty*
+  (`400 BAD_REQUEST "Required parameter 'since' is not present."` with no
+  `errors[]`, versus a field-attributed `400 INVALID_FIELD`). Worth knowing
+  before adding a required param whose zero value is meaningful — and note the
+  SDK's carve-out: a `required: true` param carrying a substantive schema
+  `default` keeps its guard, because for Pro's `columns-to-export` sending it
+  empty answers 500 while omitting it answers 400.
+- `licensing/v1/licenses` returned 16 licences on the probe org. The
+  **activation code is deliberately absent** from `platformTableColumns`: it is
+  the value that entitles an installation, so it belongs in a JSON read someone
+  asked for rather than in the output of a bare `list`.
+- SSO domains carry statuses `VERIFIED` and `MANUALLY_VERIFIED`; `DELETE` and
+  `actions/verify` on a bogus `domainId` answer a clean 404, so those paths are
+  exercised without touching real identity config. `id` and `verifiedTldId` are
+  the quoted strings the spec always declared, as of 2026-09-01.
+- **`Region` carries `RAMP`, and it is an SDK patch rather than an upstream
+  declaration.** Upstream's `Region` enum omits it while the wire both returns
+  and accepts it. The SDK adds it through an `enumAdditions` key that panics
+  once the spec declares the value, so the patch self-expires. Two adjacent
+  tells: `connection: null` and `connection: {}` both answer
+  `400 "A connection requires a region"`, and region validation runs ahead of
+  the upstream call.
+- **Tokens are not portable across regions.** The same client credentials answer
+  `401 invalid_client` at `eu.api.jamfcloud.com/auth/token`. (The "portable
+  between them" note is about the retired `apigw` host versus the GA host, not
+  about regions.)
+- **A fifth account namespace, `agreements`, is routed in prod and has no
+  published spec.** `/agreements/v1/...` answers `403 BAD_PERMISSIONS` with a
+  proper envelope — routed, ungranted. Nothing to ingest until a spec exists.
+- **`audit` pages by cursor**, so `--all` does not exist for it: it declares
+  `page-size` + `cursor`, not `page` + `page-size`. Two required-parameter
+  rules, not one: `since` is required *and* at least one of `actor`,
+  `audit-source`, `audit-type`, `resource-id` — omitting the second answers
+  `400 MISSING_REQUIRED_FILTER`, which the spec states in the operation's
+  description so the generated `Long` renders it even though `MarkFlagRequired`
+  cannot enforce it. An event carries
+  `{actor{id,kind}, auditId, auditSource, auditType, environmentId, orgId,
+  requestContext{method,path,remoteIp,userAgent,…}, resourceId, tenantId, time,
+  txId}`. **Ownership is checked before capability**, so a foreign
+  `X-Environment-Id` masks whether the credential holds the grant, and a 502 is
+  evidence of a grant rather than of a missing one.
+- **`benchmarks create --scaffold` renders a usable `odv` again.** Upstream
+  restored `OsSpecificRuleInfo` and `OdvRecommendation` in v1671, so the scaffold
+  emits `"odv": {"value": "365"}` where it previously emitted the uninstructive
+  `"odv": null`. The same ingest adds `VISION_OS` to
+  `selectedOsVersions[].osType` and `BOOLEAN` to the ODV type.

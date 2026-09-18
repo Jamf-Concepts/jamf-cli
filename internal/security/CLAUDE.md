@@ -129,3 +129,293 @@ Gateway-served Security Cloud commands require platform client-credentials plus 
 `security setup` owns the Radar application pairs only. It closes by pointing at `platform setup`, which owns the gateway credentials.
 
 **Setup used to probe `content-categories` for an entitlement verdict.** That probe was unsound (wire-verified 2026-09-08: tenant credential answered `BAD_PERMISSIONS` on `/securitycloud/v1/categories` while environment credential answered 200 with 36 categories — so one 403 cannot establish entitlement absence), and removed. What survives is only the scope-ID check via `reportScopeIDProbe`.
+
+## Wire Facts and Upstream Gaps
+
+None of these are guessable from the specs. Re-probe rather than trust a
+"resolved" note: three of them have already changed once underneath the note
+recording them.
+
+**Pagination is under-declared.** Ten list ops return a paged envelope
+(`totalCount` + `results`) but only `sync/runs` declares `page`/`page-size`. On
+the wire only `ztna/apps` honours them; `categories`,
+`ztna/predefined-apps` and `ztna/shared-gateways` demonstrably ignore both.
+`ConnectorPage` and `SyncRunPage` are structurally identical yet only the latter
+declares the params — the tell that this is an omission. `GET /v2/…/groups`
+returns a `{groups: []}` envelope with no `totalCount` and ignores both.
+
+**`risk override` declares `deviceIds` as an array with no `items` schema at
+all**, so `--scaffold` can only render `[]`. The one array in the Security Cloud
+surface that is opaque for an upstream reason rather than by design — every
+other remaining `[]` is an array of plain scalars, which `parser.ScaffoldJSON`
+leaves empty deliberately.
+
+**`--set` cannot express a top-level-array request body** (the two DNS
+whole-list replaces), because it builds an object. `--from-file` or piped stdin
+is the only route; `--set` there fails with
+`400 [INVALID_FIELD] Request body could not be read`.
+
+**`uem-connectors create` cannot be built from the published spec, and the
+failure is a 500 rather than a validation error.** `authStrategy` and the
+credentials under `deviceSyncAuth` are absent upstream; the SDK restores both
+(`schemaCreations`/`schemaPatches`, self-expiring via
+`schemaPatchesRequireAbsent`). The error ladder: no `authStrategy` →
+`500 INTERNAL_ERROR`; `authStrategy` with no `deviceSyncAuth` →
+`422 VALIDATION_FAILED ": invalid auth configuration for Jamf PRO"`; a complete
+body → `409 CONNECTOR_CONFIG_ALREADY_EXISTS`, because **a tenant holds at most
+one connector whatever its vendor**.
+
+The secret belongs in `--from-file` or a pipe: `--set
+deviceSyncAuth.clientSecret=…` puts it in shell history and `ps`.
+`authStrategy: M2M` avoids the question entirely, taking a `tenantId` and no
+credentials — **at the cost of leaking a Jamf Pro API integration per create.**
+M2M self-provisions an API role and integration on the named Jamf Pro, and
+**that integration survives the connector's DELETE**: the SDK's test tenant had
+accumulated 97 enabled "JSC Connector" integrations against zero live
+connectors, 88% of every integration on the instance (2026-09-01). Nothing here
+creates or cleans those up, and nothing in the connector response points at
+one, so `pro api-integrations list` against the target instance is the only way
+to see them — a command the gateway does not publish, so it needs an instance
+profile. Say so before recommending M2M for repeated create/delete cycles. A
+read returns `clientId` and `username` but never a secret, so a
+`JAMF_PRO_OAUTH` connector cannot be exported and re-created; an `M2M` one can.
+
+**`uem-connectors create` is a discriminated union** (`ConnectorCreateRequestBody`,
+a bare `oneOf` discriminated on `vendor`). A bare `oneOf` carries no properties
+of its own, so the whole body once parsed to nothing and the command silently
+lost `--scaffold` and every "Allowed values:" line with `make generate` exiting
+0. `parseSchemaDepth` adopts the **first** variant as the schema's own shape,
+unions the branches' enum values, and records `Variants`/`Discriminator` so the
+help says which shape `--scaffold` shows. A field only a sibling variant
+declares is carried enum-only as `VariantOnly` and kept out of the scaffold.
+v1981 finished the split — ten vendor-specific request schemas, a 1:1
+discriminator mapping — so the unioned `authStrategy` enum now spans values that
+are **not** Jamf Pro strategies (`USERNAME_PASSWORD`, `CITRIX_CLOUD_ADMIN`,
+`CITRIX_CLOUD_ADMIN_OAUTH`). That is the honest rendering of a discriminated
+union in flat help text, and a trap when reading it. The scaffold's
+`deviceSyncAuth` carries `clientId`/`clientSecret` *and* `username`/`password`
+together, being the union of the OAuth and BASIC pairs — one has to be deleted.
+
+**`uem-sync-settings` enum behaviour differs per field**, wire-verified
+2026-09-01 on a connector created for the purpose. `refreshRateMinutes`
+enforces its enum (60/120/240/480/720/1440): 60 and 1440 answer 204, while 360,
+59, 1, 100000 and 0 answer `422 VALIDATION_FAILED` — and the description leaks
+the accepted set while `field` stays null. `deviceUnmanagedThreshold` is
+**silently ignored for `JAMF_PRO`**: 3, 7, 14, 1 and 0 each answer 204 and each
+read back as 0. So the spec's "not applicable to JAMF_PRO" is real and is
+enforced by discarding the value, with the enum in `--help` implying otherwise.
+The field was also **redefined under the same name** — it meant "consecutive
+syncs absent, 0 disables the grace period" and now means "days since last
+check-in, 0 uses the platform default (3 days)". Reaching these needed a real
+connector: five PUTs to a bogus `configId` with in-enum, out-of-enum and
+below-minimum values all answered the same `404 NOT_FOUND`, because resource
+resolution runs *before* field validation here — the reverse of the ordering the
+doomed-request technique relies on.
+
+**The ZTNA app's `security` block declares `additionalProperties: false` and the
+server does not enforce it**: a create carrying `security.bogusKey` answers 201
+and silently drops it. So a mistyped `--set security.riskControls.enabld=true`
+is accepted and does nothing, with no wire feedback at all.
+
+**`ztna-apps create` requires `categoryName` and the spec gives it no
+`example`**, so `--scaffold` renders `""` — the one value the server explicitly
+rejects (`400 [INVALID_FIELD] categoryName: must not be blank`). Every scaffold
+is a template to edit, but this is the field where the rendered value is
+*guaranteed* invalid. `Uncategorized` is what the tenant's own apps carry. A
+category that does not exist is a **409 `MISSING_CATEGORY_NAME`**, distinct from
+the 400 for an empty one.
+
+**`ipsec.left.subnets` is capped at one element while `right` is not**, and the
+rejection names neither the field nor the cardinality:
+`400 [INVALID_FIELD] field=ipsec "IPSec configuration is not valid."` Deep IPSec
+validation **does** run alongside a missing required top-level field, so a probe
+written to expect only the top-level failure will see more than it asked for.
+`right.subnets` lost its `maxItems: 1` at v1424 and round-trips two — **in the
+server's own order**, so an export/re-apply round trip is not byte-stable.
+
+**`ztna-apps` `name` and `predefinedAppId` together is accepted, not rejected.**
+The spec declares a 400; the wire answers **201 and silently drops the name**
+(probed 2026-08-25: the app read back `name: null` with the template applied).
+Reusing a template another app already holds *is* refused,
+`409 [CONFLICT] Resource already exists.`, and that check runs before body
+validation. Consequence: **`--name` can never reach a predefined-derived ZTNA
+app**, since `platform.ResolveIDByName` filters the collection by name and those
+apps carry `name: null`. Use the ID.
+
+**`dns-zones create`'s 422s are undocumented** (`GATEWAY_NOT_FOUND`,
+`NAMESERVER_IP_RESTRICTED`), as are its validation rules. A zone's
+`nameServers[].ip` must be **publicly routable** — `10.0.0.53` is rejected,
+`198.51.100.53` accepted. Note this is the inverse of the ZTNA IPSec rule, where
+`ipsec.left.subnets[]` must be private.
+
+**Enum-constrained request fields name their values in `--help`** ("Allowed
+values:", one line per dotted field path), from `parser.Property.Enum` and
+`parser.Schema.Enum`. A `[]` suffix on the path means it is each *element* that
+is constrained — for an array the enum sits on the element schema, not on the
+property, so a properties-only walk missed six of the ZTNA gateway's IPSec
+cipher-suite fields. This is what a `--scaffold` cannot show: it renders an enum
+as `""`. It matters most for `ipsec.right.vendor`, a **case-sensitive**
+eleven-value enum — `"cisco"` for `"Cisco"` is rejected with a
+`400 INVALID_FIELD` carrying **no `field`** and the generic "Request body is
+missing or malformed.", while the correctly-cased value returns seven properly
+attributed field errors. `enumValueString` renders scalars of any type (a
+`float64` prints without a trailing `.0`); a composite or null value is dropped
+rather than printed as Go's formatting of a map.
+
+**`ztna-gateways`' `datacenter` is a 13-value enum**, and that same ingest put
+the per-datacenter **availability-zone source IPs a peer firewall must allow**
+into the `availabilityZones` property *description* as a markdown table.
+Property descriptions are not rendered anywhere in the CLI, only enums are, so
+that table is reachable only by reading
+`specs/platform/securitycloud_ztna_api.json`.
+
+**`ztna-grouped-gateways`' `recoveryDelayInSec` is an enum of five integers**
+(300/1800/3600/10800/28800), **required on create**, and `0` — the value a
+caller gets by forgetting the field — is rejected, for every routing strategy
+including the two whose own prose says the field is ignored. A JSON *string*
+`"3600"` is coerced and accepted, which the CLI does not depend on: `--set`
+parses an integer-looking value into a JSON number
+(`internal/platform/body.go`).
+
+**Security Cloud creates answer `{id, href}`, not the created object.** `POST`
+on `ztna/apps`, `ztna/gateways` and `ztna/grouped-gateways` used to return the
+full resource; as of v1439 they return the `CreateResponse` the spec had
+declared all along. **Nothing in the spec diff reveals this** — the server
+adopted a shape that was already documented — so it is a server change an
+ingest cannot catch.
+
+**`href` came back `null` on every create until the CLI stopped asking for
+gzip.** The gateway bug is real and unfixed: it drops the `Location` header and
+nulls `href` whenever the response is **gzipped**, and returns both when it is
+not (3/3 each way). Go's `net/http` sends `Accept-Encoding: gzip` on every
+request, so every create saw `null` for a field the schema declares required.
+`identityEncodingOnWrites` (`internal/commands/pro_platform_helpers.go`) sets
+the header explicitly on POST/PUT/PATCH. **Do not "tidy" that transport away** —
+the null returns the moment it goes.
+
+**`ztna-gateways patch` sends `application/merge-patch+json` and expects 204**,
+so a successful patch prints **nothing**. The server deep-merges: `--set
+ipsec.esp.lifetimeInSec=14400` returned 204 and a following `get` showed
+`esp.lifetimeInSec` changed with `ike`, `left.subnets` and `right.subnets`
+untouched. Sending `application/json` instead answers
+`415 UNSUPPORTED_MEDIA_TYPE` with a differently shaped envelope
+(`messageKey`/`logref`/`statusCode`), which is the framework rejecting the
+request before the service sees it — so that error carries no `traceId`.
+
+**`security device-groups update` prints nothing, and this entry is a warning
+about "resolved" notes.** v1865 declared a 200-with-`Group` body, so the command
+started rendering what the server returned and that was recorded here as a gap
+closed. v2082 withdrew that operation: `update` is the v2 PUT now, a genuine
+204, so the silence is back and is correct this time. It was the **third time in
+five builds** that a silent SDK override became redundant — which is the
+argument for diffing the override tables at every ingest, not only the schemas.
+`create` and `delete` stay on v1; `list` and `update` are v2.
+
+**Only the implicit "Default Group" is returned without an ID.** The v2082 spec
+is explicit: `GroupListItem` declares `id` and requires only `name`, omitted for
+the implicit "Default Group" entry, which is not a stored group. Re-probed
+2026-09-08 on a tenant holding nothing else: `list` answered
+`[{"name":"Default Group"}]`, a `create` then answered `{id, href, name}`, and
+`list` answered both entries with the stored one carrying its `id`. An earlier
+note here generalised from a collection of one and called the whole collection
+ID-less, which is how a reviewer came to call a working `apply` a duplicate
+factory. **The transferable lesson: a wire note taken on a collection holding a
+single row cannot distinguish a property of the endpoint from a property of that
+row.** The remaining gap is exactly one row: `platform.ResolveIDByName` matches
+the Default Group's name and finds no `id`, which now reports that the list
+returns no ID for the items it matched (`collectMatches` / the nameless branch
+of `resolveIDByName`) rather than `not found`.
+
+**`platformUnroutedOps` held exactly one entry for its whole existence and is
+empty.** Its arc is worth reading before adding one. v1865 declared
+`PUT /v2/groups/{groupId}` as the successor to the v1 PUT it deprecated, and v2
+answered `403 BAD_PERMISSIONS` (this namespace's unrouted signature) until
+`authorization-policies#265` deployed on 2026-09-03 — after which it answered a
+bare `404 NOT_FOUND` on a group `GET /v2/groups` listed in the same invocation.
+**A 403 clearing is not the same event as the capability arriving**: the
+authorization rollout landed and exposed an independent defect in the handler
+behind it, which is why the hold's end condition was written as "lift when the
+v2 PUT answers 2xx, not when it stops 403ing". The handler was fixed on
+2026-09-04. The bar for the next entry stays in the table's comment — a library
+can ship a method that fails, but a CLI command that always 403s is worse than
+an absent one — alongside the second condition v2082 taught: **a drop is only
+right while there is a working operation it would displace.** With the drop
+still in place after v2082 withdrew v1, the resource shipped **no update command
+at all**, caught only by `TestSecurityCloudSpecParity` as 51 subcommands against
+52 declared operations. So the failure mode of a stale entry is a silently
+missing command, not a broken one.
+
+**`enrollment-activation-profiles` wire facts** (probed 2026-09-01, EU tenant):
+
+- **The create's declared response body is never sent.** The spec declares 201
+  as `{id, href}` with a `Location` header; the server answers `{"code":
+  "nmkt175x"}` and no `Location`. The code is the only handle the rest of the
+  surface takes.
+- **The read model is a code and nothing else.** `get` returns `{"code": "…"}` —
+  not the name, platforms, capabilities or state a create sent. So a create's
+  input cannot be read back, and `pause`/`resume` have **no observable effect on
+  any GET**.
+- **Deletion is a soft delete the read surface does not reflect.** After
+  `delete-multiple` answers 204, `get <code>` still answers 200 and `list` still
+  returns the code. The only surface that reveals the state is a write: `pause`
+  on a deleted code answers `409 STATE_CONFLICT`. So a caller can neither
+  confirm a delete nor filter deleted profiles out of a list, and every profile
+  ever created is a permanent row.
+- That 409 arrives in a **third error envelope** —
+  `{messageKey, messageParams, message, error, logref, statusCode}` — the
+  framework's, with **no `traceId`**, so there is nothing to quote upstream.
+- `pause`, `resume` and `delete-multiple` are all 204-no-body, so all three
+  print nothing on success, and the read surface cannot confirm the write
+  either. Both pause and resume are idempotent.
+- **`capabilities.networkSecurity` and `vulnerabilityManagement` are coupled and
+  the schema does not say so**: `400 [INVALID_FIELD] capabilities:
+  networkSecurity and vulnerabilityManagement must both be enabled or both
+  disabled`.
+- `platforms` is enforced twice in one response, and `maxItems: 2` applies
+  **after** de-duplication, so `["iOS","MAC","iOS"]` is accepted.
+  `additionalProperties: false`, `capabilities.note`'s `maxLength` and
+  `groupId`'s existence are all unenforced, so a mistyped `groupId` answers 201
+  with the profile scoped to nothing.
+- **`origin` is required and its enum has one value**, so every `list` types
+  `--origin PUBLIC_API`. An out-of-enum origin is refused differently on each
+  half: on `list` it is `400 [INVALID_FIELD] Unknown origin value.`, on `create`
+  `Origin not provided.` — which misreports the cause, the field having been
+  provided. A genuinely absent `origin` on create says
+  `Missing required attribute origin.`
+- **`--name` is suppressed on all three `{activationProfileId}` operations**
+  (`platformNoNameLookup`), and this is the first case where the *whole read
+  model* rules the flag out rather than one parameter.
+
+**Two specs tag a resource `activation-profiles`, and the ingest silently merged
+them.** Both declare the service `securitycloud`, so one
+`securitycloud/activation-profiles` override renamed both and
+`generator/platform`'s `mergeInto` folded them into a single resource — seven
+operations under one command, six of them enrollment's, filed under UEM Connect.
+`make generate` exited 0, because `checkOperationNameCollisions` only catches
+two operations sharing a *name*. The fix is a third key level:
+`platformResourceNameOverrides` is tried `{namespace}/{name}` first, then
+`{service}/{name}`, then a bare `{name}` — `platformNamespace`
+(`generator/parser/platform.go`) being the parser-side twin of the emitter's
+`namespaceFromPath`. `TestTwoSpecsSharingATagGetDistinctResourceNames` asserts
+the resulting **names and paths**, not the absence of an error, because absence
+of an error was the symptom.
+
+**v2005 and v2018 are documentation-only on uem-connect, and the useful half
+does not reach `--help`.** v2005 declared `406` on all twelve operations, `415`
+on the four taking a body, and a `422 VENDOR_MISMATCH` for an
+`updateSyncSettings` whose body `vendor` disagrees with the connector's stored
+vendor — the `vendor` field selects which vendor-specific fields apply, never
+*which* connector is updated (that is the path `configId`), and a connector's
+vendor cannot be changed through that operation at all. v2018 narrowed `406` to
+the five operations that write a 2xx body. Zero generated diff: response
+declarations have no CLI surface, and the platform emitter's `Long` is
+`firstParagraph(op.Description)`, so everything after the first blank line is
+dropped. `security uem-sync-settings update --help` therefore says nothing about
+`VENDOR_MISMATCH` — reachable only by reading the spec, the same way as the
+availability-zone table.
+
+**The privilege split is complete as of v1582.** All 46 Security Cloud commands
+carrying a `jamf:privileges` annotation name a specific scope; none names a
+`*:jsc:all`. A missing scope reports the scope by name, and by the name Jamf
+Account's picker shows for it, so the `commands -o json` catalog is a
+convenience rather than the only route.

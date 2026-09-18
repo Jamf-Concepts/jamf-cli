@@ -5,7 +5,6 @@ package commands
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -327,7 +326,10 @@ func TestCreateReportFile_CollisionIsAnError(t *testing.T) {
 func TestBuildReportArgs_BareInvocation(t *testing.T) {
 	// dashboard's --title already defaults to "Jamf Fleet Dashboard", so an
 	// omitted title means "use the default", not "pass an empty one".
-	got := buildReportArgs(generateReportInput{})
+	got, err := buildReportArgs(generateReportInput{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	want := []string{"dashboard"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
@@ -335,10 +337,13 @@ func TestBuildReportArgs_BareInvocation(t *testing.T) {
 }
 
 func TestBuildReportArgs_TitleAndRepeatedSmartGroups(t *testing.T) {
-	got := buildReportArgs(generateReportInput{
+	got, err := buildReportArgs(generateReportInput{
 		Title:       "Q3 Fleet Review",
 		SmartGroups: []string{"All Laptops", "Executives"},
 	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	want := []string{
 		"dashboard",
 		"--title", "Q3 Fleet Review",
@@ -351,36 +356,45 @@ func TestBuildReportArgs_TitleAndRepeatedSmartGroups(t *testing.T) {
 }
 
 func TestBuildReportArgs_SkipsBlankValues(t *testing.T) {
-	got := buildReportArgs(generateReportInput{
+	got, err := buildReportArgs(generateReportInput{
 		Title:       "   ",
 		SmartGroups: []string{"", "  ", "All Laptops"},
 	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	want := []string{"dashboard", "--smart-groups", "All Laptops"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 }
 
-func TestBuildReportArgs_NeverRedirectsOutput(t *testing.T) {
+func TestBuildReportArgs_RefusesAValueThatWouldReachTheChildAsAFlag(t *testing.T) {
 	// The whole design rests on the report child never being handed a
 	// destination: stdout is a file the server opened, not a path the model
-	// named. An --include-profile would also widen an MCP report past the pinned
-	// profile.
-	got := buildReportArgs(generateReportInput{
-		Title:       "--out-file /etc/passwd",
-		SmartGroups: []string{"--include-profile", "--out-file=/etc/passwd"},
-	})
-	for i, a := range got {
-		if a == "--out-file" || strings.HasPrefix(a, "--out-file=") || a == "--include-profile" {
-			t.Errorf("arg %d is a redirect flag: %v", i, got)
-		}
+	// named.
+	//
+	// A flag-shaped value is refused rather than dropped. Dropping it told
+	// nobody — the model asked for a title, got the default, and reported the
+	// title as applied.
+	cases := []struct {
+		name string
+		in   generateReportInput
+	}{
+		{"title", generateReportInput{Title: "--out-file /etc/passwd"}},
+		{"smart group", generateReportInput{SmartGroups: []string{"--include-profile"}}},
+		{"smart group with a value", generateReportInput{SmartGroups: []string{"--out-file=/etc/passwd"}}},
 	}
-	// A model-supplied string that looks like a flag arrives as a flag *value*,
-	// which is why it cannot become one: it is always preceded by its own flag.
-	for i, a := range got {
-		if strings.HasPrefix(a, "-") && i > 0 && !strings.HasPrefix(got[i-1], "--") {
-			t.Errorf("arg %d %q is not positioned as a flag value: %v", i, a, got)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := buildReportArgs(tc.in)
+			if err == nil {
+				t.Fatal("a value beginning with a dash must be refused, not silently dropped")
+			}
+			if !strings.Contains(err.Error(), "flag") {
+				t.Errorf("refusal must say why: got %q", err)
+			}
+		})
 	}
 }
 
@@ -388,7 +402,11 @@ func TestBuildReportArgs_ThroughBuildChildArgsKeepsBoundary(t *testing.T) {
 	// The report child goes through the same gate run_command does, so it
 	// inherits the pinned profile and the enforced --no-input, and a title that
 	// looks like a blocked flag is rejected rather than smuggled through.
-	got, err := buildChildArgs("prod", buildReportArgs(generateReportInput{Title: "Q3 Fleet Review"}))
+	reportArgs, err := buildReportArgs(generateReportInput{Title: "Q3 Fleet Review"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, err := buildChildArgs("prod", reportArgs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -470,20 +488,17 @@ func TestRunReportChild_RemovesThePartialFileWhenTheChildFails(t *testing.T) {
 }
 
 func TestRunReportChild_ReportsPathAndSizeNeverTheHTML(t *testing.T) {
-	// `/usr/bin/true` stands in for `jamf-cli dashboard`: it ignores the arg
-	// vector, writes nothing, and exits 0 — so the report file is created and
-	// left in place at zero bytes. The point under test is that the result
-	// carries the path and the size and never the document.
-	trueBin, err := exec.LookPath("true")
-	if err != nil {
-		t.Skipf("no `true` binary available: %v", err)
-	}
+	// A fake child stands in for `jamf-cli dashboard`: it writes a document to
+	// stdout and exits 0. The point under test is that the result carries the
+	// path and the size and never the document.
 	xdg := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 	reportDir := t.TempDir()
 	writeTestConfig(t, xdg, "report-dir: "+reportDir+"\n")
 
-	res := runReportChild(context.Background(), trueBin, "",
+	child := writeFakeReportChild(t, "<!DOCTYPE html><html><body>report</body></html>", "", 0)
+
+	res := runReportChild(context.Background(), child, "",
 		generateReportInput{}, time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC))
 
 	if res == nil {

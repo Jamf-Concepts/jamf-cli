@@ -83,15 +83,35 @@ Two limits apply to the MCP route only:
 ### Fast/full confirmation protocol (MCP `generate_report`)
 
 `generate_report` collects in two tiers. **Call it without `full: true` first.**
-The fast report (~20 API calls) covers fleet counts, security posture, OS
-distribution, check-in compliance, audit findings, and environment stats. After
-it completes, report the fleet size and offer the extended report before running
-it: *"The instance has N managed devices. I can run a full report that also
-includes patch compliance, hardware models, cleanup analysis, and org structure —
-this adds roughly 200-500 additional API calls and may take 60-120 seconds on a
-large instance. Would you like the full report?"* Only set `full: true` after
-explicit confirmation. (The CLI form runs the fast tier by default and the full
-tier with `--full`; no confirmation prompt applies there.)
+The fast report covers fleet counts, security posture, OS distribution, check-in
+compliance, audit findings, and environment stats.
+
+**What each tier costs is stated in one place** — `jamf-cli dashboard --help`,
+which renders `dashboardCostNote` — and the `generate_report` tool description
+quotes the same sentence. Quote it from there rather than restating a number
+here: this file, the tool description and the command's own help gave three
+different figures once, and all three were wrong.
+
+`generate_report` returns only the path, size and warnings, never the report's
+own figures, so **the fleet size has to come from a separate call**:
+`run_command ["pro","computers-inventory","list","--limit","1","--field","totalCount"]`.
+Then offer the extended report before running it: *"The instance has N managed
+devices. I can run a full report that also includes patch compliance, hardware
+models, cleanup analysis, and org structure. Would you like the full report?"*
+Only set `full: true` after explicit confirmation. (The CLI form runs the fast
+tier by default and the full tier with `--full`; no confirmation prompt applies
+there.)
+
+**A report can come back complete but partial.** When some sections could not be
+collected the CLI still writes the whole document, marks it incomplete in its
+own header naming the missing sections, and exits 7. `generate_report` keeps
+that file and says so in its result — tell the administrator the report is
+marked incomplete rather than presenting its figures as covering the whole
+fleet.
+
+**Do not reach for `run_command ["dashboard"]`.** It is refused: `run_command`
+returns stdout as tool text and the dashboard writes a 320–800 KB HTML document
+there, with no file left to share.
 
 ## Presentation Workflow
 

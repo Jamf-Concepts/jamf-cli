@@ -81,3 +81,58 @@ Everything else leaves the ID unjudged. `BAD_PERMISSIONS` means the header resol
 ## Setup Command Merging
 
 Both `platform setup` and `security setup` **merge into the profile rather than replacing it** — assigning a fresh literal would zero every field the other command owns. `mergePlatformProfile` (`platform.go`) and `mergeSecurityProfileBase` (`security_setup.go`) are the merges, tested in both orders. `security setup` fills `product` and `auth-method` only when unset, so running it second does not demote a gateway profile.
+
+## Where the Scope Resolution Lives
+
+`resolveScope` (`internal/auth/scope.go` plus its caller in `root.go`) reads the
+`--environment-id` / `--tenant-id` **flag vars first**, then
+`JAMF_ENVIRONMENT_ID` / `JAMF_TENANT_ID`, then the profile's own keys. It reads
+`JAMF_CLIENT_ID` from the environment **directly** (`clientIDFromInvocation`),
+because `PersistentPreRunE` returns for the `security` product before
+`resolveAuth` folds the env vars into the package var — so a rule reading only
+the folded var would silently not apply on the path serving the 52
+gateway-served Security Cloud commands. `ResolveAuthForProfile` reads
+`params.ClientID` only, because `resolveAuth` has already folded by the time it
+is called and params is the complete answer there; reading the mutable package
+var instead made the function's result depend on global state its params exist
+to isolate.
+
+`scopeFromParams` is the term that makes an explicitly supplied level
+**replace** the profile's rather than joining it: `JAMF_ENVIRONMENT_ID` against
+a tenant profile has to mean "use this environment", and merging the two instead
+reported a mutual-exclusion error for a perfectly sensible override.
+
+`scopeLevelNote` hands the withheld-scope remedy to `withheldScopeNote` rather
+than rendering a second one — an earlier version said "no scope header was
+sent" twice and then advised setting an ID on the very profile whose ID had just
+been ignored. Both ladders use the **resolved** profile name from
+`config.GetProfile`, not the requested one: passing the empty string on made the
+rule read as "there is no profile" and dropped the scope of every default-profile
+user.
+
+`platformGatewayRegions` (`internal/commands/platform.go`) holds the GA hosts,
+and `refuseRetiredGatewayURL` refuses a profile still naming the retired
+`{region}.apigw.jamf.com` before any request is sent. **The refusal lives inside
+`newPlatformSDKClient`, not beside its callers**: `ResolveAuthForProfile`
+checked it while the `security` and `school` resolvers did not, because
+`PersistentPreRunE` returns early for both products — so a stale profile reached
+the gateway-served Security Cloud commands and `school blueprints` and failed
+inside the token exchange, which is the useless symptom the refusal exists to
+replace. A guard on the one constructor every path must call cannot be forgotten
+by the next caller.
+
+`resolveSchoolClient` requires a tenant ID before it constructs a platform
+client, so a withheld level leaves the client nil and **no request is sent** —
+the `REQUEST_CONTEXT_NOT_PROVIDED` every other arm of
+`AnnotateScopeLevelError` keys on never arrives.
+`platform.ErrNoPlatformClient` is the sentinel both client gates wrap, so that
+error can carry the withheld note. Deliberately not a stderr warning at
+resolution time: `resolveSchoolClient` runs for every `school` command,
+including the ones that never touch the Platform API.
+
+`printScopeSummary` / `printPermissionsNote` (`internal/commands/platform_scope.go`)
+assemble `platform setup`'s closing summary from the `jamf:scopes` annotation.
+It **reports the level and nothing about entitlements**: an earlier version
+subtracted the sixteen Security Cloud groups on one `BAD_PERMISSIONS`, which
+emptied the list for the ordinary Jamf Pro tenant and did so on a code that
+cannot separate "no entitlement" from one missing grant.

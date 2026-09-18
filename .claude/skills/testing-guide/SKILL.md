@@ -152,3 +152,37 @@ Five tests hold the positional contract tree — each covers a surface the other
 **`TestGatewayUnservedNote`** — pins every direction of the response-side `gatewayUnservedNote` mechanism, including App Installers as the **served** case.
 
 **`TestEveryExampleInvocationNamesACommandThatExists`** — `TestEveryLeafRefusesAnUndocumentedPositional` reads only the leaf the `Example` sits on; this test reads every `jamf-cli` invocation on every `Example` line across all commands.
+
+## Guard Tests the Root CLAUDE.md Used to Name
+
+These eight were named in the pre-restructure root `CLAUDE.md` and are the ones
+whose *reasoning* is not obvious from the test name. Each fails on a specific
+regression that shipped once.
+
+| Test | What regressing it costs |
+|---|---|
+| `TestBulkAllFlagIsReachable` | Cobra validates `Args` before `RunE`, so a bare `ExactArgs` refuses before the `--all` branch is reached. The template relaxes the **floor** only while `--all` is set. It went unnoticed while every paired command also had a `--name` lookup, whose `MaximumNArgs(1)` relaxed the floor by accident. |
+| `TestBulkAllHonoursDryRunBeforeSending` | A destructive generated command declares its own `--dry-run`, which shadows the root persistent flag, so the template's own `flagDryRun` branch is the *only* thing honouring `-n`. An `--all` block returning ahead of it sent a live tenant-wide delete under `--dry-run` (wire-checked: `pro jamf-pro-notifications delete --all --yes -n` issued `DELETE /v1/notifications` and got a 204). The test asserts nothing is **sent**, not that something is printed — a run that previews *and* sends prints correctly too. |
+| `TestCheckAPIMatchRefusesAnUnpublishedEndpointAndExplainsWhy` | An unpublished endpoint often still answers today, so a bare "not served by the gateway" reads as a CLI defect to anyone whose command demonstrably returns data. The test asserts the *explanation*, not just the refusal. |
+| `TestEveryResourceKeyedOverrideNamesALiveResource` | Eleven generator override tables are keyed on the **resource name**, so a rename silently stops them applying. |
+| `TestResourceKeyedOverrideListIsComplete` | Keeps the list of resource-keyed tables the test above sweeps honest — a new table added without an entry is an unguarded rename. |
+| `TestMarshalScopeBody_FieldOrderIsSchemaOrder` | The Classic XML binding is sequence-ordered and **silently ignores children out of order while answering 200**. See the Classic scope section in `.claude/rules/classic-api.md`. |
+| `TestNoSecurityResourceQualifiesForApply` | Security Cloud's whole surface is singletons, actions and read-only documents — no named collection to resolve a name against. That is a property of the API rather than an omission, so the test fails if a spec refresh adds a real collection and nobody notices `apply` should now be synthesized. |
+| `TestPlatformUnroutedOpsAreDeclared` | Covers a `platformUnroutedOps` entry whose path upstream withdraws. Paired with `TestPlatformUnroutedOpsIsEmptyOrEvidenced`, which fails on any addition, so the next drop is a deliberate edit rather than a quiet table append. |
+
+## Dashboard and MCP Tests
+
+The HTML dashboard and the MCP server have their own guards, and each exists for
+a defect that shipped:
+
+| Test | What it holds |
+|---|---|
+| `TestCollectProDataFast_EveryWarningReachesTheTally` | Every stderr warning in a collector must be paired with a `recordFailure`. The collectors that never return an error used to warn and leave their field at zero with nothing recorded, so the banner read "0" and the run exited 0 while six figures were wrong. |
+| `TestCollectCheckinStatus_MarksAFailedHalfRatherThanRenderingZero` | A failed overdue query beside a successful total makes `CheckedInPct` read 100 — a green ring on a fleet where nothing has checked in. |
+| `TestFinishDashboard_ExitContract` | The exit contract a pipeline depends on: 0 clean, 7 partial with the sections named, the underlying code when nothing succeeded, and 0 under `--allow-partial-failure` (but never for a total failure). |
+| `TestFastTierCostIsIndependentOfFleetSize` | A comparison rather than an absolute: a 10,000-record fleet and a 100-record one must cost the same number of requests. The fast tier was documented as fixed-cost while four of its audit checks swept the fleet. |
+| `TestCollectProData_SweepsInventoryOnce` | Six collectors used to sweep `/v4/computers-inventory` independently. |
+| `TestRunReportChild_KeepsTheReportWhenTheChildExits7` | Exit 7 means the document is complete and carries its own incomplete-sections banner. Deleting it on 7 made that banner undeliverable by the only path that produces one. |
+| `TestBlockedChildFlags_CoverEveryCredentialSelectingFlagInTheTree` | Derives the blocked set from the assembled tree rather than a hand-written literal, with a reasoned exemption list a stale entry fails. `--include-profile` is how this was found. |
+| `TestRunReportChild_ScrubsJAMFCLIARGSFromTheChild` | `JAMF_CLI_ARGS` is prepended ahead of everything the server injects, so an inherited `--out-file` set the very flag the deny-list refuses. |
+| `TestRefuseOverlappingProducts` | Two profiles populating the same sections overwrite each other while the header badges both. |

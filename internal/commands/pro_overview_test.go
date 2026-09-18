@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,19 @@ import (
 // overviewMockClient implements registry.HTTPClient for testing overview fetches.
 type overviewMockClient struct {
 	responses map[string]overviewMockResponse
+
+	// keyed is consulted before responses and is keyed on `METHOD path`
+	// including the query, so a test can pin a request's *shape* rather than
+	// only its base path. responses alone falls back to a query-stripped
+	// lookup, which means dropping a `&section=…` from a collector changes
+	// nothing any test can see.
+	keyed map[string]overviewMockResponse
+
+	// requests records every `METHOD path` this client was asked for, in order,
+	// for the same reason: a request nobody can observe is a request no test
+	// can hold to its shape. Guarded, since the collectors are concurrent.
+	mu       sync.Mutex
+	requests []string
 }
 
 type overviewMockResponse struct {
@@ -25,26 +39,48 @@ type overviewMockResponse struct {
 	body       string
 }
 
+// recorded returns the requests made so far, in order.
+func (m *overviewMockClient) recorded() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.requests...)
+}
+
+// requestedMatching returns the recorded requests containing substr.
+func (m *overviewMockClient) requestedMatching(substr string) []string {
+	var out []string
+	for _, r := range m.recorded() {
+		if strings.Contains(r, substr) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 func (m *overviewMockClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
-	// Strip query params for lookup
-	key := path
-	if resp, ok := m.responses[key]; ok {
+	m.mu.Lock()
+	m.requests = append(m.requests, method+" "+path)
+	m.mu.Unlock()
+
+	reply := func(resp overviewMockResponse) *http.Response {
 		return &http.Response{
 			StatusCode: resp.statusCode,
 			Body:       io.NopCloser(strings.NewReader(resp.body)),
 			Header:     make(http.Header),
-		}, nil
+		}
+	}
+
+	if resp, ok := m.keyed[method+" "+path]; ok {
+		return reply(resp), nil
+	}
+	if resp, ok := m.responses[path]; ok {
+		return reply(resp), nil
 	}
 
 	// Try without query params
 	if before, _, ok := strings.Cut(path, "?"); ok {
-		base := before
-		if resp, ok := m.responses[base]; ok {
-			return &http.Response{
-				StatusCode: resp.statusCode,
-				Body:       io.NopCloser(strings.NewReader(resp.body)),
-				Header:     make(http.Header),
-			}, nil
+		if resp, ok := m.responses[before]; ok {
+			return reply(resp), nil
 		}
 	}
 

@@ -1432,7 +1432,11 @@ feature flags, inventory counts, organizational structure, and more.
 Makes parallel API calls for fast results. Items that fail to load show "N/A".
 
 With no -o flag, this command writes a grouped table. Then --out-file receives
-that table, not JSON. Use -o json to write structured data to the file.`,
+that table, not JSON. Use -o json to write structured data to the file.
+
+Related: 'jamf-cli dashboard' renders the same fleet data as a shareable HTML
+report across Jamf Pro, Protect and Platform. 'pro dashboard' is a different
+thing again — the Jamf Pro interface's own dashboard objects.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sections, err := runOverview(cmd.Context(), cliCtx)
 			if err != nil {

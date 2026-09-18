@@ -14,20 +14,64 @@ import (
 )
 
 // collectProData orchestrates all Jamf Pro data collection.
-// The fast tier (~20 API calls) always runs. The full tier (patch compliance,
-// hardware models, cleanup analysis, org structure) runs only when full is true —
-// it scales with instance size and can add hundreds of calls on large instances.
+//
+// Cost, as a formula rather than a constant — dashboardCostNote is the single
+// source for the wording every surface repeats. Both tiers share one
+// /v4/computers-inventory pass and (under --full) one policy-detail pass, so a
+// record is fetched once per run however many collectors read it.
 func collectProData(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, full bool, status *collectStatus) {
-	collectProDataFast(ctx, client, data, smartGroupNames, status)
+	// The section set is decided before the first request so both tiers read
+	// one pass. Fetching per tier would sweep the fleet twice under --full.
+	sections := []string{"SECURITY", "DISK_ENCRYPTION", "OPERATING_SYSTEM"}
 	if full {
-		collectProDataFull(ctx, client, data, smartGroupNames, status)
+		sections = append(sections, "HARDWARE", "GENERAL")
+	}
+	inv := fetchProInventory(ctx, client, sections)
+
+	collectProDataFast(ctx, client, data, smartGroupNames, status, inv)
+	if full {
+		collectProDataFull(ctx, client, data, smartGroupNames, status, inv)
 	}
 }
 
-// collectProDataFast runs the fixed-cost collectors (~20 API calls total,
-// independent of instance size). Covers fleet counts, security posture,
-// OS distribution, check-in compliance, audit findings, and environment stats.
-func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, status *collectStatus) {
+// proInventory is one pass over /v4/computers-inventory, shared by every
+// collector and audit check that needs whole-fleet records.
+//
+// It exists because six collectors used to sweep the fleet independently —
+// security posture, OS distribution, hardware models, org structure and three
+// audit checks — so a 50,000-device instance paid for the same records six
+// times. One pass carries the union of the sections they read.
+type proInventory struct {
+	records []map[string]any
+	err     error
+}
+
+// fetchProInventory runs the shared pass. A failure is carried rather than
+// returned: each reader records its own section's miss, so one unreachable
+// endpoint does not decide how many sections the banner names.
+func fetchProInventory(ctx context.Context, client registry.HTTPClient, sections []string) *proInventory {
+	path := "/v4/computers-inventory"
+	for i, s := range sections {
+		sep := "&"
+		if i == 0 {
+			sep = "?"
+		}
+		path += sep + "section=" + s
+	}
+	records, err := FetchAllPaginated(ctx, client, path, 500)
+	if err != nil {
+		return &proInventory{err: fmt.Errorf("computers-inventory: %w", err)}
+	}
+	return &proInventory{records: records}
+}
+
+// collectProDataFast runs the fixed-cost collectors: their request count does
+// not grow with the computer or policy count.
+//
+// Cost is 1 inventory page sequence (⌈C/500⌉ requests, shared with the full
+// tier) plus roughly 22 fixed requests. The four fleet- and policy-scaled audit
+// checks deliberately live in the full tier — see fleetScaledAuditChecks.
+func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, status *collectStatus, inv *proInventory) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -35,12 +79,13 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		fleet, err := collectFleetCounts(ctx, client)
+		fleet, err := collectFleetCounts(ctx, client, status)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: fleet counts: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionFleet, err)
 			return
 		}
+		status.recordSuccess(sectionFleet)
 		mu.Lock()
 		data.Fleet = fleet
 		mu.Unlock()
@@ -48,12 +93,13 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		security, err := collectSecurityPosture(ctx, client)
+		security, err := collectSecurityPosture(inv)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: security posture: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionSecurity, err)
 			return
 		}
+		status.recordSuccess(sectionSecurity)
 		mu.Lock()
 		data.Security = security
 		mu.Unlock()
@@ -61,8 +107,8 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		audit := collectAuditFindings(ctx, client)
-		if len(audit.Results) > 0 {
+		audit := collectAuditFindings(ctx, client, fixedCostAuditChecks(), status)
+		if len(audit.Results) > 0 || audit.ChecksSkipped > 0 {
 			mu.Lock()
 			data.Audit = audit
 			mu.Unlock()
@@ -71,11 +117,9 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		devices, err := collectDeviceCompliance(ctx, client)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: device compliance: %v\n", err)
-			status.recordFailure()
-			return
+		devices := collectDeviceCompliance(ctx, client, status)
+		if !devices.StaleMissing || !devices.MDMMissing {
+			status.recordSuccess(sectionFleet)
 		}
 		mu.Lock()
 		data.Devices = devices
@@ -84,12 +128,13 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		osDist, err := collectOSDistribution(ctx, client)
+		osDist, err := collectOSDistribution(inv)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: OS distribution: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionOSDist, err)
 			return
 		}
+		status.recordSuccess(sectionOSDist)
 		mu.Lock()
 		data.OSDist = osDist
 		mu.Unlock()
@@ -97,12 +142,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		envStats, err := collectEnvironmentStats(ctx, client)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: environment stats: %v\n", err)
-			status.recordFailure()
-			return
-		}
+		envStats := collectEnvironmentStats(ctx, client, status)
 		mu.Lock()
 		data.EnvStats = envStats
 		mu.Unlock()
@@ -110,12 +150,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		checkin, err := collectCheckinStatus(ctx, client)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: check-in status: %v\n", err)
-			status.recordFailure()
-			return
-		}
+		checkin := collectCheckinStatus(ctx, client, status)
 		mu.Lock()
 		data.Checkin = checkin
 		mu.Unlock()
@@ -126,9 +161,10 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		sg, err := collectSmartGroups(ctx, client, "/v3/computer-groups/smart-groups", smartGroupNames, "membershipCount")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: computer smart groups: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionSmartGroups, err)
 			return
 		}
+		status.recordSuccess(sectionSmartGroups)
 		mu.Lock()
 		data.ComputerSmartGroups = sg
 		mu.Unlock()
@@ -141,24 +177,34 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 	}
 }
 
-// collectProDataFull runs the variable-cost collectors. Call count scales with
-// instance size: 2 calls per patch title + 1 call per policy + 1 per profile.
-// A mid-sized instance (30 patch titles, 200 policies, 100 profiles) adds ~360
-// additional API calls beyond the fast tier.
-func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, status *collectStatus) {
+// collectProDataFull runs the variable-cost collectors, whose request count
+// grows with the instance: 2 requests per patch title, 1 per policy, 1 per
+// config profile, plus the four fleet- and policy-scaled audit checks. Those
+// last four and the cleanup analysis read the shared inventory and policy
+// passes rather than sweeping again, so a policy detail is fetched once per run
+// where it used to be fetched twice.
+func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *DashboardData, smartGroupNames []string, status *collectStatus, inv *proInventory) {
+	// Two shared Classic detail passes. Policies are read by the cleanup
+	// analysis and the policies-with-no-scope audit check; profiles by the
+	// cleanup analysis and the org structure's category counts. Both used to be
+	// fetched twice per run.
+	policies := fetchPolicyDetails(ctx, client)
+	profiles := fetchConfigProfileDetails(ctx, client)
+
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	wg.Add(4)
+	wg.Add(5)
 
 	go func() {
 		defer wg.Done()
-		patch, spread, err := collectPatchCompliance(ctx, client)
+		patch, spread, err := collectPatchCompliance(ctx, client, status)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: patch compliance: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionPatch, err)
 			return
 		}
+		status.recordSuccess(sectionPatch)
 		mu.Lock()
 		data.Patch = patch
 		data.PatchSpread = spread
@@ -167,10 +213,10 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		hw, err := collectHardwareModels(ctx, client)
+		hw, err := collectHardwareModels(ctx, client, status, inv)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: hardware models: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionHardware, err)
 			return
 		}
 		mu.Lock()
@@ -180,12 +226,13 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		cleanup, err := collectCleanupAnalysis(ctx, client)
+		cleanup, err := collectCleanupAnalysis(ctx, client, policies, profiles, status)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: cleanup analysis: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionCleanup, err)
 			return
 		}
+		status.recordSuccess(sectionCleanup)
 		mu.Lock()
 		data.Cleanup = cleanup
 		mu.Unlock()
@@ -193,14 +240,29 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 
 	go func() {
 		defer wg.Done()
-		org, err := collectOrgStructure(ctx, client)
+		org, err := collectOrgStructure(ctx, client, status, inv, policies, profiles)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: org structure: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionOrgStructure, err)
 			return
 		}
+		status.recordSuccess(sectionOrgStructure)
 		mu.Lock()
 		data.OrgStructure = org
+		mu.Unlock()
+	}()
+
+	// The fleet- and policy-scaled audit checks. They read the shared passes,
+	// so they cost nothing beyond what the tier already fetched.
+	go func() {
+		defer wg.Done()
+		extra := collectScaledAuditFindings(inv, policies, status)
+		mu.Lock()
+		if data.Audit == nil {
+			data.Audit = &auditSummary{}
+		}
+		data.Audit.Results = append(data.Audit.Results, extra.Results...)
+		data.Audit.ChecksSkipped += extra.ChecksSkipped
 		mu.Unlock()
 	}()
 
@@ -211,8 +273,9 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 	mgSG, err := collectSmartGroups(ctx, client, "/v2/mobile-device-groups/smart-groups", smartGroupNames, "count")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: mobile smart groups: %v\n", err)
-		status.recordFailure()
+		status.recordFailureErr(sectionSmartGroups, err)
 	} else {
+		status.recordSuccess(sectionSmartGroups)
 		mu.Lock()
 		data.MobileSmartGroups = mgSG
 		mu.Unlock()
@@ -225,7 +288,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 
 // collectFleetCounts fetches managed/unmanaged computer and mobile counts
 // from /v1/inventory-information, and the total user count from /v1/users.
-func collectFleetCounts(ctx context.Context, client registry.HTTPClient) (*fleetSummary, error) {
+func collectFleetCounts(ctx context.Context, client registry.HTTPClient, status *collectStatus) (*fleetSummary, error) {
 	inv, err := fetchJSON(ctx, client, "/v1/inventory-information")
 	if err != nil {
 		return nil, fmt.Errorf("inventory-information: %w", err)
@@ -236,36 +299,39 @@ func collectFleetCounts(ctx context.Context, client registry.HTTPClient) (*fleet
 	managedMobile, _ := inv["managedDevices"].(float64)
 	unmanagedMobile, _ := inv["unmanagedDevices"].(float64)
 
-	usersData, err := fetchJSON(ctx, client, "/v1/users?page-size=1")
-	users := 0
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: user count: %v\n", err)
-	} else {
-		if tc, ok := usersData["totalCount"].(float64); ok {
-			users = int(tc)
-		}
-	}
-
-	return &fleetSummary{
+	summary := &fleetSummary{
 		ManagedComputers:   int(managed),
 		UnmanagedComputers: int(unmanaged),
 		ManagedMobile:      int(managedMobile),
 		UnmanagedMobile:    int(unmanagedMobile),
-		Users:              users,
-	}, nil
-}
-
-// collectSecurityPosture fetches all computers with SECURITY and DISK_ENCRYPTION
-// sections, then counts how many have each security feature enabled.
-func collectSecurityPosture(ctx context.Context, client registry.HTTPClient) (*securityPosture, error) {
-	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=SECURITY&section=DISK_ENCRYPTION", 500)
-	if err != nil {
-		return nil, fmt.Errorf("computers-inventory security: %w", err)
 	}
 
-	posture := &securityPosture{Total: len(all)}
+	usersData, err := fetchJSON(ctx, client, "/v1/users?page-size=1")
+	if err != nil {
+		// A failed user count is not zero users. Rendering "0 Users" as a
+		// headline figure is the shape this flag exists to prevent.
+		fmt.Fprintf(os.Stderr, "WARNING: user count: %v\n", err)
+		status.recordFailureErr(sectionFleet, err)
+		summary.UsersMissing = true
+	} else if tc, ok := usersData["totalCount"].(float64); ok {
+		summary.Users = int(tc)
+	}
 
-	for _, comp := range all {
+	return summary, nil
+}
+
+// collectSecurityPosture counts security features across the shared inventory
+// pass. It takes records rather than a client because the same pass answers the
+// OS distribution, the hardware models, the org structure and three audit
+// checks.
+func collectSecurityPosture(inv *proInventory) (*securityPosture, error) {
+	if inv.err != nil {
+		return nil, inv.err
+	}
+
+	posture := &securityPosture{Total: len(inv.records)}
+
+	for _, comp := range inv.records {
 		diskEnc, _ := comp["diskEncryption"].(map[string]any)
 		if fileVaultStatus(diskEnc) == statusFVEncrypted {
 			posture.FileVaultEnabled++
@@ -294,21 +360,67 @@ func collectSecurityPosture(ctx context.Context, client registry.HTTPClient) (*s
 	return posture, nil
 }
 
-// collectAuditFindings runs all audit checks sequentially and collects results.
-// Individual check failures are logged to stderr and skipped.
-func collectAuditFindings(ctx context.Context, client registry.HTTPClient) *auditSummary {
-	checks := allAuditChecks()
+// collectAuditFindings runs the given audit checks sequentially. A check that
+// fails is counted as well as warned about: the Audit section's own figures are
+// a count of findings, so a failed check silently removes an alert rather than
+// showing an empty one.
+func collectAuditFindings(ctx context.Context, client registry.HTTPClient, checks []auditCheck, status *collectStatus) *auditSummary {
 	summary := &auditSummary{}
 
 	for _, check := range checks {
 		result, err := check.Run(ctx, client, 14)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, err)
+			status.recordFailureErr(sectionAudit, err)
+			summary.ChecksSkipped++
 			continue
 		}
 		if result != nil {
 			summary.Results = append(summary.Results, *result)
 		}
+	}
+	if summary.ChecksSkipped < len(checks) {
+		status.recordSuccess(sectionAudit)
+	}
+
+	return summary
+}
+
+// collectScaledAuditFindings answers the fleet- and policy-scaled checks from
+// the shared passes. Each check is skipped — and recorded as skipped — when the
+// pass it reads could not be fetched.
+func collectScaledAuditFindings(inv *proInventory, policies *policyDetailSet, status *collectStatus) *auditSummary {
+	summary := &auditSummary{}
+	ran := 0
+
+	for _, check := range fleetScaledAuditChecks() {
+		switch {
+		case check.FromInventory != nil:
+			if inv.err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, inv.err)
+				status.recordFailureErr(sectionAudit, inv.err)
+				summary.ChecksSkipped++
+				continue
+			}
+			ran++
+			if r := check.FromInventory(inv.records); r != nil {
+				summary.Results = append(summary.Results, *r)
+			}
+		case check.FromPolicies != nil:
+			if policies.err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, policies.err)
+				status.recordFailureErr(sectionAudit, policies.err)
+				summary.ChecksSkipped++
+				continue
+			}
+			ran++
+			if r := check.FromPolicies(policies.details, policies.skipped); r != nil {
+				summary.Results = append(summary.Results, *r)
+			}
+		}
+	}
+	if ran > 0 {
+		status.recordSuccess(sectionAudit)
 	}
 
 	return summary
@@ -316,7 +428,7 @@ func collectAuditFindings(ctx context.Context, client registry.HTTPClient) *audi
 
 // collectPatchCompliance fetches all patch software title configurations and
 // then collects a per-title patch summary in parallel.
-func collectPatchCompliance(ctx context.Context, client registry.HTTPClient) (*patchCompliance, []patchVersionSpread, error) {
+func collectPatchCompliance(ctx context.Context, client registry.HTTPClient, status *collectStatus) (*patchCompliance, []patchVersionSpread, error) {
 	configs, err := FetchAllPaginated(ctx, client, "/v3/patch-software-title-configurations", 100)
 	if err != nil {
 		return nil, nil, fmt.Errorf("patch-software-title-configurations: %w", err)
@@ -346,16 +458,18 @@ func collectPatchCompliance(ctx context.Context, client registry.HTTPClient) (*p
 		versions, vErr := FetchAllPaginated(ctx, client, versionsPath, 100)
 		if vErr != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: patch versions for %s: %v\n", id, vErr)
+			status.recordFailureErr(sectionPatch, vErr)
 		}
 
 		return patchResult{Summary: summary, Versions: versions}, nil
 	})
 
+	compliance := &patchCompliance{TitlesSkipped: len(errs)}
 	for _, err := range errs {
 		fmt.Fprintf(os.Stderr, "WARNING: patch summary fetch: %v\n", err)
+		status.recordFailureErr(sectionPatch, err)
 	}
 
-	compliance := &patchCompliance{}
 	var spreads []patchVersionSpread
 
 	for _, r := range results {
@@ -417,48 +531,48 @@ func collectPatchCompliance(ctx context.Context, client registry.HTTPClient) (*p
 	return compliance, spreads, nil
 }
 
-// collectDeviceCompliance fetches stale check-in count and failed MDM command count.
-func collectDeviceCompliance(ctx context.Context, client registry.HTTPClient) (*deviceCompliance, error) {
+// collectDeviceCompliance fetches stale check-in count and failed MDM command
+// count. Each half is independently optional: a failed fetch marks its own
+// field missing rather than leaving a zero, because the template hides an alert
+// card whose count is zero — so a failed MDM-command fetch used to remove the
+// alert entirely rather than saying it could not be read.
+func collectDeviceCompliance(ctx context.Context, client registry.HTTPClient, status *collectStatus) *deviceCompliance {
 	const staleDays = 14
 	cutoff := timeNow().AddDate(0, 0, -staleDays).UTC().Format("2006-01-02")
+
+	compliance := &deviceCompliance{StaleThresholdDays: staleDays}
+
 	staleData, err := fetchJSON(ctx, client,
 		fmt.Sprintf("/v4/computers-inventory?section=GENERAL&page-size=1&filter=general.lastCheckIn%%3C%s", cutoff))
-	staleCount := 0
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: stale device check-in count: %v\n", err)
-	} else {
-		if tc, ok := staleData["totalCount"].(float64); ok {
-			staleCount = int(tc)
-		}
+		status.recordFailureErr(sectionFleet, err)
+		compliance.StaleMissing = true
+	} else if tc, ok := staleData["totalCount"].(float64); ok {
+		compliance.StaleDevices = int(tc)
 	}
 
 	mdmData, err := fetchJSON(ctx, client, "/v2/mdm/commands?filter=status%3D%3DError&page-size=1")
-	failedMDM := 0
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed MDM commands: %v\n", err)
-	} else {
-		if tc, ok := mdmData["totalCount"].(float64); ok {
-			failedMDM = int(tc)
-		}
+		status.recordFailureErr(sectionFleet, err)
+		compliance.MDMMissing = true
+	} else if tc, ok := mdmData["totalCount"].(float64); ok {
+		compliance.FailedMDMCommands = int(tc)
 	}
 
-	return &deviceCompliance{
-		StaleDevices:       staleCount,
-		FailedMDMCommands:  failedMDM,
-		StaleThresholdDays: staleDays,
-	}, nil
+	return compliance
 }
 
-// collectOSDistribution fetches all computers with OPERATING_SYSTEM section
-// and groups them by OS version, sorted by count descending.
-func collectOSDistribution(ctx context.Context, client registry.HTTPClient) (*osDistribution, error) {
-	all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=OPERATING_SYSTEM", 500)
-	if err != nil {
-		return nil, fmt.Errorf("computers-inventory OS section: %w", err)
+// collectOSDistribution groups the shared inventory pass by OS version, sorted
+// by count descending.
+func collectOSDistribution(inv *proInventory) (*osDistribution, error) {
+	if inv.err != nil {
+		return nil, inv.err
 	}
 
 	counts := make(map[string]int)
-	for _, comp := range all {
+	for _, comp := range inv.records {
 		osInfo, _ := comp["operatingSystem"].(map[string]any)
 		if osInfo == nil {
 			continue
@@ -483,12 +597,16 @@ func collectOSDistribution(ctx context.Context, client registry.HTTPClient) (*os
 	return &osDistribution{Versions: versions}, nil
 }
 
-func collectEnvironmentStats(ctx context.Context, client registry.HTTPClient) (*environmentStats, error) {
-	stats := &environmentStats{}
+// collectEnvironmentStats counts each environment object type. A count that
+// could not be fetched is named in Missing rather than left at zero, so the
+// template renders "unavailable" where it would otherwise render a confident 0.
+func collectEnvironmentStats(ctx context.Context, client registry.HTTPClient, status *collectStatus) *environmentStats {
+	stats := &environmentStats{Missing: map[string]bool{}}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
 	type countTask struct {
+		label  string
 		target *int
 		fn     func() (int, error)
 	}
@@ -510,42 +628,64 @@ func collectEnvironmentStats(ctx context.Context, client registry.HTTPClient) (*
 	}
 
 	tasks := []countTask{
-		{&stats.Policies, classicCount("/JSSResource/policies")},
-		{&stats.ConfigProfiles, classicCount("/JSSResource/osxconfigurationprofiles")},
-		{&stats.Scripts, paginatedCount("/v1/scripts")},
-		{&stats.Packages, classicCount("/JSSResource/packages")},
-		{&stats.ComputerSmartGrps, paginatedCount("/v3/computer-groups/smart-groups")},
-		{&stats.MobileSmartGrps, paginatedCount("/v2/mobile-device-groups/smart-groups")},
-		{&stats.ExtAttributes, paginatedCount("/v1/computer-extension-attributes")},
-		{&stats.Categories, paginatedCount("/v1/categories")},
+		{envStatPolicies, &stats.Policies, classicCount("/JSSResource/policies")},
+		{envStatConfigProfiles, &stats.ConfigProfiles, classicCount("/JSSResource/osxconfigurationprofiles")},
+		{envStatScripts, &stats.Scripts, paginatedCount("/v1/scripts")},
+		{envStatPackages, &stats.Packages, classicCount("/JSSResource/packages")},
+		{envStatComputerSmartGrps, &stats.ComputerSmartGrps, paginatedCount("/v3/computer-groups/smart-groups")},
+		{envStatMobileSmartGrps, &stats.MobileSmartGrps, paginatedCount("/v2/mobile-device-groups/smart-groups")},
+		{envStatExtAttributes, &stats.ExtAttributes, paginatedCount("/v1/computer-extension-attributes")},
+		{envStatCategories, &stats.Categories, paginatedCount("/v1/categories")},
 	}
 
 	wg.Add(len(tasks))
 	for _, t := range tasks {
-		go func(tgt *int, fn func() (int, error)) {
+		go func(label string, tgt *int, fn func() (int, error)) {
 			defer wg.Done()
 			val, err := fn()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: environment stat: %v\n", err)
+				fmt.Fprintf(os.Stderr, "WARNING: environment stat %s: %v\n", label, err)
+				status.recordFailureErr(sectionEnvironment, err)
+				mu.Lock()
+				stats.Missing[label] = true
+				mu.Unlock()
 				return
 			}
 			mu.Lock()
 			*tgt = val
 			mu.Unlock()
-		}(t.target, t.fn)
+		}(t.label, t.target, t.fn)
 	}
 	wg.Wait()
 
-	return stats, nil
+	if len(stats.Missing) < len(tasks) {
+		status.recordSuccess(sectionEnvironment)
+	}
+
+	return stats
 }
 
-func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*checkinStatus, error) {
+// collectCheckinStatus counts overdue devices against their totals. Each half
+// is independently optional: an overdue count that failed while its total
+// succeeded would make CheckedInPct read 100% on a fleet where nothing has
+// checked in, which is the single most misleading zero in the report.
+func collectCheckinStatus(ctx context.Context, client registry.HTTPClient, status *collectStatus) *checkinStatus {
 	const thresholdDays = 7
 	cutoff := timeNow().AddDate(0, 0, -thresholdDays).UTC().Format("2006-01-02")
 
-	status := &checkinStatus{ThresholdDays: thresholdDays}
+	ck := &checkinStatus{ThresholdDays: thresholdDays}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
+	failures := 0
+
+	fail := func(what string, err error, mark *bool) {
+		fmt.Fprintf(os.Stderr, "WARNING: %s: %v\n", what, err)
+		status.recordFailureErr(sectionCheckin, err)
+		mu.Lock()
+		*mark = true
+		failures++
+		mu.Unlock()
+	}
 
 	wg.Add(4)
 
@@ -553,11 +693,11 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*che
 		defer wg.Done()
 		n, err := fetchPaginatedCountInt(ctx, client, "/v4/computers-inventory?section=GENERAL")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: computer total count: %v\n", err)
+			fail("computer total count", err, &ck.ComputerDataMissing)
 			return
 		}
 		mu.Lock()
-		status.ComputersTotal = n
+		ck.ComputersTotal = n
 		mu.Unlock()
 	}()
 
@@ -566,11 +706,11 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*che
 		n, err := fetchPaginatedCountInt(ctx, client,
 			fmt.Sprintf("/v4/computers-inventory?section=GENERAL&filter=general.lastCheckIn%%3C%s", cutoff))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: overdue computer count: %v\n", err)
+			fail("overdue computer count", err, &ck.ComputerDataMissing)
 			return
 		}
 		mu.Lock()
-		status.ComputersOverdue = n
+		ck.ComputersOverdue = n
 		mu.Unlock()
 	}()
 
@@ -578,11 +718,11 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*che
 		defer wg.Done()
 		n, err := fetchPaginatedCountInt(ctx, client, "/v2/mobile-devices")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: mobile total count: %v\n", err)
+			fail("mobile total count", err, &ck.MobileDataMissing)
 			return
 		}
 		mu.Lock()
-		status.MobileTotal = n
+		ck.MobileTotal = n
 		mu.Unlock()
 	}()
 
@@ -591,16 +731,20 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*che
 		n, err := fetchPaginatedCountInt(ctx, client,
 			fmt.Sprintf("/v2/mobile-devices?filter=lastInventoryUpdateDate%%3C%s", cutoff))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: overdue mobile count: %v\n", err)
+			fail("overdue mobile count", err, &ck.MobileDataMissing)
 			return
 		}
 		mu.Lock()
-		status.MobileOverdue = n
+		ck.MobileOverdue = n
 		mu.Unlock()
 	}()
 
 	wg.Wait()
-	return status, nil
+
+	if failures < 4 {
+		status.recordSuccess(sectionCheckin)
+	}
+	return ck
 }
 
 // topNModels sorts counts by descending frequency, caps at n, and rolls the
@@ -621,22 +765,19 @@ func topNModels(counts map[string]int, n int) []modelCount {
 	return models
 }
 
-func collectHardwareModels(ctx context.Context, client registry.HTTPClient) (*hardwareModels, error) {
+// collectHardwareModels reads computer models off the shared inventory pass and
+// fetches mobile devices itself. Either half failing marks that half missing
+// rather than rendering an empty model table as "no models".
+func collectHardwareModels(ctx context.Context, client registry.HTTPClient, status *collectStatus, inv *proInventory) (*hardwareModels, error) {
 	hw := &hardwareModels{}
-	var mu sync.Mutex
-	var wg sync.WaitGroup
 
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		all, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=HARDWARE", 500)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: computer hardware: %v\n", err)
-			return
-		}
+	if inv.err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: computer hardware: %v\n", inv.err)
+		status.recordFailureErr(sectionHardware, inv.err)
+		hw.ComputerModelsMissing = true
+	} else {
 		counts := make(map[string]int)
-		for _, comp := range all {
+		for _, comp := range inv.records {
 			hardware, _ := comp["hardware"].(map[string]any)
 			if hardware == nil {
 				continue
@@ -645,32 +786,31 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient) (*ha
 				counts[model]++
 			}
 		}
-		mu.Lock()
 		hw.ComputerModels = topNModels(counts, 10)
-		mu.Unlock()
-	}()
+	}
 
-	go func() {
-		defer wg.Done()
-		all, err := FetchAllPaginated(ctx, client, "/v2/mobile-devices", 500)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: mobile device models: %v\n", err)
-			return
-		}
+	all, err := FetchAllPaginated(ctx, client, "/v2/mobile-devices", 500)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: mobile device models: %v\n", err)
+		status.recordFailureErr(sectionHardware, err)
+		hw.MobileModelsMissing = true
+	} else {
 		counts := make(map[string]int)
 		for _, dev := range all {
 			if model, _ := dev["model"].(string); model != "" {
 				counts[model]++
 			}
 		}
-		mu.Lock()
 		hw.MobileModels = topNModels(counts, 10)
-		mu.Unlock()
-	}()
+	}
 
-	wg.Wait()
-
-	if len(hw.ComputerModels) == 0 && len(hw.MobileModels) == 0 {
+	if hw.ComputerModelsMissing && hw.MobileModelsMissing {
+		// Nothing to render, and both misses are already recorded.
+		return nil, nil
+	}
+	status.recordSuccess(sectionHardware)
+	if len(hw.ComputerModels) == 0 && len(hw.MobileModels) == 0 &&
+		!hw.ComputerModelsMissing && !hw.MobileModelsMissing {
 		return nil, nil
 	}
 	return hw, nil
@@ -730,20 +870,29 @@ func collectSmartGroups(ctx context.Context, client registry.HTTPClient, endpoin
 	return summary, nil
 }
 
-// collectCleanupAnalysis identifies housekeeping candidates:
-// disabled policies, unscoped policies, unscoped config profiles,
-// packages not referenced by any policy, and scripts not referenced by any policy.
-func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*cleanupAnalysis, error) {
-	// Fetch policies with full detail to check scope and enabled state.
+// policyDetailSet is one pass over every policy's Classic detail, shared by the
+// cleanup analysis and the policies-with-no-scope audit check. Both used to
+// fetch every policy independently, so a 500-policy instance paid for 1,000
+// identical Classic GETs per --full run.
+//
+// A failed list fetch is carried in err and leaves details empty; a failed
+// per-policy detail increments skipped, which is what makes every figure
+// derived from the pass unpublishable rather than merely low.
+type policyDetailSet struct {
+	details []map[string]any
+	skipped int
+	err     error
+}
+
+// fetchPolicyDetails runs the shared pass. Each skipped policy is named on
+// stderr: "150 policies unreadable" is not actionable without the ids.
+func fetchPolicyDetails(ctx context.Context, client registry.HTTPClient) *policyDetailSet {
 	policies, err := FetchClassicList(ctx, client, "/JSSResource/policies", "policy")
 	if err != nil {
-		return nil, fmt.Errorf("policies: %w", err)
+		return &policyDetailSet{err: fmt.Errorf("policies: %w", err)}
 	}
 
-	var disabledPolicies, unscopedPolicies, skippedPolicies int
-	referencedPackages := make(map[string]bool)
-	referencedScripts := make(map[string]bool)
-
+	set := &policyDetailSet{}
 	for _, raw := range policies {
 		p, _ := raw.(map[string]any)
 		if p == nil {
@@ -756,18 +905,104 @@ func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*c
 		detail, err := fetchJSON(ctx, client, "/JSSResource/policies/id/"+id)
 		if err != nil {
 			// A missed policy detail leaves its packages/scripts out of the
-			// reference sets, which would make in-use items look unused. Track
-			// it so the report withholds the derived counts rather than
-			// publishing an under-referenced tally as fact.
-			skippedPolicies++
-			fmt.Fprintf(os.Stderr, "WARNING: cleanup analysis: policy %s detail: %v\n", id, err)
+			// reference sets and its enabled/scope state out of the counters,
+			// so everything the pass derives has to be withheld rather than
+			// published as an under-counted tally.
+			set.skipped++
+			fmt.Fprintf(os.Stderr, "WARNING: policy %s detail: %v\n", id, err)
 			continue
 		}
 		pol, _ := detail["policy"].(map[string]any)
 		if pol == nil {
 			pol = detail
 		}
+		set.details = append(set.details, pol)
+	}
+	return set
+}
 
+// fetchConfigProfileDetails is the config-profile twin of fetchPolicyDetails,
+// shared by the cleanup analysis (which derives UnscopedProfiles from it) and
+// the org structure (which counts each category's members).
+//
+// It is a pass of its own for the same reason the policy one is: the loop used
+// to live inside collectCleanupAnalysis with a bare `continue` on error — no
+// counter and no warning, the quietest site in the file — so 80 failed
+// detail fetches rendered "Unscoped Profiles: 0" with no output of any kind.
+func fetchConfigProfileDetails(ctx context.Context, client registry.HTTPClient) *policyDetailSet {
+	profiles, err := FetchClassicList(ctx, client, "/JSSResource/osxconfigurationprofiles", "configuration_profile")
+	if err != nil {
+		return &policyDetailSet{err: fmt.Errorf("config profiles: %w", err)}
+	}
+
+	set := &policyDetailSet{}
+	for _, raw := range profiles {
+		p, _ := raw.(map[string]any)
+		if p == nil {
+			continue
+		}
+		id := extractClassicID(p)
+		if id == "" {
+			continue
+		}
+		detail, err := fetchJSON(ctx, client, "/JSSResource/osxconfigurationprofiles/id/"+id)
+		if err != nil {
+			set.skipped++
+			fmt.Fprintf(os.Stderr, "WARNING: config profile %s detail: %v\n", id, err)
+			continue
+		}
+		prof, _ := detail["os_x_configuration_profile"].(map[string]any)
+		if prof == nil {
+			set.skipped++
+			fmt.Fprintf(os.Stderr, "WARNING: config profile %s detail carried no profile object\n", id)
+			continue
+		}
+		set.details = append(set.details, prof)
+	}
+	return set
+}
+
+// classicCategoryName reads the category a Classic policy or configuration
+// profile is filed under. Jamf renders an unfiled object's category as the
+// literal "No category assigned", which is not a category.
+func classicCategoryName(detail map[string]any) string {
+	gen, _ := detail["general"].(map[string]any)
+	if gen == nil {
+		return ""
+	}
+	// A policy nests it as an object; a configuration profile carries it as a
+	// bare string. Both shapes are live.
+	switch cat := gen["category"].(type) {
+	case map[string]any:
+		name, _ := cat["name"].(string)
+		return name
+	case string:
+		return cat
+	}
+	return ""
+}
+
+// collectCleanupAnalysis identifies housekeeping candidates:
+// disabled policies, unscoped policies, unscoped config profiles,
+// packages not referenced by any policy, and scripts not referenced by any policy.
+//
+// Every figure it publishes is gated on the pass that produced it. A policy
+// detail that could not be read removes its packages and scripts from the
+// reference sets and its own state from the counters, so publishing either as a
+// number is deletion advice derived from records nobody read.
+func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient, policies, profiles *policyDetailSet, status *collectStatus) (*cleanupAnalysis, error) {
+	if policies.err != nil {
+		return nil, policies.err
+	}
+	if profiles.err != nil {
+		return nil, profiles.err
+	}
+
+	var disabledPolicies, unscopedPolicies int
+	referencedPackages := make(map[string]bool)
+	referencedScripts := make(map[string]bool)
+
+	for _, pol := range policies.details {
 		gen, _ := pol["general"].(map[string]any)
 		if enabled, _ := gen["enabled"].(bool); !enabled {
 			disabledPolicies++
@@ -802,34 +1037,20 @@ func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*c
 			}
 		}
 	}
-
-	// Unscoped config profiles.
-	profiles, err := FetchClassicList(ctx, client, "/JSSResource/osxconfigurationprofiles", "configuration_profile")
-	if err != nil {
-		return nil, fmt.Errorf("config profiles: %w", err)
+	if policies.skipped > 0 {
+		status.recordFailure(sectionCleanup)
 	}
+
+	// Unscoped config profiles, from the shared profile-detail pass.
 	var unscopedProfiles int
-	for _, raw := range profiles {
-		p, _ := raw.(map[string]any)
-		if p == nil {
-			continue
-		}
-		id := extractClassicID(p)
-		if id == "" {
-			continue
-		}
-		detail, err := fetchJSON(ctx, client, "/JSSResource/osxconfigurationprofiles/id/"+id)
-		if err != nil {
-			continue
-		}
-		prof, _ := detail["os_x_configuration_profile"].(map[string]any)
-		if prof == nil {
-			continue
-		}
+	for _, prof := range profiles.details {
 		scope, _ := prof["scope"].(map[string]any)
 		if isEmptyScope(scope) {
 			unscopedProfiles++
 		}
+	}
+	if profiles.skipped > 0 {
+		status.recordFailure(sectionCleanup)
 	}
 
 	// Unused packages: packages not referenced by any policy.
@@ -866,7 +1087,8 @@ func collectCleanupAnalysis(ctx context.Context, client registry.HTTPClient) (*c
 		UnscopedProfiles: unscopedProfiles,
 		UnusedPackages:   unusedPackages,
 		UnusedScripts:    unusedScripts,
-		PoliciesSkipped:  skippedPolicies,
+		PoliciesSkipped:  policies.skipped,
+		ProfilesSkipped:  profiles.skipped,
 	}, nil
 }
 
@@ -900,24 +1122,20 @@ func extractClassicID(item map[string]any) string {
 	return ""
 }
 
-// collectOrgStructure fetches sites, buildings, departments, and categories
-// with their device counts to give an overview of the org hierarchy.
-func collectOrgStructure(ctx context.Context, client registry.HTTPClient) (*orgStructure, error) {
-	var mu sync.Mutex
-	var wg sync.WaitGroup
+// collectOrgStructure derives sites, buildings and departments from the shared
+// inventory pass, and fetches category names itself.
+func collectOrgStructure(ctx context.Context, client registry.HTTPClient, status *collectStatus, inv *proInventory, policies, profiles *policyDetailSet) (*orgStructure, error) {
 	org := &orgStructure{}
 
-	// Fetch all computer inventory once to count per site/building/department.
-	allComputers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL", 500)
-	if err != nil {
-		return nil, fmt.Errorf("computers-inventory: %w", err)
+	if inv.err != nil {
+		return nil, inv.err
 	}
 
-	// Build site/building/department counts from inventory.
+	// Build site/building/department counts from the shared inventory pass.
 	siteCounts := make(map[string]int)
 	buildingCounts := make(map[string]int)
 	deptCounts := make(map[string]int)
-	for _, comp := range allComputers {
+	for _, comp := range inv.records {
 		gen, _ := comp["general"].(map[string]any)
 		if gen == nil {
 			continue
@@ -957,34 +1175,44 @@ func collectOrgStructure(ctx context.Context, client registry.HTTPClient) (*orgS
 	org.Buildings = toEntries(buildingCounts)
 	org.Departments = toEntries(deptCounts)
 
-	// Categories: fetch the list of category names in parallel. The Classic
-	// and Pro APIs expose no per-category item count without a full inventory
-	// crawl, so categories carry only a name.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		cats, err := FetchAllPaginated(ctx, client, "/v1/categories", 100)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: categories: %v\n", err)
-			return
-		}
-		entries := make([]orgEntry, 0, len(cats))
-		for _, cat := range cats {
-			name, _ := cat["name"].(string)
-			if name == "" || name == "No category assigned" {
-				continue
-			}
-			entries = append(entries, orgEntry{Name: name})
-		}
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].Name < entries[j].Name
-		})
-		mu.Lock()
-		org.Categories = entries
-		mu.Unlock()
-	}()
+	// Categories carry a real member count, tallied across every object type
+	// that can hold one — see dashboard_pro_categories.go. The category list
+	// has to land first, because three of the four Pro collections carry a
+	// category id rather than a name.
+	cats, err := FetchAllPaginated(ctx, client, "/v1/categories", 100)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: categories: %v\n", err)
+		status.recordFailureErr(sectionOrgStructure, err)
+		org.CategoriesMissing = true
+		return org, nil
+	}
 
-	wg.Wait()
+	byID := make(map[string]string, len(cats))
+	entries := make([]orgEntry, 0, len(cats))
+	for _, cat := range cats {
+		name, _ := cat["name"].(string)
+		if name == "" || name == categoryUnassigned {
+			continue
+		}
+		if id := categoryIDString(cat["id"]); id != "" {
+			byID[id] = name
+		}
+		entries = append(entries, orgEntry{Name: name})
+	}
+
+	usage := collectCategoryUsage(ctx, client, byID, policies, profiles)
+	for i := range entries {
+		entries[i].Count = usage.countFor(entries[i].Name)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Count != entries[j].Count {
+			return entries[i].Count > entries[j].Count
+		}
+		return entries[i].Name < entries[j].Name
+	})
+	org.Categories = entries
+	org.CategoryCountsReliable = usage.reliable()
+	org.CategorySources = usage.countedSources()
 
 	return org, nil
 }

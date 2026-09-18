@@ -27,7 +27,7 @@ func TestCollectPatchCompliance_ComputesPercentageFromWire(t *testing.T) {
 		},
 	}
 
-	compliance, _, err := collectPatchCompliance(context.Background(), client)
+	compliance, _, err := collectPatchCompliance(context.Background(), client, &collectStatus{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestCollectPatchCompliance_ZeroTotalIsZeroPercentNotDivideByZero(t *testing
 		},
 	}
 
-	compliance, _, err := collectPatchCompliance(context.Background(), client)
+	compliance, _, err := collectPatchCompliance(context.Background(), client, &collectStatus{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestCollectPatchCompliance_NoConfigsIsEmptyNotError(t *testing.T) {
 			"/v3/patch-software-title-configurations": {200, `{"totalCount":0,"results":[]}`},
 		},
 	}
-	compliance, spreads, err := collectPatchCompliance(context.Background(), client)
+	compliance, spreads, err := collectPatchCompliance(context.Background(), client, &collectStatus{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -197,7 +197,9 @@ func TestCollectCleanupAnalysis_CountsUnusedAndUnscoped(t *testing.T) {
 		},
 	}
 
-	got, err := collectCleanupAnalysis(context.Background(), client)
+	ctx := context.Background()
+	got, err := collectCleanupAnalysis(ctx, client,
+		fetchPolicyDetails(ctx, client), fetchConfigProfileDetails(ctx, client), &collectStatus{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -235,7 +237,9 @@ func TestCollectCleanupAnalysis_SkippedPolicyMarksUsageUnreliable(t *testing.T) 
 		},
 	}
 
-	got, err := collectCleanupAnalysis(context.Background(), client)
+	ctx := context.Background()
+	got, err := collectCleanupAnalysis(ctx, client,
+		fetchPolicyDetails(ctx, client), fetchConfigProfileDetails(ctx, client), &collectStatus{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

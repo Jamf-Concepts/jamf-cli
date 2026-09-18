@@ -216,7 +216,8 @@ func TestRenderDashboard_IncompleteBannerShownWhenSectionsMissing(t *testing.T) 
 		Title:              "Partial Dashboard",
 		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		CLIVersion:         "1.0.0",
-		IncompleteSections: 3,
+		IncompleteSections: []string{sectionCleanup, sectionPlatform, sectionSecurityCloud},
+		TotalSections:      9,
 	}
 
 	var buf bytes.Buffer
@@ -228,8 +229,15 @@ func TestRenderDashboard_IncompleteBannerShownWhenSectionsMissing(t *testing.T) 
 	if !strings.Contains(html, "Incomplete report:") {
 		t.Error("HTML must carry the incomplete banner when sections are missing")
 	}
-	if !strings.Contains(html, "3 sections could not be collected") {
-		t.Errorf("banner must name the count and pluralise: got %q", html)
+	if !strings.Contains(html, "3 of 9 sections could not be collected") {
+		t.Errorf("banner must name the count against the total: got %q", html)
+	}
+	// Names, not just a count: a count is not checkable against the document
+	// the reader has in front of them.
+	for _, name := range []string{sectionCleanup, sectionPlatform, sectionSecurityCloud} {
+		if !strings.Contains(html, name) {
+			t.Errorf("banner must name the missing section %q: got %q", name, html)
+		}
 	}
 }
 
@@ -240,7 +248,7 @@ func TestRenderDashboard_IncompleteBannerAbsentWhenComplete(t *testing.T) {
 		Title:              "Complete Dashboard",
 		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		CLIVersion:         "1.0.0",
-		IncompleteSections: 0,
+		IncompleteSections: nil,
 	}
 
 	var buf bytes.Buffer
@@ -258,7 +266,8 @@ func TestRenderDashboard_IncompleteBannerSingularForOneSection(t *testing.T) {
 		Title:              "One Missing",
 		GeneratedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		CLIVersion:         "1.0.0",
-		IncompleteSections: 1,
+		IncompleteSections: []string{sectionAudit},
+		TotalSections:      1,
 	}
 
 	var buf bytes.Buffer
@@ -267,11 +276,14 @@ func TestRenderDashboard_IncompleteBannerSingularForOneSection(t *testing.T) {
 	}
 
 	html := buf.String()
-	if !strings.Contains(html, "1 section could not be collected") {
+	if !strings.Contains(html, "1 of 1 section could not be collected") {
 		t.Errorf("banner must read singular for one section: got %q", html)
 	}
 	if strings.Contains(html, "1 sections") {
 		t.Error("banner pluralised incorrectly for a single missing section")
+	}
+	if !strings.Contains(html, sectionAudit) {
+		t.Errorf("banner must name the missing section: got %q", html)
 	}
 }
 

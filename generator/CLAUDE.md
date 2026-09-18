@@ -83,3 +83,76 @@ Four rendering facts, none derivable from the resource name:
 
 Name-resolution helpers (in `registry.go` / `classic_registry.go`): `readApplyInput`, `extractJSONField`, `resolveNameToIDForApply`, `extractClassicName`, `resolveClassicNameToIDForApply`.
 
+
+## Named Passes and Helpers
+
+Symbols worth knowing by name, because a change in the wrong one is silent.
+
+**Templates.** `resourceTemplate` (modern), `classicResourceTemplate`
+(Classic), `registryTemplate` / `classicRegistryTemplate` (the registries) —
+all Go `const` strings embedded in the generator source, not separate `.tmpl`
+files.
+
+**Version consolidation.** `deduplicateVersionedOps` picks between paths inside
+one resource, keeping the highest version per version-stripped path shape.
+`compareAPIVersions` / `apiVersionRank` rank them, and `stripVersionSegments`
+reads a version wherever it sits — which fits the gateway, where the version
+follows the service namespace (`/securitycloud/v1/groups`) or the tenant, rather
+than leading. Ranking by the *leading* segment scored every gateway path 0 and
+made "prefer the higher version" a tie decided by map iteration order.
+
+**Bulk pairing.** `pairCollectionBulkActions` / `bulkCandidate` fold a
+collection-wide sibling into a command's `--all` instead of shipping two verbs.
+The `{id}`-terminal and single-param exclusions are relaxed for `DELETE` alone,
+because a collection `DELETE` unambiguously means "all of them" where a
+collection `POST` creates and a `PUT` replaces.
+
+**Platform `apply` synthesis.** `buildApplySpec`
+(`generator/platform/emitter.go`) composes a resource's own list, collection
+POST and item PUT/PATCH. It emits nothing unless all of: an own list path (a
+`crossResourceNameLookupPath` means the `{id}` belongs to a sibling, so there is
+no collection here to create into), a non-destructive collection POST with a
+non-multipart body, an item PUT/PATCH taking exactly one path param, and a
+name-ish property actually present in the create body. Six resources qualify.
+`PUT` is preferred over `PATCH` where both exist, because replace is what
+`apply` means everywhere else. **The name comes out of the body, never a flag**
+(`platform.ApplyName`): a `--name` beside it would be a second source of truth
+with no correct resolution when the two disagree. **Only a genuine
+`ErrNotFound` takes the create branch** — treating an auth error or a 5xx during
+the lookup as absence is how a failed read becomes a duplicate.
+`platformNoApply` blocklists `blueprints` and `platform-device-groups`, whose
+hand-written `apply` commands do strictly more and would otherwise ship a
+duplicate subcommand cobra dispatches by declaration order.
+
+**Pagination and list shape.** `hasPaginationParams` gates the auto-pagination
+loop, and `ListArrayKey` names the property a list response unwraps.
+`buildQueryParams` filters `page`/`page-size` **only when the op actually
+paginates** — filtering unconditionally, on the reasoning that the loop owns
+them, silently deleted `--page-size` from audit's cursor pager and `--page` from
+the two DDM report ops.
+
+**Naming and collisions.** `applyPlatformOperationNameOverrides` runs **last**,
+after `disambiguateSameTerminalOps`: an override is by definition the final word
+on a name, and applying it first let a derivation pass silently undo it —
+`resolveNoParamConflicts` renamed *both* sides of a collision and shipped the
+stutter `platform audit audit`. `checkOperationNameCollisions` catches two
+operations sharing a name; it does **not** catch two specs merging into one
+resource, which is what `platformNamespace` is for.
+`dropUnroutedPlatformOps` filters `platformUnroutedOps` before name
+disambiguation and before the dedup.
+
+**Gateway verdicts.** `subtreeScopes` unions scopes across a Classic resource's
+surviving paths, which is why `gatewayPrivAnn` returns nothing for a refused
+command — a refused command must not advertise a grant that cannot make it work.
+`classicTrailsPro` (`generator/gateway/verdict.go`) gates the "which trails the
+Pro API's version" clause in a Classic refusal, so that sentence is told only to
+the operator it can mislead; an unparseable version compares equal and withholds
+it.
+
+**Runtime helpers the templates emit calls to.** `extractID`, `firstMatch` and
+`lookupMatchingIDs` do name resolution; `lookupMatchingIDs` is the client-side
+re-fetch path taken when a collection declares no `filter` parameter, where the
+field name is the whole match. `SelectTableColumns` narrows a list's columns.
+`withGatewayUnservedNote` / `gatewayUnservedNote` is the response-side half of
+the gateway refusal, appended rather than substituted and gated on the body
+carrying `BAD_PERMISSIONS` or `404 page not found`.

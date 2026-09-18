@@ -18,6 +18,7 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 	cb := compliancebenchmarks.New(client)
 
 	var platform platformStatus
+	var succeeded bool
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -29,7 +30,7 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 		bps, err := bp.ListBlueprints(ctx, nil, "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: blueprints: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionPlatform, err)
 			return
 		}
 		entries := make([]blueprintEntry, 0, len(bps))
@@ -45,6 +46,7 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 		}
 		mu.Lock()
 		platform.Blueprints = entries
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -54,21 +56,24 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 		resp, err := cb.ListBenchmarks(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: benchmarks: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionPlatform, err)
 			return
 		}
 		entries := make([]benchmarkEntry, 0, len(resp.Benchmarks))
+		skipped := 0
 		for _, b := range resp.Benchmarks {
 			pct, err := cb.GetBenchmarkCompliancePercentage(ctx, b.ID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s compliance: %v\n", b.ID, err)
-				status.recordFailure()
+				status.recordFailureErr(sectionPlatform, err)
+				skipped++
 				continue
 			}
 			rules, err := cb.ListBenchmarkRulesStats(ctx, b.ID, "", "")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s rules: %v\n", b.ID, err)
-				status.recordFailure()
+				status.recordFailureErr(sectionPlatform, err)
+				skipped++
 				continue
 			}
 			failingRules := 0
@@ -85,13 +90,18 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 		}
 		mu.Lock()
 		platform.Benchmarks = entries
+		platform.BenchmarksSkipped = skipped
+		succeeded = true
 		mu.Unlock()
 	}()
 
 	wg.Wait()
 
-	// Only set the section if at least one API call returned data.
-	if len(platform.Blueprints) > 0 || len(platform.Benchmarks) > 0 {
+	// Keyed on call outcome, not on values: a tenant with no blueprints and no
+	// benchmarks still has an answer worth rendering, and a partial success
+	// otherwise renders an empty list as "none configured".
+	if succeeded {
+		status.recordSuccess(sectionPlatform)
 		data.Platform = &platform
 	}
 }

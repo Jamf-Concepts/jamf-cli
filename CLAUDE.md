@@ -5,17 +5,17 @@
 - `docs/GLOSSARY.md` — canonical terms for Pro vs Platform vs Classic, blueprint vs config profile, smart vs static groups, scope vs target, etc. Consult before guessing.
 - `docs/guides/platform-api-ga.md` — the user-facing Platform API beta→GA migration guide (base URL, scope keys, credentials, the refused-command list, the 403 vocabulary). Update it whenever any of those move; it quotes verbatim CLI output and a specific SDK ingest.
 - `docs/solutions/` — categorized postmortems and design-pattern docs (e.g., `conventions/output-flag-matrix-2026-05-08.md`, `design-patterns/cobra-annotations-as-policy-2026-05-11.md`). When starting work in a package, grep `docs/solutions/` for matching `module:` or `tags:` frontmatter.
+- `docs/superpowers/` — plans and specs for work in flight. Notes rather than a contract: nothing there is loaded automatically or checked by CI, and nothing there overrides a rule. `docs/superpowers/README.md` says where a document belongs once the work lands.
 
 ## CRITICAL: Credential Input Policy
 
-**Never accept credentials (passwords, tokens, client secrets) via CLI flags or stdin.** This prevents exposure in shell history, `ps` output, and CI/CD logs.
+**Never accept credentials (passwords, tokens, client secrets) via CLI flags or stdin.**
 
-- **Human credentials** (username, password): Interactive prompts only (`term.ReadPassword`). No flags, no env vars, no stdin.
-- **Machine credentials** (token, client-id, client-secret): Environment variables (`JAMF_*`, `JAMFPROTECT_*`, `JAMFSCHOOL_*`, `JAMFSECURITY_*`) for CI/CD. Interactive prompts for manual use. Config profiles with `keychain:` references for persistent storage. `--token-file` for file-based CI/CD.
-- **Never add** `--password`, `--token`, `--client-secret`, `--token-stdin`, or `--client-secret-stdin` flags to any command.
-- **Setup commands** (`pro setup`, `protect setup`, `school setup`, `security setup`, `config add-profile`) must always prompt interactively for credentials — no flag or env var bypass. `pro setup --credentials existing|create` selects which *source* a credential comes from, never the credential: both branches still read every secret through `promptClientCredentials` or `term.ReadPassword`, and `--no-input` is refused on both. A flag naming a source is fine; a flag carrying a value is not.
-
-- **Prove a credential before writing it.** `pro setup --credentials existing` and `config add-profile` both call `verifyProfileCredentials` (`internal/commands/credential_prompt.go`), which does one client-credentials exchange through `auth.Verify{OAuth2,Platform}Credentials`. It calls `exchangeToken` and **not** `GetToken`: the on-disk token cache is keyed on `(baseURL, clientID)` and not on the secret, so a cached token from a working pair would report a later mistyped secret as verified — the one thing verification exists to catch. `TestVerifyOAuth2Credentials_IgnoresTheTokenCache` fails if it is ever moved onto `GetToken`. The check is skipped for token auth (a bearer token is only testable by spending it), for an `env:`/`file:` reference (`config.ResolveSecret` owns those, and a reference is routinely written on a machine that cannot reach the server it names), and under `add-profile --no-verify` for offline pre-seeding. It establishes that the pair is valid and nothing about whether its privileges or scope level reach any command — a 403 answers that at the point of use, in wording setup cannot produce.
+The policy lives in one file, `.claude/rules/credentials-and-auth.md`, which is
+`@`-imported below so every session loads it. It is deliberately not duplicated
+here: five lines of it were byte-identical in both files, so the one policy
+flagged as never-optional had two copies that could drift — and did, the
+injected copy losing its section heading and leaving a table with no header.
 
 ## CRITICAL: Generated Code Boundary
 

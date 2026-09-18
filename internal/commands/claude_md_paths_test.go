@@ -108,4 +108,17 @@ func TestEveryPathInRootCLAUDEmdResolves(t *testing.T) {
 				tok, kind, docSearchBases)
 		}
 	}
+
+	// The loop above fails open: it iterates backtick tokens, so stripping every
+	// backtick from CLAUDE.md — a reformat to markdown links, a table, or plain
+	// prose — leaves it passing while the half covering ~20 pointers is silently
+	// disabled. The @-import loop above carries the same guard; this mirrors it,
+	// with a floor the file plainly clears today.
+	const minPathPointers = 10
+	if len(seen) < minPathPointers {
+		t.Fatalf("only %d path pointers found in CLAUDE.md, want at least %d — "+
+			"the check iterates backtick-quoted tokens, so a reformat away from "+
+			"backticks disables it silently rather than failing",
+			len(seen), minPathPointers)
+	}
 }

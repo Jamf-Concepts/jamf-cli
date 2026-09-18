@@ -87,6 +87,130 @@ Classic paths are assembled at runtime, so `classicGatewayOps` emits all three p
 
 A withdrawal inside a surviving subtree (`patchpolicies` lost `GET /patchpolicies` and kept `GET /patchpolicies/id/{}`) means the subtree-wide verdict alone is insufficient. `gatewayPrivAnn` returns nothing for a refused Classic command — a refused command must not advertise a grant that cannot make it work.
 
+## Classic Scope — The Field-Order Trap and the Category Matrix
+
+Breaking changes of 2026-09-12; full reasoning in
+`docs/solutions/conventions/classic-scope-put-is-scope-only-2026-09-12.md` (the
+write) and `classic-scope-matrix-2026-09-12.md` (the categories).
+
+**The write is `<root><scope>…</scope></root>` to the top-level endpoint, one
+request.** A Classic PUT is a partial update at top-level-section granularity —
+verified on all eight scopeable resources by diffing each whole document with
+`<scope>` elided, a 19 KB profile's `<payloads>` included — while `<scope>`
+itself is replaced wholesale, so the block has to be sent entire and an empty
+category element is what clears one. `PutScope` (`internal/scope/scope.go`)
+used to GET the document purely to splice the scope into its bytes, so a
+`scope add` cost three GETs; it costs one now, and `replaceScopeInXML` is gone.
+
+**`ScopeXML`'s field order is load-bearing and is not any resource's GET
+order.** The Classic XML binding is sequence-ordered: it reads scope children in
+schema order and **silently ignores whatever arrives out of it, answering 200
+either way**. That is the trap in this area. Echoing a resource's own bytes back
+— the obvious way to build a scope-only body — applies cleanly to policies and
+profiles and is a silent no-op on `macapplications` and
+`mobiledeviceapplications`, whose GET returns `<exclusions>` as buildings,
+departments, mobile_device_groups, …; it reads exactly like "those two need more
+than `<scope>` in the body", and they do not.
+**Do not re-order `ScopeXML`'s fields**, and never assemble a Classic body by
+splicing server bytes. `TestMarshalScopeBody_FieldOrderIsSchemaOrder` is the
+guard; the marshaller is `marshalScopeBody`.
+
+**There are five scope shapes across the eight resources, not two.** Validation
+had one branch for restricted software and one for everything else, so a policy
+accepted `--mobile-device-group` and a mobile profile accepted
+`--computer-group` — both a GET and a PUT spent to earn `409 Error: Mobile
+device groups cannot be assigned to an macOS profile`. `shapes`
+(`internal/scope/matrix.go`) holds the matrix, keyed on `Resource.SingularKey`,
+one entry per scopeable resource. Read the resource's own GET for the category
+set, then confirm anything doubtful with a write probe. Four rows are not
+derivable from the resource name:
+
+- iBeacons are per-resource rather than per-family (a policy and a macOS profile
+  carry them; the equally computer-scoped `mac_application` does not).
+- `<classes>` is an ebook target and nothing else's.
+- Restricted software has no limitations tab, and its one narrowing category is
+  a `--user` **exclusion** the CLI used to refuse outright.
+- `macapplications`' GET advertises a `<mobile_device_groups>` that 409s on
+  write.
+
+**An ebook's class targets are delivered in two PUTs, and that is the only way
+they work.** Jamf Pro stores `<classes>` only while the **stored** category is
+empty: a write made while it already holds a member clears it, and every escape
+route fails — carrying the identical value clears it, omitting the element
+clears it, and the child's identifier shape makes no difference. Wire-checked
+5/5 each way. Since a scope PUT replaces `<scope>` wholesale, no single request
+can preserve an existing class across any other scope change, so
+`pro classic-ebooks scope add --building` destroyed the class and reported
+success. `PutScope` now sends the intended change with `<classes>` emptied, then
+the same scope with the classes populated — keyed on the category being
+non-empty rather than on the resource, so a classless scope still takes one
+request, and the first request carries the real change so an interruption is no
+worse than the single request it replaced. The same defect is a hard
+`inconsistent result after apply` in terraform-provider-jamfplatform
+([#428](https://github.com/jamf/terraform-provider-jamfplatform/issues/428)).
+
+**Collateral loss is checked rather than assumed.** `VerifyScopeWrite` compares
+the **whole** scope sent against what came back, not just the item the command
+touched — which is how the class loss above stayed silent. Matching is by name,
+ID or UDID, because the server augments what it was sent (a member sent by name
+returns with an ID, a network segment gains a `uid`), so element equality would
+report every successful write as a loss.
+
+**A command registers only its own resource's categories**, which is what makes
+`--help` and completion honest, and costs the explanatory refusal: cobra rejects
+an unregistered flag before `RunE`. Hence the `jamf:scope-categories` annotation
+on each mutating leaf and the hint in `SetFlagErrorFunc`; a genuine typo still
+gets `suggestFlag`'s near-match first.
+
+**All-flags are refused client-side**, because the server enforces them by
+accepting the write with 200 and dropping the member (wire-checked:
+`all_computers=true` plus a `computer_groups` target reads back with the group
+gone). `CheckAllFlagConflict` names the categories the flag covers and points at
+exclusions, which narrow an all-flag scope rather than conflicting with it.
+
+**`<limit_to_users>` is no longer modelled**, and that deleted a struct, a slice
+type, three functions and a branch in five others. The server denormalises
+`<limitations><user_groups>` into it on every write and back on every read, so
+the two wire paths always carry identical values — verified in both directions,
+including that an empty `limitations.user_groups` with `limit_to_users` omitted
+clears both.
+
+**A name is resolved to at most one record.** `resolveNameToID` (the two VPP
+resources, which have no `/name/` endpoint) used to take the first
+case-insensitive match in document order; Classic names are not unique — a live
+tenant carried two ebooks sharing one — so it now refuses, naming the colliding
+ids and telling the caller to pass one as `<id>`.
+
+## Classic Refusals Have a Readable Reason
+
+The Classic API answers a refused write with an HTML status page, and
+`classicHTMLErrorReason` (`internal/client/client.go`) lifts the one actionable
+sentence out of it. Passing the page through verbatim buried the answer in ~400
+bytes of markup and inline CSS, which inside the JSON error envelope is one
+unreadable escaped line. It is gated on the page's `<title>Status page</title>`
+and falls back to the raw body, so a JSON envelope, a gateway refusal or a WAF
+block is not swallowed.
+
+Four reasons worth knowing, each previously invisible:
+
+- `Error: Unable to match computer group` — the identifier named no record.
+- `Error: Unable to match excluded computer group` — a **dangling** reference the
+  GET still reports, to an object since deleted. Such a scope is not re-saveable
+  by any means.
+- `Error: Duplicate name` — two records share one, so neither saves.
+- `Unable to update the database` — also seen transiently on objects that saved
+  fine on retry, so do not read a single 409 as a property of the request.
+
+## PI-827 Is Not Mitigated by a Smaller Body
+
+A configuration profile whose `<payloads>` carries an escaped entity loses one
+escaping level on **any** successful save, whether or not the body carries
+`<payloads>`: the server re-serialises the stored payload on write. After that
+decay the payload is no longer re-saveable and every further write answers 409.
+Wire-checked 2026-09-12 with a scope-only PUT, which decays it identically to a
+full-document one. So the scope-only write is smaller and touches fewer fields,
+and buys no payload-integrity guarantee.
+
 ## Name Resolution
 
 `apply`, `--name`, `--serial` and `--udid` all work by GETting the resource's collection and RSQL-filtering it, so they are generated only when `nameResolutionPath` is non-empty. Resources whose modern API is POST-collection + GET-`{id}` only (dock-items, venafis, cloud-azure, cloud-ldaps) ship ID-only CRUD: no `--name`, no `apply`. Add a `resourceNameLookupPathOverrides` entry if a sibling endpoint can serve the lookup.

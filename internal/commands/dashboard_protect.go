@@ -13,6 +13,7 @@ import (
 
 func collectProtectData(ctx context.Context, client registry.ProtectClient, data *DashboardData, status *collectStatus) {
 	var protect protectCoverage
+	var succeeded bool
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -24,11 +25,12 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		plans, err := client.ListPlans(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect plans: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionProtect, err)
 			return
 		}
 		mu.Lock()
 		protect.Plans = len(plans)
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -38,12 +40,13 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		analytics, err := client.ListAnalytics(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect analytics: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionProtect, err)
 			return
 		}
 		mu.Lock()
 		protect.AnalyticsTotal = len(analytics)
 		protect.AnalyticsActive = len(analytics)
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -53,11 +56,12 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		computers, err := client.ListComputers(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect computers: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionProtect, err)
 			return
 		}
 		mu.Lock()
 		protect.Endpoints = len(computers)
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -67,11 +71,12 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		sets, err := client.ListAnalyticSets(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect analytic sets: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionProtect, err)
 			return
 		}
 		mu.Lock()
 		protect.AnalyticSets = len(sets)
+		succeeded = true
 		mu.Unlock()
 	}()
 
@@ -81,19 +86,23 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		sets, err := client.ListExceptionSets(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "dashboard: protect exception sets: %v\n", err)
-			status.recordFailure()
+			status.recordFailureErr(sectionProtect, err)
 			return
 		}
 		mu.Lock()
 		protect.ExceptionSets = len(sets)
+		succeeded = true
 		mu.Unlock()
 	}()
 
 	wg.Wait()
 
-	// Only set the section if at least one API call succeeded (non-zero data).
-	if protect.Plans > 0 || protect.AnalyticsTotal > 0 || protect.Endpoints > 0 ||
-		protect.AnalyticSets > 0 || protect.ExceptionSets > 0 {
+	// Keyed on call outcome, not on values. A brand-new Protect tenant whose
+	// five calls all succeed with legitimate zeros has data worth rendering,
+	// and a partial success would otherwise render "Endpoints: 0" as a figure
+	// nobody fetched.
+	if succeeded {
+		status.recordSuccess(sectionProtect)
 		data.Protect = &protect
 	}
 }

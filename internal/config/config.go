@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,10 +20,15 @@ type Config struct {
 	DefaultProfile string             `yaml:"default-profile"`
 	DefaultOutput  string             `yaml:"default-output,omitempty"`
 	Profiles       map[string]Profile `yaml:"profiles"`
-	// ReportDir is the directory generated HTML reports are written to. It is
-	// load-bearing for the MCP server, which refuses to write a report unless
-	// an operator has designated a directory here — the connecting model never
-	// supplies a path. The CLI treats it as a default destination only.
+	// ReportDir is the directory the MCP server writes generated HTML reports
+	// to. It exists for that server alone, which refuses to write a report
+	// unless an operator has designated a directory — the connecting model
+	// never supplies a path.
+	//
+	// Nothing on the CLI path reads it: `jamf-cli dashboard` writes to stdout
+	// or to the global --out-file, and does not default to this directory.
+	// The comment here used to claim the CLI treated it as a default
+	// destination, which it never did.
 	ReportDir string `yaml:"report-dir,omitempty"`
 	// UpdateCheck gates the once-a-day "a newer jamf-cli is available"
 	// advisory. nil means enabled; `update-check: false` silences it for
@@ -242,5 +248,10 @@ func ResolveSecret(value string) (string, error) {
 		return secret, nil
 	}
 
-	return "", fmt.Errorf("unrecognized secret format %q: must use env:, file:, or keychain: prefix", value)
+	// Never format the value: on this branch it IS the secret, and this error
+	// reaches logs, CI output and — since the dashboard resolves credentials
+	// through here — an MCP tool result, which is a model provider's
+	// transcript. A hand-edited config carrying a bare token is exactly the
+	// case that hits it.
+	return "", errors.New("unrecognized secret format: must use an env:, file:, or keychain: prefix")
 }

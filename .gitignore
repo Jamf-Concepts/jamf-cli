@@ -37,7 +37,9 @@ secrets/
 !.claude/rules/
 !.claude/rules/*.md
 !.claude/skills/
-!.claude/skills/*.md
+# ** rather than *: a skill lives at .claude/skills/<name>/SKILL.md, which
+# `*.md` does not match — it read as the thing doing the work while being inert.
+!.claude/skills/**
 completions/
 
 # Audit artifacts (local reference only, not committed)

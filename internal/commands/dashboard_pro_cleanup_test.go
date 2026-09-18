@@ -44,7 +44,10 @@ func TestCollectCleanupAnalysis_WithholdsUsageWhenAPolicyDetailFails(t *testing.
 	os.Stderr = w
 	defer func() { os.Stderr = origStderr }()
 
-	result, err := collectCleanupAnalysis(context.Background(), client)
+	ctx := context.Background()
+	status := &collectStatus{}
+	result, err := collectCleanupAnalysis(ctx, client,
+		fetchPolicyDetails(ctx, client), fetchConfigProfileDetails(ctx, client), status)
 
 	_ = w.Close()
 	os.Stderr = origStderr
@@ -60,12 +63,23 @@ func TestCollectCleanupAnalysis_WithholdsUsageWhenAPolicyDetailFails(t *testing.
 	if result.PackageScriptUsageReliable() {
 		t.Error("PackageScriptUsageReliable() = true, want false when a policy detail was skipped")
 	}
-	// The derived counts must not feed the headline total when unreliable.
-	if got, want := result.Total(), result.DisabledPolicies+result.UnscopedPolicies+result.UnscopedProfiles; got != want {
-		t.Errorf("Total() = %d, want %d (derived counts excluded when unreliable)", got, want)
+	// Every figure the policy loop derives is withheld from the total, not only
+	// the unused-package/script pair: DisabledPolicies and UnscopedPolicies are
+	// tallied inside the same loop body the error path skips, so they are a
+	// floor as well.
+	if result.PolicyCountsReliable() {
+		t.Error("PolicyCountsReliable() = true, want false when a policy detail was skipped")
+	}
+	if got := result.Total(); got != result.UnscopedProfiles {
+		t.Errorf("Total() = %d, want %d (only the profile count survives)", got, result.UnscopedProfiles)
 	}
 	if !strings.Contains(stderrBuf.String(), "policy 2") {
 		t.Errorf("stderr warning must name the skipped policy, got: %q", stderrBuf.String())
+	}
+	// The skip has to reach the tally, or the run exits 0 with a banner that
+	// says nothing while two rows read "not available".
+	if got := status.failedSections(); len(got) != 1 || got[0] != sectionCleanup {
+		t.Errorf("failedSections() = %v, want [%q]", got, sectionCleanup)
 	}
 
 	// The rendered report withholds the numbers and says why.
@@ -103,7 +117,10 @@ func TestCollectCleanupAnalysis_PublishesUsageWhenEveryPolicyRead(t *testing.T) 
 		},
 	}
 
-	result, err := collectCleanupAnalysis(context.Background(), client)
+	ctx := context.Background()
+	status := &collectStatus{}
+	result, err := collectCleanupAnalysis(ctx, client,
+		fetchPolicyDetails(ctx, client), fetchConfigProfileDetails(ctx, client), status)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,6 +129,12 @@ func TestCollectCleanupAnalysis_PublishesUsageWhenEveryPolicyRead(t *testing.T) 
 	}
 	if !result.PackageScriptUsageReliable() {
 		t.Error("PackageScriptUsageReliable() = false, want true when every policy detail was read")
+	}
+	if !result.Reliable() {
+		t.Error("Reliable() = false, want true when every policy and profile detail was read")
+	}
+	if got := status.failedSections(); len(got) != 0 {
+		t.Errorf("failedSections() = %v, want none on a clean run", got)
 	}
 	// PkgB and ScriptB are unreferenced.
 	if result.UnusedPackages != 1 {

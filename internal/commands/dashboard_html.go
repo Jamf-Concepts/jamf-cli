@@ -237,6 +237,11 @@ tr:hover td{background:var(--card-hover)}
   background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);
   color:var(--amber);font-size:.8rem;display:flex;align-items:center;gap:.5rem}
 .incomplete-banner strong{color:var(--amber)}
+.incomplete-banner em{font-style:normal;font-weight:600;color:var(--amber)}
+/* A figure that was not fetched. Deliberately not styled as a number: a
+   reader scanning for digits must not find one where nothing was read. */
+.unavail{color:var(--amber);font-size:.72rem;font-style:italic}
+.section-note{margin-top:.6rem;font-size:.72rem;color:var(--amber)}
 
 
 
@@ -306,7 +311,7 @@ tr:hover td{background:var(--card-hover)}
 
 {{if .IncompleteSections}}
 <div class="incomplete-banner">
-  ⚠ <span><strong>Incomplete report:</strong> {{.IncompleteSections}} section{{if gt .IncompleteSections 1}}s{{end}} could not be collected and {{if gt .IncompleteSections 1}}are{{else}}is{{end}} missing below. Figures shown do not cover the whole fleet — do not read this report as complete.</span>
+  ⚠ <span><strong>Incomplete report:</strong> {{len .IncompleteSections}} of {{.TotalSections}} section{{if gt .TotalSections 1}}s{{end}} could not be collected — {{join .IncompleteSections ", "}}. Figures shown do not cover the whole fleet, and a figure marked <em>unavailable</em> was not fetched rather than being zero. Do not read this report as complete.</span>
 </div>
 {{end}}
 
@@ -315,7 +320,7 @@ tr:hover td{background:var(--card-hover)}
   {{if .Fleet}}
   <div class="hero-stat"><span class="hero-val">{{comma .Fleet.ManagedComputers}}</span><span class="hero-lbl">Computers</span></div>
   <div class="hero-stat"><span class="hero-val">{{comma .Fleet.ManagedMobile}}</span><span class="hero-lbl">Mobile</span></div>
-  <div class="hero-stat"><span class="hero-val">{{comma .Fleet.Users}}</span><span class="hero-lbl">Users</span></div>
+  <div class="hero-stat">{{if .Fleet.UsersMissing}}<span class="hero-val unavail">unavailable</span>{{else}}<span class="hero-val">{{comma .Fleet.Users}}</span>{{end}}<span class="hero-lbl">Users</span></div>
   {{end}}
   {{if .Protect}}
   <div class="hero-stat"><span class="hero-val">{{comma .Protect.Endpoints}}</span><span class="hero-lbl">Protected</span></div>
@@ -377,29 +382,50 @@ tr:hover td{background:var(--card-hover)}
   </div>
   <div class="section-body">
     <div class="ring-row">
+      {{/* A ring is only drawn when both halves of its ratio were fetched. A
+           failed overdue query beside a successful total renders 100% — the
+           most misleading figure the report can produce. */}}
       <div class="ring-item">
+        {{if .Checkin.ComputersReliable}}
         <div class="ring-wrap ring-md">
           <div class="ring {{pctClass (.Checkin.CheckedInPct .Checkin.ComputersOverdue .Checkin.ComputersTotal)}}" style="--v:{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.ComputersOverdue .Checkin.ComputersTotal)}}"></div>
           <span class="ring-val">{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.ComputersOverdue .Checkin.ComputersTotal)}}%</span>
         </div>
         <span class="ring-label">Computers</span>
         <span class="ring-sub">{{comma .Checkin.ComputersOverdue}} overdue</span>
+        {{else}}
+        <div class="ring-wrap ring-md"><span class="ring-val unavail">unavailable</span></div>
+        <span class="ring-label">Computers</span>
+        <span class="ring-sub unavail">not collected</span>
+        {{end}}
       </div>
       <div class="ring-item">
+        {{if .Checkin.MobileReliable}}
         <div class="ring-wrap ring-md">
           <div class="ring {{pctClass (.Checkin.CheckedInPct .Checkin.MobileOverdue .Checkin.MobileTotal)}}" style="--v:{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.MobileOverdue .Checkin.MobileTotal)}}"></div>
           <span class="ring-val">{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.MobileOverdue .Checkin.MobileTotal)}}%</span>
         </div>
         <span class="ring-label">Mobile</span>
         <span class="ring-sub">{{comma .Checkin.MobileOverdue}} overdue</span>
+        {{else}}
+        <div class="ring-wrap ring-md"><span class="ring-val unavail">unavailable</span></div>
+        <span class="ring-label">Mobile</span>
+        <span class="ring-sub unavail">not collected</span>
+        {{end}}
       </div>
       <div class="ring-item">
+        {{if .Checkin.OverallReliable}}
         <div class="ring-wrap ring-md">
           <div class="ring {{pctClass (.Checkin.CheckedInPct (.Checkin.TotalOverdue) (.Checkin.TotalDevices))}}" style="--v:{{printf "%.0f" (.Checkin.CheckedInPct (.Checkin.TotalOverdue) (.Checkin.TotalDevices))}}"></div>
           <span class="ring-val">{{printf "%.0f" (.Checkin.CheckedInPct (.Checkin.TotalOverdue) (.Checkin.TotalDevices))}}%</span>
         </div>
         <span class="ring-label">Overall</span>
         <span class="ring-sub">{{comma (.Checkin.TotalOverdue)}} / {{comma (.Checkin.TotalDevices)}}</span>
+        {{else}}
+        <div class="ring-wrap ring-md"><span class="ring-val unavail">unavailable</span></div>
+        <span class="ring-label">Overall</span>
+        <span class="ring-sub unavail">not collected</span>
+        {{end}}
       </div>
     </div>
   </div>
@@ -416,9 +442,13 @@ tr:hover td{background:var(--card-hover)}
       {{if .Audit.CriticalCount}}<span class="sev-badge critical" onclick="filterAudit('critical',this)" role="button">{{.Audit.CriticalCount}} Critical</span>{{end}}
       {{if .Audit.WarningCount}}<span class="sev-badge warning" onclick="filterAudit('warning',this)" role="button">{{.Audit.WarningCount}} Warning</span>{{end}}
       {{if .Audit.InfoCount}}<span class="sev-badge info" onclick="filterAudit('info',this)" role="button">{{.Audit.InfoCount}} Info</span>{{end}}
+      {{if .Audit.ChecksSkipped}}<span class="sev-badge unavail" role="note">{{.Audit.ChecksSkipped}} not run</span>{{end}}
     </div>
   </div>
   <div class="section-body">
+    {{/* A finding count is a count of what was found, so a check that errored
+         removes an alert rather than showing an empty one. Say how many. */}}
+    {{if .Audit.ChecksSkipped}}<p class="section-note">{{.Audit.ChecksSkipped}} check{{if gt .Audit.ChecksSkipped 1}}s{{end}} could not run, so the counts above are a subset of this instance's findings.</p>{{end}}
     <table>
       <thead><tr><th>Severity</th><th>Category</th><th>Check</th><th>Affected</th><th>Recommendation</th></tr></thead>
       <tbody>
@@ -446,15 +476,18 @@ tr:hover td{background:var(--card-hover)}
   </div>
   <div class="section-body">
     <div class="prot-grid">
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Policies}}</div><div class="prot-lbl">Policies</div></div>
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.ConfigProfiles}}</div><div class="prot-lbl">Config Profiles</div></div>
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Scripts}}</div><div class="prot-lbl">Scripts</div></div>
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Packages}}</div><div class="prot-lbl">Packages</div></div>
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.ComputerSmartGrps}}</div><div class="prot-lbl">Computer Smart Groups</div></div>
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.MobileSmartGrps}}</div><div class="prot-lbl">Mobile Smart Groups</div></div>
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.ExtAttributes}}</div><div class="prot-lbl">Extension Attributes</div></div>
-      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Categories}}</div><div class="prot-lbl">Categories</div></div>
+      {{/* Each of the eight is an independent request, so each renders its own
+           unavailable marker rather than a zero. */}}
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Policies"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.Policies}}</div>{{end}}<div class="prot-lbl">Policies</div></div>
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Config Profiles"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.ConfigProfiles}}</div>{{end}}<div class="prot-lbl">Config Profiles</div></div>
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Scripts"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.Scripts}}</div>{{end}}<div class="prot-lbl">Scripts</div></div>
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Packages"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.Packages}}</div>{{end}}<div class="prot-lbl">Packages</div></div>
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Computer Smart Groups"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.ComputerSmartGrps}}</div>{{end}}<div class="prot-lbl">Computer Smart Groups</div></div>
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Mobile Smart Groups"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.MobileSmartGrps}}</div>{{end}}<div class="prot-lbl">Mobile Smart Groups</div></div>
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Extension Attributes"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.ExtAttributes}}</div>{{end}}<div class="prot-lbl">Extension Attributes</div></div>
+      <div class="prot-stat">{{if .EnvStats.Unavailable "Categories"}}<div class="prot-val unavail">n/a</div>{{else}}<div class="prot-val">{{comma .EnvStats.Categories}}</div>{{end}}<div class="prot-lbl">Categories</div></div>
     </div>
+    {{if .EnvStats.MissingLabels}}<p class="section-note">Not collected: {{join .EnvStats.MissingLabels ", "}}. Those show n/a rather than a count.</p>{{end}}
   </div>
 </div>
 {{end}}
@@ -531,8 +564,12 @@ tr:hover td{background:var(--card-hover)}
     {{end}}
     {{if .Devices}}
     <div class="alert-row">
-      {{if gt .Devices.StaleDevices 0}}<div class="alert-card"><span class="alert-val">{{comma .Devices.StaleDevices}}</span><span class="alert-lbl">Stale devices (&gt;{{.Devices.StaleThresholdDays}}d)</span></div>{{end}}
-      {{if gt .Devices.FailedMDMCommands 0}}<div class="alert-card"><span class="alert-val">{{comma .Devices.FailedMDMCommands}}</span><span class="alert-lbl">Failed MDM commands</span></div>{{end}}
+      {{/* An alert card is hidden when its count is zero, so a failed fetch has
+           to say so rather than fall into the same branch as "none". */}}
+      {{if .Devices.StaleMissing}}<div class="alert-card"><span class="alert-val unavail">unavailable</span><span class="alert-lbl">Stale devices (&gt;{{.Devices.StaleThresholdDays}}d)</span></div>
+      {{else if gt .Devices.StaleDevices 0}}<div class="alert-card"><span class="alert-val">{{comma .Devices.StaleDevices}}</span><span class="alert-lbl">Stale devices (&gt;{{.Devices.StaleThresholdDays}}d)</span></div>{{end}}
+      {{if .Devices.MDMMissing}}<div class="alert-card"><span class="alert-val unavail">unavailable</span><span class="alert-lbl">Failed MDM commands</span></div>
+      {{else if gt .Devices.FailedMDMCommands 0}}<div class="alert-card"><span class="alert-val">{{comma .Devices.FailedMDMCommands}}</span><span class="alert-lbl">Failed MDM commands</span></div>{{end}}
     </div>
     {{end}}
   </div>
@@ -560,7 +597,14 @@ tr:hover td{background:var(--card-hover)}
 {{/* ── 5. Computer Models + Mobile Models ── */}}
 
 {{if .Hardware}}
-{{if .Hardware.ComputerModels}}
+{{if .Hardware.ComputerModelsMissing}}
+<div class="section accent-pro" id="hw-computers">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Computer Models</h2>
+  </div>
+  <div class="section-body"><p class="unavail">Not available — the computer inventory could not be read.</p></div>
+</div>
+{{else if .Hardware.ComputerModels}}
 <div class="section accent-pro" id="hw-computers">
   <div class="section-head" onclick="toggleSection(this)">
     <h2><span class="chevron">▾</span> Computer Models</h2>
@@ -577,7 +621,14 @@ tr:hover td{background:var(--card-hover)}
   </div>
 </div>
 {{end}}
-{{if .Hardware.MobileModels}}
+{{if .Hardware.MobileModelsMissing}}
+<div class="section accent-pro" id="hw-mobile">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Mobile Models</h2>
+  </div>
+  <div class="section-body"><p class="unavail">Not available — the mobile device list could not be read.</p></div>
+</div>
+{{else if .Hardware.MobileModels}}
 <div class="section accent-pro" id="hw-mobile">
   <div class="section-head" onclick="toggleSection(this)">
     <h2><span class="chevron">▾</span> Mobile Models</h2>
@@ -604,6 +655,7 @@ tr:hover td{background:var(--card-hover)}
     <h2><span class="chevron">▾</span> Patch Compliance</h2>
   </div>
   <div class="section-body">
+    {{if .Patch.TitlesSkipped}}<p class="section-note">{{.Patch.TitlesSkipped}} patch title{{if gt .Patch.TitlesSkipped 1}}s{{end}} could not be read and {{if gt .Patch.TitlesSkipped 1}}are{{else}}is{{end}} absent below.</p>{{end}}
     <div class="ring-grid">
       {{range .Patch.Titles}}
       <div class="ring-item">
@@ -700,6 +752,7 @@ tr:hover td{background:var(--card-hover)}
       </tbody>
     </table>
     {{end}}
+    {{if .Platform.BenchmarksSkipped}}<p class="section-note">{{.Platform.BenchmarksSkipped}} benchmark{{if gt .Platform.BenchmarksSkipped 1}}s{{end}} could not be read and {{if gt .Platform.BenchmarksSkipped 1}}are{{else}}is{{end}} absent below.</p>{{end}}
     {{if .Platform.Benchmarks}}
     <div class="subsection-title">Benchmarks</div>
     <table>
@@ -759,15 +812,28 @@ tr:hover td{background:var(--card-hover)}
     <table>
       <thead><tr><th>Item</th><th>Count</th></tr></thead>
       <tbody>
+        {{/* Every row is gated on the pass that produced it. The disabled and
+             unscoped counts are tallied inside the same loop body the error
+             path skips, so an unread policy detail under-counts them exactly as
+             it over-counts the unused rows below. */}}
+        {{if .Cleanup.PolicyCountsReliable}}
         <tr><td>Disabled Policies</td><td>{{comma .Cleanup.DisabledPolicies}}</td></tr>
         <tr><td>Unscoped Policies</td><td>{{comma .Cleanup.UnscopedPolicies}}</td></tr>
+        {{else}}
+        <tr><td>Disabled Policies</td><td class="unavail">not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
+        <tr><td>Unscoped Policies</td><td class="unavail">not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
+        {{end}}
+        {{if .Cleanup.ProfileCountsReliable}}
         <tr><td>Unscoped Profiles</td><td>{{comma .Cleanup.UnscopedProfiles}}</td></tr>
+        {{else}}
+        <tr><td>Unscoped Profiles</td><td class="unavail">not available ({{comma .Cleanup.ProfilesSkipped}} profiles unreadable)</td></tr>
+        {{end}}
         {{if .Cleanup.PackageScriptUsageReliable}}
         <tr><td>Unused Packages</td><td>{{comma .Cleanup.UnusedPackages}}</td></tr>
         <tr><td>Unused Scripts</td><td>{{comma .Cleanup.UnusedScripts}}</td></tr>
         {{else}}
-        <tr><td>Unused Packages</td><td>not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
-        <tr><td>Unused Scripts</td><td>not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
+        <tr><td>Unused Packages</td><td class="unavail">not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
+        <tr><td>Unused Scripts</td><td class="unavail">not available ({{comma .Cleanup.PoliciesSkipped}} policies unreadable)</td></tr>
         {{end}}
       </tbody>
     </table>
@@ -809,13 +875,33 @@ tr:hover td{background:var(--card-hover)}
       </table>
     </div>
     {{end}}
-    {{if .OrgStructure.Categories}}
+    {{if .OrgStructure.CategoriesMissing}}
+    <div class="org-group">
+      <div class="subsection-title">Categories</div>
+      <p class="unavail">Not available — the category list could not be read.</p>
+    </div>
+    {{else if .OrgStructure.Categories}}
     <div class="org-group">
       <div class="subsection-title">Categories ({{len .OrgStructure.Categories}})</div>
       <table>
+        {{/* The count covers every object type that can hold a category, and
+             the sources are listed below the table rather than guessed at from
+             a header. Withheld entirely when any source was unreadable: a
+             floor presented as a figure is the same defect as the row of
+             zeros this column used to be. */}}
+        {{if .OrgStructure.CategoryCountsReliable}}
+        <thead><tr><th>Name</th><th>Objects</th></tr></thead>
+        <tbody>{{range .OrgStructure.Categories}}<tr><td>{{.Name}}</td><td>{{comma .Count}}</td></tr>{{end}}</tbody>
+        {{else}}
         <thead><tr><th>Name</th></tr></thead>
         <tbody>{{range .OrgStructure.Categories}}<tr><td>{{.Name}}</td></tr>{{end}}</tbody>
+        {{end}}
       </table>
+      {{if .OrgStructure.CategoryCountsReliable}}
+      <p class="section-note">Counting {{join .OrgStructure.CategorySources ", "}}.</p>
+      {{else}}
+      <p class="section-note">Object counts withheld — not every category-bearing object type could be read.</p>
+      {{end}}
     </div>
     {{end}}
   </div>
@@ -962,6 +1048,7 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 
 	funcMap := template.FuncMap{
 		"toLower": strings.ToLower,
+		"join":    strings.Join,
 		"pctClass": func(pct float64) string {
 			if pct >= 90 {
 				return "c-good"

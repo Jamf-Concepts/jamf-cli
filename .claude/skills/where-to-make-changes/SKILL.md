@@ -117,3 +117,34 @@ description: Use when you know what to change but not where — a lookup table m
 | Change shared CLI interfaces (CLIContext, etc.) | `internal/registry/` |
 | Modify the GitHub Pages showcase site | `docs/site/index.html`, `docs/site/style.css`, `docs/site/catalog.js`, `docs/site/palette.js`, `docs/site/terminal.js` |
 | Change how commands.json is generated for the site | `generator/site/main.go` |
+
+## Classic Scope
+
+| I want to... | Edit this file |
+|---|---|
+| Change which scope categories a Classic resource accepts | `shapes` (`internal/scope/matrix.go`) — keyed on `Resource.SingularKey`, one entry per scopeable resource. Read the resource's own GET for the category set, then confirm anything doubtful with a write probe: `macapplications` returns an empty `<mobile_device_groups>` and 409s a member in it |
+| Change how a Classic scope body is written | `PutScope` / `marshalScopeBody` (`internal/scope/scope.go`). **Do not re-order `ScopeXML`'s fields** — that order is the schema order the server's XML binding requires, and it silently ignores children out of order while answering 200 |
+| Change what a Classic write's read-back check compares | `VerifyScopeWrite` (`internal/scope/scope.go`) — the **whole** scope sent, not just the item touched |
+| Change what an all-flag conflict says | `CheckAllFlagConflict` (`internal/scope/`) |
+| Change what a Classic HTTP error says | `classicHTMLErrorReason` (`internal/client/client.go`) |
+| Add server-side subset narrowing (`--subset`) to a classic `get` | `subsets:` list in `specs/classic/resources.yaml` (drives completion; non-id lookups auto-resolve to an id first for gateway compatibility) |
+
+## Shared Command Helpers
+
+| I want to... | Edit this file |
+|---|---|
+| Change shared input reading, confirmation or export formatting (Protect + Platform) | `internal/commands/protect_helpers.go` — `readInput`, `unmarshalInput`, `printResult`, `printExport`, `confirmDelete`, `confirmReplace` |
+| Change the Platform-only helpers | `internal/commands/pro_platform_helpers.go` — `requirePlatformClient`, `printScaffold`, `identityEncodingOnWrites`, `newPlatformSDKClient` |
+| Change the Security Cloud helpers | `internal/security` — `ReadBody`, `ConfirmAction`. Duplicated from `internal/platform` rather than shared, since the products' generated packages cannot import each other's parent (`internal/commands`) without an import cycle |
+
+## Cross-Product Dashboard and MCP
+
+| I want to... | Edit this file |
+|---|---|
+| Add or change a dashboard section's data | `internal/commands/dashboard_pro.go` (Jamf Pro), `dashboard_protect.go`, `dashboard_platform.go`, `dashboard_security_cloud.go`; the shapes are in `dashboard_data.go` |
+| Change how a dashboard section renders | `internal/commands/dashboard_html.go` (one `html/template`, no escape hatch anywhere — keep it that way) |
+| Change the dashboard's exit code or banner | `finishDashboard` (`internal/commands/dashboard.go`) — the seam both are tested through |
+| Change what each dashboard tier costs, or where a collector lives | `collectProDataFast` / `collectProDataFull` (`internal/commands/dashboard_pro.go`), and `fixedCostAuditChecks` / `fleetScaledAuditChecks` (`internal/commands/pro_audit.go`). State the cost through `dashboardCostNote` (`dashboard.go`) — it is the single source every surface quotes |
+| Change which objects a category's item count covers | `classicCategorySources` / `proCategorySources` (`internal/commands/dashboard_pro_categories.go`) |
+| Change what an MCP child may not do | `blockedChildFlagPrefixes` / `blockedChildCommandPaths` / `refuseReportThroughRunCommand` (`internal/commands/mcp.go`) — prefix-matched, and the blocked set is swept from the assembled tree by a test |
+| Change what the MCP report tool returns | `runReportChild` (`internal/commands/mcp.go`) — exit 7 keeps the file, anything else removes it |

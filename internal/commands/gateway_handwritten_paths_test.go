@@ -371,6 +371,23 @@ var handWrittenUndeterminedMethods = map[string][]string{
 	// request itself is jcdsListFiles, a read.
 	"/pro/v1/jcds/files": {"GET"},
 
+	// dashboard_pro_categories.go — every one of these is a field in a
+	// package-level table (classicCategorySources, proCategorySources) whose
+	// consumer, collectCategoryUsage, reads each collection and then each
+	// object's detail. All reads: the category tally never writes.
+	"/proclassic/mobiledeviceconfigurationprofiles":       {"GET"},
+	"/proclassic/mobiledeviceconfigurationprofiles/id/{}": {"GET"},
+	"/proclassic/macapplications":                         {"GET"},
+	"/proclassic/macapplications/id/{}":                   {"GET"},
+	"/proclassic/mobiledeviceapplications":                {"GET"},
+	"/proclassic/mobiledeviceapplications/id/{}":          {"GET"},
+	"/proclassic/printers":                                {"GET"},
+	"/proclassic/printers/id/{}":                          {"GET"},
+	"/pro/v1/scripts":                                     {"GET"},
+	"/pro/v1/packages":                                    {"GET"},
+	"/pro/v1/ebooks":                                      {"GET"},
+	"/pro/v3/patch-software-title-configurations":         {"GET"},
+
 	// open.go, proServerURLPath — a const read by proWebURL through fetchJSON,
 	// which hardcodes the method, so no literal appears at either site.
 	"/pro/v1/jamf-pro-server-url": {"GET"},
