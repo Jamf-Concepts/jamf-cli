@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/bodyinput"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -49,9 +50,33 @@ func printExport(data any) error {
 }
 
 // unmarshalInput tries JSON first, then YAML, into the target.
+//
+// The YAML rung is normalised through JSON — decoded to a generic value, then
+// re-marshalled and bound with encoding/json — rather than handed to yaml.v3's
+// own struct binding, because yaml.v3 reads neither `json` tags nor
+// encoding/json's treatment of json.RawMessage. A key written as the `json`
+// tag spells it (`activationPredicate`) binds to nothing there, and a mapping
+// arriving at a json.RawMessage field is refused outright, which is what made
+// `pro blueprints export -o yaml` output unreadable by `pro blueprints apply`.
+// encoding/json matches a key case-insensitively, so a document written either
+// way — the lower-cased keys yaml.v3 emits, or the `json`-tag keys an export
+// writes — binds through this rung.
+//
+// yaml.v3's own binding stays as the last rung. It takes the values
+// encoding/json refuses (a non-string mapping key, a timestamp scalar) once
+// bodyinput has no answer for them, and an input carrying no content at all,
+// which bodyinput.Normalize reports as an error and every caller here has
+// always taken as "leave the target alone".
 func unmarshalInput(data []byte, target any) error {
 	if err := json.Unmarshal(data, target); err == nil {
 		return nil
+	}
+	if v, err := bodyinput.Normalize(data); err == nil {
+		if shaped, err := json.Marshal(v); err == nil {
+			if err := json.Unmarshal(shaped, target); err == nil {
+				return nil
+			}
+		}
 	}
 	if err := yaml.Unmarshal(data, target); err == nil {
 		return nil

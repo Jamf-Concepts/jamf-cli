@@ -279,14 +279,45 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	return jamfplatform.NewClient(url, clientID, clientSecret, opts...), nil
 }
 
+// jsonShaped rebuilds v from its own JSON encoding, so a YAML document
+// rendered from the result carries the same keys and the same shapes as the
+// JSON one.
+//
+// yaml.v3 honours neither `json` tags nor encoding/json's treatment of
+// json.RawMessage. It matches the lower-cased Go field name, so
+// `activationPredicate` was written `activationpredicate`, which nothing reads
+// back; and a json.RawMessage is a []byte to it, so a blueprint component's
+// configuration was written as a sequence of the integer bytes of its own JSON
+// text (`- 123`, `- 34`, …) rather than as the object those bytes spell.
+// encoding/json has a case for both, so going through it settles both.
+//
+// It is the same normalisation the Pro generated commands already do in
+// printScaffoldOutput, which starts from a JSON string and so never had the
+// defect.
+func jsonShaped(v any) (any, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling output: %w", err)
+	}
+	var shaped any
+	if err := json.Unmarshal(data, &shaped); err != nil {
+		return nil, fmt.Errorf("marshalling output: %w", err)
+	}
+	return shaped, nil
+}
+
 // printScaffold marshals the given value to stdout, respecting the -o flag.
 // Used by apply commands with --scaffold to show the expected input structure.
 func printScaffold(v any) error {
 	switch outputFmt {
 	case "yaml":
+		shaped, err := jsonShaped(v)
+		if err != nil {
+			return err
+		}
 		enc := yaml.NewEncoder(os.Stdout)
 		enc.SetIndent(2)
-		if err := enc.Encode(v); err != nil {
+		if err := enc.Encode(shaped); err != nil {
 			return err
 		}
 		return enc.Close()

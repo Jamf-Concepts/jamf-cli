@@ -745,6 +745,28 @@ breaking change without warning, with general availability expected by 2027-03-0
 - Help text no longer carries markdown `**bold**` or `_italic_` markers on any platform
   command; backticks, which quote a field or a value, are unchanged.
 
+### Fixed — a YAML export or scaffold carries the same document as the JSON one
+
+`pro blueprints export -o yaml` rendered each component's `configuration` as a sequence
+of integers — the bytes of its own JSON text — and lower-cased every key
+(`activationpredicate`). Both came from yaml.v3, which reads neither `json` tags nor
+encoding/json's treatment of `json.RawMessage`. The same two applied to
+`pro blueprints apply --scaffold -o yaml` and to the `--scaffold -o yaml` of
+`pro compliance-benchmarks apply` and `pro platform-device-groups create`.
+
+- **A YAML export and a YAML scaffold now carry the keys the JSON one carries.** A
+  script keying on `activationpredicate`, or reading `configuration` as a list of
+  numbers, has to read `activationPredicate` and a mapping instead. `-o json` is
+  unchanged. The Jamf Protect and Jamf School exports are unchanged, their input types
+  carrying no `json` tags for a YAML document to follow.
+- **The YAML input path binds by `json` tag.** Every `--from-file` reading JSON or YAML
+  through this path (`pro blueprints`, `pro compliance-benchmarks`, the platform device
+  groups, and the Protect and School applies) now decodes YAML through JSON, so a
+  key spelled either way binds — encoding/json matches a key case-insensitively.
+- **A blueprint YAML export written by v1.31.0 or earlier is refused rather than sent.**
+  Its byte-sequence `configuration` is a valid JSON array, so it would otherwise reach
+  the gateway as the component's configuration. Re-export and apply that file.
+
 ## v1.28.0
 
 The Jamf Platform API reached general availability on 2026-09-03. Most of this release is
