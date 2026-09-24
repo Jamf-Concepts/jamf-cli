@@ -190,7 +190,7 @@
   <section id="quickstart">
     <div class="section-head">
       <h2>Up and running in three commands</h2>
-      <p id="install">Homebrew, <code>go install</code>, or a <a href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">binary from GitHub Releases</a> for macOS, Linux, and Windows.</p>
+      <p id="install">Homebrew, <code>go install</code>, or a <a href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">binary from GitHub Releases</a> for macOS and Linux.</p>
     </div>
     <div class="steps">
       <div class="card step">
@@ -232,7 +232,7 @@
   <section id="commands">
     <div class="section-head">
       <h2>Commands</h2>
-      <p><span id="commands-total">&mdash;</span> commands, regenerated from the binary on every merge to main.</p>
+      <p><span id="commands-total">&mdash;</span> commands, generated from the binary of the latest release.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="Filter by product">
       <button class="tab active" id="tab-all" role="tab" aria-selected="true" aria-controls="catalog" data-filter="all" type="button">All</button>
@@ -292,7 +292,7 @@
       <div class="faq-item"><h3>How are credentials handled?</h3><p>Interactive prompts, <code>JAMF_*</code> environment variables, or keychain-backed profiles. Never flags, never stdin.</p></div>
       <div class="faq-item"><h3>Does it cover the Classic API?</h3><p>Yes. Classic and modern Jamf Pro APIs both live under <code>pro</code>. Every classic write takes <code>--from-file</code>.</p></div>
       <div class="faq-item"><h3>Can AI agents use it?</h3><p>Yes. The site publishes <a href="llms.txt">llms.txt</a> and <a href="commands.json">commands.json</a>, and the binary has <code>mcp</code> and <code>agent-context</code> commands.</p></div>
-      <div class="faq-item"><h3>How current is this catalog?</h3><p>It is generated from the built binary on every merge to main. Commands added since the last release carry a New tag.</p></div>
+      <div class="faq-item"><h3>How current is this catalog?</h3><p>It is generated from the binary of the latest release and republished on every merge to main. A command merged after a release appears with the next release. Commands that the latest release added carry a New tag.</p></div>
       <div class="faq-item"><h3>Is it free?</h3><p>Yes. Open source under the repository license, built and maintained by Jamf Concepts.</p></div>
     </div>
   </section>
@@ -339,7 +339,7 @@
         "name": "How current is this catalog?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "It is generated from the built binary on every merge to main. Commands added since the last release carry a New tag."
+          "text": "It is generated from the binary of the latest release and republished on every merge to main. A command merged after a release appears with the next release. Commands that the latest release added carry a New tag."
         }
       },
       {
