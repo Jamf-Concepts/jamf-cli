@@ -84,7 +84,11 @@ not carry privilege data.
 `jamf-cli mcp serve` exposes the command tree to MCP clients over stdio via three
 tools:
 
-- `list_commands` — the catalog.
+- `list_commands` — every command, as one JSON object per line with only
+  `command`, `description` and `destructive`. The catalog with every field is
+  too large for one tool result. For one command's flags, call `run_command`
+  with `<command> --help`. For another catalog field, call `run_command` with
+  `commands --select command,<field> -o ndjson`.
 - `run_command` — execute one command and get its output back as text.
 - `generate_report` — write a self-contained HTML fleet report into the
   directory `jamf-cli config set-report-dir` designates, and return its path and

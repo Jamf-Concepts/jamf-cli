@@ -114,3 +114,21 @@ func TestListCommands_ReturnsTheWholeCatalogAsValidJSON(t *testing.T) {
 		t.Errorf("list_commands returned %d rows for a catalog of %d commands", len(rows), len(want))
 	}
 }
+
+func TestListCommands_KeepsStderrOutOfTheCatalog(t *testing.T) {
+	row := `{"command":"pro computers list","description":"List computers","destructive":false}` + "\n"
+	hint := "hint: 1766 results returned. Narrow with --select=<fields>\n"
+
+	ok := mcpResultText(listCommands(context.Background(), writeFakeReportChild(t, row, hint, 0), ""))
+	if ok != row {
+		t.Errorf("a successful catalog must be the child's stdout alone, got:\n%s", ok)
+	}
+
+	res := listCommands(context.Background(), writeFakeReportChild(t, "", "Error: config unreadable\n", 1), "")
+	if !res.IsError {
+		t.Fatal("a failed catalog child must be an error result")
+	}
+	if !strings.Contains(mcpResultText(res), "config unreadable") {
+		t.Errorf("a failed catalog must carry the child's stderr, got:\n%s", mcpResultText(res))
+	}
+}

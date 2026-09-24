@@ -37,7 +37,7 @@ func newMCPCmd() *cobra.Command {
 		Long: `Serve jamf-cli's command tree to MCP-capable AI clients over stdio.
 
 The connecting AI gets three tools:
-  - list_commands   : the full command catalog (names, descriptions, flags)
+  - list_commands   : every command, with its description and destructive mark
   - run_command     : execute any jamf-cli command and get its output back
   - generate_report : write a shareable HTML fleet report and return its path
 
@@ -119,10 +119,15 @@ instead.`,
 
 			mcp.AddTool(server, &mcp.Tool{
 				Name: "list_commands",
-				Description: "List every available jamf-cli command with its description and " +
-					"flags. Commands that mutate or erase state are marked \"destructive\": true " +
-					"and require an explicit --yes. Call this first to discover what you can run, " +
-					"then use run_command.",
+				Description: "List every available jamf-cli command as one JSON object per line, " +
+					"with its command, description and destructive fields. Commands that mutate " +
+					"or erase state are marked \"destructive\": true and require an explicit --yes. " +
+					"Call this first to discover what you can run, then use run_command. For one " +
+					"command's flags and arguments, run it with --help through run_command, e.g. " +
+					"[\"pro\",\"computers\",\"list\",\"--help\"]. For another catalog field " +
+					"(flags, aliases, product, group, privileges, gatewayPermissions, scopes), use " +
+					"run_command [\"commands\",\"--select\",\"command,<field>\",\"-o\",\"ndjson\"]; the " +
+					"catalog with every field is too large for one tool result.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 				return listCommands(ctx, executable, serverProfile), nil, nil
 			})
@@ -224,8 +229,35 @@ func childEnv() []string {
 	return append(kept, "JAMF_CLI_MCP=1")
 }
 
+// listCommandsArgs requests only the fields an AI needs to choose a command,
+// because the full catalog does not fit in one tool result.
+var listCommandsArgs = []string{"commands", "--select", "command,description,destructive", "-o", "ndjson"}
+
+// listCommands returns the catalog child's stdout alone, since one stderr line
+// in it makes the catalog invalid JSON. It skips capChildOutput: a cut catalog
+// is invalid JSON too, and the catalog is fixed per build, so
+// TestListCommands_ReturnsTheWholeCatalogAsValidJSON holds it under the cap.
 func listCommands(ctx context.Context, executable, serverProfile string) *mcp.CallToolResult {
-	return runChild(ctx, executable, serverProfile, []string{"commands", "-o", "json"})
+	childArgs, err := buildChildArgs(serverProfile, listCommandsArgs)
+	if err != nil {
+		return errorResult(err.Error())
+	}
+
+	var stderr bytes.Buffer
+	child := exec.CommandContext(ctx, executable, childArgs...)
+	child.Env = childEnv()
+	child.Stderr = &stderr
+	out, err := child.Output()
+	if err != nil {
+		text := fmt.Sprintf("listing commands failed: %v", err)
+		if warnings := strings.TrimSpace(tailWarnings(stderr.Bytes())); warnings != "" {
+			text += "\n\n" + warnings
+		}
+		return errorResult(text)
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: string(out)}},
+	}
 }
 
 // runChild re-invokes this binary with the given args, injecting the server's
