@@ -124,7 +124,7 @@ instead.`,
 					"and require an explicit --yes. Call this first to discover what you can run, " +
 					"then use run_command.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
-				return runChild(ctx, executable, serverProfile, []string{"commands", "-o", "json"}), nil, nil
+				return listCommands(ctx, executable, serverProfile), nil, nil
 			})
 
 			mcp.AddTool(server, &mcp.Tool{
@@ -222,6 +222,10 @@ func childEnv() []string {
 		kept = append(kept, kv)
 	}
 	return append(kept, "JAMF_CLI_MCP=1")
+}
+
+func listCommands(ctx context.Context, executable, serverProfile string) *mcp.CallToolResult {
+	return runChild(ctx, executable, serverProfile, []string{"commands", "-o", "json"})
 }
 
 // runChild re-invokes this binary with the given args, injecting the server's
