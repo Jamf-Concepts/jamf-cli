@@ -128,7 +128,7 @@ func renderLLMSTxt(d siteData) string {
 	fmt.Fprintf(&b, "## Install\n\n")
 	fmt.Fprintf(&b, "- [Homebrew](https://github.com/Jamf-Concepts/jamf-cli#install): `brew install Jamf-Concepts/tap/jamf-cli`\n")
 	fmt.Fprintf(&b, "- [Go install](https://github.com/Jamf-Concepts/jamf-cli#install): `go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest`\n")
-	fmt.Fprintf(&b, "- [Pre-built binaries](https://github.com/Jamf-Concepts/jamf-cli/releases): macOS, Linux, Windows\n\n")
+	fmt.Fprintf(&b, "- [Pre-built binaries](https://github.com/Jamf-Concepts/jamf-cli/releases): macOS, Linux\n\n")
 
 	fmt.Fprintf(&b, "## Commands\n\n")
 	fmt.Fprintf(&b, "- [Full command reference (markdown)](%s/llms-full.txt): every command, description, flags, and aliases — auto-generated from the binary on each release\n", siteURL)
