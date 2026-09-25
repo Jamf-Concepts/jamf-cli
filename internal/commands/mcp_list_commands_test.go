@@ -5,9 +5,7 @@ package commands
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"testing"
@@ -31,87 +29,120 @@ func TestMain(m *testing.M) {
 }
 
 type listCommandsRow struct {
-	Command     string `json:"command"`
-	Destructive *bool  `json:"destructive"`
+	Command     string  `json:"command"`
+	Destructive *bool   `json:"destructive"`
+	Subcommands int     `json:"subcommands"`
+	Flags       *string `json:"flags"`
+	Truncated   bool    `json:"truncated"`
 }
 
-// decodeListCommands accepts one JSON array or a stream of JSON objects, and
-// fails on anything that is not valid JSON.
+// decodeListCommands requires one valid JSON object on every line.
 func decodeListCommands(t *testing.T, text string) []listCommandsRow {
 	t.Helper()
 	var rows []listCommandsRow
-	dec := json.NewDecoder(strings.NewReader(text))
-	for {
-		var raw json.RawMessage
-		err := dec.Decode(&raw)
-		if errors.Is(err, io.EOF) {
-			return rows
-		}
-		if err != nil {
-			tail := text[max(0, len(text)-200):]
-			t.Fatalf("list_commands returned %d bytes that are not valid JSON (%v); it ends with:\n%s", len(text), err, tail)
-		}
-		if raw[0] == '[' {
-			var batch []listCommandsRow
-			if err := json.Unmarshal(raw, &batch); err != nil {
-				t.Fatalf("list_commands array does not decode as catalog rows: %v", err)
-			}
-			rows = append(rows, batch...)
-			continue
-		}
+	for i, line := range strings.Split(strings.TrimSuffix(text, "\n"), "\n") {
 		var row listCommandsRow
-		if err := json.Unmarshal(raw, &row); err != nil {
-			t.Fatalf("list_commands value %s does not decode as a catalog row: %v", raw, err)
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("list_commands line %d is not a JSON object (%v): %q", i+1, err, line)
 		}
 		rows = append(rows, row)
 	}
+	return rows
 }
 
-// TestListCommands_ReturnsTheWholeCatalogAsValidJSON drives the list_commands
-// handler against the real command tree. The catalog is fixed per build, so a
-// catalog that outgrows the tool-result ceiling fails here, not at runtime.
-func TestListCommands_ReturnsTheWholeCatalogAsValidJSON(t *testing.T) {
+func runListCommands(t *testing.T, in listCommandsInput) []listCommandsRow {
+	t.Helper()
 	t.Setenv(runAsCLIEnv, "1")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	res := listCommands(context.Background(), exe, "")
+	res := listCommands(context.Background(), exe, "", in)
 	text := mcpResultText(res)
 	if res.IsError {
-		t.Fatalf("list_commands failed: %s", text)
+		t.Fatalf("list_commands %+v failed: %s", in, text)
 	}
-	if len(text) > maxChildOutputBytes {
-		t.Errorf("list_commands returned %d bytes, over the %d-byte ceiling for one tool result; "+
-			"narrow the projection the handler requests", len(text), maxChildOutputBytes)
+	if len(text) > maxListCommandsBytes {
+		t.Errorf("list_commands %+v returned %d bytes, over the %d-byte ceiling", in, len(text), maxListCommandsBytes)
+	}
+	return decodeListCommands(t, text)
+}
+
+func TestListCommands_OpensTheTopLevelThenAResource(t *testing.T) {
+	top := map[string]listCommandsRow{}
+	for _, r := range runListCommands(t, listCommandsInput{}) {
+		top[r.Command] = r
+	}
+	for _, product := range []string{"pro", "protect", "school", "security", "platform"} {
+		if top[product].Subcommands == 0 {
+			t.Errorf("the top level must list %q with a subcommand count, got %+v", product, top[product])
+		}
 	}
 
-	rows := decodeListCommands(t, text)
-	got := make(map[string]listCommandsRow, len(rows))
+	rows := runListCommands(t, listCommandsInput{Prefix: "pro computers"})
+	var list *listCommandsRow
+	for i := range rows {
+		if rows[i].Command == "pro computer-inventory list" {
+			list = &rows[i]
+		}
+	}
+	if list == nil {
+		t.Fatalf("prefix \"pro computers\" must list pro computer-inventory list, got %+v", rows)
+	}
+	if list.Destructive == nil || list.Flags == nil {
+		t.Errorf("a command row must carry destructive and flags, got %+v", *list)
+	}
+}
+
+func TestListCommands_SearchesUnderAPrefix(t *testing.T) {
+	rows := runListCommands(t, listCommandsInput{Prefix: "pro", Query: "delete policy"})
+	var found bool
 	for _, r := range rows {
-		got[r.Command] = r
+		if !strings.HasPrefix(r.Command, "pro ") {
+			t.Errorf("a search under prefix pro returned %q", r.Command)
+		}
+		if r.Command == "pro classic-policies delete" {
+			found = true
+			if r.Destructive == nil || !*r.Destructive {
+				t.Errorf("pro classic-policies delete must be marked destructive, got %+v", r)
+			}
+		}
 	}
+	if !found {
+		t.Errorf("query \"delete policy\" must find pro classic-policies delete, got %+v", rows)
+	}
+}
 
-	want := collectCommands(NewRootCmd("test", "abc123", "2024-01-01", "unknown"), "", "", "")
-	var missing []string
-	for _, e := range want {
-		r, ok := got[e.Command]
-		if !ok {
-			missing = append(missing, e.Command)
-			continue
-		}
-		if r.Destructive == nil || *r.Destructive != e.Destructive {
-			t.Errorf("%q: destructive must be %v in list_commands, got %v", e.Command, e.Destructive, r.Destructive)
-		}
+func TestListCommands_RefusesAnUnknownPrefix(t *testing.T) {
+	t.Setenv(runAsCLIEnv, "1")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(missing) > 0 {
-		t.Errorf("list_commands carries %d of the %d catalog commands; missing %d, first: %v",
-			len(want)-len(missing), len(want), len(missing), missing[:min(5, len(missing))])
+	res := listCommands(context.Background(), exe, "", listCommandsInput{Prefix: "pro no-such-resource"})
+	if !res.IsError || !strings.Contains(mcpResultText(res), "no-such-resource") {
+		t.Errorf("an unknown prefix must be an error naming it, got %+v: %s", res.IsError, mcpResultText(res))
 	}
-	if len(rows) != len(want) {
-		t.Errorf("list_commands returned %d rows for a catalog of %d commands", len(rows), len(want))
+}
+
+func TestListCommands_CutsAtALineAndSaysHowManyItOmitted(t *testing.T) {
+	line := `{"command":"pro example","description":"` + strings.Repeat("x", 100) + `","destructive":false}` + "\n"
+	child := writeFakeReportChild(t, strings.Repeat(line, 2000), "", 0)
+
+	res := listCommands(context.Background(), child, "", listCommandsInput{Query: "example"})
+	text := mcpResultText(res)
+	if len(text) > maxListCommandsBytes {
+		t.Errorf("a cut result is %d bytes, over the %d-byte ceiling", len(text), maxListCommandsBytes)
+	}
+	rows := decodeListCommands(t, text)
+	last := rows[len(rows)-1]
+	if !last.Truncated {
+		t.Fatalf("a cut result must end with a truncated line, got %q", text[len(text)-200:])
+	}
+	if !strings.Contains(text, fmt.Sprintf(`"omitted":%d`, 2000-(len(rows)-1))) {
+		t.Errorf("the truncated line must count the omitted rows, got %q", text[len(text)-200:])
 	}
 }
 
@@ -119,16 +150,28 @@ func TestListCommands_KeepsStderrOutOfTheCatalog(t *testing.T) {
 	row := `{"command":"pro computers list","description":"List computers","destructive":false}` + "\n"
 	hint := "hint: 1766 results returned. Narrow with --select=<fields>\n"
 
-	ok := mcpResultText(listCommands(context.Background(), writeFakeReportChild(t, row, hint, 0), ""))
+	ok := mcpResultText(listCommands(context.Background(), writeFakeReportChild(t, row, hint, 0), "", listCommandsInput{}))
 	if ok != row {
 		t.Errorf("a successful catalog must be the child's stdout alone, got:\n%s", ok)
 	}
 
-	res := listCommands(context.Background(), writeFakeReportChild(t, "", "Error: config unreadable\n", 1), "")
+	res := listCommands(context.Background(), writeFakeReportChild(t, "", "Error: config unreadable\n", 1), "", listCommandsInput{})
 	if !res.IsError {
 		t.Fatal("a failed catalog child must be an error result")
 	}
 	if !strings.Contains(mcpResultText(res), "config unreadable") {
 		t.Errorf("a failed catalog must carry the child's stderr, got:\n%s", mcpResultText(res))
+	}
+}
+
+func TestListCommandsArgs_KeepModelTextAsFlagValues(t *testing.T) {
+	args := listCommandsArgs(listCommandsInput{Prefix: "--profile other", Query: "-p prod"})
+	for _, a := range args {
+		if a == "--profile" || a == "-p" {
+			t.Errorf("model text reached the child as its own argument: %q in %v", a, args)
+		}
+	}
+	if _, err := buildChildArgs("prod", args); err != nil {
+		t.Errorf("list_commands arguments must pass buildChildArgs, got %v", err)
 	}
 }

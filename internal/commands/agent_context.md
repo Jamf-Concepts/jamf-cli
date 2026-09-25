@@ -79,16 +79,25 @@ privileges it requires (from the spec's `x-required-privileges`); the field is
 omitted when no privileges are declared. Classic, Protect, and School commands do
 not carry privilege data.
 
+The whole catalog is large. To read part of it:
+
+- `jamf-cli commands --children` lists the top level. Each row with commands
+  under it carries `"subcommands": N`.
+- `jamf-cli commands --prefix "pro computers" --children` lists one level down.
+  `--prefix` without `--children` lists everything under the path.
+- `jamf-cli commands --search "delete policy"` lists the commands whose path,
+  description or aliases contain every word.
+
 ## MCP
 
 `jamf-cli mcp serve` exposes the command tree to MCP clients over stdio via three
 tools:
 
-- `list_commands` — every command, as one JSON object per line with only
-  `command`, `description` and `destructive`. The catalog with every field is
-  too large for one tool result. For one command's flags, call `run_command`
-  with `<command> --help`. For another catalog field, call `run_command` with
-  `commands --select command,<field> -o ndjson`.
+- `list_commands` — browse or search the catalog, one JSON object per line.
+  With no arguments it lists the top level. A row with `"subcommands": N` has
+  N commands under it: pass its `command` as `prefix` to open it. Pass `query`
+  to find commands by words, with or without `prefix`. For one command's
+  arguments, call `run_command` with `<command> --help`.
 - `run_command` — execute one command and get its output back as text.
 - `generate_report` — write a self-contained HTML fleet report into the
   directory `jamf-cli config set-report-dir` designates, and return its path and

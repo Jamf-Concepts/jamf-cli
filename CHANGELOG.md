@@ -11,6 +11,31 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — the MCP `list_commands` tool browses and searches the catalog
+
+`list_commands` returned the whole catalog in one result. That result was
+larger than the 256 KiB cap on a child's output, so the tool cut it
+mid-string: the model got invalid JSON with no Protect, School or Security
+Cloud commands.
+
+The tool now takes two optional arguments, `prefix` and `query`, and returns
+one JSON object per line:
+
+- With no arguments, it lists the top level. A row with `"subcommands": N`
+  has N commands under it.
+- `prefix` opens one command path, for example `"pro"` or `"pro computers"`.
+  A runnable command is listed with `description`, `destructive` and `flags`.
+- `query` returns the commands whose path, description or aliases contain
+  every word, for example `"delete policy"`.
+
+Each result is kept under 64 KiB, below Claude Code's default 25,000-token
+tool-result limit. An MCP client that parsed the old array gets NDJSON rows
+now. The old result was always cut and invalid, so no client parsed it.
+
+`jamf-cli commands` takes the same selection as `--prefix <path>`,
+`--children` and `--search <words>`. With no flags it prints the whole
+catalog, as before.
+
 ### Behaviour — computer group member counts come from the collection that carries one
 
 `pro group-tools` and `pro audit` read member counts from
