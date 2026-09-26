@@ -20,10 +20,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # The Jamf-Concepts Actions policy allows only GitHub-owned actions.
       - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+          golangci-lint run
 
       - name: Test
         run: make test
