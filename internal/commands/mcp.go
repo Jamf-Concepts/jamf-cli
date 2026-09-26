@@ -37,7 +37,7 @@ func newMCPCmd() *cobra.Command {
 		Long: `Serve jamf-cli's command tree to MCP-capable AI clients over stdio.
 
 The connecting AI gets three tools:
-  - list_commands   : the full command catalog (names, descriptions, flags)
+  - list_commands   : browse the command catalog one level at a time, or search it
   - run_command     : execute any jamf-cli command and get its output back
   - generate_report : write a shareable HTML fleet report and return its path
 
@@ -119,12 +119,23 @@ instead.`,
 
 			mcp.AddTool(server, &mcp.Tool{
 				Name: "list_commands",
-				Description: "List every available jamf-cli command with its description and " +
-					"flags. Commands that mutate or erase state are marked \"destructive\": true " +
-					"and require an explicit --yes. Call this first to discover what you can run, " +
-					"then use run_command.",
-			}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
-				return runChild(ctx, executable, serverProfile, []string{"commands", "-o", "json"}), nil, nil
+				Description: "Browse or search the jamf-cli command catalog. Call this first to find " +
+					"what you can run, then use run_command. Each result line is one JSON object.\n\n" +
+					"With no arguments, it lists the top level: the products (pro, protect, school, " +
+					"security, platform) and the core commands. A row with \"subcommands\": N stands " +
+					"for N commands under it. Pass its command as prefix to open it, for example " +
+					"prefix \"pro\", then prefix \"pro computers\". A row with no subcommands is a " +
+					"command you can run, listed with its flags. A few groups can also be run on " +
+					"their own.\n\n" +
+					"Pass query to find commands by words in their path or description, for " +
+					"example \"delete policy\". Add prefix to search one product or resource. " +
+					"Search rows carry no flags: pass a command as prefix to see its flags.\n\n" +
+					"Commands marked \"destructive\": true mutate or erase state and require an " +
+					"explicit --yes. For a command's arguments and flag details, run it with --help " +
+					"through run_command, e.g. [\"pro\",\"computers\",\"list\",\"--help\"]. A last line " +
+					"with \"truncated\": true means rows were left out: narrow the query or add a prefix.",
+			}, func(ctx context.Context, _ *mcp.CallToolRequest, in listCommandsInput) (*mcp.CallToolResult, any, error) {
+				return listCommands(ctx, executable, serverProfile, in), nil, nil
 			})
 
 			mcp.AddTool(server, &mcp.Tool{
@@ -222,6 +233,92 @@ func childEnv() []string {
 		kept = append(kept, kv)
 	}
 	return append(kept, "JAMF_CLI_MCP=1")
+}
+
+type listCommandsInput struct {
+	Prefix string `json:"prefix,omitempty" jsonschema:"a command path to open, such as \"pro\" or \"pro computers\"; omit it for the top level"`
+	Query  string `json:"query,omitempty" jsonschema:"words to find in command paths and descriptions, such as \"delete policy\"; searches under prefix when both are set"`
+}
+
+const (
+	listCommandsBrowseFields = "command,description,destructive,subcommands,flags"
+	listCommandsSearchFields = "command,description,destructive"
+
+	// maxListCommandsBytes keeps one list_commands result inline in Claude Code.
+	// Claude Code 2.1.274 saves a text tool result longer than 50,000 characters
+	// to a file and hands the model only its path, whatever its token count.
+	maxListCommandsBytes = 40 << 10
+)
+
+// listCommandsArgs builds the `commands` invocation for one list_commands call.
+// The model's text is joined to its flag with "=", so it reaches the child as a
+// flag value and never as a flag of its own.
+func listCommandsArgs(in listCommandsInput) []string {
+	args := []string{"commands", "-o", "ndjson"}
+	if prefix := strings.TrimSpace(in.Prefix); prefix != "" {
+		args = append(args, "--prefix="+prefix)
+	}
+	if query := strings.TrimSpace(in.Query); query != "" {
+		return append(args, "--search="+query, "--select="+listCommandsSearchFields)
+	}
+	return append(args, "--children", "--select="+listCommandsBrowseFields)
+}
+
+// listCommands returns the catalog child's stdout alone, since one stderr line
+// in it makes the catalog invalid JSON.
+func listCommands(ctx context.Context, executable, serverProfile string, in listCommandsInput) *mcp.CallToolResult {
+	childArgs, err := buildChildArgs(serverProfile, listCommandsArgs(in))
+	if err != nil {
+		return errorResult(err.Error())
+	}
+
+	var stderr bytes.Buffer
+	child := exec.CommandContext(ctx, executable, childArgs...)
+	child.Env = childEnv()
+	child.Stderr = &stderr
+	out, err := child.Output()
+	if err != nil {
+		text := fmt.Sprintf("listing commands failed: %v", err)
+		if warnings := strings.TrimSpace(tailWarnings(stderr.Bytes())); warnings != "" {
+			text += "\n\n" + warnings
+		}
+		return errorResult(text)
+	}
+	if len(bytes.TrimSpace(out)) == 0 {
+		out = []byte(`{"matches":0,"hint":"nothing is listed under this prefix"}` + "\n")
+		if strings.TrimSpace(in.Query) != "" {
+			out = []byte(`{"matches":0,"hint":"no command matches; use fewer or shorter words, or browse with prefix"}` + "\n")
+		}
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: capCatalogLines(out)}},
+	}
+}
+
+// listCommandsNoteBytes is room kept under maxListCommandsBytes for the
+// truncation line.
+const listCommandsNoteBytes = 256
+
+// capCatalogLines keeps whole NDJSON lines up to maxListCommandsBytes. When it
+// drops any, it ends with one JSON line counting them, so every line parses.
+func capCatalogLines(out []byte) string {
+	lines := strings.SplitAfter(string(out), "\n")
+	var b strings.Builder
+	for i, line := range lines {
+		if b.Len()+len(line) <= maxListCommandsBytes-listCommandsNoteBytes {
+			b.WriteString(line)
+			continue
+		}
+		omitted := 0
+		for _, rest := range lines[i:] {
+			if strings.TrimSpace(rest) != "" {
+				omitted++
+			}
+		}
+		fmt.Fprintf(&b, `{"truncated":true,"omitted":%d,"hint":"narrow the query or add a prefix"}`+"\n", omitted)
+		break
+	}
+	return b.String()
 }
 
 // runChild re-invokes this binary with the given args, injecting the server's
