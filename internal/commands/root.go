@@ -1286,7 +1286,16 @@ With no flags, every command in the tree is listed. Three flags narrow the list:
 			// because `api` is only in the wide rows and the projection then
 			// matched no field in any row.
 			full := wide || isFullDetailFormat(outputFmt) || len(selectFields) > 0
-			return printRows(cliCtx, commandEntriesToMaps(entries, full))
+			rows := commandEntriesToMaps(entries, full)
+			// A table's columns are its first row's keys, and the first row is
+			// often a command with no count, so a table, CSV or plain listing
+			// carries the count on every row, zero included.
+			if q.Children && !output.RendersStructureVerbatim(cliCtx.Output.Format()) {
+				for i, e := range entries {
+					rows[i]["subcommands"] = e.Subcommands
+				}
+			}
+			return printRows(cliCtx, rows)
 		},
 	}
 	cmd.Flags().StringVar(&q.Prefix, "prefix", "", "list only the commands under this command path, e.g. \"pro computers\"")
@@ -1323,7 +1332,7 @@ func queryCatalog(root *cobra.Command, q catalogQuery) ([]commandEntry, error) {
 	}
 
 	if q.Search != "" {
-		entries = searchCatalog(entries, q.Search)
+		return searchCatalog(entries, q.Search)
 	}
 	return entries, nil
 }
@@ -1343,7 +1352,7 @@ func resolveCatalogPrefix(root *cobra.Command, prefix string) (node *cobra.Comma
 		if next == nil {
 			return nil, "", "", "", exitcode.New(exitcode.Usage,
 				fmt.Sprintf("--prefix %q: %q has no subcommand %q", prefix, catalogPathOrTop(path), word)).
-				WithHint("run 'jamf-cli commands --children' to see the top level, then add one word at a time")
+				WithHint("start from the top level, with no prefix, and add one word of a listed command path at a time")
 		}
 		product, group = catalogScope(next, product, group)
 		path = joinCatalogPath(path, next.Name())
@@ -1389,9 +1398,15 @@ func catalogChildren(node *cobra.Command, path, product, group string) []command
 }
 
 // searchCatalog keeps the entries whose path, description or aliases hold every
-// word of search, each word matching the start of a word there.
-func searchCatalog(entries []commandEntry, search string) []commandEntry {
+// word of search, each word matching the start of a word there. A search with
+// no letters or digits is refused, since it would match every command.
+func searchCatalog(entries []commandEntry, search string) ([]commandEntry, error) {
 	words := catalogWords(search)
+	if len(words) == 0 {
+		return nil, exitcode.New(exitcode.Usage,
+			fmt.Sprintf("--search %q has no letters or digits to match", search)).
+			WithHint("search for one or more words, such as \"delete policy\"")
+	}
 	var kept []commandEntry
 	for _, e := range entries {
 		hay := catalogWords(e.Command + " " + e.Description + " " + strings.Join(e.Aliases, " "))
@@ -1399,40 +1414,57 @@ func searchCatalog(entries []commandEntry, search string) []commandEntry {
 			kept = append(kept, e)
 		}
 	}
-	return kept
+	return kept, nil
 }
 
+// catalogMatchesAll reports whether every word of words has a form that starts
+// some form of a word of hay.
 func catalogMatchesAll(hay, words []string) bool {
 	for _, w := range words {
-		found := false
-		for _, h := range hay {
-			if strings.HasPrefix(h, w) {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !catalogMatchesOne(hay, w) {
 			return false
 		}
 	}
 	return true
 }
 
-// catalogWords lowercases s, splits it on anything but letters and digits, and
-// folds a plural to its singular, so "policy" finds "policies".
-func catalogWords(s string) []string {
-	words := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	})
-	for i, w := range words {
-		switch {
-		case len(w) > 4 && strings.HasSuffix(w, "ies"):
-			words[i] = w[:len(w)-3] + "y"
-		case len(w) > 3 && strings.HasSuffix(w, "s") && !strings.HasSuffix(w, "ss"):
-			words[i] = w[:len(w)-1]
+func catalogMatchesOne(hay []string, word string) bool {
+	for _, wf := range catalogWordForms(word) {
+		for _, h := range hay {
+			for _, hf := range catalogWordForms(h) {
+				if strings.HasPrefix(hf, wf) {
+					return true
+				}
+			}
 		}
 	}
-	return words
+	return false
+}
+
+// catalogWords lowercases s and splits it on anything but letters and digits.
+func catalogWords(s string) []string {
+	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+}
+
+// catalogWordForms returns w and each singular it can be the plural of, so
+// "policies" yields "policy", "patches" yields "patch" and "caches" yields
+// "cache". A wrong candidate costs nothing, because a match needs a real word
+// to start with it.
+func catalogWordForms(w string) []string {
+	forms := []string{w}
+	if len(w) <= 3 || !strings.HasSuffix(w, "s") || strings.HasSuffix(w, "ss") {
+		return forms
+	}
+	forms = append(forms, w[:len(w)-1])
+	if strings.HasSuffix(w, "es") {
+		forms = append(forms, w[:len(w)-2])
+	}
+	if len(w) > 4 && strings.HasSuffix(w, "ies") {
+		forms = append(forms, w[:len(w)-3]+"y")
+	}
+	return forms
 }
 
 // collectCommands recursively walks the command tree and returns leaf commands.

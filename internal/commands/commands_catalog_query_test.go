@@ -177,3 +177,60 @@ func TestCommandsCmd_ChildrenFlagPrintsSubcommandCounts(t *testing.T) {
 		t.Errorf("commands --children must count the commands under pro, got %v", counts)
 	}
 }
+
+func TestQueryCatalog_SearchFoldsEveryPluralToItsSingular(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	for _, pair := range [][2]string{{"policy", "policies"}, {"patch", "patches"}, {"class", "classes"}, {"address", "addresses"}} {
+		singular, err := queryCatalog(root, catalogQuery{Search: pair[0]})
+		if err != nil {
+			t.Fatal(err)
+		}
+		plural, err := queryCatalog(root, catalogQuery{Search: pair[1]})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(singular) == 0 || len(plural) != len(singular) {
+			t.Errorf("--search %q found %d commands and %q found %d; a plural must find what its singular finds",
+				pair[1], len(plural), pair[0], len(singular))
+		}
+	}
+}
+
+func TestQueryCatalog_RefusesASearchWithNoWords(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	for _, search := range []string{"-", "--", " / "} {
+		if got, err := queryCatalog(root, catalogQuery{Search: search}); err == nil {
+			t.Errorf("--search %q has no words and must be refused, got %d commands", search, len(got))
+		}
+	}
+}
+
+func TestCommandsCmd_ChildrenCountIsAColumnInEveryTableFormat(t *testing.T) {
+	for _, format := range []string{"table", "csv"} {
+		stdout, _, err := runRoot(t, "commands", "--children", "-o", format)
+		if err != nil {
+			t.Fatalf("commands --children -o %s failed: %v", format, err)
+		}
+		if !strings.Contains(strings.ToLower(stdout), "subcommands") {
+			t.Errorf("-o %s must carry a subcommands column, got:\n%s", format, stdout[:min(400, len(stdout))])
+		}
+	}
+
+	stdout, _, err := runRoot(t, "commands", "--children", "-o", "plain")
+	if err != nil {
+		t.Fatalf("commands --children -o plain failed: %v", err)
+	}
+	var sawZero, sawCount bool
+	for _, line := range strings.Split(stdout, "\n") {
+		fields := strings.Split(line, "\t")
+		switch last := fields[len(fields)-1]; {
+		case strings.HasPrefix(line, "agent-context\t"):
+			sawZero = last == "0"
+		case strings.HasPrefix(line, "pro\t"):
+			sawCount = last != "" && last != "0"
+		}
+	}
+	if !sawZero || !sawCount {
+		t.Errorf("-o plain must end each row with its count, 0 included, got:\n%s", stdout[:min(400, len(stdout))])
+	}
+}

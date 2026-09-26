@@ -125,9 +125,11 @@ instead.`,
 					"security, platform) and the core commands. A row with \"subcommands\": N stands " +
 					"for N commands under it. Pass its command as prefix to open it, for example " +
 					"prefix \"pro\", then prefix \"pro computers\". A row with no subcommands is a " +
-					"command you can run, listed with its flags.\n\n" +
+					"command you can run, listed with its flags. A few groups can also be run on " +
+					"their own.\n\n" +
 					"Pass query to find commands by words in their path or description, for " +
-					"example \"delete policy\". Add prefix to search one product or resource.\n\n" +
+					"example \"delete policy\". Add prefix to search one product or resource. " +
+					"Search rows carry no flags: pass a command as prefix to see its flags.\n\n" +
 					"Commands marked \"destructive\": true mutate or erase state and require an " +
 					"explicit --yes. For a command's arguments and flag details, run it with --help " +
 					"through run_command, e.g. [\"pro\",\"computers\",\"list\",\"--help\"]. A last line " +
@@ -242,10 +244,10 @@ const (
 	listCommandsBrowseFields = "command,description,destructive,subcommands,flags"
 	listCommandsSearchFields = "command,description,destructive"
 
-	// maxListCommandsBytes keeps one list_commands result under Claude Code's
-	// default 25,000-token tool-result limit, above which the client saves the
-	// result to a file and hands the model only its path.
-	maxListCommandsBytes = 64 << 10
+	// maxListCommandsBytes keeps one list_commands result inline in Claude Code.
+	// Claude Code 2.1.274 saves a text tool result longer than 50,000 characters
+	// to a file and hands the model only its path, whatever its token count.
+	maxListCommandsBytes = 40 << 10
 )
 
 // listCommandsArgs builds the `commands` invocation for one list_commands call.
@@ -283,7 +285,10 @@ func listCommands(ctx context.Context, executable, serverProfile string, in list
 		return errorResult(text)
 	}
 	if len(bytes.TrimSpace(out)) == 0 {
-		out = []byte(`{"matches":0,"hint":"no command matches; use fewer or shorter words, or browse with prefix"}` + "\n")
+		out = []byte(`{"matches":0,"hint":"nothing is listed under this prefix"}` + "\n")
+		if strings.TrimSpace(in.Query) != "" {
+			out = []byte(`{"matches":0,"hint":"no command matches; use fewer or shorter words, or browse with prefix"}` + "\n")
+		}
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: capCatalogLines(out)}},

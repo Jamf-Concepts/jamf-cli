@@ -175,3 +175,29 @@ func TestListCommandsArgs_KeepModelTextAsFlagValues(t *testing.T) {
 		t.Errorf("list_commands arguments must pass buildChildArgs, got %v", err)
 	}
 }
+
+func TestListCommands_NamesTheEmptyResultByMode(t *testing.T) {
+	empty := writeFakeReportChild(t, "", "", 0)
+
+	browse := mcpResultText(listCommands(context.Background(), empty, "", listCommandsInput{Prefix: "pro"}))
+	if !strings.Contains(browse, `"matches":0`) || strings.Contains(browse, "words") {
+		t.Errorf("an empty browse must say nothing is listed and mention no words, got %q", browse)
+	}
+	search := mcpResultText(listCommands(context.Background(), empty, "", listCommandsInput{Query: "zzz"}))
+	if !strings.Contains(search, `"matches":0`) || !strings.Contains(search, "words") {
+		t.Errorf("an empty search must suggest other words, got %q", search)
+	}
+}
+
+func TestListCommands_RefusesAQueryWithNoWords(t *testing.T) {
+	t.Setenv(runAsCLIEnv, "1")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := listCommands(context.Background(), exe, "", listCommandsInput{Query: "-"})
+	if !res.IsError || !strings.Contains(mcpResultText(res), "no letters or digits") {
+		t.Errorf("a query with no words must be an error, got %v: %.300s", res.IsError, mcpResultText(res))
+	}
+}

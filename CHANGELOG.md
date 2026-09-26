@@ -28,8 +28,9 @@ one JSON object per line:
 - `query` returns the commands whose path, description or aliases contain
   every word, for example `"delete policy"`.
 
-Each result is kept under 64 KiB, below Claude Code's default 25,000-token
-tool-result limit. An MCP client that parsed the old array gets NDJSON rows
+Each result is kept under 40 KiB. Claude Code saves a text tool result
+longer than 50,000 characters to a file, and gives the model only the file
+path. An MCP client that parsed the old array gets NDJSON rows
 now. The old result was always cut and invalid, so no client parsed it.
 
 `jamf-cli commands` takes the same selection as `--prefix <path>`,
