@@ -126,6 +126,15 @@ func jcdsFetchPresignedURL(ctx context.Context, client registry.HTTPClient, file
 	return result.URI, nil
 }
 
+// jcdsLocalPath joins a server-supplied JCDS file name onto dir, refusing any
+// name that is not a single path element so it cannot land outside dir.
+func jcdsLocalPath(dir, name string) (string, error) {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+		return "", fmt.Errorf("refusing JCDS file name %q: not a plain file name", name)
+	}
+	return filepath.Join(dir, name), nil
+}
+
 // jcdsDownloadFile fetches the pre-signed URL then streams the file to outPath.
 // Retries once with a fresh URL on HTTP 403 — CloudFront signed URLs have a short
 // TTL and can expire if the API response is slow or requests queue under concurrency.
@@ -339,7 +348,13 @@ Designed for scheduled runs on file-share distribution points.`,
 					}
 				}
 				for _, f := range jcdsFiles {
-					localPath := filepath.Join(flagDir, f.FileName)
+					localPath, err := jcdsLocalPath(flagDir, f.FileName)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: %v; skipping\n", err)
+						addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusFailed, Error: err.Error()})
+						failed.Add(1)
+						continue
+					}
 					if !localFiles[f.FileName] {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would download %s (missing)\n", f.FileName)
 						addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusWouldDownload})
@@ -386,7 +401,13 @@ Designed for scheduled runs on file-share distribution points.`,
 				var g errgroup.Group
 
 				for _, f := range jcdsFiles {
-					localPath := filepath.Join(flagDir, f.FileName)
+					localPath, err := jcdsLocalPath(flagDir, f.FileName)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: %v; skipping\n", err)
+						addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusFailed, Error: err.Error()})
+						failed.Add(1)
+						continue
+					}
 					exists := localFiles[f.FileName]
 
 					sem <- struct{}{}
