@@ -98,7 +98,7 @@ func (d *discardOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
-func (d *discardOutput) NotePageSizeIgnoredByAll(_, _ int) {}
+func (d *discardOutput) NotePageSizeReduced(_, _ int) {}
 
 func (d *discardOutput) NotePageSizeClamped(_, _ int) {}
 

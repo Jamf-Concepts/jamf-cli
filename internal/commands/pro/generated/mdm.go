@@ -60,16 +60,17 @@ func newMdmListCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Build request path
 			path := "/v2/mdm/commands"
 
-			// --all requests the largest page this endpoint honours and ignores
-			// --page-size; a single page still takes --page-size, clamped to the
-			// same ceiling. Both are said out loud rather than applied silently:
-			// issue 385 was filed because the flag was dropped without a word.
+			// --page-size is honoured up to the largest page this endpoint
+			// honours, for one page and for --all alike, and clamped above it
+			// out loud: issue 385 was filed because the flag was dropped
+			// without a word. The clamp is what keeps an --all walk whole — the
+			// server clamps an oversized page silently and the walk reads a
+			// short page as the last. Below the ceiling --all takes the flag
+			// as given, since a smaller page is the remedy for one the server
+			// cannot assemble in time (issue 392).
 			pageSizeCeiling := 2000
 			paginateAll := flagAll && !cmd.Flags().Changed("page")
-			switch {
-			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
-				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
-			case !paginateAll && flagPageSize > pageSizeCeiling:
+			if flagPageSize > pageSizeCeiling {
 				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
 				flagPageSize = pageSizeCeiling
 			}
@@ -110,17 +111,24 @@ func newMdmListCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				// The endpoint's own ceiling, never --page-size: the Jamf Pro
-				// API clamps an oversized page-size silently, and the loop
-				// below reads a short page as the last one — so an oversized
-				// page size truncates the result and reports success. See
-				// parser.MaxPageSize.
+				// The endpoint's own ceiling unless --page-size asked for less.
+				// Never more: the Jamf Pro API clamps an oversized page-size
+				// silently, and the loop below reads a short page as the last
+				// one — so an oversized page size truncates the result and
+				// reports success. See parser.MaxPageSize.
 				pageSize := 2000
+				if cmd.Flags().Changed("page-size") && flagPageSize > 0 {
+					pageSize = flagPageSize
+				}
 				// A small --limit should stay a small request. Without this a
 				// --limit 5 would pull a full 2000-row page to return five.
 				if flagLimit > 0 && flagLimit < pageSize {
 					pageSize = flagLimit
 				}
+				// skip is how many leading rows of the next page the walk
+				// already holds — non-zero only after a shrink to a page size
+				// that does not divide the rows fetched so far.
+				skip := 0
 
 				for {
 					// Build page-specific query
@@ -138,6 +146,16 @@ func newMdmListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/mdm/commands"})
 					if err != nil {
+						// A page the server could not assemble in time is
+						// asked for again at half the size, resuming after
+						// the rows already fetched (issue 392).
+						if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
+							prog.Clear()
+							ctx.Output.NotePageSizeReduced(pageSize, smaller)
+							pageSize = smaller
+							pageNum, skip = registry.PageAt(len(allResults), pageSize)
+							continue
+						}
 						return err
 					}
 
@@ -157,7 +175,8 @@ func newMdmListCmd(ctx *registry.CLIContext) *cobra.Command {
 						return ctx.Output.PrintRaw(body)
 					}
 
-					allResults = append(allResults, pageResp.Results...)
+					allResults = append(allResults, pageResp.Results[min(skip, len(pageResp.Results)):]...)
+					skip = 0
 					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
@@ -213,7 +232,7 @@ func newMdmListCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Default sort is dateSent:asc. Multiple sort criteria are supported and must be separated with a comma.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter, for a list of commands. All url must contain minimum one filter field. Fields allowed in the query: uuid, clientManagementId, command, status, clientType, dateSent, validAfter, dateCompleted, profileId, profileIdentifier, and active. This param can be combined with paging. Please note that any date filters must be used with gt, lt, ge, le Example: clientManagementId==fb511aae-c557-474f-a9c1-5dc845b90d0f;status==Pending;command==INSTALL_PROFILE;uuid==9e18f849-e689-4f2d-b616-a99d3da7db42;clientType==COMPUTER_USER;profileId==1;profileIdentifier==18cc61c2-01fc-11ed-b939-0242ac120002;dateCompleted=ge=2021-08-04T14:25:18.26Z;dateCompleted=le=2021-08-04T14:25:18.26Z;validAfter=ge=2021-08-05T14:25:18.26Z;active==true")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")

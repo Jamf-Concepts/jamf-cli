@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,10 +25,11 @@ import (
 type ndjsonOutput struct {
 	f   *output.Formatter
 	buf *bytes.Buffer
-	// ignoredBy records the (requested, used) pair of the last dropped
-	// --page-size notice, so a test can assert the drop was reported.
-	ignoredBy [2]int
-	clamped   [2]int
+	// clamped records the (requested, ceiling) pair of the last clamped
+	// --page-size notice, and reduced every (from, to) page-size halving, so
+	// a test can assert neither substitution was silent.
+	clamped [2]int
+	reduced [][2]int
 }
 
 func newNDJSONOutput() *ndjsonOutput {
@@ -61,8 +63,8 @@ func (o *ndjsonOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
-func (o *ndjsonOutput) NotePageSizeIgnoredByAll(requested, used int) {
-	o.ignoredBy = [2]int{requested, used}
+func (o *ndjsonOutput) NotePageSizeReduced(from, to int) {
+	o.reduced = append(o.reduced, [2]int{from, to})
 }
 
 func (o *ndjsonOutput) NotePageSizeClamped(requested, ceiling int) {
@@ -84,6 +86,11 @@ type paginatedClient struct {
 	// pagePrefix is the path prefix to match (without query string)
 	pathPrefix string
 	pageSizes  []int
+	// timeoutAbove makes every page larger than it fail the way a page the
+	// server cannot assemble in time does; timeoutOn does the same for the
+	// requests at those indices. Zero values time nothing out.
+	timeoutAbove int
+	timeoutOn    map[int]bool
 }
 
 func newComputersInventoryClient() *paginatedClient {
@@ -118,6 +125,9 @@ func (c *paginatedClient) Do(_ context.Context, method, path string, _ io.Reader
 
 	pageSize := queryInt(path, "page-size=", 100)
 	c.pageSizes = append(c.pageSizes, pageSize)
+	if (c.timeoutAbove > 0 && pageSize > c.timeoutAbove) || c.timeoutOn[len(c.pageSizes)-1] {
+		return nil, fmt.Errorf("gateway timeout (HTTP 504): %w", registry.ErrServerTimeout)
+	}
 
 	var results []json.RawMessage
 	start := pageNum * pageSize
@@ -222,9 +232,12 @@ func TestAllPagination_NDJSON_PerRecord(t *testing.T) {
 	}
 }
 
-// ── TEST 5a2: --page-size is ignored by --all, and said to be ────────────────
+// ── TEST 5a2: --page-size below the ceiling is honoured by --all ─────────────
 
-func TestAllPagination_PageSizeIgnoredWithANotice(t *testing.T) {
+// Issue 385's fix ignored --page-size under --all, which left the caller no
+// way to ask for a page the server can assemble in time (issue 392). Below
+// the ceiling it cannot be misread as a clamped last page, so it is honoured.
+func TestAllPagination_PageSizeBelowTheCeilingIsHonoured(t *testing.T) {
 	out := newNDJSONOutput()
 	client := newComputersInventoryClient()
 	cliCtx := &registry.CLIContext{
@@ -233,21 +246,140 @@ func TestAllPagination_PageSizeIgnoredWithANotice(t *testing.T) {
 	}
 
 	cmd := NewComputerInventoryCmd(cliCtx)
-	cmd.SetArgs([]string{"list", "--page-size", "100"})
+	cmd.SetArgs([]string{"list", "--page-size", "1000"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+
+	if want := []int{1000, 1000, 1000, 1000, 1000}; fmt.Sprint(client.pageSizes) != fmt.Sprint(want) {
+		t.Errorf("page sizes sent = %v, want %v", client.pageSizes, want)
+	}
+	assertEveryRowOnce(t, out.buf.String(), 4500)
+	if out.clamped != [2]int{} {
+		t.Errorf("a --page-size under the ceiling reported a clamp: %v", out.clamped)
+	}
+}
+
+// ── TEST 5a2b: --page-size above the ceiling is clamped under --all ──────────
+
+// Passed through, 5000 would come back as 2000 rows, which the walk reads as
+// the last page: 2000 of 4500 records at exit 0.
+func TestAllPagination_PageSizeAboveTheCeilingIsClampedWithANotice(t *testing.T) {
+	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
+	cliCtx := &registry.CLIContext{
+		Client: client,
+		Output: out,
+	}
+
+	cmd := NewComputerInventoryCmd(cliCtx)
+	cmd.SetArgs([]string{"list", "--page-size", "5000"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("list execute: %v", err)
 	}
 
 	for i, ps := range client.pageSizes {
 		if ps != 2000 {
-			t.Errorf("request %d asked for page-size=%d; --all must use the endpoint maximum 2000, not --page-size", i, ps)
+			t.Errorf("request %d asked for page-size=%d; an oversized --page-size must be clamped to 2000", i, ps)
 		}
 	}
-	if len(nonEmptyNDJSONLines(out.buf.String())) != 4500 {
-		t.Error("--page-size alongside --all must not change which records are returned")
+	assertEveryRowOnce(t, out.buf.String(), 4500)
+	if out.clamped != [2]int{5000, 2000} {
+		t.Errorf("expected a clamp notice of (requested 5000, ceiling 2000), got %v — a silently substituted flag is the defect", out.clamped)
 	}
-	if out.ignoredBy != [2]int{100, 2000} {
-		t.Errorf("expected a dropped-flag notice of (requested 100, used 2000), got %v — a silently dropped flag is the defect", out.ignoredBy)
+}
+
+// ── TEST 5a2c: a timed-out page is fetched again at half the size ────────────
+
+// The reporter of issue 392 saw a 2000-row computer inventory page time out
+// three times over and the command fail, where 1000 rows answered in 45s.
+func TestAllPagination_ATimedOutPageIsFetchedAgainAtHalfTheSize(t *testing.T) {
+	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
+	client.timeoutAbove = 1000
+	cliCtx := &registry.CLIContext{
+		Client: client,
+		Output: out,
+	}
+
+	cmd := NewComputerInventoryCmd(cliCtx)
+	cmd.SetArgs([]string{"list"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+
+	if want := []int{2000, 1000, 1000, 1000, 1000, 1000}; fmt.Sprint(client.pageSizes) != fmt.Sprint(want) {
+		t.Errorf("page sizes sent = %v, want %v — one timeout, then the rest at 1000", client.pageSizes, want)
+	}
+	assertEveryRowOnce(t, out.buf.String(), 4500)
+	if fmt.Sprint(out.reduced) != "[[2000 1000]]" {
+		t.Errorf("reduction notices = %v, want one of 2000 to 1000", out.reduced)
+	}
+}
+
+// A shrink partway through resumes after the rows already held — including
+// when the new size does not divide them, which halving an odd page size
+// produces: 750 rows held, then 375, then 187, resumes at page 4 skipping 2.
+func TestAllPagination_AShrinkMidWalkNeitherRepeatsNorDropsARow(t *testing.T) {
+	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
+	client.timeoutOn = map[int]bool{1: true, 2: true}
+	cliCtx := &registry.CLIContext{
+		Client: client,
+		Output: out,
+	}
+
+	cmd := NewComputerInventoryCmd(cliCtx)
+	cmd.SetArgs([]string{"list", "--page-size", "750"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+
+	if got := client.pageSizes[:4]; fmt.Sprint(got) != "[750 750 375 187]" {
+		t.Errorf("first page sizes sent = %v, want [750 750 375 187]", got)
+	}
+	assertEveryRowOnce(t, out.buf.String(), 4500)
+}
+
+// A page at the floor that still times out is not a page-size problem; the
+// walk stops shrinking and returns the timeout.
+func TestAllPagination_StopsShrinkingAtTheFloor(t *testing.T) {
+	out := newNDJSONOutput()
+	client := newComputersInventoryClient()
+	client.timeoutAbove = 1 // everything times out
+	cliCtx := &registry.CLIContext{
+		Client: client,
+		Output: out,
+	}
+
+	cmd := NewComputerInventoryCmd(cliCtx)
+	cmd.SetArgs([]string{"list"})
+	cmd.SilenceErrors, cmd.SilenceUsage = true, true
+	err := cmd.Execute()
+	if !errors.Is(err, registry.ErrServerTimeout) {
+		t.Fatalf("error = %v, want the server timeout", err)
+	}
+	if want := []int{2000, 1000, 500, 250, 125, 100}; fmt.Sprint(client.pageSizes) != fmt.Sprint(want) {
+		t.Errorf("page sizes sent = %v, want %v", client.pageSizes, want)
+	}
+}
+
+// assertEveryRowOnce checks the NDJSON output holds rows 1..total, each once
+// and in order.
+func assertEveryRowOnce(t *testing.T, ndjson string, total int) {
+	t.Helper()
+	lines := nonEmptyNDJSONLines(ndjson)
+	if len(lines) != total {
+		t.Errorf("got %d rows, want %d", len(lines), total)
+	}
+	for i, ln := range lines {
+		var row struct{ ID string }
+		if err := json.Unmarshal([]byte(ln), &row); err != nil {
+			t.Fatalf("row %d: %v", i, err)
+		}
+		if want := fmt.Sprint(i + 1); row.ID != want {
+			t.Fatalf("row %d has id %s, want %s — a row was repeated or dropped", i, row.ID, want)
+		}
 	}
 }
 

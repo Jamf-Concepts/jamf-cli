@@ -299,7 +299,7 @@ func (mockOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
-func (mockOutput) NotePageSizeIgnoredByAll(_, _ int) {}
+func (mockOutput) NotePageSizeReduced(_, _ int) {}
 
 func (mockOutput) NotePageSizeClamped(_, _ int) {}
 

@@ -103,12 +103,12 @@ type OutputFormatter interface {
 	Format() string
 	// PaginationProgress returns a reporter for --all pagination progress.
 	PaginationProgress() *progress.Reporter
-	// NotePageSizeIgnoredByAll and NotePageSizeClamped report on stderr that
-	// --page-size was not applied as given: --all chooses its own page size
-	// from the endpoint, and a single page is clamped to the same ceiling.
-	// Both exist so neither substitution is silent (issue 385).
-	NotePageSizeIgnoredByAll(requested, used int)
+	// NotePageSizeClamped and NotePageSizeReduced report on stderr that a
+	// page size was not applied as given: one above the endpoint's ceiling is
+	// clamped to it (issue 385), and --all halves a page that timed out
+	// (issue 392). Both exist so neither substitution is silent.
 	NotePageSizeClamped(requested, ceiling int)
+	NotePageSizeReduced(from, to int)
 }
 
 // ProtectClient defines the interface for Jamf Protect API operations.

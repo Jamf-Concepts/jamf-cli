@@ -98,6 +98,12 @@ Hand-written platform commands have no per-command preview, so `dryRunGuardTrans
 
 **Never hand the platform SDK a retry client.** `jamfplatform.WithHTTPClient` assigns whatever is given to the SDK's `retry.HTTPClient`, so an injected retryablehttp client becomes an inner retry loop whose policy wins. Pass a plain `*http.Client` carrying only the timeout, jar and the verbose/spinner transports.
 
+## Retries and Timeouts — Never Re-send a Sent Write
+
+**`doWithRetry` (`internal/client/client.go`) retries by whether the request reached the server, not by method alone.** A request never sent is retried whatever its method. A timeout is never retried: the server is still working, and the identical request times out again. Any other failure after sending is retried for GET, HEAD and OPTIONS only, and a write carries the hint that it may have been applied. PUT is deliberately not retry-safe: a smart group PUT recalculates membership inside the request.
+
+**A timeout and a 504 are both `registry.ErrServerTimeout`,** and a fetch-everything walk answers either with `registry.ShrinkAfterTimeout` and `registry.PageAt` rather than failing. A new hand-written walk goes through `FetchAllPaginated` or does the same. `httptransport.ResponseHeaderTimeout` stays above the gateway edge's 90s. Full reasoning: `docs/solutions/logic-errors/timeout-retried-at-the-same-size-2026-09-30.md`.
+
 ## Output Flags
 
 - `NO_COLOR` env var respected (https://no-color.org).

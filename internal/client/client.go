@@ -5,14 +5,18 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
@@ -311,20 +315,60 @@ func parseRetryAfter(header string, fallback time.Duration) time.Duration {
 	return fallback
 }
 
+// retrySafeMethods are the methods whose request may be sent again after it
+// reached the server. Deliberately narrower than HTTP's idempotent set: a PUT
+// that timed out may still be running — a smart group update recalculates
+// membership inside the request — and a second one lands on top of it.
+var retrySafeMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodOptions: true,
+}
+
+// doWithRetry sends req, retrying a 429 and a transport failure that is safe
+// to retry.
+//
+// Which transport failures are safe depends on whether the request reached the
+// server, which WroteHeaders reports:
+//   - never sent (dial, TLS, a dead pooled connection): retried whatever the
+//     method, since nothing reached the server.
+//   - sent, then timed out waiting for the response: never retried. The server
+//     is still working on it, and the identical request will time out the same
+//     way — the old policy re-sent it three times, so a 2000-row inventory
+//     page cost three full timeouts before the error (issue 392). A
+//     paginated walk shrinks its page instead (registry.ShrinkPageSize).
+//   - sent, then failed otherwise (connection reset): retried for GET, HEAD
+//     and OPTIONS only. A write may already have been applied.
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []byte) (*http.Response, error) {
 	maxRetries := 3
 	baseDelay := time.Second
 
 	var lastErr error
 	for i := range maxRetries {
+		var sent atomic.Bool
+		attempt := req.WithContext(httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{
+			WroteHeaders: func() { sent.Store(true) },
+		}))
 		// Reset body for each attempt so retries send the full payload.
 		if bodyData != nil {
-			req.Body = io.NopCloser(bytes.NewReader(bodyData))
-			req.ContentLength = int64(len(bodyData))
+			attempt.Body = io.NopCloser(bytes.NewReader(bodyData))
+			attempt.ContentLength = int64(len(bodyData))
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.httpClient.Do(attempt)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, exitcode.Wrap(exitcode.General, err)
+			}
+			if sent.Load() {
+				if isTimeout(err) {
+					return nil, serverTimeoutError(req.Method, err)
+				}
+				if !retrySafeMethods[req.Method] {
+					return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("%s request failed after it was sent: %w", req.Method, err)).
+						WithHint(mayHaveAppliedHint)
+				}
+			}
 			lastErr = err
 			if sleepErr := sleepWithContext(ctx, baseDelay*time.Duration(1<<i)); sleepErr != nil {
 				return nil, sleepErr
@@ -354,6 +398,31 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr))
 	}
 	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
+}
+
+// mayHaveAppliedHint is the remedy for a write that failed after it was sent:
+// the CLI cannot tell whether the server applied it, and re-running blind is
+// how one command creates two objects.
+const mayHaveAppliedHint = "the request reached the server and may have been applied — check the object's current state before retrying"
+
+// isTimeout reports whether err is a timeout: the response-header timeout on
+// the tuned transport, in either protocol ("net/http: timeout awaiting
+// response headers", "http2: timeout awaiting response headers"). Both
+// surface as a net.Error inside the *url.Error http.Client.Do returns.
+func isTimeout(err error) bool {
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
+}
+
+// serverTimeoutError reports a request the server did not answer in time,
+// wrapping registry.ErrServerTimeout so a paginated walk can recognise it and
+// ask for a smaller page.
+func serverTimeoutError(method string, cause error) *exitcode.Error {
+	e := exitcode.Wrap(exitcode.General, fmt.Errorf("%w: %w", registry.ErrServerTimeout, cause))
+	if !retrySafeMethods[method] {
+		return e.WithHint(mayHaveAppliedHint)
+	}
+	return e.WithHint("the request asked for more than the server could assemble in time; for a list, pass a smaller --page-size or narrow it with --section or --filter")
 }
 
 // ReadResponseBody reads the full body from an HTTP response with a 10 MB limit.
@@ -525,6 +594,11 @@ func httpStatusError(status int, method, path string, body []byte) error {
 		return exitcode.New(exitcode.RateLimited,
 			"rate limited (HTTP 429): server is throttling requests").
 			WithHint("retry shortly, or lower batch concurrency")
+	case http.StatusGatewayTimeout:
+		// The edge gave up waiting for Jamf Pro — CloudFront in front of the
+		// platform gateway does so at 90s. The body is the edge's own HTML
+		// page and says nothing about the request, so it is not repeated.
+		return serverTimeoutError(method, fmt.Errorf("gateway timeout (HTTP 504) on %s %s", method, path))
 	default:
 		if reason := classicHTMLErrorReason(body); reason != "" {
 			return exitcode.New(exitcode.General,

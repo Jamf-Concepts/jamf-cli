@@ -215,16 +215,17 @@ func newOnboardingHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Build request path
 			path := "/v1/onboarding/history"
 
-			// --all requests the largest page this endpoint honours and ignores
-			// --page-size; a single page still takes --page-size, clamped to the
-			// same ceiling. Both are said out loud rather than applied silently:
-			// issue 385 was filed because the flag was dropped without a word.
+			// --page-size is honoured up to the largest page this endpoint
+			// honours, for one page and for --all alike, and clamped above it
+			// out loud: issue 385 was filed because the flag was dropped
+			// without a word. The clamp is what keeps an --all walk whole — the
+			// server clamps an oversized page silently and the walk reads a
+			// short page as the last. Below the ceiling --all takes the flag
+			// as given, since a smaller page is the remedy for one the server
+			// cannot assemble in time (issue 392).
 			pageSizeCeiling := 2000
 			paginateAll := flagAll && !cmd.Flags().Changed("page")
-			switch {
-			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
-				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
-			case !paginateAll && flagPageSize > pageSizeCeiling:
+			if flagPageSize > pageSizeCeiling {
 				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
 				flagPageSize = pageSizeCeiling
 			}
@@ -264,17 +265,24 @@ func newOnboardingHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				// The endpoint's own ceiling, never --page-size: the Jamf Pro
-				// API clamps an oversized page-size silently, and the loop
-				// below reads a short page as the last one — so an oversized
-				// page size truncates the result and reports success. See
-				// parser.MaxPageSize.
+				// The endpoint's own ceiling unless --page-size asked for less.
+				// Never more: the Jamf Pro API clamps an oversized page-size
+				// silently, and the loop below reads a short page as the last
+				// one — so an oversized page size truncates the result and
+				// reports success. See parser.MaxPageSize.
 				pageSize := 2000
+				if cmd.Flags().Changed("page-size") && flagPageSize > 0 {
+					pageSize = flagPageSize
+				}
 				// A small --limit should stay a small request. Without this a
 				// --limit 5 would pull a full 2000-row page to return five.
 				if flagLimit > 0 && flagLimit < pageSize {
 					pageSize = flagLimit
 				}
+				// skip is how many leading rows of the next page the walk
+				// already holds — non-zero only after a shrink to a page size
+				// that does not divide the rows fetched so far.
+				skip := 0
 
 				for {
 					// Build page-specific query
@@ -292,6 +300,16 @@ func newOnboardingHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
 					if err != nil {
+						// A page the server could not assemble in time is
+						// asked for again at half the size, resuming after
+						// the rows already fetched (issue 392).
+						if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
+							prog.Clear()
+							ctx.Output.NotePageSizeReduced(pageSize, smaller)
+							pageSize = smaller
+							pageNum, skip = registry.PageAt(len(allResults), pageSize)
+							continue
+						}
 						return err
 					}
 
@@ -311,7 +329,8 @@ func newOnboardingHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 						return ctx.Output.PrintRaw(body)
 					}
 
-					allResults = append(allResults, pageResp.Results...)
+					allResults = append(allResults, pageResp.Results[min(skip, len(pageResp.Results)):]...)
+					skip = 0
 					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
@@ -367,7 +386,7 @@ func newOnboardingHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
@@ -584,16 +603,17 @@ func newOnboardingEligibleAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Build request path
 			path := "/v1/onboarding/eligible-apps"
 
-			// --all requests the largest page this endpoint honours and ignores
-			// --page-size; a single page still takes --page-size, clamped to the
-			// same ceiling. Both are said out loud rather than applied silently:
-			// issue 385 was filed because the flag was dropped without a word.
+			// --page-size is honoured up to the largest page this endpoint
+			// honours, for one page and for --all alike, and clamped above it
+			// out loud: issue 385 was filed because the flag was dropped
+			// without a word. The clamp is what keeps an --all walk whole — the
+			// server clamps an oversized page silently and the walk reads a
+			// short page as the last. Below the ceiling --all takes the flag
+			// as given, since a smaller page is the remedy for one the server
+			// cannot assemble in time (issue 392).
 			pageSizeCeiling := 2000
 			paginateAll := flagAll && !cmd.Flags().Changed("page")
-			switch {
-			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
-				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
-			case !paginateAll && flagPageSize > pageSizeCeiling:
+			if flagPageSize > pageSizeCeiling {
 				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
 				flagPageSize = pageSizeCeiling
 			}
@@ -630,17 +650,24 @@ func newOnboardingEligibleAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				// The endpoint's own ceiling, never --page-size: the Jamf Pro
-				// API clamps an oversized page-size silently, and the loop
-				// below reads a short page as the last one — so an oversized
-				// page size truncates the result and reports success. See
-				// parser.MaxPageSize.
+				// The endpoint's own ceiling unless --page-size asked for less.
+				// Never more: the Jamf Pro API clamps an oversized page-size
+				// silently, and the loop below reads a short page as the last
+				// one — so an oversized page size truncates the result and
+				// reports success. See parser.MaxPageSize.
 				pageSize := 2000
+				if cmd.Flags().Changed("page-size") && flagPageSize > 0 {
+					pageSize = flagPageSize
+				}
 				// A small --limit should stay a small request. Without this a
 				// --limit 5 would pull a full 2000-row page to return five.
 				if flagLimit > 0 && flagLimit < pageSize {
 					pageSize = flagLimit
 				}
+				// skip is how many leading rows of the next page the walk
+				// already holds — non-zero only after a shrink to a page size
+				// that does not divide the rows fetched so far.
+				skip := 0
 
 				for {
 					// Build page-specific query
@@ -658,6 +685,16 @@ func newOnboardingEligibleAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
 					if err != nil {
+						// A page the server could not assemble in time is
+						// asked for again at half the size, resuming after
+						// the rows already fetched (issue 392).
+						if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
+							prog.Clear()
+							ctx.Output.NotePageSizeReduced(pageSize, smaller)
+							pageSize = smaller
+							pageNum, skip = registry.PageAt(len(allResults), pageSize)
+							continue
+						}
 						return err
 					}
 
@@ -677,7 +714,8 @@ func newOnboardingEligibleAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 						return ctx.Output.PrintRaw(body)
 					}
 
-					allResults = append(allResults, pageResp.Results...)
+					allResults = append(allResults, pageResp.Results[min(skip, len(pageResp.Results)):]...)
+					skip = 0
 					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
@@ -733,7 +771,7 @@ func newOnboardingEligibleAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
@@ -760,16 +798,17 @@ func newOnboardingEligibleConfigurationProfilesCmd(ctx *registry.CLIContext) *co
 			// Build request path
 			path := "/v1/onboarding/eligible-configuration-profiles"
 
-			// --all requests the largest page this endpoint honours and ignores
-			// --page-size; a single page still takes --page-size, clamped to the
-			// same ceiling. Both are said out loud rather than applied silently:
-			// issue 385 was filed because the flag was dropped without a word.
+			// --page-size is honoured up to the largest page this endpoint
+			// honours, for one page and for --all alike, and clamped above it
+			// out loud: issue 385 was filed because the flag was dropped
+			// without a word. The clamp is what keeps an --all walk whole — the
+			// server clamps an oversized page silently and the walk reads a
+			// short page as the last. Below the ceiling --all takes the flag
+			// as given, since a smaller page is the remedy for one the server
+			// cannot assemble in time (issue 392).
 			pageSizeCeiling := 2000
 			paginateAll := flagAll && !cmd.Flags().Changed("page")
-			switch {
-			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
-				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
-			case !paginateAll && flagPageSize > pageSizeCeiling:
+			if flagPageSize > pageSizeCeiling {
 				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
 				flagPageSize = pageSizeCeiling
 			}
@@ -806,17 +845,24 @@ func newOnboardingEligibleConfigurationProfilesCmd(ctx *registry.CLIContext) *co
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				// The endpoint's own ceiling, never --page-size: the Jamf Pro
-				// API clamps an oversized page-size silently, and the loop
-				// below reads a short page as the last one — so an oversized
-				// page size truncates the result and reports success. See
-				// parser.MaxPageSize.
+				// The endpoint's own ceiling unless --page-size asked for less.
+				// Never more: the Jamf Pro API clamps an oversized page-size
+				// silently, and the loop below reads a short page as the last
+				// one — so an oversized page size truncates the result and
+				// reports success. See parser.MaxPageSize.
 				pageSize := 2000
+				if cmd.Flags().Changed("page-size") && flagPageSize > 0 {
+					pageSize = flagPageSize
+				}
 				// A small --limit should stay a small request. Without this a
 				// --limit 5 would pull a full 2000-row page to return five.
 				if flagLimit > 0 && flagLimit < pageSize {
 					pageSize = flagLimit
 				}
+				// skip is how many leading rows of the next page the walk
+				// already holds — non-zero only after a shrink to a page size
+				// that does not divide the rows fetched so far.
+				skip := 0
 
 				for {
 					// Build page-specific query
@@ -834,6 +880,16 @@ func newOnboardingEligibleConfigurationProfilesCmd(ctx *registry.CLIContext) *co
 
 					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
 					if err != nil {
+						// A page the server could not assemble in time is
+						// asked for again at half the size, resuming after
+						// the rows already fetched (issue 392).
+						if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
+							prog.Clear()
+							ctx.Output.NotePageSizeReduced(pageSize, smaller)
+							pageSize = smaller
+							pageNum, skip = registry.PageAt(len(allResults), pageSize)
+							continue
+						}
 						return err
 					}
 
@@ -853,7 +909,8 @@ func newOnboardingEligibleConfigurationProfilesCmd(ctx *registry.CLIContext) *co
 						return ctx.Output.PrintRaw(body)
 					}
 
-					allResults = append(allResults, pageResp.Results...)
+					allResults = append(allResults, pageResp.Results[min(skip, len(pageResp.Results)):]...)
+					skip = 0
 					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
@@ -909,7 +966,7 @@ func newOnboardingEligibleConfigurationProfilesCmd(ctx *registry.CLIContext) *co
 	}
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
@@ -936,16 +993,17 @@ func newOnboardingEligiblePoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Build request path
 			path := "/v1/onboarding/eligible-policies"
 
-			// --all requests the largest page this endpoint honours and ignores
-			// --page-size; a single page still takes --page-size, clamped to the
-			// same ceiling. Both are said out loud rather than applied silently:
-			// issue 385 was filed because the flag was dropped without a word.
+			// --page-size is honoured up to the largest page this endpoint
+			// honours, for one page and for --all alike, and clamped above it
+			// out loud: issue 385 was filed because the flag was dropped
+			// without a word. The clamp is what keeps an --all walk whole — the
+			// server clamps an oversized page silently and the walk reads a
+			// short page as the last. Below the ceiling --all takes the flag
+			// as given, since a smaller page is the remedy for one the server
+			// cannot assemble in time (issue 392).
 			pageSizeCeiling := 2000
 			paginateAll := flagAll && !cmd.Flags().Changed("page")
-			switch {
-			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
-				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
-			case !paginateAll && flagPageSize > pageSizeCeiling:
+			if flagPageSize > pageSizeCeiling {
 				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
 				flagPageSize = pageSizeCeiling
 			}
@@ -982,17 +1040,24 @@ func newOnboardingEligiblePoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				// The endpoint's own ceiling, never --page-size: the Jamf Pro
-				// API clamps an oversized page-size silently, and the loop
-				// below reads a short page as the last one — so an oversized
-				// page size truncates the result and reports success. See
-				// parser.MaxPageSize.
+				// The endpoint's own ceiling unless --page-size asked for less.
+				// Never more: the Jamf Pro API clamps an oversized page-size
+				// silently, and the loop below reads a short page as the last
+				// one — so an oversized page size truncates the result and
+				// reports success. See parser.MaxPageSize.
 				pageSize := 2000
+				if cmd.Flags().Changed("page-size") && flagPageSize > 0 {
+					pageSize = flagPageSize
+				}
 				// A small --limit should stay a small request. Without this a
 				// --limit 5 would pull a full 2000-row page to return five.
 				if flagLimit > 0 && flagLimit < pageSize {
 					pageSize = flagLimit
 				}
+				// skip is how many leading rows of the next page the walk
+				// already holds — non-zero only after a shrink to a page size
+				// that does not divide the rows fetched so far.
+				skip := 0
 
 				for {
 					// Build page-specific query
@@ -1010,6 +1075,16 @@ func newOnboardingEligiblePoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
 					if err != nil {
+						// A page the server could not assemble in time is
+						// asked for again at half the size, resuming after
+						// the rows already fetched (issue 392).
+						if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
+							prog.Clear()
+							ctx.Output.NotePageSizeReduced(pageSize, smaller)
+							pageSize = smaller
+							pageNum, skip = registry.PageAt(len(allResults), pageSize)
+							continue
+						}
 						return err
 					}
 
@@ -1029,7 +1104,8 @@ func newOnboardingEligiblePoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 						return ctx.Output.PrintRaw(body)
 					}
 
-					allResults = append(allResults, pageResp.Results...)
+					allResults = append(allResults, pageResp.Results[min(skip, len(pageResp.Results)):]...)
+					skip = 0
 					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
@@ -1085,7 +1161,7 @@ func newOnboardingEligiblePoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000, for a single page only — --all ignores it and requests 2000")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
