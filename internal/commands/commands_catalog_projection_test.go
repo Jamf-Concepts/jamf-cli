@@ -81,6 +81,8 @@ func populatedEntry(t *testing.T) commandEntry {
 			f.SetString("x")
 		case reflect.Bool:
 			f.SetBool(true)
+		case reflect.Int:
+			f.SetInt(1)
 		case reflect.Slice:
 			if f.Type().Elem().Kind() != reflect.String {
 				t.Fatalf("commandEntry.%s is a slice of %s, which this populator cannot fill — extend it",
