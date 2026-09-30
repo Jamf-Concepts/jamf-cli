@@ -1237,6 +1237,9 @@ type commandEntry struct {
 	// tenant credential still reaches at least platform-devices and
 	// platform-device-groups. Nothing refuses on it.
 	Scopes []string `json:"scopes,omitempty"`
+	// Subcommands counts the catalog commands under this one. Set only by a
+	// --children query, where a row stands for its whole subtree.
+	Subcommands int `json:"subcommands,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -1255,12 +1258,27 @@ func isFullDetailFormat(format string) bool {
 // newCommandsCmd creates the "commands" subcommand that outputs the full
 // command tree in a machine-readable format.
 func newCommandsCmd(root *cobra.Command, cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	var q catalogQuery
+	cmd := &cobra.Command{
 		Use:   "commands",
 		Short: "List all available commands",
-		Long:  `List all available commands in a structured format for discovery by scripts and AI agents.`,
+		Long: `List all available commands in a structured format for discovery by scripts and AI agents.
+
+With no flags, every command in the tree is listed. Three flags narrow the list:
+
+  --prefix <path>   only the commands under one command path, for example
+                    --prefix "pro computers". Aliases are accepted.
+  --children        only the direct children of --prefix, or of the top level
+                    when there is no prefix. A row that has commands under it
+                    carries "subcommands": the number of them.
+  --search <words>  only the commands whose path, description or aliases
+                    contain every word. A word matches the start of a word,
+                    and singular and plural forms match each other.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			entries := collectCommands(root, "", "", "")
+			entries, err := queryCatalog(root, q)
+			if err != nil {
+				return err
+			}
 			// Structured formats always get full detail; table/plain
 			// show only command+description unless --wide is set.
 			// --select names its own fields, so the narrow row set must not
@@ -1268,9 +1286,185 @@ func newCommandsCmd(root *cobra.Command, cliCtx *registry.CLIContext) *cobra.Com
 			// because `api` is only in the wide rows and the projection then
 			// matched no field in any row.
 			full := wide || isFullDetailFormat(outputFmt) || len(selectFields) > 0
-			return printRows(cliCtx, commandEntriesToMaps(entries, full))
+			rows := commandEntriesToMaps(entries, full)
+			// A table's columns are its first row's keys, and the first row is
+			// often a command with no count, so a table, CSV or plain listing
+			// carries the count on every row, zero included.
+			if q.Children && !output.RendersStructureVerbatim(cliCtx.Output.Format()) {
+				for i, e := range entries {
+					rows[i]["subcommands"] = e.Subcommands
+				}
+			}
+			return printRows(cliCtx, rows)
 		},
 	}
+	cmd.Flags().StringVar(&q.Prefix, "prefix", "", "list only the commands under this command path, e.g. \"pro computers\"")
+	cmd.Flags().BoolVar(&q.Children, "children", false, "list only the direct children of --prefix (or of the top level), with a subcommand count on each group")
+	cmd.Flags().StringVar(&q.Search, "search", "", "list only the commands whose path, description or aliases contain every word")
+	return cmd
+}
+
+// catalogQuery selects part of the command catalog. The zero value selects the
+// whole catalog, which is what `commands` printed before it took flags.
+type catalogQuery struct {
+	Prefix   string
+	Children bool
+	Search   string
+}
+
+func queryCatalog(root *cobra.Command, q catalogQuery) ([]commandEntry, error) {
+	node, path, product, group, err := resolveCatalogPrefix(root, q.Prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	var entries []commandEntry
+	switch {
+	case q.Children:
+		entries = catalogChildren(node, path, product, group)
+	case node == root:
+		entries = collectCommands(root, "", "", "")
+	default:
+		if isCatalogCommand(node) {
+			entries = append(entries, newCommandEntry(node, path, product, group))
+		}
+		entries = append(entries, collectCommands(node, path, product, group)...)
+	}
+
+	if q.Search != "" {
+		return searchCatalog(entries, q.Search)
+	}
+	return entries, nil
+}
+
+// resolveCatalogPrefix walks root to the command a space-separated path names,
+// taking the same product and group collectCommands would assign on the way.
+func resolveCatalogPrefix(root *cobra.Command, prefix string) (node *cobra.Command, path, product, group string, err error) {
+	node = root
+	for _, word := range strings.Fields(prefix) {
+		var next *cobra.Command
+		for _, child := range node.Commands() {
+			if !skipInCatalog(child, path) && (child.Name() == word || child.HasAlias(word)) {
+				next = child
+				break
+			}
+		}
+		if next == nil {
+			return nil, "", "", "", exitcode.New(exitcode.Usage,
+				fmt.Sprintf("--prefix %q: %q has no subcommand %q", prefix, catalogPathOrTop(path), word)).
+				WithHint("start from the top level, with no prefix, and add one word of a listed command path at a time")
+		}
+		product, group = catalogScope(next, product, group)
+		path = joinCatalogPath(path, next.Name())
+		node = next
+	}
+	return node, path, product, group, nil
+}
+
+func catalogPathOrTop(path string) string {
+	if path == "" {
+		return "the top level"
+	}
+	return path
+}
+
+// catalogChildren lists node's direct children, each counted by the catalog
+// commands under it. A command with no children lists itself, so a path that
+// reaches a runnable command still answers with that command's row.
+func catalogChildren(node *cobra.Command, path, product, group string) []commandEntry {
+	var entries []commandEntry
+	for _, child := range node.Commands() {
+		if skipInCatalog(child, path) {
+			continue
+		}
+		childPath := joinCatalogPath(path, child.Name())
+		childProduct, childGroup := catalogScope(child, product, group)
+		entry := commandEntry{Command: childPath, Description: child.Short, Product: childProduct, Group: childGroup}
+		if isCatalogCommand(child) {
+			entry = newCommandEntry(child, childPath, childProduct, childGroup)
+		}
+		if child.HasSubCommands() {
+			entry.Subcommands = len(collectCommands(child, childPath, childProduct, childGroup))
+		}
+		if entry.Subcommands == 0 && !isCatalogCommand(child) {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	if len(entries) == 0 && isCatalogCommand(node) && path != "" {
+		entries = append(entries, newCommandEntry(node, path, product, group))
+	}
+	return entries
+}
+
+// searchCatalog keeps the entries whose path, description or aliases hold every
+// word of search, each word matching the start of a word there. A search with
+// no letters or digits is refused, since it would match every command.
+func searchCatalog(entries []commandEntry, search string) ([]commandEntry, error) {
+	words := catalogWords(search)
+	if len(words) == 0 {
+		return nil, exitcode.New(exitcode.Usage,
+			fmt.Sprintf("--search %q has no letters or digits to match", search)).
+			WithHint("search for one or more words, such as \"delete policy\"")
+	}
+	var kept []commandEntry
+	for _, e := range entries {
+		hay := catalogWords(e.Command + " " + e.Description + " " + strings.Join(e.Aliases, " "))
+		if catalogMatchesAll(hay, words) {
+			kept = append(kept, e)
+		}
+	}
+	return kept, nil
+}
+
+// catalogMatchesAll reports whether every word of words has a form that starts
+// some form of a word of hay.
+func catalogMatchesAll(hay, words []string) bool {
+	for _, w := range words {
+		if !catalogMatchesOne(hay, w) {
+			return false
+		}
+	}
+	return true
+}
+
+func catalogMatchesOne(hay []string, word string) bool {
+	for _, wf := range catalogWordForms(word) {
+		for _, h := range hay {
+			for _, hf := range catalogWordForms(h) {
+				if strings.HasPrefix(hf, wf) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// catalogWords lowercases s and splits it on anything but letters and digits.
+func catalogWords(s string) []string {
+	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+}
+
+// catalogWordForms returns w and each singular it can be the plural of, so
+// "policies" yields "policy", "patches" yields "patch" and "caches" yields
+// "cache". A wrong candidate costs nothing, because a match needs a real word
+// to start with it.
+func catalogWordForms(w string) []string {
+	forms := []string{w}
+	if len(w) <= 3 || !strings.HasSuffix(w, "s") || strings.HasSuffix(w, "ss") {
+		return forms
+	}
+	forms = append(forms, w[:len(w)-1])
+	if strings.HasSuffix(w, "es") {
+		forms = append(forms, w[:len(w)-2])
+	}
+	if len(w) > 4 && strings.HasSuffix(w, "ies") {
+		forms = append(forms, w[:len(w)-3]+"y")
+	}
+	return forms
 }
 
 // collectCommands recursively walks the command tree and returns leaf commands.
@@ -1278,91 +1472,102 @@ func newCommandsCmd(root *cobra.Command, cliCtx *registry.CLIContext) *cobra.Com
 func collectCommands(cmd *cobra.Command, prefix, product, group string) []commandEntry {
 	var entries []commandEntry
 	for _, child := range cmd.Commands() {
-		// "commands" is skipped only at the root, where it is this catalog
-		// command itself. Matching the name at any depth is the same mistake
-		// chainSkip made with "version": it silently dropped
-		// `pro mdm-commands commands` — a real generated operation, and one the
-		// gateway refuses, so the catalog was missing exactly the entry a reader
-		// consults it for. "help" stays unconditional: cobra gives every command
-		// one.
-		if child.Hidden || child.Name() == "help" || (child.Name() == "commands" && prefix == "") {
+		if skipInCatalog(child, prefix) {
 			continue
 		}
-
-		fullPath := child.Name()
-		if prefix != "" {
-			fullPath = prefix + " " + child.Name()
+		fullPath := joinCatalogPath(prefix, child.Name())
+		childProduct, childGroup := catalogScope(child, product, group)
+		if isCatalogCommand(child) {
+			entries = append(entries, newCommandEntry(child, fullPath, childProduct, childGroup))
 		}
-
-		// Determine product for this child's subtree. Only top-level namespaces
-		// set the product: product is empty only at the root, so gating on it
-		// prevents a nested command that happens to be named after a namespace
-		// (e.g. "pro report security") from being re-tagged.
-		childProduct := product
-		if product == "" && (child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" || child.Name() == "security" || child.Name() == "platform") {
-			childProduct = child.Name()
-		}
-
-		// Determine group for this child's subtree.
-		childGroup := group
-		if child.GroupID != "" {
-			childGroup = groupTitle(child.GroupID)
-		}
-
-		// Leaf command: has RunE or Run
-		if child.RunE != nil || child.Run != nil {
-			var privileges []string
-			if p := child.Annotations["jamf:privileges"]; p != "" {
-				privileges = strings.Split(p, ",")
-			}
-			entry := commandEntry{
-				Command:     fullPath,
-				Description: child.Short,
-				Product:     childProduct,
-				Group:       childGroup,
-				Destructive: child.Annotations["jamf:destructive"] == "true",
-				Preview:     child.Annotations["jamf:preview"] == "true",
-				Privileges:  privileges,
-				API:         child.Annotations["jamf:api"],
-
-				Gateway:          child.Annotations[annotationGateway],
-				GatewayBasis:     child.Annotations[annotationGatewayBasis],
-				GatewayDetail:    child.Annotations[annotationGatewayDetail],
-				GatewaySuccessor: gatewaySuccessorOf(child),
-
-				GatewayPrivileges:  gatewayPrivilegesOf(child),
-				GatewayPermissions: gatewayPermissionsOf(child),
-
-				Scopes: scopesOf(child),
-			}
-
-			// Collect aliases: for leaf commands under a top-level group
-			// (e.g., "computers list"), expose the group's aliases ("comp")
-			// so agents know "comp list" also works.
-			if len(child.Aliases) > 0 {
-				entry.Aliases = child.Aliases
-			} else if len(cmd.Aliases) > 0 {
-				entry.Aliases = cmd.Aliases
-			}
-
-			// Collect non-hidden local flags
-			var flags []string
-			child.LocalFlags().VisitAll(func(f *pflag.Flag) {
-				if !f.Hidden {
-					flags = append(flags, "--"+f.Name)
-				}
-			})
-			entry.Flags = flags
-
-			entries = append(entries, entry)
-		}
-
-		// Recurse into subcommands
 		if child.HasSubCommands() {
 			entries = append(entries, collectCommands(child, fullPath, childProduct, childGroup)...)
 		}
 	}
 	return entries
+}
+
+// skipInCatalog reports whether child stays out of the catalog. parentPath is
+// the path of child's parent, empty at the root.
+//
+// "commands" is skipped only at the root, where it is this catalog command
+// itself. Matching the name at any depth is the same mistake chainSkip made
+// with "version": it silently dropped `pro mdm-commands commands` — a real
+// generated operation, and one the gateway refuses, so the catalog was missing
+// exactly the entry a reader consults it for. "help" stays unconditional:
+// cobra gives every command one.
+func skipInCatalog(child *cobra.Command, parentPath string) bool {
+	return child.Hidden || child.Name() == "help" || (child.Name() == "commands" && parentPath == "")
+}
+
+func joinCatalogPath(parentPath, name string) string {
+	if parentPath == "" {
+		return name
+	}
+	return parentPath + " " + name
+}
+
+// catalogScope returns the product and group child's subtree carries. Only
+// top-level namespaces set the product: product is empty only at the root, so
+// gating on it prevents a nested command that happens to be named after a
+// namespace (e.g. "pro report security") from being re-tagged.
+func catalogScope(child *cobra.Command, product, group string) (string, string) {
+	if product == "" {
+		switch child.Name() {
+		case "pro", "protect", "school", "security", "platform":
+			product = child.Name()
+		}
+	}
+	if child.GroupID != "" {
+		group = groupTitle(child.GroupID)
+	}
+	return product, group
+}
+
+func isCatalogCommand(cmd *cobra.Command) bool {
+	return cmd.RunE != nil || cmd.Run != nil
+}
+
+func newCommandEntry(cmd *cobra.Command, fullPath, product, group string) commandEntry {
+	var privileges []string
+	if p := cmd.Annotations["jamf:privileges"]; p != "" {
+		privileges = strings.Split(p, ",")
+	}
+	entry := commandEntry{
+		Command:     fullPath,
+		Description: cmd.Short,
+		Product:     product,
+		Group:       group,
+		Destructive: cmd.Annotations["jamf:destructive"] == "true",
+		Preview:     cmd.Annotations["jamf:preview"] == "true",
+		Privileges:  privileges,
+		API:         cmd.Annotations["jamf:api"],
+
+		Gateway:          cmd.Annotations[annotationGateway],
+		GatewayBasis:     cmd.Annotations[annotationGatewayBasis],
+		GatewayDetail:    cmd.Annotations[annotationGatewayDetail],
+		GatewaySuccessor: gatewaySuccessorOf(cmd),
+
+		GatewayPrivileges:  gatewayPrivilegesOf(cmd),
+		GatewayPermissions: gatewayPermissionsOf(cmd),
+
+		Scopes: scopesOf(cmd),
+	}
+
+	// For leaf commands under a top-level group (e.g., "computers list"),
+	// expose the group's aliases ("comp") so agents know "comp list" also works.
+	if len(cmd.Aliases) > 0 {
+		entry.Aliases = cmd.Aliases
+	} else if parent := cmd.Parent(); parent != nil && len(parent.Aliases) > 0 {
+		entry.Aliases = parent.Aliases
+	}
+
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		if !f.Hidden {
+			entry.Flags = append(entry.Flags, "--"+f.Name)
+		}
+	})
+	return entry
 }
 
 // commandEntriesToMaps converts command entries to the []map[string]interface{}
@@ -1448,6 +1653,11 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// array on every row would read as "any level works".
 			if len(e.Scopes) > 0 {
 				m["scopes"] = e.Scopes
+			}
+			// Positive-only: zero is every row of a whole-catalog listing,
+			// where no row stands for a subtree.
+			if e.Subcommands > 0 {
+				m["subcommands"] = e.Subcommands
 			}
 		}
 		result[i] = m
