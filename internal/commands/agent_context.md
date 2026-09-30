@@ -109,7 +109,9 @@ Rejected: credential- and target-selecting flags; flags whose value is a local
 file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
 `--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`, the
 config write subcommands, every `setup`, both `backup` commands and jcds `sync`;
-and `pro diff` against any profile other than the pinned one.
+and `pro diff` against any profile other than the pinned one. An administrator
+who starts the server with `--input-dir <dir>` allows the read-side flags for
+existing paths inside that directory; `run_command`'s description names it.
 
 **`dashboard` output belongs in a file, not a tool result.** The command writes
 a 320–800 KB HTML document to stdout (80k–200k tokens), so `run_command` refuses

@@ -49,8 +49,8 @@ var concurrentRunCommandArgs = [][]string{
 func TestResolveChildInvocation_LeavesTheServingProcessFlagStateAlone(t *testing.T) {
 	root := NewRootCmd("test", "t", "t", "t")
 	t.Cleanup(resetGlobals)
-	installMCPResolver(root)
-	t.Cleanup(func() { installMCPResolver(nil) })
+	installMCPResolver(root, "")
+	t.Cleanup(func() { installMCPResolver(nil, "") })
 
 	setRootFlagSentinels()
 	want := snapshotRootFlagState()

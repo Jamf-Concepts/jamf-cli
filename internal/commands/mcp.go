@@ -62,7 +62,8 @@ choose. Set one with: jamf-cli config set-report-dir <dir>`,
 }
 
 func newMCPServeCmd() *cobra.Command {
-	return &cobra.Command{
+	var inputDirFlag string
+	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start an MCP server on stdio",
 		Long: `Start an MCP server that speaks JSON-RPC over stdin/stdout.
@@ -99,12 +100,22 @@ spelling. It refuses:
   - any flag whose value is a local path: --from-file, --file, --script-file,
     --mobileconfig-file, --appconfig-file, --custom-payload-file, --body-file,
     --input, --password-file, --dir, --save-to, --report-dir, and a command's
-    own --output (the global -o/--output format flag stays available)
+    own --output (the global -o/--output format flag stays available), except
+    as --input-dir allows below
   - 'pro diff' with a --source or --target that is neither a directory nor
     this server's profile
 It also refuses 'dashboard', because it returns a command's stdout as text and
 the report is a 320-800 KB document — generate_report writes that to a file
-instead.`,
+instead.
+
+--input-dir <dir> lets the model pass files it needs to read: a path given to
+--from-file, --file, --script-file, --mobileconfig-file, --appconfig-file,
+--custom-payload-file, --body-file, --input, or the --dir of 'protect analytics
+import' and 'protect unified-logging-filters import' is accepted when it
+exists and resolves inside <dir>, symlinks followed. A relative path is taken
+from the directory this server was started in. --password-file and every
+write-side path flag stay refused. The directory must exist; there is no
+config key for it.`,
 		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			executable, err := os.Executable()
@@ -122,10 +133,15 @@ instead.`,
 				return err
 			}
 
+			inputDir, err := resolveMCPInputDir(inputDirFlag)
+			if err != nil {
+				return err
+			}
+
 			if !noHints {
 				printMCPStartupHints(cmd.ErrOrStderr(), cfg)
 			}
-			installMCPResolver(cmd.Root())
+			installMCPResolver(cmd.Root(), inputDir)
 
 			server := mcp.NewServer(&mcp.Implementation{
 				Name:    "jamf-cli",
@@ -165,7 +181,8 @@ instead.`,
 					"directory (--from-file, --file, --script-file, --save-to, --dir and the " +
 					"like; the -o/--output format flag is fine); 'multi', 'mcp', the config " +
 					"write subcommands, every 'setup', the backup commands and jcds sync; and " +
-					"'pro diff' against any profile but this server's. Use generate_report rather than 'dashboard': this tool returns " +
+					"'pro diff' against any profile but this server's. " + inputDirToolNote(inputDir) +
+					" Use generate_report rather than 'dashboard': this tool returns " +
 					"stdout as text and the dashboard writes a 320-800 KB HTML document there. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
@@ -218,6 +235,40 @@ instead.`,
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&inputDirFlag, "input-dir", "", "directory the connecting model may name files inside for read-side path flags such as --from-file")
+	return cmd
+}
+
+// inputDirToolNote tells the model where read-side path flags may point.
+func inputDirToolNote(inputDir string) string {
+	if inputDir == "" {
+		return "Read-side path flags are refused too: this server allows no input directory."
+	}
+	return "Read-side path flags (--from-file, --file, --script-file and the like) are accepted for existing paths inside " +
+		inputDir + ", the only directory this server reads from; --password-file stays refused."
+}
+
+// resolveMCPInputDir returns dir with every symlink resolved, or "" when no
+// input directory is set. The server refuses to start on one it cannot use.
+func resolveMCPInputDir(dir string) (string, error) {
+	if dir == "" {
+		return "", nil
+	}
+	abs, err := filepath.Abs(dir)
+	if err == nil {
+		abs, err = filepath.EvalSymlinks(abs)
+	}
+	if err != nil {
+		return "", fmt.Errorf("--input-dir %s is not accessible: %w", dir, err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", fmt.Errorf("--input-dir %s is not accessible: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("--input-dir %s is not a directory", dir)
+	}
+	return abs, nil
 }
 
 type runCommandInput struct {
@@ -241,12 +292,13 @@ type generateReportInput struct {
 // nothing may be prepended to it.
 //
 // JAMF_CLI_MCP=1 is appended so the child knows it is an MCP child, and an
-// inherited JAMF_CLI_MCP_PROFILE is dropped so only pinnedChildEnv sets it.
+// inherited JAMF_CLI_MCP_PROFILE or JAMF_CLI_MCP_INPUT_DIR is dropped so only
+// pinnedChildEnv sets them.
 func childEnv() []string {
 	env := os.Environ()
 	kept := make([]string, 0, len(env)+1)
 	for _, kv := range env {
-		if name, _, ok := strings.Cut(kv, "="); ok && (name == "JAMF_CLI_ARGS" || name == mcpPinnedProfileEnvVar) {
+		if name, _, ok := strings.Cut(kv, "="); ok && (name == "JAMF_CLI_ARGS" || name == mcpPinnedProfileEnvVar || name == mcpInputDirEnvVar) {
 			continue
 		}
 		kept = append(kept, kv)
@@ -257,12 +309,16 @@ func childEnv() []string {
 const (
 	mcpChildEnvVar         = "JAMF_CLI_MCP"
 	mcpPinnedProfileEnvVar = "JAMF_CLI_MCP_PROFILE"
+	mcpInputDirEnvVar      = "JAMF_CLI_MCP_INPUT_DIR"
 )
 
-// pinnedChildEnv is childEnv plus the profile the server is pinned to, which
-// refuseInMCPChild compares the child's own parse against.
+// pinnedChildEnv is childEnv plus the profile the server is pinned to and the
+// input directory it allows, which refuseInMCPChild judges the child's own
+// parse against.
 func pinnedChildEnv(serverProfile string) []string {
-	return append(childEnv(), mcpPinnedProfileEnvVar+"="+serverProfile)
+	return append(childEnv(),
+		mcpPinnedProfileEnvVar+"="+serverProfile,
+		mcpInputDirEnvVar+"="+installedMCPInputDir())
 }
 
 type listCommandsInput struct {
@@ -532,10 +588,12 @@ const (
 )
 
 // childInvocation is what cobra resolves a child argv to. An empty path means
-// cobra refuses the argv before running anything.
+// cobra refuses the argv before running anything. inputDir is the one
+// directory read-side path flags may name, "" when none is allowed.
 type childInvocation struct {
 	path     string
 	settings []flagSetting
+	inputDir string
 }
 
 // flagSetting is one occurrence of a flag on the command line, in order. A
@@ -545,21 +603,31 @@ type flagSetting struct {
 	rootOutput  bool
 }
 
-// mcpResolver is the tree run_command argv is resolved against. Every resolve
-// holds the lock for its whole length: Find merges persistent flags into the
-// leaf, and ParseAll records its arguments on the leaf's flag set.
+// mcpResolver is the tree run_command argv is resolved against and the input
+// directory `mcp serve` allows reads from. Every resolve holds the lock for its
+// whole length: Find merges persistent flags into the leaf, and ParseAll
+// records its arguments on the leaf's flag set.
 var mcpResolver struct {
 	sync.Mutex
-	root *cobra.Command
+	root     *cobra.Command
+	inputDir string
 }
 
-// installMCPResolver makes later resolves use root. `mcp serve` installs the
-// tree it is running in, because NewRootCmd rebinds every flag variable in this
-// package to its default, and main reads those after serve returns.
-func installMCPResolver(root *cobra.Command) {
+// installMCPResolver makes later resolves use root and inputDir, which must
+// already be symlink-resolved. `mcp serve` installs the tree it is running in,
+// because NewRootCmd rebinds every flag variable in this package to its
+// default, and main reads those after serve returns.
+func installMCPResolver(root *cobra.Command, inputDir string) {
 	mcpResolver.Lock()
 	defer mcpResolver.Unlock()
 	mcpResolver.root = root
+	mcpResolver.inputDir = inputDir
+}
+
+func installedMCPInputDir() string {
+	mcpResolver.Lock()
+	defer mcpResolver.Unlock()
+	return mcpResolver.inputDir
 }
 
 // resolveChildInvocation returns what a child process given args would run.
@@ -584,7 +652,7 @@ func resolveChildInvocation(args []string) childInvocation {
 	if err != nil {
 		return childInvocation{}
 	}
-	inv := childInvocation{path: cmd.CommandPath()}
+	inv := childInvocation{path: cmd.CommandPath(), inputDir: mcpResolver.inputDir}
 	if cmd.DisableFlagParsing {
 		return inv
 	}
@@ -611,7 +679,9 @@ func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
 			return fmt.Errorf("flag %q is not allowed: the MCP server is pinned to the configuration it was started with; the target instance, credentials, and output destination cannot be overridden per command", "--"+s.name)
 		}
 		if use, ok := localPathFlagUse(inv.path, s); ok {
-			return fmt.Errorf("flag --%s is not available over MCP: it %s a path on the machine running this server, which the connecting model must not choose", s.name, use)
+			if err := refuseLocalPath(use, s, inv.inputDir); err != nil {
+				return err
+			}
 		}
 		if inv.path == proDiffPath && (s.name == "source" || s.name == "target") && !isDirectoryPath(s.value) &&
 			(pinnedProfile == "" || s.value != pinnedProfile) {
@@ -635,15 +705,48 @@ func refuseInMCPChild(cmd *cobra.Command) error {
 		return errCompletionOverMCP
 	}
 	pinned := os.Getenv(mcpPinnedProfileEnvVar)
-	inv := childInvocation{path: cmd.CommandPath()}
+	inv := childInvocation{path: cmd.CommandPath(), inputDir: os.Getenv(mcpInputDirEnvVar)}
 	rootOutput := cmd.Root().PersistentFlags().Lookup("output")
 	cmd.Flags().Visit(func(f *pflag.Flag) {
 		if f.Name == "profile" && pinned != "" && f.Value.String() == pinned {
 			return
 		}
-		inv.settings = append(inv.settings, flagSetting{name: f.Name, value: f.Value.String(), rootOutput: f == rootOutput})
+		values := []string{f.Value.String()}
+		if sv, ok := f.Value.(pflag.SliceValue); ok {
+			values = sv.GetSlice()
+		}
+		for _, v := range values {
+			inv.settings = append(inv.settings, flagSetting{name: f.Name, value: v, rootOutput: f == rootOutput})
+		}
 	})
 	return refuseOverMCP(inv, pinned)
+}
+
+// refuseLocalPath allows a read-side path only when it exists and resolves
+// inside inputDir. The child opens the path again after this check, so a
+// symlink swapped in between is not caught.
+func refuseLocalPath(use localPathUse, s flagSetting, inputDir string) error {
+	if use != pathRead || inputDir == "" {
+		err := fmt.Errorf("flag --%s is not available over MCP: it %s a path on the machine running this server, which the connecting model must not choose", s.name, use)
+		if use == pathRead {
+			err = fmt.Errorf("%w; the administrator can allow reads from one directory with 'mcp serve --input-dir <dir>'", err)
+		}
+		return err
+	}
+	if s.value == "" {
+		return fmt.Errorf("flag --%s names no path; over MCP it must name an existing path inside the input directory %s", s.name, inputDir)
+	}
+	resolved, err := filepath.Abs(s.value)
+	if err == nil {
+		resolved, err = filepath.EvalSymlinks(resolved)
+	}
+	if err != nil {
+		return fmt.Errorf("flag --%s %q cannot be used over MCP: %v; it must name an existing path inside the input directory %s", s.name, s.value, err, inputDir)
+	}
+	if resolved != inputDir && !strings.HasPrefix(resolved, inputDir+string(filepath.Separator)) {
+		return fmt.Errorf("flag --%s %q is not available over MCP: it resolves to %s, outside the input directory %s", s.name, s.value, resolved, inputDir)
+	}
+	return nil
 }
 
 var errCompletionOverMCP = errors.New("shell completion is not available over MCP: it runs another command's completion without the flag checks every command gets; use list_commands or --help instead")

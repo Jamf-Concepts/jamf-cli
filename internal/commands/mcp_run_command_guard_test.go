@@ -97,13 +97,18 @@ func TestMCPLocalPathFlags_EveryPathShapedFlagIsRefused(t *testing.T) {
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		path := strings.Fields(strings.TrimPrefix(c.CommandPath(), root.Name()))
+		refusedWhole := refuseOverMCP(childInvocation{path: c.CommandPath()}, "prod") != nil
 		c.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
 			_, byName := mcpLocalPathFlags[f.Name]
 			_, byCommand := mcpDirFlags[c.CommandPath()]
+			classified := f.Name == "dir" && byCommand || f.Name != "dir" && byName
 			switch {
-			case f.Name == "dir" && byCommand, f.Name != "dir" && byName:
+			case classified:
 				used[f.Name] = true
-			case !isPathShapedFlag(root, f) || isBlockedChildFlag("--"+f.Name):
+				if refusedWhole {
+					return
+				}
+			case refusedWhole, !isPathShapedFlag(root, f), isBlockedChildFlag("--" + f.Name):
 				return
 			default:
 				t.Errorf("--%s on %q looks like a local path and is not classified; add it to mcpLocalPathFlags or mcpDirFlags", f.Name, c.CommandPath())
