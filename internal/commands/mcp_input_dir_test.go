@@ -168,3 +168,55 @@ func TestMCPChild_EnforcesTheInputDir(t *testing.T) {
 		t.Errorf("with no input directory the child must refuse every read path: %v", err)
 	}
 }
+
+func TestBuildChildArgs_RefusesDiffDirectoryOutsideTheInputDir(t *testing.T) {
+	fx := newInputDirFixture(t)
+	outsideDir := filepath.Dir(fx.outside)
+	if err := os.Symlink(outsideDir, filepath.Join(fx.dir, "escape-dir")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", outsideDir)
+	for name, args := range map[string][]string{
+		"outside":         {"pro", "diff", "--source", outsideDir, "--target", "prod"},
+		"inside vs out":   {"pro", "diff", "--source", fx.sub, "--target=" + outsideDir},
+		"dot-dot":         {"pro", "diff", "--source", fx.dir + "/../" + filepath.Base(outsideDir), "--target", "prod"},
+		"symlink escape":  {"pro", "diff", "--source", filepath.Join(fx.dir, "escape-dir"), "--target", "prod"},
+		"home outside":    {"pro", "diff", "--source", "~/", "--target", "prod"},
+		"nonexistent":     {"pro", "diff", "--source", filepath.Join(fx.dir, "missing"), "--target", "prod"},
+		"foreign profile": {"pro", "diff", "--source", fx.sub, "--target", "other"},
+	} {
+		if got, err := buildChildArgs("prod", args); !isMCPRefusal(err) {
+			t.Errorf("%s: buildChildArgs(%q) = %q, %v; a diff directory outside the input directory must be refused", name, args, got, err)
+		}
+	}
+	if _, err := buildChildArgs("prod", []string{"pro", "diff", "--source", fx.sub, "--target", "prod"}); err != nil {
+		t.Errorf("a diff directory inside the input directory must be allowed: %v", err)
+	}
+}
+
+func TestBuildChildArgs_RefusesDiffDirectoryWithNoInputDir(t *testing.T) {
+	installMCPResolver(NewRootCmd("test", "t", "t", "t"), "")
+	t.Cleanup(func() { installMCPResolver(nil, "") })
+	t.Cleanup(resetGlobals)
+	_, err := buildChildArgs("prod", []string{"pro", "diff", "--source", t.TempDir(), "--target", "prod"})
+	if !isMCPRefusal(err) || !strings.Contains(err.Error(), "--input-dir") {
+		t.Errorf("with no input directory a diff directory must be refused, naming --input-dir: %v", err)
+	}
+}
+
+func TestMCPChild_EnforcesTheInputDirOnDiffSides(t *testing.T) {
+	fx := newInputDirFixture(t)
+	installMCPResolver(nil, "")
+	t.Setenv(mcpInputDirEnvVar, fx.dir)
+	outside := filepath.Dir(fx.outside)
+	if err := executeAsMCPChild(t, "prod", "--profile", "prod", "--no-input", "pro", "diff", "--source", outside, "--target", "prod"); !isMCPRefusal(err) {
+		t.Errorf("MCP child diffed a directory outside the input directory (err %v)", err)
+	}
+	if err := executeAsMCPChild(t, "prod", "--profile", "prod", "--no-input", "pro", "diff", "--source", fx.sub, "--target", fx.sub); isMCPRefusal(err) {
+		t.Errorf("MCP child refused a diff inside the input directory: %v", err)
+	}
+	t.Setenv(mcpInputDirEnvVar, "")
+	if err := executeAsMCPChild(t, "prod", "--profile", "prod", "--no-input", "pro", "diff", "--source", fx.sub, "--target", "prod"); !isMCPRefusal(err) {
+		t.Errorf("with no input directory the child must refuse a diff directory (err %v)", err)
+	}
+}

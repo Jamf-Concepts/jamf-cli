@@ -95,6 +95,19 @@ func isDirectoryPath(s string) bool {
 		s == "." || s == "~"
 }
 
+// expandDiffDir returns the directory a diff side names, with a leading ~/
+// expanded to the home directory.
+func expandDiffDir(dir string) (string, error) {
+	if !strings.HasPrefix(dir, "~/") {
+		return dir, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("expanding ~: %w", err)
+	}
+	return filepath.Join(home, dir[2:]), nil
+}
+
 // resourceSnapshot maps resource type name → (object name → stripped fields).
 type resourceSnapshot map[string]map[string]map[string]any
 
@@ -109,13 +122,9 @@ func loadSourceSnapshot(ctx context.Context, source string, nameFilter []string)
 // loadSnapshotFromDirectory reads YAML/JSON backup files written by `backup`.
 // The directory layout is: <dir>/<resource-subdir>/<object>.yaml (or .json).
 func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapshot, error) {
-	// Expand ~ to home directory.
-	if strings.HasPrefix(dir, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("expanding ~: %w", err)
-		}
-		dir = filepath.Join(home, dir[2:])
+	dir, err := expandDiffDir(dir)
+	if err != nil {
+		return nil, err
 	}
 
 	info, err := os.Stat(dir)

@@ -88,9 +88,24 @@ func TestBuildChildArgs_RefusesDiffAgainstAForeignProfile(t *testing.T) {
 }
 
 func TestBuildChildArgs_AllowsDiffWithinThePinnedProfile(t *testing.T) {
+	inputDir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{"a", "b"} {
+		if err := os.MkdirAll(filepath.Join(inputDir, "backups", d), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(inputDir)
+	t.Setenv("HOME", inputDir)
+	installMCPResolver(NewRootCmd("test", "t", "t", "t"), inputDir)
+	t.Cleanup(func() { installMCPResolver(nil, "") })
+	t.Cleanup(resetGlobals)
+
 	allowed := [][]string{
-		{"pro", "diff", "--source", "/backups/a", "--target", "./backups/b"},
-		{"pro", "diff", "--source", "prod", "--target", "/backups/a"},
+		{"pro", "diff", "--source", filepath.Join(inputDir, "backups", "a"), "--target", "./backups/b"},
+		{"pro", "diff", "--source", "prod", "--target", filepath.Join(inputDir, "backups", "a")},
 		{"pro", "diff", "--source=~/backups/a", "--target=prod"},
 	}
 	for _, args := range allowed {

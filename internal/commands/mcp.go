@@ -102,18 +102,19 @@ spelling. It refuses:
     --input, --password-file, --dir, --save-to, --report-dir, and a command's
     own --output (the global -o/--output format flag stays available), except
     as --input-dir allows below
-  - 'pro diff' with a --source or --target that is neither a directory nor
-    this server's profile
+  - 'pro diff' with a --source or --target that is neither this server's
+    profile nor a directory inside --input-dir
 It also refuses 'dashboard', because it returns a command's stdout as text and
 the report is a 320-800 KB document — generate_report writes that to a file
 instead.
 
 --input-dir <dir> lets the model pass files it needs to read: a path given to
 --from-file, --file, --script-file, --mobileconfig-file, --appconfig-file,
---custom-payload-file, --body-file, --input, or the --dir of 'protect analytics
-import' and 'protect unified-logging-filters import' is accepted when it
-exists and resolves inside <dir>, symlinks followed. A relative path is taken
-from the directory this server was started in. --password-file and every
+--custom-payload-file, --body-file, --input, a 'pro diff' --source or --target
+directory, or the --dir of 'protect analytics import' and 'protect
+unified-logging-filters import' is accepted when it exists and resolves inside
+<dir>, symlinks followed. A relative path is taken from the directory this
+server was started in. --password-file and every
 write-side path flag stay refused. The directory must exist; there is no
 config key for it.`,
 		Args: refuseStrayPositionals,
@@ -181,7 +182,8 @@ config key for it.`,
 					"directory (--from-file, --file, --script-file, --save-to, --dir and the " +
 					"like; the -o/--output format flag is fine); 'multi', 'mcp', the config " +
 					"write subcommands, every 'setup', the backup commands and jcds sync; and " +
-					"'pro diff' against any profile but this server's. " + inputDirToolNote(inputDir) +
+					"'pro diff' against anything but this server's profile or a directory the " +
+					"input directory allows. " + inputDirToolNote(inputDir) +
 					" Use generate_report rather than 'dashboard': this tool returns " +
 					"stdout as text and the dashboard writes a 320-800 KB HTML document there. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
@@ -683,12 +685,10 @@ func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
 				return err
 			}
 		}
-		if inv.path == proDiffPath && (s.name == "source" || s.name == "target") && !isDirectoryPath(s.value) &&
-			(pinnedProfile == "" || s.value != pinnedProfile) {
-			if pinnedProfile == "" {
-				return fmt.Errorf("pro diff --%s %q names a config profile, and this server was started without one: over MCP each side must be a backup directory", s.name, s.value)
+		if inv.path == proDiffPath && (s.name == "source" || s.name == "target") {
+			if err := refuseDiffSide(s, pinnedProfile, inv.inputDir); err != nil {
+				return err
 			}
-			return fmt.Errorf("pro diff --%s %q names a config profile other than %q, the one this server is pinned to: over MCP each side must be a backup directory or that profile", s.name, s.value, pinnedProfile)
 		}
 	}
 	return nil
@@ -720,6 +720,25 @@ func refuseInMCPChild(cmd *cobra.Command) error {
 		}
 	})
 	return refuseOverMCP(inv, pinned)
+}
+
+// refuseDiffSide judges one `pro diff` side: a directory is a local read under
+// the input-directory rule, and a profile must be the pinned one.
+func refuseDiffSide(s flagSetting, pinnedProfile, inputDir string) error {
+	if isDirectoryPath(s.value) {
+		dir, err := expandDiffDir(s.value)
+		if err != nil {
+			return fmt.Errorf("pro diff --%s %q is not available over MCP: %w", s.name, s.value, err)
+		}
+		return refuseLocalPath(pathRead, flagSetting{name: s.name, value: dir}, inputDir)
+	}
+	if pinnedProfile == "" {
+		return fmt.Errorf("pro diff --%s %q names a config profile, and this server was started without one: over MCP each side must be a backup directory inside --input-dir", s.name, s.value)
+	}
+	if s.value != pinnedProfile {
+		return fmt.Errorf("pro diff --%s %q names a config profile other than %q, the one this server is pinned to: over MCP each side must be that profile or a backup directory inside --input-dir", s.name, s.value, pinnedProfile)
+	}
+	return nil
 }
 
 // refuseLocalPath allows a read-side path only when it exists and resolves
