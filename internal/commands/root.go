@@ -759,6 +759,11 @@ in the config file. It never runs in CI, when output is piped, or under
 			// client and return below.
 			warnIfDeprecatedName(cmd)
 
+			// Ahead of the --out-file create and every auth-skip return below.
+			if err := refuseInMCPChild(cmd); err != nil {
+				return err
+			}
+
 			// Respect NO_COLOR env var (https://no-color.org)
 			if _, ok := os.LookupEnv("NO_COLOR"); ok {
 				noColor = true

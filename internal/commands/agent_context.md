@@ -103,10 +103,13 @@ tools:
   directory `jamf-cli config set-report-dir` designates, and return its path and
   size. Never the HTML.
 
-The server is pinned to the profile it was launched with; per-command
-credential- and target-selecting flags are rejected, as are `multi`, the config
-write subcommands and the two `backup` commands, which choose their own target
-or destination.
+The server is pinned to the profile it was launched with, and `run_command` is
+judged on the command and flags your arguments resolve to, aliases included.
+Rejected: credential- and target-selecting flags; flags whose value is a local
+file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
+`--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`, the
+config write subcommands, every `setup`, both `backup` commands and jcds `sync`;
+and `pro diff` against any profile other than the pinned one.
 
 **`dashboard` output belongs in a file, not a tool result.** The command writes
 a 320–800 KB HTML document to stdout (80k–200k tokens), so `run_command` refuses
