@@ -772,12 +772,18 @@ func backupPackageFiles(ctx context.Context, client registry.HTTPClient, opts ba
 			fmt.Fprintf(os.Stderr, "warning: package %q is not hosted on JCDS; skipping download\n", name)
 			continue
 		}
+		outPath, err := jcdsLocalPath(filesDir, name)
+		if err != nil {
+			mu.Lock()
+			failures = append(failures, backupFailure{Resource: "packages", Path: name, Error: err.Error()})
+			mu.Unlock()
+			continue
+		}
 
 		sem <- struct{}{}
 		g.Go(func() error {
 			defer func() { <-sem }()
 
-			outPath := filepath.Join(filesDir, name)
 			if err := jcdsDownloadFile(ctx, client, name, outPath); err != nil {
 				mu.Lock()
 				failures = append(failures, backupFailure{Resource: "packages", Path: name, Error: err.Error()})
