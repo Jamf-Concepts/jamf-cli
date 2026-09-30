@@ -193,19 +193,19 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			if op.Method == "DELETE" {
 				return "delete"
 			}
-			return `run \"` + op.Name + `\" on`
+			return `run "` + op.Name + `" on`
 		},
 		"actionPhraseTitle": func(op *Operation) string {
 			if op.Method == "DELETE" {
 				return "Delete"
 			}
-			return `Run \"` + op.Name + `\" on`
+			return `Run "` + op.Name + `" on`
 		},
 		"actionPhrasePast": func(op *Operation) string {
 			if op.Method == "DELETE" {
 				return "Deleted"
 			}
-			return `Ran \"` + op.Name + `\" on`
+			return `Ran "` + op.Name + `" on`
 		},
 		"actionNoun": func(op *Operation) string {
 			if op.Method == "DELETE" {
@@ -2164,8 +2164,8 @@ import (
 func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   {{ goStr (.Name) }},
-		Short: "Manage {{ .CmdPath }}",
-		Long:  ` + "`" + `Manage {{ .CmdPath }} in Jamf Pro.` + "`" + `,
+		Short: {{ goStr (print "Manage " .CmdPath) }},
+		Long:  {{ goRaw (print "Manage " .CmdPath " in Jamf Pro.") }},
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 {{ range dedupeOps (sortOps .Operations) }}
@@ -2328,7 +2328,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// call (no per-resource {id} needed).
 			if flagAll {
 				if len(args) > 0{{ if opHasNameLookup . $ }} || flagName != ""{{ end }} {
-					return fmt.Errorf("--all applies to every {{ $.NameSingular }}; do not combine it with an <id>{{ if opHasNameLookup . $ }} or --name{{ end }}")
+					return fmt.Errorf({{ if opHasNameLookup . $ }}{{ goStr (print "--all applies to every " $.NameSingular "; do not combine it with an <id> or --name") }}{{ else }}{{ goStr (print "--all applies to every " $.NameSingular "; do not combine it with an <id>") }}{{ end }})
 				}
 {{- if .IsDestructive }}
 				// The preview comes before the confirmation, and before the
@@ -2350,9 +2350,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if !flagYes {
 					noInput, _ := cmd.Flags().GetBool("no-input")
 					if noInput {
-						return fmt.Errorf("--all {{ .Name }} applies to every {{ $.NameSingular }}; pass --yes to confirm when --no-input is set")
+						return fmt.Errorf({{ goStr (print "--all " .Name " applies to every " $.NameSingular "; pass --yes to confirm when --no-input is set") }})
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  --all will {{ .Name }} across every {{ $.NameSingular }} in this tenant. Type 'yes' to confirm: ")
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  --all will " .Name " across every " $.NameSingular " in this tenant. Type 'yes' to confirm: ") }})
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -2404,7 +2404,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no {{ $.NameSingular }} found matching %q", entry)
+							return fmt.Errorf({{ goStr (print "no " $.NameSingular " found matching %q") }}, entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -2423,7 +2423,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, e.id)
 					}
 					return nil
 				}
@@ -2431,7 +2431,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} %d {{ $.Name }}. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " %d " $.Name ". Type 'yes' to confirm: ") }}, len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -2447,7 +2447,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: %v\n") }}, e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2456,18 +2456,18 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: HTTP %d\n") }}, e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "{{ actionPhrasePast . }} {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} {{ actionNoun . }}")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, {{ goStr (print $.Name " " (actionNoun .)) }})
 			}
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
@@ -2489,7 +2489,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				noInputGrp, _ := cmd.Flags().GetBool("no-input")
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} id: %s (from group %q)\n", e.id, flagGroup)
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " id: %s (from group %q)\n") }}, e.id, flagGroup)
 					}
 					return nil
 				}
@@ -2497,7 +2497,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					if noInputGrp {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} %d {{ $.Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " %d " $.Name " from group %q. Type 'yes' to confirm: ") }}, len(bulk), flagGroup)
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -2513,7 +2513,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} id %s failed: %v\n", e.id, err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: %v\n") }}, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2522,25 +2522,25 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: HTTP %d\n") }}, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "{{ actionPhrasePast . }} {{ $.NameSingular }} id: %s\n", e.id)
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " id: %s\n") }}, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} {{ actionNoun . }}")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, {{ goStr (print $.Name " " (actionNoun .)) }})
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would {{ actionPhrase . }}{{ if hasPathParam .Path }} resource %s{{ else }} this {{ $.NameSingular }}{{ end }}\n"{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
+				fmt.Fprintf(os.Stderr, {{ if hasPathParam .Path }}{{ goStr (print "Would " (actionPhrase .) " resource %s\n") }}, strings.Join(args, " "){{ else }}{{ goStr (print "Would " (actionPhrase .) " this " $.NameSingular "\n") }}{{ end }})
 				return nil
 			}
 			if !flagYes {
@@ -2548,7 +2548,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }}{{ if hasPathParam .Path }} resource %s{{ else }} this {{ $.NameSingular }}{{ end }}. Type 'yes' to confirm: "{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
+				fmt.Fprintf(os.Stderr, {{ if hasPathParam .Path }}{{ goStr (print "⚠️  This will " (actionPhrase .) " resource %s. Type 'yes' to confirm: ") }}, strings.Join(args, " "){{ else }}{{ goStr (print "⚠️  This will " (actionPhrase .) " this " $.NameSingular ". Type 'yes' to confirm: ") }}{{ end }})
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -2600,7 +2600,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
 				}
 				if rid == "" {
-					return fmt.Errorf("no {{ $.NameSingular }} found with --{{ .Flag }} %q", flag{{ toCamel .Flag }})
+					return fmt.Errorf({{ goStr (print "no " $.NameSingular " found with --" .Flag " %q") }}, flag{{ toCamel .Flag }})
 				}
 {{- else }}
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -2645,9 +2645,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, resolvedID)
 				}
 				return nil
 			}
@@ -2657,9 +2657,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %q (id: %s). Type 'yes' to confirm: ") }}, resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} {{ $.NameSingular }} %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %s. Type 'yes' to confirm: ") }}, resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -3015,7 +3015,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current {{ $.NameSingular }} for --set: %w", err)
+						return fmt.Errorf({{ goStr (print "parsing current " $.NameSingular " for --set: %w") }}, err)
 					}
 				}
 				({{ writableFilterLiteral . $.Schemas }}).apply(current)
@@ -3267,7 +3267,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 {{- end }}
 {{- if .BulkActionPath }}
-	cmd.Flags().BoolVar(&flagAll, "all", false, "Apply to every {{ $.NameSingular }} in one call (collection-level {{ .Name }} endpoint)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, {{ goStr (print "Apply to every " $.NameSingular " in one call (collection-level " .Name " endpoint)") }})
 {{- end }}
 {{- if and .BulkActionPath (not .IsDestructive) }}
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip the --all confirmation prompt")
@@ -3277,10 +3277,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to {{ actionPhrase . }} (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", {{ goStr (print "Path to file listing IDs or names to " (actionPhrase .) " (one per line, # comments ignored)") }})
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
-	cmd.Flags().StringVar(&flagGroup, "group", "", "{{ actionPhraseTitle . }} every {{ $.NameSingular }} in a Classic API group (name or ID)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", {{ goStr (print (actionPhraseTitle .) " every " $.NameSingular " in a Classic API group (name or ID)") }})
 {{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
@@ -3304,12 +3304,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 {{- if patchHasLookup $ }}
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
+	cmd.Flags().StringVar(&flagName, "name", "", {{ goStr (print "Look up " $.NameSingular " by name") }})
 {{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, {{ goStr (.Flag) }}, "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
 {{- end }}
 {{- if and (not (isPatchOp .)) (opHasNameLookup . $) }}
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
+	cmd.Flags().StringVar(&flagName, "name", "", {{ goStr (print "Look up " $.NameSingular " by name") }})
 {{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, {{ goStr (.Flag) }}, "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
 {{- if isUpdateSetOp . $ }}
@@ -3359,27 +3359,10 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a {{ .NameSingular }} by name",
+		Short: {{ goStr (print "Create or replace a " .NameSingular " by name") }},
 		Annotations: map[string]string{"jamf:api": "pro"{{ applyGatewayAnn $ }}},
-		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
-
-The {{ .NameField }} field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.` + "`" + `,
-		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a JSON file
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json
-
-  # Apply a {{ .NameSingular }} from a YAML file
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.yaml
-
-  # Apply from stdin
-  cat {{ .NameSingular }}.json | jamf-cli pro {{ .CmdPath }} apply
-
-  # Apply without replacement confirmation
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json --yes
-
-  # Preview what would happen
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json --dry-run` + "`" + `,
+		Long: {{ goRaw (print "Create or replace a " .NameSingular ". Reads JSON or YAML from --from-file or stdin.\n\nThe " .NameField " field in the input is used to check if the resource\nalready exists. If it does, the resource is replaced (with confirmation).\nIf not, a new resource is created.") }},
+		Example: {{ goRaw (print "  # Apply a " .NameSingular " from a JSON file\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".json\n\n  # Apply a " .NameSingular " from a YAML file\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".yaml\n\n  # Apply from stdin\n  cat " .NameSingular ".json | jamf-cli pro " .CmdPath " apply\n\n  # Apply without replacement confirmation\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".json --yes\n\n  # Preview what would happen\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".json --dry-run") }},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -3468,12 +3451,12 @@ If not, a new resource is created.` + "`" + `,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .NameSingular }} %q\n", name)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would create " .NameSingular " %q\n") }}, name)
 					return nil
 				}
 {{- if .UpdateTokenOp }}
 				if len(tokenBody) == 0 {
-					return fmt.Errorf("cannot create {{ .NameSingular }} %q: --{{ (index .FileFields 0).Flag }} is required", name)
+					return fmt.Errorf({{ goStr (print "cannot create " .NameSingular " %q: --" ((index .FileFields 0).Flag) " is required") }}, name)
 				}
 				postResp, err := ctx.Client.Do(reqCtx, "POST", {{ goStr (createPath .Operations) }}, bytes.NewReader(tokenBody))
 				if err != nil {
@@ -3500,10 +3483,10 @@ If not, a new resource is created.` + "`" + `,
 				bodyPath := strings.Replace({{ goStr (applyUpdatePath .Operations) }}, {{ goStr (applyUpdatePathParam .Operations) }}, url.PathEscape(newID), 1)
 				bodyResp, err := ctx.Client.Do(reqCtx, {{ goStr (applyUpdateMethod .Operations) }}, bodyPath, bytes.NewReader(data))
 				if err != nil {
-					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe {{ .NameSingular }} exists but is unnamed; to recover run: jamf-cli pro {{ .CmdPath }} update %s --from-file <body.json>", newID, err, newID)
+					return fmt.Errorf({{ goStr (print "create succeeded (id %s) but applying body fields failed: %w\nthe " .NameSingular " exists but is unnamed; to recover run: jamf-cli pro " .CmdPath " update %s --from-file <body.json>") }}, newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q (id: %s)\n", name, newID)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Created " .NameSingular " %q (id: %s)\n") }}, name, newID)
 				return ctx.Output.PrintResponse(bodyResp)
 {{- else }}
 {{- if .HasVersionLock }}
@@ -3514,21 +3497,21 @@ If not, a new resource is created.` + "`" + `,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q\n", name)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Created " .NameSingular " %q\n") }}, name)
 				return ctx.Output.PrintResponse(resp)
 {{- end }}
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace {{ .NameSingular }} %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would replace " .NameSingular " %q (id: %s)\n") }}, name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("{{ .NameSingular }} %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf({{ goStr (print .NameSingular " %q already exists (id: %s); use --yes to replace when --no-input is set") }}, name, id)
 				}
-				fmt.Fprintf(os.Stderr, "{{ .NameSingular }} %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print .NameSingular " %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ") }}, name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -3560,7 +3543,7 @@ If not, a new resource is created.` + "`" + `,
 			if len(data) == 0 && tokenResp != nil {
 				// Only the token was replaced — return its response.
 				defer tokenResp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Replaced {{ .NameSingular }} token %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " token %q (id: %s)\n") }}, name, id)
 				return ctx.Output.PrintResponse(tokenResp)
 			}
 			if tokenResp != nil {
@@ -3575,7 +3558,7 @@ If not, a new resource is created.` + "`" + `,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced {{ .NameSingular }} %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " %q (id: %s)\n") }}, name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

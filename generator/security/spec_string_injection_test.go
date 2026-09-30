@@ -16,7 +16,7 @@ import (
 // TestGenerate_SpecStringsCannotEscapeGoLiterals mutates the committed risk
 // spec — operation names here are hand-authored, so only the query parameter
 // names and the paginated array key reach emitted source from the spec — and
-// fails when either compiles as code rather than string content.
+// fails when either is refused or compiles as code rather than string content.
 func TestGenerate_SpecStringsCannotEscapeGoLiterals(t *testing.T) {
 	base, err := os.ReadFile(filepath.Join("..", "..", "specs", "security", "jamf-risk-api.json"))
 	if err != nil {
@@ -25,13 +25,31 @@ func TestGenerate_SpecStringsCannotEscapeGoLiterals(t *testing.T) {
 	devicesGet := func(doc map[string]any) map[string]any {
 		return doc["paths"].(map[string]any)["/risk/v2/devices"].(map[string]any)["get"].(map[string]any)
 	}
+	hostileQuery := func(typ string) map[string]any {
+		schema := map[string]any{"type": typ}
+		if typ == "array" {
+			schema["items"] = map[string]any{"type": "string"}
+		}
+		return map[string]any{
+			"name": `w"+func()string{panic("jamfcli-pwned")}()+"`, "in": "query", "schema": schema,
+		}
+	}
+	unpaginated := func(op map[string]any, typ string) {
+		var kept []any
+		for _, p := range op["parameters"].([]any) {
+			if name := p.(map[string]any)["name"]; name != "page" && name != "pageSize" {
+				kept = append(kept, p)
+			}
+		}
+		op["parameters"] = append(kept, hostileQuery(typ))
+	}
 	cases := map[string]func(op map[string]any){
 		"query parameter name": func(op map[string]any) {
-			op["parameters"] = append(op["parameters"].([]any), map[string]any{
-				"name": `w"+func()string{panic("jamfcli-pwned")}()+"`, "in": "query",
-				"schema": map[string]any{"type": "string"},
-			})
+			op["parameters"] = append(op["parameters"].([]any), hostileQuery("string"))
 		},
+		"query parameter name, unpaginated GET":         func(op map[string]any) { unpaginated(op, "string") },
+		"boolean query parameter name, unpaginated GET": func(op map[string]any) { unpaginated(op, "boolean") },
+		"array query parameter name, unpaginated GET":   func(op map[string]any) { unpaginated(op, "array") },
 		"paginated array key, raw struct tag": func(op map[string]any) {
 			resp := op["responses"].(map[string]any)["200"].(map[string]any)
 			resp["content"] = map[string]any{"application/json": map[string]any{"schema": map[string]any{
@@ -62,14 +80,12 @@ func TestGenerate_SpecStringsCannotEscapeGoLiterals(t *testing.T) {
 			}
 			resources, scopeOf, _, err := LoadResources(specDir)
 			if err != nil {
-				t.Logf("refused at load: %v", err)
-				return
+				t.Fatalf("LoadResources: %v", err)
 			}
 			files, err := Generate(resources, scopeOf, t.TempDir())
 			if err != nil {
 				before, _, _ := strings.Cut(err.Error(), "\n")
-				t.Logf("refused at generate: %v", before)
-				return
+				t.Fatalf("Generate: %v", before)
 			}
 			if len(files) == 0 {
 				t.Fatal("fixture generated no files; the site was not exercised")

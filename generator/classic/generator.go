@@ -107,6 +107,8 @@ func validateManifestTokens(r ClassicResource) error {
 		"subsets":     r.Subsets,
 		"list_subset": {r.ListSubset},
 		"group_path":  {r.GroupPath},
+		"body_root":   {r.BodyRoot},
+		"body_schema": {r.BodySchemaName},
 	}
 	for _, ff := range r.FileFields {
 		fields["file_fields"] = append(fields["file_fields"], ff.Flag, ff.XMLPath, ff.Encoding, ff.NameFallback)

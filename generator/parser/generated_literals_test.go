@@ -12,51 +12,64 @@ import (
 )
 
 // A cobra.Command's help fields in committed generated code must be string
-// literals joined by `+`; anything else there means a spec string became code.
+// literals joined by `+`, and no function literal may be invoked outside a
+// defer; either means a spec string became code.
 func TestGeneratedCommandHelpFieldsAreOnlyStringLiterals(t *testing.T) {
 	helpFields := map[string]bool{"Use": true, "Short": true, "Long": true, "Example": true}
-	var files []string
 	for _, tree := range []string{"pro", "platform", "security"} {
-		matches, err := filepath.Glob(filepath.Join("..", "..", "internal", "commands", tree, "generated", "*.go"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		files = append(files, matches...)
-	}
-	var checked int
-	for _, path := range files {
-		if strings.HasSuffix(path, "_test.go") {
-			continue
-		}
-		fset := token.NewFileSet()
-		file, err := goparser.ParseFile(fset, path, nil, goparser.SkipObjectResolution)
-		if err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
-		ast.Inspect(file, func(n ast.Node) bool {
-			lit, ok := n.(*ast.CompositeLit)
-			if !ok || !isCobraCommand(lit.Type) {
-				return true
+		t.Run(tree, func(t *testing.T) {
+			files, err := filepath.Glob(filepath.Join("..", "..", "internal", "commands", tree, "generated", "*.go"))
+			if err != nil {
+				t.Fatal(err)
 			}
-			for _, elt := range lit.Elts {
-				kv, ok := elt.(*ast.KeyValueExpr)
-				if !ok {
+			var checked int
+			for _, path := range files {
+				if strings.HasSuffix(path, "_test.go") {
 					continue
 				}
-				key, ok := kv.Key.(*ast.Ident)
-				if !ok || !helpFields[key.Name] {
-					continue
+				fset := token.NewFileSet()
+				file, err := goparser.ParseFile(fset, path, nil, goparser.SkipObjectResolution)
+				if err != nil {
+					t.Fatalf("%s: %v", path, err)
 				}
-				checked++
-				if !onlyStringLiterals(kv.Value) {
-					t.Errorf("%s: cobra.Command %s is not a string literal", fset.Position(kv.Value.Pos()), key.Name)
-				}
+				deferred := map[*ast.CallExpr]bool{}
+				ast.Inspect(file, func(n ast.Node) bool {
+					if d, ok := n.(*ast.DeferStmt); ok {
+						deferred[d.Call] = true
+					}
+					return true
+				})
+				ast.Inspect(file, func(n ast.Node) bool {
+					if call, ok := n.(*ast.CallExpr); ok {
+						if _, ok := call.Fun.(*ast.FuncLit); ok && !deferred[call] {
+							t.Errorf("%s: function literal invoked outside a defer", fset.Position(call.Pos()))
+						}
+					}
+					lit, ok := n.(*ast.CompositeLit)
+					if !ok || !isCobraCommand(lit.Type) {
+						return true
+					}
+					for _, elt := range lit.Elts {
+						kv, ok := elt.(*ast.KeyValueExpr)
+						if !ok {
+							continue
+						}
+						key, ok := kv.Key.(*ast.Ident)
+						if !ok || !helpFields[key.Name] {
+							continue
+						}
+						checked++
+						if !onlyStringLiterals(kv.Value) {
+							t.Errorf("%s: cobra.Command %s is not a string literal", fset.Position(kv.Value.Pos()), key.Name)
+						}
+					}
+					return true
+				})
 			}
-			return true
+			if checked == 0 {
+				t.Fatalf("no cobra.Command help fields found in the %s tree; the walk is not reading it", tree)
+			}
 		})
-	}
-	if checked == 0 {
-		t.Fatal("no cobra.Command help fields found; the walk is not reading the generated trees")
 	}
 }
 

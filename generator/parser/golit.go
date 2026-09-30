@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"unicode"
 )
 
 // commandNamePattern is the shape of every committed command and resource
@@ -42,6 +43,26 @@ func ValidateResourceNames(r *Resource) error {
 		if err := ValidateCommandName(r.Name+" operation name", op.Name); err != nil {
 			return err
 		}
+		if err := validatePath(r.Name, op.Path); err != nil {
+			return err
+		}
+		if err := validatePath(r.Name, op.BulkActionPath); err != nil {
+			return err
+		}
+	}
+	if r.UpdateTokenOp != nil {
+		if err := validatePath(r.Name, r.UpdateTokenOp.Path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validatePath refuses a control character in a spec path, which the
+// templates also place in `//` comments that a newline would end.
+func validatePath(resource, path string) error {
+	if i := strings.IndexFunc(path, unicode.IsControl); i >= 0 {
+		return fmt.Errorf("%s path %q contains a control character; refusing to emit it into generated Go", resource, path)
 	}
 	return nil
 }

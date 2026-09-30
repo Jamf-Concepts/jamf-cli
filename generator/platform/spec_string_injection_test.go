@@ -39,8 +39,9 @@ func specQueryParam(name, typ string) map[string]any {
 }
 
 // TestGenerate_SpecStringsCannotEscapeGoLiterals feeds hostile spec values
-// through LoadResources+Generate. A value may be refused or rendered as string
-// content; a panic call carrying the marker in the AST means it became code.
+// through LoadResources+Generate. A name must be refused; every other value
+// must render as string content, and a panic call carrying the marker in the
+// AST means it became code.
 func TestGenerate_SpecStringsCannotEscapeGoLiterals(t *testing.T) {
 	quoteBreak := `list" + func() string { panic("jamfcli-pwned") }() + "`
 	// strcase.ToKebab keeps punctuation and turns spaces into dashes, so a
@@ -91,6 +92,11 @@ func TestGenerate_SpecStringsCannotEscapeGoLiterals(t *testing.T) {
 		}),
 	}
 
+	mustRefuse := map[string]bool{
+		"x-operation-name":               true,
+		"tag (resource name), no spaces": true,
+	}
+
 	for site, spec := range cases {
 		t.Run(site, func(t *testing.T) {
 			specDir := t.TempDir()
@@ -103,13 +109,24 @@ func TestGenerate_SpecStringsCannotEscapeGoLiterals(t *testing.T) {
 			}
 			resources, _, err := LoadResources(specDir)
 			if err != nil {
-				t.Logf("refused at load: %v", err)
+				t.Fatalf("LoadResources: %v", err)
+			}
+			outDir := t.TempDir()
+			files, err := Generate(resources, outDir)
+			if mustRefuse[site] {
+				if err == nil {
+					t.Fatalf("Generate wrote %v; want a lowercase kebab-case refusal", files)
+				}
+				if !strings.Contains(err.Error(), "lowercase kebab-case") {
+					t.Fatalf("Generate refused with %q; want a lowercase kebab-case refusal", firstLine(err.Error()))
+				}
+				if entries, _ := os.ReadDir(outDir); len(entries) > 0 {
+					t.Errorf("a refused resource left %d file(s) in the output directory", len(entries))
+				}
 				return
 			}
-			files, err := Generate(resources, t.TempDir())
 			if err != nil {
-				t.Logf("refused at generate: %v", firstLine(err.Error()))
-				return
+				t.Fatalf("Generate: %v", firstLine(err.Error()))
 			}
 			if len(files) == 0 {
 				t.Fatal("fixture generated no files; the site was not exercised")
