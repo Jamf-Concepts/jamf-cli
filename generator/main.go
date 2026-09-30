@@ -573,8 +573,6 @@ func main() {
 	}
 }
 
-// generateSmokeRegistry collects all GET endpoints from both modern and classic
-// resources and writes smoke_registry.go for use by smoke tests.
 // generateEach generates every item and reports every refusal together; the
 // caller must exit on an error before writing a registry or sweeping stale
 // files, or a refused resource's committed file is deleted while still registered.
@@ -592,6 +590,8 @@ func generateEach[T any](items []T, name func(T) string, generate func(T) (strin
 	return errors.Join(errs...)
 }
 
+// generateSmokeRegistry collects all GET endpoints from both modern and classic
+// resources and writes smoke_registry.go for use by smoke tests.
 func generateSmokeRegistry(outputDir string, modern []*parser.Resource, classicRes []classic.ClassicResource) (string, error) {
 	var entries []smokeEntry
 

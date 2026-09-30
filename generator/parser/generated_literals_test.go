@@ -11,9 +11,11 @@ import (
 	"testing"
 )
 
-// A cobra.Command's help fields in committed generated code must be string
-// literals joined by `+`, and no function literal may be invoked outside a
-// defer; either means a spec string became code.
+// A cobra.Command's help fields and a flag registration's name, shorthand and
+// usage in committed generated code must be string literals joined by `+`, a
+// flag default may contain no call, and no function literal may be invoked
+// outside a defer; any of these means a spec string became code. It does not
+// judge the RunE body, where calls between string literals are ordinary.
 func TestGeneratedCommandHelpFieldsAreOnlyStringLiterals(t *testing.T) {
 	helpFields := map[string]bool{"Use": true, "Short": true, "Long": true, "Example": true}
 	for _, tree := range []string{"pro", "platform", "security"} {
@@ -22,7 +24,7 @@ func TestGeneratedCommandHelpFieldsAreOnlyStringLiterals(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var checked int
+			var checked, checkedFlags int
 			for _, path := range files {
 				if strings.HasSuffix(path, "_test.go") {
 					continue
@@ -43,6 +45,23 @@ func TestGeneratedCommandHelpFieldsAreOnlyStringLiterals(t *testing.T) {
 					if call, ok := n.(*ast.CallExpr); ok {
 						if _, ok := call.Fun.(*ast.FuncLit); ok && !deferred[call] {
 							t.Errorf("%s: function literal invoked outside a defer", fset.Position(call.Pos()))
+						}
+						if method, ok := flagRegistration(call); ok {
+							checkedFlags++
+							strArgs := []ast.Expr{call.Args[1], call.Args[len(call.Args)-1]}
+							if strings.HasSuffix(method, "VarP") {
+								strArgs = append(strArgs, call.Args[2])
+							}
+							for _, arg := range strArgs {
+								if !onlyStringLiterals(arg) {
+									t.Errorf("%s: %s name, shorthand or usage is not a string literal", fset.Position(arg.Pos()), method)
+								}
+							}
+							for _, arg := range call.Args[1 : len(call.Args)-1] {
+								if containsCall(arg) {
+									t.Errorf("%s: %s argument contains a call", fset.Position(arg.Pos()), method)
+								}
+							}
 						}
 					}
 					lit, ok := n.(*ast.CompositeLit)
@@ -69,6 +88,9 @@ func TestGeneratedCommandHelpFieldsAreOnlyStringLiterals(t *testing.T) {
 			if checked == 0 {
 				t.Fatalf("no cobra.Command help fields found in the %s tree; the walk is not reading it", tree)
 			}
+			if checkedFlags == 0 {
+				t.Fatalf("no flag registrations found in the %s tree; the walk is not reading them", tree)
+			}
 		})
 	}
 }
@@ -80,6 +102,39 @@ func isCobraCommand(expr ast.Expr) bool {
 	}
 	pkg, ok := sel.X.(*ast.Ident)
 	return ok && pkg.Name == "cobra"
+}
+
+// flagRegistration reports whether call is `<x>.Flags().<Type>Var[P](...)` or
+// the PersistentFlags form, and returns the method name.
+func flagRegistration(call *ast.CallExpr) (string, bool) {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || (!strings.HasSuffix(sel.Sel.Name, "Var") && !strings.HasSuffix(sel.Sel.Name, "VarP")) {
+		return "", false
+	}
+	recv, ok := sel.X.(*ast.CallExpr)
+	if !ok {
+		return "", false
+	}
+	flags, ok := recv.Fun.(*ast.SelectorExpr)
+	if !ok || (flags.Sel.Name != "Flags" && flags.Sel.Name != "PersistentFlags") {
+		return "", false
+	}
+	minArgs := 4
+	if strings.HasSuffix(sel.Sel.Name, "VarP") {
+		minArgs = 5
+	}
+	return sel.Sel.Name, len(call.Args) >= minArgs
+}
+
+func containsCall(expr ast.Expr) bool {
+	found := false
+	ast.Inspect(expr, func(n ast.Node) bool {
+		if _, ok := n.(*ast.CallExpr); ok {
+			found = true
+		}
+		return !found
+	})
+	return found
 }
 
 func onlyStringLiterals(expr ast.Expr) bool {
