@@ -3,19 +3,28 @@
 package commands
 
 import (
+	"context"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
 
 func TestMCPRefusedCommands_EveryEntryNamesACommandInTheTree(t *testing.T) {
 	root := NewRootCmd("test", "t", "t", "t")
-	for _, path := range mcpRefusedCommands {
+	for _, refused := range mcpRefusedCommands {
+		path := refused.path
 		args := strings.Fields(strings.TrimPrefix(path, root.Name()+" "))
 		found, _, err := root.Find(args)
 		if err != nil || found.CommandPath() != path {
@@ -86,13 +95,35 @@ func isPathShapedFlag(root *cobra.Command, f *pflag.Flag) bool {
 		return true
 	case n == "output":
 		return f != root.PersistentFlags().Lookup("output")
+	case f.Value.Type() == "bool":
+		return false
 	}
-	return false
+	return pathShapedUsage.MatchString(f.Usage)
+}
+
+var pathShapedUsage = regexp.MustCompile(`(?i)\b(path|file|directory)\b`)
+
+// notALocalPathFlags are flags whose usage text mentions a path, file or
+// directory without taking a path on this machine, each with the reason.
+var notALocalPathFlags = map[string]string{
+	"set":                   "a body field assignment; its usage names --from-file as the exclusive alternative",
+	"custom-payload-domain": "a preference domain; its usage names --custom-payload-file",
+	"name":                  "a Jamf object or remote file name, looked up on the server",
+	"file-name":             "a file name in a distribution point, looked up on the server",
+	"type":                  "an enum naming a file or exception type",
+	"export-labels":         "column labels for a server-side export",
+	"user":                  "a directory-service username in a scope",
+	"user-group":            "a directory-service group in a scope",
+	"prefix":                "a command path in the catalog",
+	"search":                "words matched against command paths",
+	"source":                "a pro diff side, judged by refuseDiffSide",
+	"target":                "a pro diff side, judged by refuseDiffSide",
 }
 
 func TestMCPLocalPathFlags_EveryPathShapedFlagIsRefused(t *testing.T) {
 	root := NewRootCmd("test", "t", "t", "t")
 	used := map[string]bool{}
+	exempted := map[string]bool{}
 	checked := 0
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
@@ -109,6 +140,9 @@ func TestMCPLocalPathFlags_EveryPathShapedFlagIsRefused(t *testing.T) {
 					return
 				}
 			case refusedWhole, !isPathShapedFlag(root, f), isBlockedChildFlag("--" + f.Name):
+				return
+			case notALocalPathFlags[f.Name] != "":
+				exempted[f.Name] = true
 				return
 			default:
 				t.Errorf("--%s on %q looks like a local path and is not classified; add it to mcpLocalPathFlags or mcpDirFlags", f.Name, c.CommandPath())
@@ -134,6 +168,11 @@ func TestMCPLocalPathFlags_EveryPathShapedFlagIsRefused(t *testing.T) {
 	for name := range mcpLocalPathFlags {
 		if !used[name] {
 			t.Errorf("mcpLocalPathFlags names --%s, which no command declares; remove the stale entry", name)
+		}
+	}
+	for name := range notALocalPathFlags {
+		if !exempted[name] {
+			t.Errorf("notALocalPathFlags exempts --%s, which no longer looks like a local path; remove the stale entry", name)
 		}
 	}
 	if checked < 400 {
@@ -257,5 +296,140 @@ func TestMCPChild_JcdsSyncRefusedWithoutTheServer(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(victim, "id_ed25519")); err != nil {
 		t.Errorf("operator file is gone: %v", err)
+	}
+}
+
+func TestMCPChild_RefusesCredentialReaders(t *testing.T) {
+	for _, args := range [][]string{
+		{"--profile", "prod", "--no-input", "config", "validate"},
+		{"--profile", "prod", "--no-input", "doctor"},
+		{"--profile", "prod", "--no-input", "doctor", "other"},
+	} {
+		if err := executeAsMCPChild(t, "prod", args...); !isMCPRefusal(err) {
+			t.Errorf("MCP child ran %q (err %v); it prints or probes other profiles' credentials", args, err)
+		}
+	}
+}
+
+func TestMCPChild_RefusesMCPServe(t *testing.T) {
+	done := make(chan error, 1)
+	go func() {
+		done <- executeAsMCPChild(t, "prod", "--profile", "prod", "--no-input", "mcp", "serve")
+	}()
+	select {
+	case err := <-done:
+		if !isMCPRefusal(err) {
+			t.Errorf("MCP child ran `mcp serve` (err %v)", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("MCP child started `mcp serve` and is serving on stdin")
+	}
+}
+
+func TestRunChild_TellsTheChildItsPinAndInputDir(t *testing.T) {
+	t.Setenv(mcpChildEnvVar, "0")
+	t.Setenv(mcpPinnedProfileEnvVar, "attacker")
+	t.Setenv(mcpInputDirEnvVar, "/")
+	inputDir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	installMCPResolver(NewRootCmd("test", "t", "t", "t"), inputDir)
+	t.Cleanup(func() { installMCPResolver(nil, "") })
+	t.Cleanup(resetGlobals)
+
+	path := filepath.Join(t.TempDir(), "echo-env.sh")
+	script := "#!/bin/sh\nprintf 'MCP=[%s] PROFILE=[%s] INPUT=[%s]' \"$JAMF_CLI_MCP\" \"$JAMF_CLI_MCP_PROFILE\" \"$JAMF_CLI_MCP_INPUT_DIR\"\n"
+	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	res := runChild(context.Background(), path, "prod", []string{"pro", "computers", "list"})
+	if res == nil || res.IsError {
+		t.Fatalf("expected success, got %+v", res)
+	}
+	got := mcpResultText(res)
+	want := "MCP=[1] PROFILE=[prod] INPUT=[" + inputDir + "]"
+	if got != want {
+		t.Errorf("child saw %q, want %q", got, want)
+	}
+}
+
+func TestConfigShowRows_RedactsCredentialsInAnMCPChild(t *testing.T) {
+	const marker = "F5-MARKER-literal-client-secret"
+	cfg := &config.Config{Profiles: map[string]config.Profile{
+		"prod":  {URL: "https://prod.example", ClientID: marker + "-id", ClientSecret: marker},
+		"other": {URL: "https://other.example", Token: marker + "-token"},
+		"empty": {URL: "https://empty.example"},
+	}}
+
+	t.Setenv(mcpChildEnvVar, "1")
+	for _, r := range configShowRows(cfg, "prod") {
+		for field, v := range map[string]string{"token": r.Token, "client-id": r.ClientID, "client-secret": r.ClientSecret} {
+			if strings.Contains(v, marker) {
+				t.Errorf("config show in an MCP child printed profile %q's %s: %q", r.Name, field, v)
+			}
+		}
+		if r.Name == "prod" && r.ClientSecret != "<redacted>" {
+			t.Errorf("profile prod's client-secret = %q; want it marked <redacted>", r.ClientSecret)
+		}
+		if r.Name == "empty" && r.Token+r.ClientID+r.ClientSecret != "" {
+			t.Errorf("an unset credential must stay unset, got %+v", r)
+		}
+	}
+
+	t.Setenv(mcpChildEnvVar, "")
+	for _, r := range configShowRows(cfg, "prod") {
+		if r.Name == "prod" && r.ClientSecret != marker {
+			t.Errorf("outside MCP config show must print the configured value, got %q", r.ClientSecret)
+		}
+	}
+}
+
+func TestConfigListStatus_ProbesOnlyThePinnedProfileInAnMCPChild(t *testing.T) {
+	newServer := func() (*httptest.Server, *atomic.Int32) {
+		var hits atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			hits.Add(1)
+			_, _ = w.Write([]byte("[]"))
+		}))
+		t.Cleanup(srv.Close)
+		return srv, &hits
+	}
+	pinnedSrv, pinnedHits := newServer()
+	otherSrv, otherHits := newServer()
+
+	run := func(t *testing.T, mcpChild string) {
+		t.Helper()
+		resetGlobals()
+		t.Cleanup(resetGlobals)
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		t.Setenv("XDG_CACHE_HOME", t.TempDir())
+		t.Setenv("JAMF_CLI_ARGS", "")
+		t.Setenv(mcpChildEnvVar, mcpChild)
+		t.Setenv(mcpPinnedProfileEnvVar, "prod")
+		if err := config.Save(&config.Config{Profiles: map[string]config.Profile{
+			"prod":  {URL: pinnedSrv.URL},
+			"other": {URL: otherSrv.URL},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+		root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+		root.SetArgs([]string{"--profile", "prod", "--no-input", "-o", "json", "config", "list", "--status"})
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("config list --status: %v", err)
+		}
+	}
+
+	run(t, "1")
+	if pinnedHits.Load() != 1 || otherHits.Load() != 0 {
+		t.Errorf("in an MCP child: pinned server hit %d times, other %d; only the pinned profile may be probed", pinnedHits.Load(), otherHits.Load())
+	}
+
+	pinnedHits.Store(0)
+	run(t, "")
+	if pinnedHits.Load() != 1 || otherHits.Load() != 1 {
+		t.Errorf("outside MCP every profile is probed once, got pinned %d, other %d", pinnedHits.Load(), otherHits.Load())
 	}
 }

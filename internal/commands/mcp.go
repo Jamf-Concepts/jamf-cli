@@ -92,10 +92,14 @@ is in 'jamf-cli dashboard --help'.
 run_command judges the command and flags cobra resolves the arguments to, so
 an alias or a flag ahead of the command path is judged the same as the plain
 spelling. It refuses:
-  - 'multi', 'mcp', shell completion, the config write subcommands, every
-    'setup', both 'backup' commands and 'jamf-cloud-distribution-service sync'
-    (also mounted as 'packages sync'), which pick their own instance or write
-    where the model says
+  - 'multi', 'mcp', 'completion' and shell completion, the config write
+    subcommands, every 'setup', both 'backup' commands and
+    'jamf-cloud-distribution-service sync' (also mounted as 'packages sync'),
+    which pick their own instance or write where the model says
+  - 'config validate' and 'doctor', which resolve or report every profile's
+    credentials and probe other profiles' URLs ('config show' runs, with each
+    token, client ID and client secret shown as <redacted>, and 'config list
+    --status' checks only this server's profile)
   - any flag naming a profile, URL, token, tenant, environment or output file
   - any flag whose value is a local path: --from-file, --file, --script-file,
     --mobileconfig-file, --appconfig-file, --custom-payload-file, --body-file,
@@ -104,6 +108,11 @@ spelling. It refuses:
     as --input-dir allows below
   - 'pro diff' with a --source or --target that is neither this server's
     profile nor a directory inside --input-dir
+Some allowed commands write a file into the directory this server was started
+in, named by Jamf or by the command's own argument: 'protect downloads' and
+'pro jcds download' without -O, and 'protect plans config-profile'. Start the
+server from a directory where that is acceptable.
+
 It also refuses 'dashboard', because it returns a command's stdout as text and
 the report is a 320-800 KB document — generate_report writes that to a file
 instead.
@@ -180,8 +189,9 @@ config key for it.`,
 					"included. Rejected: any flag naming a profile, URL, token, tenant, " +
 					"environment or output file; any flag whose value is a local file or " +
 					"directory (--from-file, --file, --script-file, --save-to, --dir and the " +
-					"like; the -o/--output format flag is fine); 'multi', 'mcp', the config " +
-					"write subcommands, every 'setup', the backup commands and jcds sync; and " +
+					"like; the -o/--output format flag is fine); 'multi', 'mcp', 'completion', " +
+					"the config write subcommands, 'config validate', 'doctor', " +
+					"every 'setup', the backup commands and jcds sync; and " +
 					"'pro diff' against anything but this server's profile or a directory the " +
 					"input directory allows. " + inputDirToolNote(inputDir) +
 					" Use generate_report rather than 'dashboard': this tool returns " +
@@ -502,26 +512,38 @@ var blockedChildFlagPrefixes = []string{
 }
 
 // mcpRefusedCommands are resolved command paths, each refused with everything
-// beneath it, that choose their own instance, credential or local destination.
-// `dashboard` is not here: generate_report shares buildChildArgs and must still
-// spawn it, so the run_command handler refuses it instead.
-var mcpRefusedCommands = []string{
-	"jamf-cli multi",
-	"jamf-cli mcp",
-	"jamf-cli config set-default",
-	"jamf-cli config add-profile",
-	"jamf-cli config remove-profile",
-	"jamf-cli config set-report-dir",
-	"jamf-cli pro setup",
-	"jamf-cli platform setup",
-	"jamf-cli protect setup",
-	"jamf-cli school setup",
-	"jamf-cli security setup",
-	"jamf-cli pro backup",
-	"jamf-cli protect backup",
-	"jamf-cli pro jamf-cloud-distribution-service sync",
-	"jamf-cli pro packages sync",
+// beneath it, and why. `dashboard` is not here: generate_report shares
+// buildChildArgs and must still spawn it, so the run_command handler refuses it
+// instead.
+var mcpRefusedCommands = []refusedCommand{
+	{"jamf-cli multi", refusedPicksTarget},
+	{"jamf-cli mcp", refusedPicksTarget},
+	{"jamf-cli completion", "'completion install' writes into this machine's shell configuration, and the rest print a script no MCP client can use"},
+	{"jamf-cli config set-default", refusedPicksTarget},
+	{"jamf-cli config add-profile", refusedPicksTarget},
+	{"jamf-cli config remove-profile", refusedPicksTarget},
+	{"jamf-cli config set-report-dir", refusedPicksTarget},
+	{"jamf-cli config validate", refusedReadsCredentials},
+	{"jamf-cli doctor", refusedReadsCredentials},
+	{"jamf-cli pro setup", refusedPicksTarget},
+	{"jamf-cli platform setup", refusedPicksTarget},
+	{"jamf-cli protect setup", refusedPicksTarget},
+	{"jamf-cli school setup", refusedPicksTarget},
+	{"jamf-cli security setup", refusedPicksTarget},
+	{"jamf-cli pro backup", refusedPicksTarget},
+	{"jamf-cli protect backup", refusedPicksTarget},
+	{"jamf-cli pro jamf-cloud-distribution-service sync", refusedPicksTarget},
+	{"jamf-cli pro packages sync", refusedPicksTarget},
 }
+
+type refusedCommand struct {
+	path, why string
+}
+
+const (
+	refusedPicksTarget      = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
+	refusedReadsCredentials = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
+)
 
 // isCompletionRequest reports whether name is cobra's hidden completion
 // command, which parses no flags of its own and runs the target command's
@@ -671,9 +693,8 @@ func resolveChildInvocation(args []string) childInvocation {
 // pinnedProfile, or nil.
 func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
 	for _, refused := range mcpRefusedCommands {
-		if inv.path == refused || strings.HasPrefix(inv.path, refused+" ") {
-			return fmt.Errorf("command %q is not available over MCP: it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it",
-				strings.TrimPrefix(inv.path, "jamf-cli "))
+		if inv.path == refused.path || strings.HasPrefix(inv.path, refused.path+" ") {
+			return fmt.Errorf("command %q is not available over MCP: %s", strings.TrimPrefix(inv.path, "jamf-cli "), refused.why)
 		}
 	}
 	for _, s := range inv.settings {
@@ -762,11 +783,41 @@ func refuseLocalPath(use localPathUse, s flagSetting, inputDir string) error {
 	if err != nil {
 		return fmt.Errorf("flag --%s %q cannot be used over MCP: %v; it must name an existing path inside the input directory %s", s.name, s.value, err, inputDir)
 	}
-	if resolved != inputDir && !strings.HasPrefix(resolved, inputDir+string(filepath.Separator)) {
+	if !insideDir(inputDir, resolved) {
 		return fmt.Errorf("flag --%s %q is not available over MCP: it resolves to %s, outside the input directory %s", s.name, s.value, resolved, inputDir)
 	}
 	return nil
 }
+
+// insideDir reports whether path is dir or lies beneath it. Both must be
+// absolute and symlink-resolved.
+func insideDir(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// refuseMCPChildReadOutsideInputDir refuses a file a command found by listing
+// a directory when it resolves outside the input directory of the `mcp serve`
+// that spawned this process. Outside an MCP child it allows everything.
+func refuseMCPChildReadOutsideInputDir(path string) error {
+	inputDir := os.Getenv(mcpInputDirEnvVar)
+	if os.Getenv(mcpChildEnvVar) != "1" || inputDir == "" {
+		return nil
+	}
+	resolved, err := filepath.Abs(path)
+	if err == nil {
+		resolved, err = filepath.EvalSymlinks(resolved)
+	}
+	if err != nil {
+		return fmt.Errorf("%s is %w: %v", path, errMCPChildReadRefused, err)
+	}
+	if !insideDir(inputDir, resolved) {
+		return fmt.Errorf("%s is %w: it resolves to %s, outside the input directory %s", path, errMCPChildReadRefused, resolved, inputDir)
+	}
+	return nil
+}
+
+var errMCPChildReadRefused = errors.New("not readable over MCP")
 
 var errCompletionOverMCP = errors.New("shell completion is not available over MCP: it runs another command's completion without the flag checks every command gets; use list_commands or --help instead")
 

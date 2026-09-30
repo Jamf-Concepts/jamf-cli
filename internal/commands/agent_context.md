@@ -107,9 +107,11 @@ The server is pinned to the profile it was launched with, and `run_command` is
 judged on the command and flags your arguments resolve to, aliases included.
 Rejected: credential- and target-selecting flags; flags whose value is a local
 file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
-`--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`, the
-config write subcommands, every `setup`, both `backup` commands and jcds `sync`;
-and `pro diff` against anything but the pinned profile. An administrator who
+`--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`,
+`completion`, the config write subcommands, `config validate`, `doctor`, every
+`setup`, both `backup` commands and jcds `sync`; and `pro diff` against
+anything but the pinned profile. `config show` runs with every credential field
+shown as `<redacted>`. An administrator who
 starts the server with `--input-dir <dir>` allows the read-side flags, and a
 `pro diff` side that is a directory, for existing paths inside that directory;
 `run_command`'s description names it.

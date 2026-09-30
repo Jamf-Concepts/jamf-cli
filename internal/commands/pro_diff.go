@@ -154,27 +154,31 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 	// which is what makes the two comparable. nameField is the resource's
 	// BackupEndpoint.NameField, so an object read off disk is keyed by the same
 	// field live mode reads off the list item.
-	readInto := func(resourceName, nameField, path string) {
+	readInto := func(resourceName, nameField, path string) error {
 		if len(allowedResources) > 0 && !allowedResources[resourceName] {
-			return
+			return nil
 		}
 		objects, err := readObjectsFromSubdir(path, nameField)
+		if errors.Is(err, errMCPChildReadRefused) {
+			return err
+		}
 		if err != nil {
 			// A curated resource absent from this backup is not a problem —
 			// only an unreadable directory is.
 			if !errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", path, err)
 			}
-			return
+			return nil
 		}
 		if len(objects) == 0 {
-			return
+			return nil
 		}
 		if existing, ok := snapshot[resourceName]; ok {
 			maps.Copy(existing, objects)
 		} else {
 			snapshot[resourceName] = objects
 		}
+		return nil
 	}
 
 	// First, directories in the backup root that no curated resource claims,
@@ -205,7 +209,9 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 		if !entryIsDir(dir, entry) {
 			continue
 		}
-		readInto(name, nonStandardBackupNameField(name), filepath.Join(dir, name))
+		if err := readInto(name, nonStandardBackupNameField(name), filepath.Join(dir, name)); err != nil {
+			return nil, err
+		}
 	}
 
 	// Then every curated resource, read at the path `backup` writes it to and
@@ -221,7 +227,9 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 		return nil, err
 	}
 	for _, def := range defs {
-		readInto(def.FilterName, def.NameField, filepath.Join(dir, filepath.FromSlash(def.SubDir)))
+		if err := readInto(def.FilterName, def.NameField, filepath.Join(dir, filepath.FromSlash(def.SubDir))); err != nil {
+			return nil, err
+		}
 	}
 
 	return snapshot, nil
@@ -266,6 +274,9 @@ func readObjectsFromSubdir(subDir, nameField string) (map[string]map[string]any,
 		}
 
 		path := filepath.Join(subDir, name)
+		if err := refuseMCPChildReadOutsideInputDir(path); err != nil {
+			return nil, err
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: reading file %s: %v\n", path, err)

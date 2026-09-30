@@ -36,6 +36,15 @@ var refusedCommandSpellings = []struct {
 	{[]string{"-q", "pro", "backup", "--output", "/x"}, "jamf-cli pro backup"},
 	{[]string{"pro", "-q", "backup"}, "jamf-cli pro backup"},
 	{[]string{"-v", "protect", "backup", "--output", "/x"}, "jamf-cli protect backup"},
+	{[]string{"mcp", "serve"}, "jamf-cli mcp serve"},
+	{[]string{"-q", "mcp", "serve"}, "jamf-cli mcp serve"},
+	{[]string{"-o", "json", "config", "validate", "--connectivity"}, "jamf-cli config validate"},
+	{[]string{"doctor"}, "jamf-cli doctor"},
+	{[]string{"doctor", "other"}, "jamf-cli doctor"},
+	{[]string{"-q", "doctor", "prod"}, "jamf-cli doctor"},
+	{[]string{"completion", "install"}, "jamf-cli completion install"},
+	{[]string{"completion", "zsh"}, "jamf-cli completion zsh"},
+	{[]string{"--no-color", "completion"}, "jamf-cli completion"},
 }
 
 func TestBuildChildArgs_RefusesEveryResolvedSpellingOfARefusedCommand(t *testing.T) {
