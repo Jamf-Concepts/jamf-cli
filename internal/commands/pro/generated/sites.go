@@ -107,16 +107,17 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 			path := "/v1/sites/{id}/objects"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
-			// --all requests the largest page this endpoint honours and ignores
-			// --page-size; a single page still takes --page-size, clamped to the
-			// same ceiling. Both are said out loud rather than applied silently:
-			// issue 385 was filed because the flag was dropped without a word.
+			// --page-size is honoured up to the largest page this endpoint
+			// honours, for one page and for --all alike, and clamped above it
+			// out loud: issue 385 was filed because the flag was dropped
+			// without a word. The clamp is what keeps an --all walk whole — the
+			// server clamps an oversized page silently and the walk reads a
+			// short page as the last. Below the ceiling --all takes the flag
+			// as given, since a smaller page is the remedy for one the server
+			// cannot assemble in time (issue 392).
 			pageSizeCeiling := 100
 			paginateAll := flagAll && !cmd.Flags().Changed("page")
-			switch {
-			case paginateAll && cmd.Flags().Changed("page-size") && flagPageSize != pageSizeCeiling:
-				ctx.Output.NotePageSizeIgnoredByAll(flagPageSize, pageSizeCeiling)
-			case !paginateAll && flagPageSize > pageSizeCeiling:
+			if flagPageSize > pageSizeCeiling {
 				ctx.Output.NotePageSizeClamped(flagPageSize, pageSizeCeiling)
 				flagPageSize = pageSizeCeiling
 			}
@@ -156,17 +157,24 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
-				// The endpoint's own ceiling, never --page-size: the Jamf Pro
-				// API clamps an oversized page-size silently, and the loop
-				// below reads a short page as the last one — so an oversized
-				// page size truncates the result and reports success. See
-				// parser.MaxPageSize.
+				// The endpoint's own ceiling unless --page-size asked for less.
+				// Never more: the Jamf Pro API clamps an oversized page-size
+				// silently, and the loop below reads a short page as the last
+				// one — so an oversized page size truncates the result and
+				// reports success. See parser.MaxPageSize.
 				pageSize := 100
+				if cmd.Flags().Changed("page-size") && flagPageSize > 0 {
+					pageSize = flagPageSize
+				}
 				// A small --limit should stay a small request. Without this a
 				// --limit 5 would pull a full 2000-row page to return five.
 				if flagLimit > 0 && flagLimit < pageSize {
 					pageSize = flagLimit
 				}
+				// skip is how many leading rows of the next page the walk
+				// already holds — non-zero only after a shrink to a page size
+				// that does not divide the rows fetched so far.
+				skip := 0
 
 				for {
 					// Build page-specific query
@@ -185,6 +193,16 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
 					if err != nil {
+						// A page the server could not assemble in time is
+						// asked for again at half the size, resuming after
+						// the rows already fetched (issue 392).
+						if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
+							prog.Clear()
+							ctx.Output.NotePageSizeReduced(pageSize, smaller)
+							pageSize = smaller
+							pageNum, skip = registry.PageAt(len(allResults), pageSize)
+							continue
+						}
 						return err
 					}
 
@@ -204,7 +222,8 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 						return ctx.Output.PrintRaw(body)
 					}
 
-					allResults = append(allResults, pageResp.Results...)
+					allResults = append(allResults, pageResp.Results[min(skip, len(pageResp.Results)):]...)
+					skip = 0
 					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit

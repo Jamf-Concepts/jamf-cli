@@ -49,7 +49,7 @@ func (o *jsonOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
-func (o *jsonOutput) NotePageSizeIgnoredByAll(_, _ int) {}
+func (o *jsonOutput) NotePageSizeReduced(_, _ int) {}
 
 func (o *jsonOutput) NotePageSizeClamped(_, _ int) {}
 

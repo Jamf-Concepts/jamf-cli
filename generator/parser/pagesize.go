@@ -6,19 +6,23 @@ import "fmt"
 
 // Page sizes the generated auto-pagination loops request per call.
 //
-// `--all` sends the largest page an endpoint is known to honour and ignores
-// `--page-size`, rather than passing the caller's value through. That is not a
-// convenience: a Jamf Pro page-size above the server's ceiling is **silently
-// clamped**, not rejected, and the loop's termination test is
-// `len(results) < pageSize`. So `--all --page-size 2500` against 2601
-// departments gets 2000 rows back on page 0, reads 2000 < 2500 as "that was
-// the last page", and reports 2000 records with no error and no warning
-// (wire-checked against the gateway 2026-09-18, which also confirmed the
-// server offsets by the clamped size, so even a loop that kept going would
-// have to know the real ceiling to walk the collection). Choosing the page
-// size from the endpoint rather than from the command line is what keeps that
-// unreachable, and it costs the caller nothing — `--page-size` still means
-// what it says on a single page (`--all=false`), clamped to the same ceiling.
+// `--all` sends the largest page an endpoint is known to honour unless
+// `--page-size` asks for less, and clamps a `--page-size` above that ceiling
+// rather than passing it through. The clamp is not a convenience: a Jamf Pro
+// page-size above the server's ceiling is **silently clamped**, not rejected,
+// and the loop's termination test is `len(results) < pageSize`. So an
+// unclamped `--all --page-size 2500` against 2601 departments gets 2000 rows
+// back on page 0, reads 2000 < 2500 as "that was the last page", and reports
+// 2000 records with no error and no warning (wire-checked against the gateway
+// 2026-09-18, which also confirmed the server offsets by the clamped size, so
+// even a loop that kept going would have to know the real ceiling to walk the
+// collection).
+//
+// A value below the ceiling is honoured under `--all` as well. Issue 385's fix
+// ignored it there, which left no remedy for a page the server cannot
+// assemble in time: a 2000-row computer inventory page hits the 90s limit of
+// the edge in front of the platform gateway (issue 392). The walk also halves
+// its page on a timeout by itself — see registry.ShrinkAfterTimeout.
 const (
 	// ProPageSizeCap is the Jamf Pro API's pagination ceiling for the
 	// {"totalCount": N, "results": [...]} pagination style.
@@ -168,7 +172,7 @@ func annotatePaginationParams(op *Operation) {
 		case p.Name == "page":
 			p.Description = "Page to return, zero-based; setting it returns that page alone instead of every page"
 		case isPageSizeParamName(p.Name):
-			p.Description = fmt.Sprintf("Results per page, max %d, for a single page only — --all ignores it and requests %d", ceiling, ceiling)
+			p.Description = fmt.Sprintf("Results per page, max %d; --all requests %d unless this asks for fewer", ceiling, ceiling)
 		}
 	}
 }

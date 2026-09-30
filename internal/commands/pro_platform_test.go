@@ -421,7 +421,7 @@ func (o *captureOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }
 
-func (o *captureOutput) NotePageSizeIgnoredByAll(_, _ int) {}
+func (o *captureOutput) NotePageSizeReduced(_, _ int) {}
 
 func (o *captureOutput) NotePageSizeClamped(_, _ int) {}
 

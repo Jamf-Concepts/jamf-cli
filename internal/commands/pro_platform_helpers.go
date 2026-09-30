@@ -20,6 +20,7 @@ import (
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
@@ -262,8 +263,12 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	// The SDK's own client gets both right (isRetryableWriteStatus refuses to
 	// retry POST/PATCH on a 500; PassthroughErrorHandler keeps the real
 	// *APIResponseError), so the fix is to stop shadowing it.
+	//
+	// The timeout is a whole-request bound here, not a header timeout; it
+	// takes httptransport.ResponseHeaderTimeout so a gateway request is not
+	// abandoned before the edge's own 90s 504 could arrive.
 	jar, _ := cookiejar.New(nil)
-	stdClient := &http.Client{Timeout: 60 * time.Second, Jar: jar}
+	stdClient := &http.Client{Timeout: httptransport.ResponseHeaderTimeout, Jar: jar}
 	stdClient.Transport = &identityEncodingOnWrites{inner: http.DefaultTransport}
 	if dryRun {
 		stdClient.Transport = &dryRunGuardTransport{inner: stdClient.Transport}

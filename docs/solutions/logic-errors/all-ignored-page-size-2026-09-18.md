@@ -113,10 +113,13 @@ list and cannot be wrong about where the collection ends, whatever page size the
 server decided to use. The Pro loop keeps its short-page test because its page
 size is now the verified cap, so the clamp it would misread cannot happen.
 
-**A dropped flag has to say so.** `--page-size` under `--all` is ignored, and
-`Formatter.NotePageSizeIgnoredByAll` says which page size was used instead and
-how to get a single page of the size asked for. Above the ceiling on a single
-page it is clamped, and `NotePageSizeClamped` says that too. Both are suppressed
+**A dropped flag has to say so.** `--page-size` above the ceiling is clamped,
+and `NotePageSizeClamped` says so. (This fix originally ignored `--page-size`
+under `--all` altogether, with a `NotePageSizeIgnoredByAll` notice. That was
+more than the clamp needed — a value *below* the ceiling cannot be misread as a
+clamped last page — and it left no remedy for a page the server cannot assemble
+in time. Superseded 2026-09-30: `--all` honours a smaller `--page-size`, see
+`timeout-retried-at-the-same-size-2026-09-30.md`.) The page-size notices are suppressed
 by `--quiet` and deliberately **not** by `--no-hints`: that flag turns off
 advisory tips, and a notice that a flag you typed did nothing is not a tip.
 

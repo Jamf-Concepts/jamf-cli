@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // --- SlugifyName ---
@@ -445,5 +447,52 @@ func TestReportSampleSize(t *testing.T) {
 				t.Errorf("reportSampleSize(%d, %d) = %d, want %d", tt.total, tt.limit, got, tt.want)
 			}
 		})
+	}
+}
+
+// inventoryPagesClient serves total rows at whatever page size is asked for,
+// timing out any page larger than timeoutAbove the way a page the server
+// cannot assemble in time does.
+type inventoryPagesClient struct {
+	total, timeoutAbove int
+	sizes               []int
+}
+
+func (c *inventoryPagesClient) Do(_ context.Context, _, path string, _ io.Reader) (*http.Response, error) {
+	var page, size int
+	if _, err := fmt.Sscanf(path[strings.Index(path, "page="):], "page=%d&page-size=%d", &page, &size); err != nil {
+		return nil, err
+	}
+	c.sizes = append(c.sizes, size)
+	if size > c.timeoutAbove {
+		return nil, fmt.Errorf("gateway timeout (HTTP 504): %w", registry.ErrServerTimeout)
+	}
+	var rows []string
+	for i := page * size; i < (page+1)*size && i < c.total; i++ {
+		rows = append(rows, fmt.Sprintf(`{"id":"%d"}`, i+1))
+	}
+	body := fmt.Sprintf(`{"totalCount":%d,"results":[%s]}`, c.total, strings.Join(rows, ","))
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+}
+
+// Every report and audit walks computer inventory through FetchAllPaginated;
+// a 2000-row page that outlasts the gateway edge must not fail them all
+// (issue 392).
+func TestFetchAllPaginated_ShrinksATimedOutPage(t *testing.T) {
+	client := &inventoryPagesClient{total: 2500, timeoutAbove: 500}
+	results, err := FetchAllPaginated(context.Background(), client, "/v4/computers-inventory?section=GENERAL", PageSizeFromPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if want := "[2000 1000 500 500 500 500 500]"; fmt.Sprint(client.sizes) != want {
+		t.Errorf("page sizes sent = %v, want %s", client.sizes, want)
+	}
+	if len(results) != 2500 {
+		t.Fatalf("got %d results, want 2500", len(results))
+	}
+	for i, r := range results {
+		if r["id"] != fmt.Sprint(i+1) {
+			t.Fatalf("result %d has id %v — a row was repeated or dropped", i, r["id"])
+		}
 	}
 }

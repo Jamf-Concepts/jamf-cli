@@ -17,8 +17,8 @@ func TestNew_NoClientTimeout(t *testing.T) {
 	if tr.TLSHandshakeTimeout != tlsHandshakeTimeout {
 		t.Errorf("TLSHandshakeTimeout = %v, want %v", tr.TLSHandshakeTimeout, tlsHandshakeTimeout)
 	}
-	if tr.ResponseHeaderTimeout != responseHeaderTimeout {
-		t.Errorf("ResponseHeaderTimeout = %v, want %v", tr.ResponseHeaderTimeout, responseHeaderTimeout)
+	if tr.ResponseHeaderTimeout != ResponseHeaderTimeout {
+		t.Errorf("ResponseHeaderTimeout = %v, want %v", tr.ResponseHeaderTimeout, ResponseHeaderTimeout)
 	}
 	if !tr.ForceAttemptHTTP2 {
 		t.Error("ForceAttemptHTTP2 should be true")
@@ -39,5 +39,15 @@ func TestNew_FreshPerCall(t *testing.T) {
 	b := New()
 	if a == b {
 		t.Error("New() returned the same *http.Transport twice; callers must own their pool")
+	}
+}
+
+// The CloudFront edge in front of the platform gateway answers 504 after 90s.
+// A header timeout at or under that abandons a request whose answer — a
+// result, or a 504 a paginated walk can act on — was still coming (issue 392).
+func TestResponseHeaderTimeout_OutlastsTheGatewayEdge(t *testing.T) {
+	const gatewayEdge = 90 * time.Second
+	if ResponseHeaderTimeout <= gatewayEdge {
+		t.Errorf("ResponseHeaderTimeout = %v, want more than the gateway edge's %v", ResponseHeaderTimeout, gatewayEdge)
 	}
 }

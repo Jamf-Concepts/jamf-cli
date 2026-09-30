@@ -299,33 +299,28 @@ func (f *Formatter) reportProjectionMiss(rows []map[string]any) {
 	_, _ = fmt.Fprintf(w, "%s matched no field in %d row(s)\n", flag, len(rows))
 }
 
-// NotePageSizeIgnoredByAll says on stderr that --page-size was set alongside
-// --all and not used, naming the page size the walk used instead.
+// NotePageSizeReduced says on stderr that a fetch-everything walk halved its
+// page size after a page timed out, and how to start there next time.
 //
-// --all deliberately chooses its own page size (see parser.MaxPageSize): an
-// oversized one is clamped by the server without saying so, and the walk reads
-// a short page as the last page, so honouring the flag would turn a too-large
-// value into a silently truncated result. Ignoring it is right; ignoring it in
-// silence is what issue 385 was filed about — the reporter watched every
-// request go out at page-size=100 with --page-size 2000 on the command line and
-// had no way to tell the flag had been dropped.
-//
-// Suppressed by --quiet, which asks for no non-error output, and NOT by
-// --no-hints: that flag turns off advisory tips like the large-result narrowing
-// hint, and this is not a tip. It is the only signal that a flag the caller
-// typed did nothing.
-func (f *Formatter) NotePageSizeIgnoredByAll(requested, used int) {
-	f.note("--page-size %d ignored: --all fetches every page at this endpoint's maximum of %d. Pass --all=false to request a single page of %d.",
-		requested, used, requested)
+// Suppressed by --quiet alone, like the other page-size notes: the walk still
+// succeeds, so this is the only sign that the size the caller asked for — or
+// the endpoint's maximum — is more than the server can assemble in time
+// (issue 392).
+func (f *Formatter) NotePageSizeReduced(from, to int) {
+	f.note("page of %d timed out; continuing at --page-size %d. Pass --page-size %d to start there.",
+		from, to, to)
 }
 
-// NotePageSizeClamped says on stderr that a single-page --page-size above the
-// endpoint's ceiling was lowered to it.
+// NotePageSizeClamped says on stderr that a --page-size above the endpoint's
+// ceiling was lowered to it, for a single page and for --all alike.
 //
-// Without this the request went out carrying the caller's number and the server
-// answered with its own: `--all=false --page-size 20000` returned 2000 rows of
-// a 9000-row collection, with totalCount reporting 9000 and nothing reporting
-// the substitution.
+// Under --all the clamp is also what keeps the walk whole: the server clamps
+// an oversized page-size silently and the walk reads a short page as the last
+// one, so passing the caller's number through would stop after the first page.
+// Without the note the request went out carrying the caller's number and the
+// server answered with its own: `--all=false --page-size 20000` returned 2000
+// rows of a 9000-row collection, with totalCount reporting 9000 and nothing
+// reporting the substitution.
 func (f *Formatter) NotePageSizeClamped(requested, ceiling int) {
 	f.note("--page-size %d exceeds this endpoint's maximum of %d; requesting %d.",
 		requested, ceiling, ceiling)

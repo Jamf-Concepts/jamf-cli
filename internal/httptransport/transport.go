@@ -17,15 +17,26 @@ import (
 // Body transfer time is bounded solely by ctx; these phase timeouts exist to
 // fail fast on dead networks, not healthy long transfers.
 const (
-	dialTimeout           = 10 * time.Second
-	tlsHandshakeTimeout   = 10 * time.Second
-	responseHeaderTimeout = 60 * time.Second
-	idleConnTimeout       = 90 * time.Second
+	dialTimeout         = 10 * time.Second
+	tlsHandshakeTimeout = 10 * time.Second
+	idleConnTimeout     = 90 * time.Second
 	// maxIdleConnsPerHost: Go default of 2 serialises parallel commands at
 	// the connection pool. HTTP/2 multiplexes on a single conn when the
 	// server speaks it, so this only binds on the HTTP/1.1 fallback path.
 	maxIdleConnsPerHost = 10
 )
+
+// ResponseHeaderTimeout is how long a request waits for the server to start
+// answering once it has been sent.
+//
+// Above 90s on purpose: the CloudFront edge in front of the platform gateway
+// answers 504 after 90s (issue 392), and that 504 is a better answer than a
+// client-side timeout — it arrives with a status the caller can act on, and
+// at 60s the CLI gave up on requests the server was about to answer (a
+// 1000-row computer inventory page took 45s on the reporter's tenant, and
+// the same request timed out on another run). Not much above it either: it is
+// also how long a dead connection hangs before the CLI says so.
+const ResponseHeaderTimeout = 120 * time.Second
 
 // New returns a fresh *http.Transport tuned for the CLI's workload: large
 // package uploads, bursts of small API calls, HTTP/2 where the server
@@ -43,7 +54,7 @@ func New() *http.Transport {
 		IdleConnTimeout:       idleConnTimeout,
 		TLSHandshakeTimeout:   tlsHandshakeTimeout,
 		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: responseHeaderTimeout,
+		ResponseHeaderTimeout: ResponseHeaderTimeout,
 		// 1 MiB write buffer pairs with the upload copy path — fewer
 		// syscalls when streaming big package bodies.
 		WriteBufferSize: 1 << 20,

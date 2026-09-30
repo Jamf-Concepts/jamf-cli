@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -75,6 +76,12 @@ func MaxPageSizeFor(path string) int {
 // Some Jamf Pro endpoints (e.g. /v1/sites, /v1/computer-groups,
 // /v2/patch-software-title-configurations) return plain arrays even when
 // pagination params are provided. This function handles both transparently.
+//
+// A page the server does not answer in time is asked for again at half the
+// size, resuming after the rows already fetched — see
+// registry.ShrinkAfterTimeout. Every report and audit walks computer inventory
+// through here, and at 2000 rows a page of it can outlast the gateway edge's
+// 90s limit (issue 392).
 func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath string, pageSize int) ([]map[string]any, error) {
 	if pageSize <= 0 {
 		pageSize = MaxPageSizeFor(basePath)
@@ -82,6 +89,7 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 
 	var all []map[string]any
 	page := 0
+	skip := 0
 
 	for {
 		sep := "?"
@@ -92,6 +100,12 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 
 		resp, err := client.Do(ctx, "GET", path, nil)
 		if err != nil {
+			if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
+				notePageSizeReduced(pageSize, smaller)
+				pageSize = smaller
+				page, skip = registry.PageAt(len(all), pageSize)
+				continue
+			}
 			return all, fmt.Errorf("fetching page %d: %w", page, err)
 		}
 
@@ -123,11 +137,12 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 		}
 
 		results, _ := data["results"].([]any)
-		for _, r := range results {
+		for _, r := range results[min(skip, len(results)):] {
 			if m, ok := r.(map[string]any); ok {
 				all = append(all, m)
 			}
 		}
+		skip = 0
 
 		totalCount, _ := data["totalCount"].(float64)
 		if len(all) >= int(totalCount) || len(results) == 0 {
@@ -137,6 +152,16 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 	}
 
 	return all, nil
+}
+
+// notePageSizeReduced is Formatter.NotePageSizeReduced for FetchAllPaginated,
+// whose callers pass it no formatter: the same line on stderr, suppressed by
+// --quiet alone.
+func notePageSizeReduced(from, to int) {
+	if quiet {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "page of %d timed out; continuing at page size %d.\n", from, to)
 }
 
 // FetchClassicListSubset performs a GET on a Classic API endpoint that hosts

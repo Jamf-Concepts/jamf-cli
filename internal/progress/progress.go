@@ -52,6 +52,14 @@ func (r *Reporter) Update(fetched, total int) {
 	}
 }
 
+// Clear erases an interactive progress line so a note can be printed on a
+// line of its own; the next Update redraws it.
+func (r *Reporter) Clear() {
+	if r.mode == Interactive && !r.stopped {
+		_, _ = fmt.Fprint(r.w, "\r\033[K")
+	}
+}
+
 // Stop finalizes the reporter. In interactive mode it clears the in-place line.
 // Stop is idempotent: subsequent calls after the first are no-ops.
 func (r *Reporter) Stop() {
