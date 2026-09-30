@@ -11,6 +11,49 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — MCP `run_command` refuses local paths and credential output unless the operator allows them
+
+`run_command` used to compare the model's raw argument list against a short
+deny-list. A command alias (`cfg`), a leading flag (`--no-color multi`) or a
+flag inside the path (`pro -q backup`) got past it. Flags that name a local
+file were not on the list, so the model could read, write or delete files on
+the machine running `mcp serve`, and `pro diff --target <profile>` used
+another profile's credentials.
+
+The server now judges the command and the flags that cobra resolves, and the
+child process checks again before it runs. These now fail over MCP:
+
+- A flag whose value is a local file to read (`--from-file`, `--file`,
+  `--script-file`, `--input` and the like), unless the path is inside the
+  directory the operator passes to `mcp serve --input-dir <dir>`.
+  `--password-file` is always refused.
+- A flag whose value is a local path to write (`--save-to`, a command's own
+  `--output`, `--report-dir`, `--dir` on `sync`). The `-o/--output` format
+  flag is not affected.
+- `pro diff` with a side that is neither the server's profile nor a directory
+  inside `--input-dir`.
+- `multi`, `mcp`, `completion`, the `config` write subcommands,
+  `config validate`, `doctor`, every `setup`, both `backup` commands and
+  `jcds sync`.
+- The commands that print an access token: `auth token` under `platform`,
+  `pro` and `protect`, and `pro api-authentication token`, `oauth-token` and
+  `keep-alive`.
+
+`config show` still runs over MCP, with each token, client ID and client
+secret shown as `<redacted>`. `config list --status` checks only the server's
+profile.
+
+**Migration:** if an agent sends file bodies through `run_command` (for
+example `pro scripts create --script-file …`), start the server with
+`mcp serve --input-dir <dir>` and keep those files in that directory.
+
+### Behaviour — `protect plans config-profile` refuses a plan name that is not a file name
+
+Without `-O`, the command saves `<plan name>.mobileconfig` in the working
+directory. It now refuses a plan name that contains `/` or `\`, or is empty,
+`.` or `..`, because that name would put the file somewhere else. Pass
+`-O <path>` for such a plan. Every other name is saved as before.
+
 ### Behaviour — the MCP `list_commands` tool browses and searches the catalog
 
 `list_commands` returned the whole catalog in one result. That result was

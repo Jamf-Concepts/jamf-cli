@@ -100,6 +100,9 @@ spelling. It refuses:
     credentials and probe other profiles' URLs ('config show' runs, with each
     token, client ID and client secret shown as <redacted>, and 'config list
     --status' checks only this server's profile)
+  - 'auth token' under 'platform', 'pro' and 'protect', and 'pro
+    api-authentication token', 'oauth-token' and 'keep-alive', which print a
+    live access token
   - any flag naming a profile, URL, token, tenant, environment or output file
   - any flag whose value is a local path: --from-file, --file, --script-file,
     --mobileconfig-file, --appconfig-file, --custom-payload-file, --body-file,
@@ -191,6 +194,8 @@ config key for it.`,
 					"directory (--from-file, --file, --script-file, --save-to, --dir and the " +
 					"like; the -o/--output format flag is fine); 'multi', 'mcp', 'completion', " +
 					"the config write subcommands, 'config validate', 'doctor', " +
+					"every command that prints an access token ('auth token', " +
+					"'pro api-authentication token', 'oauth-token', 'keep-alive'), " +
 					"every 'setup', the backup commands and jcds sync; and " +
 					"'pro diff' against anything but this server's profile or a directory the " +
 					"input directory allows. " + inputDirToolNote(inputDir) +
@@ -525,6 +530,12 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli config set-report-dir", refusedPicksTarget},
 	{"jamf-cli config validate", refusedReadsCredentials},
 	{"jamf-cli doctor", refusedReadsCredentials},
+	{"jamf-cli platform auth token", refusedPrintsToken},
+	{"jamf-cli pro auth token", refusedPrintsToken},
+	{"jamf-cli protect auth token", refusedPrintsToken},
+	{"jamf-cli pro api-authentication token", refusedPrintsToken},
+	{"jamf-cli pro api-authentication oauth-token", refusedPrintsToken},
+	{"jamf-cli pro api-authentication keep-alive", refusedPrintsToken},
 	{"jamf-cli pro setup", refusedPicksTarget},
 	{"jamf-cli platform setup", refusedPicksTarget},
 	{"jamf-cli protect setup", refusedPicksTarget},
@@ -543,6 +554,7 @@ type refusedCommand struct {
 const (
 	refusedPicksTarget      = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
 	refusedReadsCredentials = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
+	refusedPrintsToken      = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
 )
 
 // isCompletionRequest reports whether name is cobra's hidden completion

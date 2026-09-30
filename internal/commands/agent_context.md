@@ -108,7 +108,9 @@ judged on the command and flags your arguments resolve to, aliases included.
 Rejected: credential- and target-selecting flags; flags whose value is a local
 file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
 `--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`,
-`completion`, the config write subcommands, `config validate`, `doctor`, every
+`completion`, the config write subcommands, `config validate`, `doctor`, the
+commands that print an access token (`auth token` under `platform`, `pro` and
+`protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`), every
 `setup`, both `backup` commands and jcds `sync`; and `pro diff` against
 anything but the pinned profile. `config show` runs with every credential field
 shown as `<redacted>`. An administrator who
