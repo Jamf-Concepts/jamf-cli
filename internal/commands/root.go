@@ -2593,6 +2593,31 @@ func setPairSplitByASpace(cmd *cobra.Command) bool {
 	return false
 }
 
+// registersASecretFileFlag reports whether cmd declares its own flag that
+// reads a secret from a file (--new-password-file, --pin-file). A stray
+// positional there is most likely the secret typed without the flag:
+// `set-recovery-lock --serial X --yes 'S3cur3P@ss'`.
+//
+// Only the command's own flags count. The root's persistent --token-file is
+// merged into every command once flags are parsed, and counting it would hide
+// every typo in the tree.
+func registersASecretFileFlag(cmd *cobra.Command) bool {
+	found := false
+	cmd.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
+		stem, ok := strings.CutSuffix(f.Name, "-file")
+		if !ok || found {
+			return
+		}
+		for _, seg := range strings.Split(stem, "-") {
+			if secretFlagSegments[seg] {
+				found = true
+				return
+			}
+		}
+	})
+	return found
+}
+
 // refuseStrayPositionals reports a positional given to a command that documents
 // none, and carries its own exit code.
 //
@@ -2609,8 +2634,8 @@ func setPairSplitByASpace(cmd *cobra.Command) bool {
 // still exit 2. The two are independent on purpose, and neither substitutes for
 // the other.
 //
-// The value is redacted when it is a --set pair naming a credential, or the
-// value half of one, because this message reaches stdout as JSON whenever
+// The value is redacted when the command reads a secret from a --*-file flag,
+// or when it is a --set pair naming a credential or the value half of one, because this message reaches stdout as JSON whenever
 // output is piped, which is the CI case. CLAUDE.md's credential policy names
 // that exposure — shell history, ps output and CI logs — as the thing it exists
 // to prevent.
@@ -2619,7 +2644,7 @@ func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	value := args[0]
-	if secretShapedAssignment(value) || setPairSplitByASpace(cmd) {
+	if registersASecretFileFlag(cmd) || secretShapedAssignment(value) || setPairSplitByASpace(cmd) {
 		value = "<redacted>"
 	}
 	return &exitcode.Error{

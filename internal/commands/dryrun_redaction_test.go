@@ -36,6 +36,9 @@ func assertPreviewRedacted(t *testing.T, stderr string) {
 	if strings.Contains(stderr, dryRunSecret) {
 		t.Errorf("--dry-run preview printed the credential verbatim:\n%s", stderr)
 	}
+	if !strings.Contains(stderr, "[REDACTED]") {
+		t.Errorf("--dry-run preview dropped the credential instead of marking it:\n%s", stderr)
+	}
 }
 
 func TestDryRunPreviewRedactsCredentials_ProAndClassic(t *testing.T) {

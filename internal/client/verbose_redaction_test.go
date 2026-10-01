@@ -88,6 +88,9 @@ func TestVerboseBodyLogRedactsEverySecretField(t *testing.T) {
 			if n := strings.Count(out, tc.secret); n > 0 {
 				t.Errorf("LEAK %q: secret appeared %d time(s) in -vvv stderr (request+response)", tc.name, n)
 			}
+			if n := strings.Count(out, "[REDACTED]"); n < 2 {
+				t.Errorf("%q: want [REDACTED] in both the request and response logs, found %d", tc.name, n)
+			}
 		})
 	}
 }

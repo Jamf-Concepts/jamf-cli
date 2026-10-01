@@ -22,6 +22,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
+	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
@@ -73,10 +74,10 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 		if key == t.lastKey && t.lastFailed {
 			t.attempt++
 			fmt.Fprintf(os.Stderr, "--> %s %s (retry %d, waited %s)\n",
-				req.Method, req.URL, t.attempt, time.Since(t.lastSent).Round(100*time.Millisecond))
+				req.Method, redact.URL(req.URL), t.attempt, time.Since(t.lastSent).Round(100*time.Millisecond))
 		} else {
 			t.lastKey, t.attempt = key, 0
-			fmt.Fprintf(os.Stderr, "--> %s %s\n", req.Method, req.URL)
+			fmt.Fprintf(os.Stderr, "--> %s %s\n", req.Method, redact.URL(req.URL))
 		}
 		t.lastSent = time.Now()
 	}

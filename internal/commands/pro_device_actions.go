@@ -4,8 +4,10 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"strings"
@@ -1762,6 +1764,12 @@ func readSecretFile(flag, path string) (string, error) {
 		data, err = os.ReadFile(path)
 	}
 	if err != nil {
+		// The path is left out: a secret typed where its path belongs
+		// (--pin-file 123456) would otherwise land in the error envelope.
+		var pe *fs.PathError
+		if errors.As(err, &pe) {
+			err = pe.Err
+		}
 		return "", fmt.Errorf("reading %s: %w", flag, err)
 	}
 	secret := strings.TrimRight(string(data), "\r\n")

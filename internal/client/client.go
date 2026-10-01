@@ -152,7 +152,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	if c.verboseLevel >= 1 {
-		fmt.Fprintf(os.Stderr, "--> %s %s\n", method, req.URL)
+		fmt.Fprintf(os.Stderr, "--> %s %s\n", method, redact.URL(req.URL))
 	}
 	if c.verboseLevel >= 2 {
 		logHeaders(os.Stderr, req.Header, true)
@@ -242,9 +242,9 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 
 		if c.verboseLevel >= 1 {
 			if maxAttempts > 1 {
-				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes, attempt %d/%d)\n", req.URL, contentLength, attempt+1, maxAttempts)
+				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes, attempt %d/%d)\n", redact.URL(req.URL), contentLength, attempt+1, maxAttempts)
 			} else {
-				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes)\n", req.URL, contentLength)
+				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes)\n", redact.URL(req.URL), contentLength)
 			}
 		}
 		if c.verboseLevel >= 2 {
@@ -286,9 +286,9 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 				logBody(os.Stderr, redact.Body(respBody))
 			}
 			if resp.StatusCode == http.StatusTooManyRequests {
-				return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited (HTTP 429) after %d attempt(s): %s", attempt+1, string(respBody)))
+				return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited (HTTP 429) after %d attempt(s): %s", attempt+1, redact.Body(respBody)))
 			}
-			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload failed (HTTP %d): %s", resp.StatusCode, string(respBody)))
+			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload failed (HTTP %d): %s", resp.StatusCode, redact.Body(respBody)))
 		}
 
 		if c.verboseLevel >= 3 {
@@ -502,7 +502,7 @@ func httpStatusError(status int, method, path string, body []byte) error {
 	switch status {
 	case http.StatusUnauthorized:
 		return exitcode.New(exitcode.Authentication,
-			fmt.Sprintf("authentication failed (HTTP 401): %s", string(body))).
+			fmt.Sprintf("authentication failed (HTTP 401): %s", redact.Body(body))).
 			WithHint("run 'jamf-cli config validate', or check JAMF_TOKEN / client credentials")
 	case http.StatusForbidden:
 		if note := edgeBlockedNote(body); note != "" {
@@ -511,7 +511,7 @@ func httpStatusError(status int, method, path string, body []byte) error {
 				WithHint(note)
 		}
 		return exitcode.New(exitcode.PermissionDenied,
-			fmt.Sprintf("permission denied (HTTP 403): %s", string(body))).
+			fmt.Sprintf("permission denied (HTTP 403): %s", redact.Body(body))).
 			WithHint(withGatewayUnservedNote(forbiddenHint(method, path), method, path, body))
 	case http.StatusNotFound:
 		return exitcode.New(exitcode.NotFound,
@@ -533,7 +533,7 @@ func httpStatusError(status int, method, path string, body []byte) error {
 			return exitcode.New(exitcode.General,
 				fmt.Sprintf("request failed (HTTP %d): %s", status, reason))
 		}
-		return exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", status, string(body)))
+		return exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", status, redact.Body(body)))
 	}
 }
 

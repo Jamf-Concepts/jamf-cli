@@ -3,6 +3,7 @@
 package redact
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -75,4 +76,126 @@ func TestBody_AQueryStringInsideJSONKeepsTheDocument(t *testing.T) {
 	if got := string(Body([]byte(in))); got != want {
 		t.Errorf("Body = %s, want %s", got, want)
 	}
+}
+
+// redactCase asserts the secrets are gone, the placeholder is present and the
+// named non-secret siblings survive, so a redactor that blanks the whole body
+// cannot pass.
+func redactCase(t *testing.T, in string, secrets, keep []string) {
+	t.Helper()
+	got := string(Body([]byte(in)))
+	for _, s := range secrets {
+		if strings.Contains(got, s) {
+			t.Errorf("secret %q survived: %s", s, got)
+		}
+	}
+	if !strings.Contains(got, placeholder) {
+		t.Errorf("no %s in %s", placeholder, got)
+	}
+	for _, k := range keep {
+		if !strings.Contains(got, k) {
+			t.Errorf("non-secret %q was lost: %s", k, got)
+		}
+	}
+}
+
+func TestBody_InstitutionalRecoveryKeyIsRedactedWhole(t *testing.T) {
+	t.Run("classic xml", func(t *testing.T) {
+		redactCase(t, `<disk_encryption_configuration><name>FV2</name><institutional_recovery_key>
+  <key>SENT-irk-key</key><certificate_type>PKCS12</certificate_type><data>SENT-irk-data</data>
+</institutional_recovery_key></disk_encryption_configuration>`,
+			[]string{"SENT-irk-key", "SENT-irk-data", "PKCS12"}, []string{"<name>FV2</name>", "<key>[REDACTED]</key>", "<data>[REDACTED]</data>"})
+	})
+	t.Run("json", func(t *testing.T) {
+		redactCase(t, `{"name":"FV2","institutional_recovery_key":{"data":"SENT-irk-data","key":"SENT-irk-key","nested":{"x":"SENT-irk-nested"}},"after":"kept"}`,
+			[]string{"SENT-irk-key", "SENT-irk-data", "SENT-irk-nested"}, []string{`"name":"FV2"`, `"after":"kept"`})
+	})
+	t.Run("json flattened path", func(t *testing.T) {
+		redactCase(t, `{"disk_encryption_configuration.institutional_recovery_key.key":"SENT-flat","name":"FV2"}`,
+			[]string{"SENT-flat"}, []string{`"name":"FV2"`})
+	})
+}
+
+// TestBody_InventoryRecoveryKeyStatusIsNotASecret pins the text-only form: on
+// a computer's inventory the element is a status, not the keystore.
+func TestBody_InventoryRecoveryKeyStatusIsNotASecret(t *testing.T) {
+	for _, in := range []string{
+		`<disk_encryption><institutional_recovery_key>Not Present</institutional_recovery_key></disk_encryption>`,
+		`{"institutional_recovery_key":"Not Present"}`,
+	} {
+		if got := string(Body([]byte(in))); got != in {
+			t.Errorf("Body(%s) = %s, want it unchanged", in, got)
+		}
+	}
+}
+
+func TestBody_PlistKeyStringPairs(t *testing.T) {
+	t.Run("raw plist", func(t *testing.T) {
+		redactCase(t, "<dict><key>SSID_STR</key><string>CorpWiFi</string><key>Password</key>\n\t<string>WifiPSK123</string><key>Challenge</key><string>SCEP-CHALLENGE-1</string></dict>",
+			[]string{"WifiPSK123", "SCEP-CHALLENGE-1"}, []string{"<string>CorpWiFi</string>", "<key>Password</key>"})
+	})
+	t.Run("entity-escaped inside classic payloads", func(t *testing.T) {
+		redactCase(t, `<os_x_configuration_profile><general><name>wifi</name><payloads>&lt;dict&gt;&lt;key&gt;SSID_STR&lt;/key&gt;&lt;string&gt;CorpWiFi&lt;/string&gt;&lt;key&gt;Password&lt;/key&gt;&lt;string&gt;Wifi&amp;PSK123&lt;/string&gt;&lt;/dict&gt;</payloads></general></os_x_configuration_profile>`,
+			[]string{"PSK123"}, []string{"<name>wifi</name>", "CorpWiFi"})
+	})
+	t.Run("double-escaped", func(t *testing.T) {
+		redactCase(t, `&amp;lt;key&amp;gt;Password&amp;lt;/key&amp;gt;&amp;lt;string&amp;gt;SENT-double&amp;lt;/string&amp;gt;`,
+			[]string{"SENT-double"}, nil)
+	})
+	t.Run("plist inside a json string", func(t *testing.T) {
+		redactCase(t, `{"name":"wifi","payload":"<dict>\n\t<key>Password</key>\n\t<string>SENT-json-plist</string>\n</dict>"}`,
+			[]string{"SENT-json-plist"}, []string{`"name":"wifi"`})
+	})
+	t.Run("go-escaped plist inside a json string", func(t *testing.T) {
+		redactCase(t, `{"payload":"<key>Password</key><string>SENT-u-plist</string>","name":"wifi"}`,
+			[]string{"SENT-u-plist"}, []string{`"name":"wifi"`})
+	})
+}
+
+func TestBody_StringArraysUnderACredentialName(t *testing.T) {
+	redactCase(t, `{"password":["SENT-a","SENT-b"],"keystoreFile":["SENT-p12"],"keystoreFileName":"k.p12","names":["x"]}`,
+		[]string{"SENT-a", "SENT-b", "SENT-p12"}, []string{`"keystoreFileName":"k.p12"`, `"names":["x"]`})
+	if in := `{"password":[]}`; string(Body([]byte(in))) != in {
+		t.Errorf("an empty array was rewritten: %s", Body([]byte(in)))
+	}
+}
+
+// TestBody_NumbersAreSecretOnlyForAPinOrPasscode keeps a password policy's
+// counts readable while a numeric PIN is hidden.
+func TestBody_NumbersAreSecretOnlyForAPinOrPasscode(t *testing.T) {
+	in := `{"passwordMinLength":8,"passcodeMinimumLength":6,"maxPasswordAge":90,"pin":515151,"devicePasscode":4242}`
+	want := `{"passwordMinLength":8,"passcodeMinimumLength":6,"maxPasswordAge":90,"pin":"[REDACTED]","devicePasscode":"[REDACTED]"}`
+	if got := string(Body([]byte(in))); got != want {
+		t.Errorf("Body = %s, want %s", got, want)
+	}
+}
+
+func TestURL_RedactsCredentialQueryParameters(t *testing.T) {
+	u, err := url.Parse("https://bucket.s3.amazonaws.com/f.pkg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA%2Fscope&X-Amz-Security-Token=SENT-sts&X-Amz-Signature=SENT-sig&page=2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := URL(u)
+	for _, s := range []string{"SENT-sts", "SENT-sig", "AKIA"} {
+		if strings.Contains(got, s) {
+			t.Errorf("%q survived: %s", s, got)
+		}
+	}
+	for _, k := range []string{"X-Amz-Algorithm=AWS4-HMAC-SHA256", "page=2", "https://bucket.s3.amazonaws.com/f.pkg?"} {
+		if !strings.Contains(got, k) {
+			t.Errorf("%q was lost: %s", k, got)
+		}
+	}
+	if plain := "https://x.example.com/api/v1/computers?page=0&page-size=100"; URL(mustParse(t, plain)) != plain {
+		t.Errorf("a URL with no credential parameter changed: %s", URL(mustParse(t, plain)))
+	}
+}
+
+func mustParse(t *testing.T, s string) *url.URL {
+	t.Helper()
+	u, err := url.Parse(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
 }

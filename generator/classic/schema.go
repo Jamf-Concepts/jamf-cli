@@ -13,6 +13,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/generator/classicschema"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
+	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 )
 
 // AttachSchemas binds each Classic resource to the request-body schema the
@@ -368,21 +369,10 @@ var credentialFieldNames = []string{
 }
 
 // credentialFieldPaths are matched against the whole dotted path, for fields
-// whose leaf name alone is too generic to match safely.
-//
-// A disk encryption configuration's institutional keystore is the case that
-// needs it: `.key` and `.data` together are the base64 `.p12` and its key
-// material — the private key that decrypts every institutionally-encrypted
-// FileVault volume in the fleet — while the leaf names `key` and `data` are also
-// worn by `key_type` and by the base64 icon, `.ipa` and `.mobileconfig` blobs on
-// six other resources, which are not credentials and must stay settable.
-//
-// Matched on a path suffix, so the same object refused at the root of a
-// disk encryption configuration is still refused if a future schema nests it.
-var credentialFieldPaths = []string{
-	"institutional_recovery_key.key",
-	"institutional_recovery_key.data",
-}
+// whose leaf name alone is too generic to match safely. Matched on a path
+// suffix, so the same object stays refused if a future schema nests it. The
+// list is redact's, so the -vvv and --dry-run redactor hides what --set refuses.
+var credentialFieldPaths = redact.CredentialFieldPaths
 
 // isCredentialField reports whether a body field carries a secret value.
 //

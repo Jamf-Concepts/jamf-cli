@@ -5,7 +5,9 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,7 +19,8 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// mdmCommandClient answers the device lookup and records the MDM command body.
+// mdmCommandClient answers the device and LAPS lookups and records the MDM
+// command body.
 type mdmCommandClient struct {
 	commandData map[string]any
 	posts       int
@@ -35,6 +38,8 @@ func (c *mdmCommandClient) Do(_ context.Context, method, path string, body io.Re
 		_ = json.Unmarshal(b, &sent)
 		c.commandData = sent.CommandData
 		resp = `[{"id":"cmd-1"}]`
+	case strings.Contains(path, "local-admin-password"):
+		resp = `{"results":[{"guid":"guid-mdm","username":"jamfadmin","userSource":"MDM"}]}`
 	case strings.Contains(path, "computers-inventory"):
 		resp = `{"id":"7","udid":"u-7","general":{"name":"Mac","managementId":"bbbbbbbb-1111-2222-3333-444444444444"},"hardware":{"serialNumber":"C02X1234"}}`
 	case strings.Contains(path, "mobile-devices"):
@@ -43,11 +48,39 @@ func (c *mdmCommandClient) Do(_ context.Context, method, path string, body io.Re
 	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(resp)), Header: make(http.Header)}, nil
 }
 
-func runDeviceSecretCmd(t *testing.T, newCmd func(*registry.CLIContext) *cobra.Command, args ...string) (*mdmCommandClient, error) {
+type secretFileCmd struct {
+	name   string
+	newCmd func(*registry.CLIContext) *cobra.Command
+	flag   string
+	field  string
+}
+
+var secretFileCmds = []secretFileCmd{
+	{"set-recovery-lock", newComputerSetRecoveryLockCmd, "--new-password-file", "newPassword"},
+	{"set-auto-admin-password", newComputerSetAutoAdminPasswordCmd, "--password-file", "password"},
+	{"lock", newMobileLockCmd, "--pin-file", "pin"},
+	{"clear-passcode", newMobileClearPasscodeCmd, "--unlock-token-file", "unlockToken"},
+}
+
+// runSecretCmd runs one device-secret command against --id 7 --yes. A non-nil
+// stdin is piped to the command.
+func runSecretCmd(t *testing.T, newCmd func(*registry.CLIContext) *cobra.Command, stdin *string, args ...string) (*mdmCommandClient, error) {
 	t.Helper()
 	resetGlobals()
+	if stdin != nil {
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		orig := os.Stdin
+		os.Stdin = r
+		t.Cleanup(func() { os.Stdin = orig; _ = r.Close() })
+		_, _ = w.WriteString(*stdin)
+		_ = w.Close()
+	}
 	client := &mdmCommandClient{}
 	cmd := newCmd(&registry.CLIContext{Client: client, Output: mockOutput{}})
+	cmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "")
 	cmd.SetArgs(append([]string{"--id", "7", "--yes"}, args...))
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
@@ -63,20 +96,78 @@ func secretFile(t *testing.T, content string) string {
 	return p
 }
 
-func TestSetRecoveryLock_ReadsThePasswordFromAFile(t *testing.T) {
-	client, err := runDeviceSecretCmd(t, newComputerSetRecoveryLockCmd, "--new-password-file", secretFile(t, "Fake-Recovery 1\n"))
-	if err != nil {
-		t.Fatal(err)
+func ptr(s string) *string { return &s }
+
+func TestSecretFileFlags_SendTheFileContent(t *testing.T) {
+	for _, c := range secretFileCmds {
+		t.Run(c.name+" named file", func(t *testing.T) {
+			client, err := runSecretCmd(t, c.newCmd, nil, c.flag, secretFile(t, "Fake Secret 1\r\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := client.commandData[c.field]; got != "Fake Secret 1" {
+				t.Errorf("%s = %q, want the file's content without its line ending", c.field, got)
+			}
+		})
+		t.Run(c.name+" stdin", func(t *testing.T) {
+			client, err := runSecretCmd(t, c.newCmd, ptr("Fake-Piped-2\n"), c.flag, "-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := client.commandData[c.field]; got != "Fake-Piped-2" {
+				t.Errorf("%s = %q, want the piped content", c.field, got)
+			}
+		})
 	}
-	if got := client.commandData["newPassword"]; got != "Fake-Recovery 1" {
-		t.Errorf("newPassword = %q, want the file's content without its line ending", got)
+}
+
+func TestSecretFileFlags_RefuseAnEmptySource(t *testing.T) {
+	for _, c := range secretFileCmds {
+		for _, content := range []string{"", "\n"} {
+			t.Run(c.name+" named file "+strings.ReplaceAll(content, "\n", `\n`), func(t *testing.T) {
+				client, err := runSecretCmd(t, c.newCmd, nil, c.flag, secretFile(t, content))
+				assertRefused(t, client, err, c.flag+" names an empty file")
+			})
+			t.Run(c.name+" empty pipe "+strings.ReplaceAll(content, "\n", `\n`), func(t *testing.T) {
+				client, err := runSecretCmd(t, c.newCmd, ptr(content), c.flag, "-")
+				assertRefused(t, client, err, c.flag+" names an empty file")
+			})
+		}
+	}
+}
+
+// TestSecretFileFlags_MissingFileNamesNoPath pins that the error leaves the
+// path out: a secret typed where its path belongs would otherwise be echoed.
+func TestSecretFileFlags_MissingFileNamesNoPath(t *testing.T) {
+	for _, c := range secretFileCmds {
+		t.Run(c.name, func(t *testing.T) {
+			missing := filepath.Join(t.TempDir(), "FAKE-515151")
+			client, err := runSecretCmd(t, c.newCmd, nil, c.flag, missing)
+			assertRefused(t, client, err, "reading "+c.flag+": ")
+			if !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("want a not-exist error, got %v", err)
+			}
+			if strings.Contains(err.Error(), "FAKE-515151") {
+				t.Errorf("the path reached the error: %v", err)
+			}
+		})
+	}
+}
+
+func assertRefused(t *testing.T, client *mdmCommandClient, err error, want string) {
+	t.Helper()
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %v, want it to contain %q", err, want)
+	}
+	if client.posts != 0 {
+		t.Errorf("sent %d MDM command(s) after refusing", client.posts)
 	}
 }
 
 // TestSetRecoveryLock_ClearSendsAnEmptyPassword keeps the clear request
 // equivalent to the old "omit --new-password": an empty newPassword.
 func TestSetRecoveryLock_ClearSendsAnEmptyPassword(t *testing.T) {
-	client, err := runDeviceSecretCmd(t, newComputerSetRecoveryLockCmd, "--clear")
+	client, err := runSecretCmd(t, newComputerSetRecoveryLockCmd, nil, "--clear")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,47 +176,27 @@ func TestSetRecoveryLock_ClearSendsAnEmptyPassword(t *testing.T) {
 	}
 }
 
-func TestSetRecoveryLock_RefusesWithoutAnExplicitSource(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		args []string
-		want string
-	}{
-		{"no-input and no file", []string{"--no-input"}, "--new-password-file is required"},
-		{"empty file", []string{"--new-password-file", secretFile(t, "\n")}, "empty"},
-		{"file and clear", []string{"--clear", "--new-password-file", secretFile(t, "x")}, "none of the others can be"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			resetGlobals()
-			client := &mdmCommandClient{}
-			cmd := newComputerSetRecoveryLockCmd(&registry.CLIContext{Client: client, Output: mockOutput{}})
-			cmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "")
-			cmd.SetArgs(append([]string{"--id", "7", "--yes"}, tc.args...))
-			cmd.SetOut(io.Discard)
-			cmd.SetErr(io.Discard)
-			err := cmd.Execute()
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
-			}
-			if client.posts != 0 {
-				t.Errorf("sent %d MDM command(s) after refusing", client.posts)
-			}
+func TestSecretFileFlags_RefuseUnderNoInputWithoutAFile(t *testing.T) {
+	for _, c := range secretFileCmds[:2] {
+		t.Run(c.name, func(t *testing.T) {
+			client, err := runSecretCmd(t, c.newCmd, nil, "--no-input")
+			assertRefused(t, client, err, c.flag+" is required when --no-input is set")
 		})
 	}
 }
 
-func TestMobileLock_ReadsThePinFromAFile(t *testing.T) {
-	client, err := runDeviceSecretCmd(t, newMobileLockCmd, "--pin-file", secretFile(t, "515151\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := client.commandData["pin"]; got != "515151" {
-		t.Errorf("pin = %q, want 515151", got)
-	}
+func TestSetRecoveryLock_RefusesAFileWithClear(t *testing.T) {
+	client, err := runSecretCmd(t, newComputerSetRecoveryLockCmd, nil, "--clear", "--new-password-file", secretFile(t, "x"))
+	assertRefused(t, client, err, "none of the others can be")
+}
+
+func TestClearPasscode_RequiresTheTokenFile(t *testing.T) {
+	client, err := runSecretCmd(t, newMobileClearPasscodeCmd, nil)
+	assertRefused(t, client, err, `required flag(s) "unlock-token-file" not set`)
 }
 
 func TestMobileLock_SendsNoPinWithoutAFile(t *testing.T) {
-	client, err := runDeviceSecretCmd(t, newMobileLockCmd)
+	client, err := runSecretCmd(t, newMobileLockCmd, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,37 +205,17 @@ func TestMobileLock_SendsNoPinWithoutAFile(t *testing.T) {
 	}
 }
 
-func TestClearPasscode_ReadsTheUnlockTokenFromStdin(t *testing.T) {
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	orig := os.Stdin
-	os.Stdin = r
-	t.Cleanup(func() { os.Stdin = orig })
-	_, _ = w.WriteString("RkFLRS1VTkxPQ0s=\n")
-	_ = w.Close()
-
-	client, err := runDeviceSecretCmd(t, newMobileClearPasscodeCmd, "--unlock-token-file", "-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := client.commandData["unlockToken"]; got != "RkFLRS1VTkxPQ0s=" {
-		t.Errorf("unlockToken = %q, want the piped token", got)
-	}
-}
-
 // TestRemovedSecretFlagsPointAtTheirFileFlag checks each rename hint fires on
 // the command that gained the file flag.
 func TestRemovedSecretFlagsPointAtTheirFileFlag(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 	for _, tc := range []struct {
-		path []string
-		from string
+		path     []string
+		from, to string
 	}{
-		{[]string{"pro", "computer-inventory", "set-recovery-lock"}, "new-password"},
-		{[]string{"pro", "mobile-devices", "lock"}, "pin"},
-		{[]string{"pro", "mobile-devices", "clear-passcode"}, "unlock-token"},
+		{[]string{"pro", "computer-inventory", "set-recovery-lock"}, "new-password", "new-password-file"},
+		{[]string{"pro", "mobile-devices", "lock"}, "pin", "pin-file"},
+		{[]string{"pro", "mobile-devices", "clear-passcode"}, "unlock-token", "unlock-token-file"},
 	} {
 		cmd, _, err := root.Find(tc.path)
 		if err != nil || cmd.Name() != tc.path[len(tc.path)-1] {
@@ -172,8 +223,33 @@ func TestRemovedSecretFlagsPointAtTheirFileFlag(t *testing.T) {
 		}
 		var known []string
 		cmd.Flags().VisitAll(func(f *pflagFlag) { known = append(known, f.Name) })
-		if got, want := suggestFlag(tc.from, known), renamedFlags[tc.from]; got != want {
-			t.Errorf("%v --%s: suggestFlag = %q, want %q", tc.path, tc.from, got, want)
+		if got := suggestFlag(tc.from, known); got != tc.to {
+			t.Errorf("%v --%s: suggestFlag = %q, want %q", tc.path, tc.from, got, tc.to)
 		}
+	}
+}
+
+// TestStrayPositionalOnASecretFileCommandIsRedacted covers the typo the
+// file flags invite: the secret given as a positional instead of a path.
+func TestStrayPositionalOnASecretFileCommandIsRedacted(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	for _, path := range [][]string{
+		{"pro", "computer-inventory", "set-recovery-lock"},
+		{"pro", "computer-inventory", "set-auto-admin-password"},
+		{"pro", "mobile-devices", "lock"},
+		{"pro", "mobile-devices", "clear-passcode"},
+	} {
+		cmd, _, err := root.Find(path)
+		if err != nil || cmd.Name() != path[len(path)-1] {
+			t.Fatalf("%v: found %q, err %v", path, cmd.Name(), err)
+		}
+		err = cmd.Args(cmd, []string{"S3cur3P@ss123"})
+		if err == nil || strings.Contains(err.Error(), "S3cur3P@ss123") || !strings.Contains(err.Error(), "<redacted>") {
+			t.Errorf("%v: want the stray positional refused and redacted, got %v", path, err)
+		}
+	}
+	cmd, _, _ := root.Find([]string{"pro", "computer-inventory", "restart"})
+	if err := cmd.Args(cmd, []string{"junkarg"}); err == nil || !strings.Contains(err.Error(), "junkarg") {
+		t.Errorf("a command with no secret flag must still name the typo: %v", err)
 	}
 }

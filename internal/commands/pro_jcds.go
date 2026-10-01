@@ -163,6 +163,21 @@ func jcdsDownloadFile(ctx context.Context, client registry.HTTPClient, fileName,
 	return nil
 }
 
+// withoutURLQuery drops the query from a *url.Error's URL. A pre-signed URL's
+// query is its credential (X-Amz-Signature, X-Amz-Security-Token), and this
+// error reaches stderr and the JSON error envelope.
+func withoutURLQuery(err error) error {
+	var ue *url.Error
+	if !errors.As(err, &ue) {
+		return err
+	}
+	if u, perr := url.Parse(ue.URL); perr == nil {
+		u.RawQuery, u.Fragment = "", ""
+		return &url.Error{Op: ue.Op, URL: u.String(), Err: ue.Err}
+	}
+	return &url.Error{Op: ue.Op, URL: "<pre-signed URL>", Err: ue.Err}
+}
+
 // jcdsStreamToFile downloads uri to outPath via a temp-file+rename.
 // Returns bytes written; non-2xx responses return a *jcdsHTTPStatusError.
 func jcdsStreamToFile(ctx context.Context, uri, outPath string) (int64, error) {
@@ -172,7 +187,7 @@ func jcdsStreamToFile(ctx context.Context, uri, outPath string) (int64, error) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("downloading file: %w", err)
+		return 0, fmt.Errorf("downloading file: %w", withoutURLQuery(err))
 	}
 	defer func() { _ = resp.Body.Close() }()
 
