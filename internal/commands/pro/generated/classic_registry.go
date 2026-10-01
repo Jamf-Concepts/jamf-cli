@@ -726,9 +726,10 @@ var classicStdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.F
 // the list endpoint. Returns all matching IDs for collision detection.
 // Returns ("", nil) when no resource is found (caller should create).
 // Returns (id, nil) when exactly one match is found.
-// Returns ("", error) when multiple matches or lookup fails. verb names the
-// action the interactive prompt and no-input error offer as the remedy
-// ("update" for the generated apply/update/delete paths).
+// Returns ("", error) when multiple matches or lookup fails; a refused
+// collision is a Usage *exitcode.Error wrapping *ClassicNameCollisionError.
+// verb names the command the interactive prompt and the refusal's hint offer
+// as the remedy ("update", "delete", or "apply").
 func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name, verb string, noInput bool) (string, error) {
 	resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
 	if err != nil {
@@ -759,14 +760,14 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 
 	// Filter by case-insensitive name match.
 	type classicMatch struct {
-		id string
+		id, name string
 	}
 	var matches []classicMatch
 	for _, item := range items {
 		itemName, _ := item["name"].(string)
 		if strings.EqualFold(itemName, name) {
 			if id := extractIDString(item, "id"); id != "" {
-				matches = append(matches, classicMatch{id: id})
+				matches = append(matches, classicMatch{id: id, name: itemName})
 			}
 		}
 	}
@@ -786,13 +787,17 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 			ids[i] = m.id
 		}
 		collision := &ClassicNameCollisionError{Name: name, IDs: ids}
-		return "", fmt.Errorf("%w; resolve duplicates or use %s with a specific ID", collision, verb)
+		hint := fmt.Sprintf("run %s again with one of these IDs as <id> in place of --name", verb)
+		if verb == "apply" {
+			hint = "rename one of the records so the name is unique, or run update with one of these IDs as <id>"
+		}
+		return "", exitcode.Wrap(exitcode.Usage, collision).WithHint(hint)
 	}
 
 	// Interactive: prompt user to pick
 	fmt.Fprintf(os.Stderr, "Multiple resources found with name %q:\n", name)
 	for i, m := range matches {
-		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, m.id)
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s  Name: %s\n", i+1, m.id, m.name)
 	}
 	fmt.Fprintf(os.Stderr, "Enter number to %s (or 0 to cancel): ", verb)
 	var choice int
@@ -806,8 +811,8 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 // name-to-ID lookup the generated apply/update paths use: case-insensitive
 // match, and on duplicate names either an interactive pick or (with noInput)
 // an error listing the colliding IDs. Returns ("", nil) when nothing matches.
-// verb is used only for the interactive prompt and the no-input error's
-// generic remedy sentence ("Enter number to %s"/"use %s with a specific ID");
+// verb is used only for the interactive prompt and the refusal's hint
+// ("Enter number to %s"/"run %s again with one of these IDs as <id>");
 // callers whose command doesn't fit that phrasing (e.g. a command that looks
 // up rather than replaces) should pass a verb that fits, or errors.As for
 // *ClassicNameCollisionError to phrase their own remedy entirely.

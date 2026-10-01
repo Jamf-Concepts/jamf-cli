@@ -569,7 +569,7 @@ Optional sections: certificate_validation_enabled, enabled, host_name, id, port,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

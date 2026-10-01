@@ -676,7 +676,7 @@ Credential fields (--from-file only, never --set): http_password, http_password_
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "distributionpoints", "distributionpoints", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "distributionpoints", "distributionpoints", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

@@ -576,7 +576,7 @@ Optional sections: general`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

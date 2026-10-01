@@ -956,7 +956,7 @@ Optional sections: applications, certificates, configuration_profiles,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

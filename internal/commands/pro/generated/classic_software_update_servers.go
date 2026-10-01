@@ -562,7 +562,7 @@ Optional sections: id, port, set_system_wide`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "softwareupdateservers", "softwareupdateservers", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "softwareupdateservers", "softwareupdateservers", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

@@ -879,7 +879,7 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

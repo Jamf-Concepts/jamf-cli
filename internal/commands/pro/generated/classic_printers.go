@@ -587,7 +587,7 @@ Optional sections: CUPS_name, category, id, info, location, make_default, model,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "printers", "printers", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "printers", "printers", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

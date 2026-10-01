@@ -610,7 +610,7 @@ Credential fields (--from-file only, never --set): institutional_recovery_key.da
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

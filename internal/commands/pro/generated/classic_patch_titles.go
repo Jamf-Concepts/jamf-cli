@@ -594,7 +594,7 @@ Optional sections: category, id, name, name_id, notifications, site, source_id, 
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchsoftwaretitles", "patchsoftwaretitles", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchsoftwaretitles", "patchsoftwaretitles", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

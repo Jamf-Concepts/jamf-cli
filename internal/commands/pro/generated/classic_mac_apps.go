@@ -838,7 +838,7 @@ Optional sections: general, scope, self_service, vpp`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", name, "apply", noInput)
 			if err != nil {
 				return err
 			}
@@ -871,8 +871,11 @@ Optional sections: general, scope, self_service, vpp`,
 			// user's input (if any) is ignored beyond name resolution; AppConfig
 			// injection preserves every other field on the record.
 			fullBody, ferr := fetchClassicFullXMLByID(reqCtx, ctx.Client, "macapplications", "id", id)
-			if ferr != nil || len(fullBody) == 0 {
+			if ferr != nil {
 				return fmt.Errorf("fetching existing mac_application for merge-put: %w", ferr)
+			}
+			if len(fullBody) == 0 {
+				return fmt.Errorf("could not fetch existing mac_application for merge-put: the server returned an empty body for id %s", id)
 			}
 			data = fullBody
 			data, err = injectClassicFileFields(data, "mac_application", []classicFileFieldSpec{

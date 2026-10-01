@@ -921,7 +921,7 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", name, "apply", noInput)
 			if err != nil {
 				return err
 			}
@@ -954,8 +954,11 @@ its default silently — so --set refuses one rather than letting it through.`,
 			// user's input (if any) is ignored beyond name resolution; AppConfig
 			// injection preserves every other field on the record.
 			fullBody, ferr := fetchClassicFullXMLByID(reqCtx, ctx.Client, "mobiledeviceapplications", "id", id)
-			if ferr != nil || len(fullBody) == 0 {
+			if ferr != nil {
 				return fmt.Errorf("fetching existing mobile_device_application for merge-put: %w", ferr)
+			}
+			if len(fullBody) == 0 {
+				return fmt.Errorf("could not fetch existing mobile_device_application for merge-put: the server returned an empty body for id %s", id)
 			}
 			data = fullBody
 			data, err = injectClassicFileFields(data, "mobile_device_application", []classicFileFieldSpec{

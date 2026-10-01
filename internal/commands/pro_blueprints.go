@@ -983,10 +983,11 @@ func isClassicID(s string) bool {
 // allowPrompt is false for speculative lookups (the wrong-`--type` hint below),
 // which must never stop to ask the user about a profile they didn't name.
 //
-// The resolver's own collision wording ("use update with a specific ID") is
-// written for the generated apply/update paths and doesn't fit here — nothing
-// is being replaced, so we discard it and phrase our own remedy (re-run with
-// one of the IDs) via the typed *generated.ClassicNameCollisionError.
+// The resolver's own collision hint ("run <verb> again with one of these IDs
+// as <id>") is written for the generated apply/update/delete paths and doesn't
+// fit here — nothing is being replaced, so we discard it and phrase our own
+// remedy (re-run with one of the IDs) via the typed
+// *generated.ClassicNameCollisionError.
 func findClassicProfileByName(ctx context.Context, client registry.HTTPClient, profileType, name string, allowPrompt bool) (string, error) {
 	collection := classicProfileCollection(profileType)
 	wrapperKey := "os_x_configuration_profiles"

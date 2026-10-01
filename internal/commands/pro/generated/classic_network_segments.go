@@ -579,7 +579,7 @@ Optional sections: building, department, distribution_point, distribution_server
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", name, "apply", noInput)
 			if err != nil {
 				return err
 			}
