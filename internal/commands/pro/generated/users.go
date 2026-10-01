@@ -334,7 +334,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro users create
 
   # Get a user, modify it, and create a copy
-  jamf-cli pro users get 1 -o json | jq '.name = "Copy"' | jamf-cli pro users create`,
+  jamf-cli pro users get 1 -o json | jq '.username = "Copy"' | jamf-cli pro users create`,
 		Annotations: map[string]string{"jamf:privileges": "Create User", "jamf:api": "pro", "jamf:gateway-privileges": "users:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -419,7 +419,7 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro users get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro users update --name "Example"
 
   # Get a user, modify, and update
-  jamf-cli pro users get 1 -o json | jq '.name = "New Name"' | jamf-cli pro users update 1`,
+  jamf-cli pro users get 1 -o json | jq '.username = "New Name"' | jamf-cli pro users update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update User", "jamf:api": "pro", "jamf:gateway-privileges": "users:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

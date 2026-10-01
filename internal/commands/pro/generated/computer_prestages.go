@@ -321,7 +321,7 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro computer-prestages create
 
   # Get a computer-prestage, modify it, and create a copy
-  jamf-cli pro computer-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-prestages create`,
+  jamf-cli pro computer-prestages get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro computer-prestages create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -437,6 +437,11 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
+
+				// Optimistic locking: new resources require versionLock 0, and
+				// nested records need fresh ids or the server reassigns the
+				// source's rows to the new resource (#393).
+				normalized = resetOwnedRecordIDs(setVersionLockZero(normalized))
 			}
 			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
@@ -477,7 +482,7 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro computer-prestages get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro computer-prestages update --name "Example"
 
   # Get a computer-prestage, modify, and update
-  jamf-cli pro computer-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-prestages update 1`,
+  jamf-cli pro computer-prestages get 1 -o json | jq '.displayName = "New Name"' | jamf-cli pro computer-prestages update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1572,7 +1577,7 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create computer-prestage %q\n", name)
 					return nil
 				}
-				data = setVersionLockZero(data)
+				data = resetOwnedRecordIDs(setVersionLockZero(data))
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v3/computer-prestages", bytes.NewReader(data))
 				if err != nil {
 					return err

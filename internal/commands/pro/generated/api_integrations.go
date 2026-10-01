@@ -322,7 +322,7 @@ func newApiIntegrationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro api-integrations create
 
   # Get a api-integration, modify it, and create a copy
-  jamf-cli pro api-integrations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro api-integrations create`,
+  jamf-cli pro api-integrations get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro api-integrations create`,
 		Annotations: map[string]string{"jamf:privileges": "Create API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -402,7 +402,7 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro api-integrations get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro api-integrations update --name "Example"
 
   # Get a api-integration, modify, and update
-  jamf-cli pro api-integrations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro api-integrations update 1`,
+  jamf-cli pro api-integrations get 1 -o json | jq '.displayName = "New Name"' | jamf-cli pro api-integrations update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -324,7 +324,7 @@ func newMobileDeviceGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.
   echo '{"name":"Example"}' | jamf-cli pro mobile-device-groups-smart-groups create
 
   # Get a mobile-device-groups-smart-group, modify it, and create a copy
-  jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-smart-groups create`,
+  jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.groupName = "Copy"' | jamf-cli pro mobile-device-groups-smart-groups create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Smart Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -415,7 +415,7 @@ func newMobileDeviceGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.
   jamf-cli pro mobile-device-groups-smart-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro mobile-device-groups-smart-groups update --name "Example"
 
   # Get a mobile-device-groups-smart-group, modify, and update
-  jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro mobile-device-groups-smart-groups update 1`,
+  jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.groupName = "New Name"' | jamf-cli pro mobile-device-groups-smart-groups update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
