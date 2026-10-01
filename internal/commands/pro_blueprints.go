@@ -875,6 +875,13 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 				if err != nil {
 					return err
 				}
+				// Here and not in fetchClassicProfile: import-profile writes the
+				// downloaded payloads into a new blueprint and needs the real values.
+				if registry.InMCPChild() {
+					if data, err = profileconvert.RedactPayloadSecrets(data); err != nil {
+						return fmt.Errorf("redacting the profile's payload secrets, so it is not printed over MCP: %w", err)
+					}
+				}
 			} else {
 				data, err = readInput(fromFile)
 				if err != nil {

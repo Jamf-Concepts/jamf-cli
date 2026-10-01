@@ -16,14 +16,18 @@ import (
 
 // classicProfileClient answers a Classic profile GET with a profile holding a
 // Wi-Fi payload, and a group lookup with one platform group.
-type classicProfileClient struct{ root, password string }
+type classicProfileClient struct{ root, password, payloads string }
 
 func (c classicProfileClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
 	var body string
 	switch {
 	case method == http.MethodGet && strings.HasPrefix(path, "/JSSResource/"):
 		var esc strings.Builder
-		_ = xml.EscapeText(&esc, []byte(wifiProfilePlist(c.password)))
+		payloads := c.payloads
+		if payloads == "" {
+			payloads = wifiProfilePlist(c.password)
+		}
+		_ = xml.EscapeText(&esc, []byte(payloads))
 		body = `<` + c.root + `><general><id>7</id><name>Corp Wi-Fi</name><payloads>` + esc.String() + `</payloads></general>` +
 			`<scope><computer_groups><computer_group><id>1</id><name>G</name></computer_group></computer_groups></scope></` + c.root + `>`
 	case method == http.MethodGet && strings.HasPrefix(path, "/v2/groups"):
@@ -69,6 +73,21 @@ func TestComponentsConfigProfile_RedactsDownloadedPayloadSecretsInAnMCPChild(t *
 				t.Errorf("components configuration-profile %v over MCP should still print %q:\n%s", tc.args, want, got)
 			}
 		}
+	}
+}
+
+func TestComponentsConfigProfile_UndecodablePayloadFailsClosedInAnMCPChild(t *testing.T) {
+	t.Setenv(mcpChildEnvVar, "1")
+	cliCtx, _, _ := newTestPlatformContext(t)
+	cliCtx.Client = classicProfileClient{root: "os_x_configuration_profile", payloads: "hello " + diffSecretPrefix + "psk"}
+	cmd := newBlueprintsComponentsConfigProfileCmd(cliCtx)
+	cmd.SetArgs([]string{"--id", "7"})
+	cmd.SetErr(io.Discard)
+	cmd.SilenceUsage = true
+	var err error
+	out := captureStdout(t, func() { err = cmd.Execute() })
+	if err == nil || !strings.Contains(err.Error(), "not printed over MCP") || strings.Contains(out, diffSecretPrefix) {
+		t.Errorf("an undecodable payload should be refused over MCP, got err %v and output:\n%s", err, out)
 	}
 }
 
