@@ -188,7 +188,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- end }}
 {{- if .HasBody }}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags{{ range .CredentialPaths }}, {{ goStr . }}{{ end }})
 			if err != nil {
 				return err
 			}
@@ -415,7 +415,7 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags{{ range .CredentialPaths }}, {{ goStr . }}{{ end }})
 			if err != nil {
 				return err
 			}

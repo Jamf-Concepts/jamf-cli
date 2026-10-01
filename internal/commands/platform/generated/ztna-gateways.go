@@ -131,7 +131,7 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			path := "/securitycloud/v1/ztna/gateways"
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "ipsec.left.secret")
 			if err != nil {
 				return err
 			}
@@ -337,7 +337,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/securitycloud/v1/ztna/gateways/{gatewayId}"
 			path = strings.Replace(path, "{gatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "ipsec.left.secret")
 			if err != nil {
 				return err
 			}
@@ -414,7 +414,7 @@ func newZtnaGatewaysApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "ipsec.left.secret")
 			if err != nil {
 				return err
 			}

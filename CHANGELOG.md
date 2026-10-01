@@ -39,6 +39,35 @@ than searched in part. The device-action `--group` commands, such as `pro
 computer-inventory erase`, use a different resolver, which a separate change
 covers.
 
+### Breaking — `--set` refuses credential fields in Pro, Platform and Security Cloud
+
+A `--set` value is on the command line, so it lands in shell history, in `ps`
+output and in CI job logs. Classic `--set` already refused a credential field.
+The generated Pro `patch` and `update`, Platform and Security Cloud commands
+accepted one, and the Pro `update` warning for a write-only field told you to
+pass it as `--set <field>=<value>`.
+
+`--set` now refuses a field that carries a secret: a password, client or shared
+secret, token, API or access key, private key, keystore, authorization header or
+device PIN, and any string the spec marks write-only. The refusal also catches a
+JSON value that carries one, such as `--set deviceSyncAuth='{"clientSecret":"…"}'`.
+A private-key blob is refused too: ADCS and DigiCert `clientCert.data` and the
+cloud LDAP `server.keystore.fileBytes`, while the public `serverCert.data` stays
+settable. A key is matched however it is spelled (`pass_word`,
+`basic_auth_credentials.password`), and on an operation that carries a secret a
+key with an empty segment, a `[` or surrounding whitespace is refused.
+Examples are `security uem-connectors create --set deviceSyncAuth.clientSecret=…`,
+`security stream update --set delivery.authorization_header=…` and
+`pro computer-prestages update --set recoveryLockPassword=…`.
+
+**Migration.** Put the secret in the request body and pass it with
+`--from-file <file>` or on stdin. On Platform and Security Cloud, `--set` still
+overrides the other fields of that body. A Pro `update` reads its body from
+stdin only, so pipe the whole record, secret included. Pro `update --set` on a
+resource with a write-only secret now always blanks that secret, and its
+warning says so. Pro `--help` and shell completion no longer list credential
+fields; the help names them and says where they go.
+
 ### Behaviour — `--url` and a profile's `url` no longer redirect the Security Cloud Radar login
 
 `security` commands that use the Risk, Device Lifecycle or SSE credentials

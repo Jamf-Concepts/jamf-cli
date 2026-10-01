@@ -396,7 +396,7 @@ func newAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Updates the user account.",
-		Long:  "Updates the user account for the given id.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accessLevel                                  string\n  accountStatus                                string\n  accountType                                  string\n  changePasswordOnNextLogin                    boolean\n  distinguishedName                            string\n  email                                        string\n  ldapServerId                                 integer\n  phone                                        string\n  plainPassword                                string\n  privilegeLevel                               string\n  realname                                     string\n  siteId                                       integer\n  username                                     string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates the user account for the given id.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accessLevel                                  string\n  accountStatus                                string\n  accountType                                  string\n  changePasswordOnNextLogin                    boolean\n  distinguishedName                            string\n  email                                        string\n  ldapServerId                                 integer\n  phone                                        string\n  privilegeLevel                               string\n  realname                                     string\n  siteId                                       integer\n  username                                     string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: plainPassword. Send them in a JSON body on stdin, as the whole record.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro accounts update 1 --set field=value
 
@@ -475,7 +475,7 @@ func newAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"accessLevel": nil, "accountStatus": nil, "accountType": nil, "changePasswordOnNextLogin": nil, "distinguishedName": nil, "email": nil, "ldapServerId": nil, "phone": nil, "plainPassword": nil, "privilegeLevel": nil, "realname": nil, "siteId": nil, "username": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"accessLevel": "string", "accountStatus": "string", "accountType": "string", "changePasswordOnNextLogin": "boolean", "distinguishedName": "string", "email": "string", "ldapServerId": "integer", "phone": "string", "plainPassword": "string", "privilegeLevel": "string", "realname": "string", "siteId": "integer", "username": "string"})
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"accessLevel": "string", "accountStatus": "string", "accountType": "string", "changePasswordOnNextLogin": "boolean", "distinguishedName": "string", "email": "string", "ldapServerId": "integer", "phone": "string", "plainPassword": "string", "privilegeLevel": "string", "realname": "string", "siteId": "integer", "username": "string"}, "plainPassword")
 				if serr != nil {
 					return serr
 				}
@@ -483,9 +483,7 @@ func newAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
-				if !hasNestedKey(setMap, "plainPassword") {
-					fmt.Fprintf(os.Stderr, "warning: account field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set plainPassword=<value> to preserve it.\n", "plainPassword")
-				}
+				fmt.Fprintf(os.Stderr, "warning: account field %q is write-only: the server never returns it, so this update will blank any existing value. It is a credential --set cannot carry; to keep it, pipe the whole record with the field included on stdin instead of using --set.\n", "plainPassword")
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {
@@ -526,7 +524,7 @@ func newAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"accessLevel=", "accountStatus=", "accountType=", "changePasswordOnNextLogin=", "distinguishedName=", "email=", "ldapServerId=", "phone=", "plainPassword=", "privilegeLevel=", "realname=", "siteId=", "username=",
+			"accessLevel=", "accountStatus=", "accountType=", "changePasswordOnNextLogin=", "distinguishedName=", "email=", "ldapServerId=", "phone=", "privilegeLevel=", "realname=", "siteId=", "username=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd
