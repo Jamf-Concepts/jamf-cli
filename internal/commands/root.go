@@ -2049,6 +2049,10 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 // configured, and only commands that touch an unconfigured API fail (with a
 // "run security setup" hint), rather than failing here for the whole product.
 func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) error {
+	return buildSecurityClient(cfg, cliCtx, http.DefaultTransport)
+}
+
+func buildSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext, transport http.RoundTripper) error {
 	profileName := profile
 	if profileName == "" {
 		profileName = os.Getenv("JAMF_PROFILE")
@@ -2139,9 +2143,9 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
 	}
 
-	stdClient := &http.Client{Timeout: 60 * time.Second}
+	stdClient := &http.Client{Timeout: 60 * time.Second, Transport: transport}
 	if shouldShowSpinner() {
-		stdClient.Transport = &spinnerTransport{inner: http.DefaultTransport}
+		stdClient.Transport = &spinnerTransport{inner: transport}
 	}
 
 	cliCtx.SecurityClient = security.NewClient(
