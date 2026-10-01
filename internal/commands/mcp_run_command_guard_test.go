@@ -204,7 +204,7 @@ func TestBuildChildArgs_KeepsDryRunVerboseHelpAndFormat(t *testing.T) {
 	allowed := [][]string{
 		{"pro", "classic-policies", "create", "--set", "general.name=x", "--dry-run"},
 		{"pro", "classic-policies", "create", "--set", "general.name=x", "-n"},
-		{"pro", "computers", "list", "-vvv"},
+		{"pro", "computers", "list", "-vv"},
 		{"pro", "computers", "list", "-v"},
 		{"pro", "computers", "list", "--help"},
 		{"pro", "computers", "list", "-oplain"},
