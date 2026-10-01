@@ -11,6 +11,32 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — `scope add`/`remove` resolve `--computer` and `--mobile-device` to an ID first
+
+`scope add --computer <UDID>` answered `409 Unable to match computer` on every
+computer-scoped resource: a Mac's UUID-shaped UDID was sent as `<name>`, and a
+matched UDID went out beside an empty `<name>`, which the Classic computer
+matcher reads first and refuses. The `scope add` and `scope remove` commands
+of the eight scopeable Classic resources now look a `--computer` or
+`--mobile-device` value up in inventory — as an ID, name, UDID or serial
+number — and send the device's `<id>` alone. That is the one form both Classic
+matchers resolve unconditionally.
+
+Two things a script can see change:
+
+- **A name shared by more than one device is refused**, naming the matching
+  ids. The Classic API's own name match picked one of them silently.
+- **The API client needs Read Computers or Read Mobile Devices**, because the
+  lookup reads inventory. Without it, a numeric ID that worked before now
+  fails with a 403 (exit 5), and the hint names the privilege.
+
+`scope remove` by serial number now works; before, it could never match,
+because the scope GET carries no serial. A value that no longer names any
+device still removes a member listed under that ID or name.
+
+**Migration.** Pass the numeric ID for a device whose name is not unique, and
+grant the API client Read Computers / Read Mobile Devices.
+
 ### Breaking — MCP `run_command` refuses local paths and credential output unless the operator allows them
 
 `run_command` used to compare the model's raw argument list against a short
