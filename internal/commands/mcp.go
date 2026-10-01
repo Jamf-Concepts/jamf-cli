@@ -134,12 +134,15 @@ api-clients get', the CloudFront private key and CDN password of 'pro
 cloud-distribution-point list', and every Classic 'get' and 'list' field the
 Classic --set refuses as a credential (an SMTP, LDAP, webhook, directory
 binding or distribution point password, the VPP sToken, the JWT signing key,
-the institutional FileVault keystore). Each secret inside a configuration
-profile's payloads in 'classic-macos-config-profiles' and
-'classic-mobile-config-profiles' is redacted too: a Wi-Fi, EAP, VPN or account
-password, a VPN shared secret, a SCEP challenge, and an identity certificate
-with its password. A payload that does not decode is redacted whole. So a
-Classic '-o raw' is not the wire bytes here, and 'pro diff' shows those
+the institutional FileVault keystore). Configuration profile payloads are
+redacted by key name in 'classic-macos-config-profiles', in
+'classic-mobile-config-profiles' and in 'pro blueprints components
+configuration-profile --id/--name': the value of a key named Challenge, or
+ending in any case in password, secret, token, authkey, apikey, accesskey,
+privatekey, secretkey, passcode or credential, and a PKCS#12 identity
+certificate. Every other payload value is shown, a custom payload's included.
+A payload that does not decode is redacted whole, or refused by the blueprint
+converter. So a Classic '-o raw' is not the wire bytes here, and 'pro diff' shows those
 fields' old and new values as <redacted> while still reporting the change.
 Secrets of the pinned tenant's own devices are shown: the LAPS password, the
 recovery lock password, the FileVault personal recovery key, and the bootstrap
@@ -253,11 +256,9 @@ value is an error; there is no config key for it.`,
 					"Report-client header values and URL userinfo and query, the Sentinel " +
 					"shared key, Protect API client passwords, the CloudFront private key of " +
 					"'pro cloud-distribution-point list' and Classic credential fields " +
-					"(passwords, the VPP sToken, the JWT signing key), and the secrets inside " +
-					"Classic configuration profile payloads (Wi-Fi, VPN and identity passwords, " +
-					"shared secrets, SCEP challenges, PKCS#12 certificates), in 'get', 'list' and " +
-					"'pro diff', print as <redacted>; " +
-					"device secrets such as the LAPS password, and blueprint configuration, are shown. " +
+					"(passwords, the VPP sToken, the JWT signing key), in 'get', 'list' and " +
+					"'pro diff', print as <redacted>. " + payloadRedactionToolNote +
+					" Device secrets such as the LAPS password, and blueprint configuration, are shown. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in runCommandInput) (*mcp.CallToolResult, any, error) {
@@ -573,6 +574,15 @@ var blockedChildFlagPrefixes = []string{
 	"--out-file",
 }
 
+// payloadRedactionToolNote is the run_command description's account of
+// profileconvert.SecretPayloadKeySuffixes; TestMCPPolicyTexts_NameEveryPayloadSecretSuffix
+// holds it and the other policy texts to that list.
+const payloadRedactionToolNote = "In a configuration profile's payloads, from a Classic profile 'get' or " +
+	"'list', 'pro diff' or 'pro blueprints components configuration-profile', the value of a " +
+	"key named Challenge or ending in any case in password, secret, token, authkey, apikey, " +
+	"accesskey, privatekey, secretkey, passcode or credential, and a PKCS#12 certificate, print " +
+	"as <redacted>; every other payload value is shown."
+
 // mcpRefusedCommands are resolved command paths, each refused with everything
 // beneath it, and why. `dashboard` is not here: generate_report shares
 // buildChildArgs and must still spawn it, so the run_command handler refuses it
@@ -593,8 +603,10 @@ var blockedChildFlagPrefixes = []string{
 // A command that prints such a credential inside a larger record runs with it
 // redacted instead, in every output format: the Classic credential fields
 // (redactClassicReadInMCPChild), the secrets in a Classic configuration
-// profile's payloads plist (redactClassicProfilePayloadsInMCPChild, through
-// profileconvert.RedactPayloadSecrets), the cloud distribution point's keys
+// profile's payloads plist (redactClassicProfilePayloadsInMCPChild, and the
+// download of `pro blueprints components configuration-profile`, through
+// profileconvert.RedactPayloadSecrets, which matches by key name), the cloud
+// distribution point's keys
 // (cdnKeyRedactingClient), and the same fields in `pro diff`. Blueprint
 // configuration is not redacted: the Platform SDK decodes each response
 // inside its transport, so there is no per-response hook, and a component's

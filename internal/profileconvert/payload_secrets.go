@@ -15,18 +15,33 @@ import (
 // RedactedPayloadValue is what a secret inside a profile payload is replaced by.
 const RedactedPayloadValue = "<redacted>"
 
-// isSecretPayloadKey reports whether a payload key holds a secret that works
-// outside the profile: a Wi-Fi, EAP, VPN, account or identity password, a
-// shared or client secret, or a SCEP challenge. Compared case-insensitively,
-// because custom payloads do not follow Apple's casing.
+// SecretPayloadKeySuffixes are the endings, compared case-insensitively, of a
+// payload key whose value is a secret that works outside the profile. They
+// cover the words namesASecret in the MCP guards counts as a secret name. A
+// bare "pin" is not one: it ends far more keys than it protects.
+var SecretPayloadKeySuffixes = []string{"password", "secret", "token", "authkey", "apikey", "accesskey", "privatekey", "secretkey", "passcode", "credential"}
+
+// isSecretPayloadKey reports whether a payload key holds a secret: it is
+// Challenge (a SCEP challenge) or ends in one of SecretPayloadKeySuffixes.
+// Compared case-insensitively, because custom payloads do not follow Apple's
+// casing.
 func isSecretPayloadKey(key string) bool {
 	k := strings.ToLower(key)
-	return k == "challenge" || strings.HasSuffix(k, "password") || strings.HasSuffix(k, "secret")
+	if k == "challenge" {
+		return true
+	}
+	for _, suffix := range SecretPayloadKeySuffixes {
+		if strings.HasSuffix(k, suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 // RedactPayloadSecrets returns profile, a configuration profile plist, with the
-// value of every secret key at any depth replaced by RedactedPayloadValue, and
-// the PayloadContent of a com.apple.security.pkcs12 payload too. A profile with
+// value of every secret key (isSecretPayloadKey) at any depth replaced by
+// RedactedPayloadValue, and the PayloadContent of a com.apple.security.pkcs12
+// payload too. A profile with
 // no secret is returned unchanged; one with a secret is re-serialised as XML.
 // It fails when profile is not a plist whose top level is a dictionary.
 func RedactPayloadSecrets(profile []byte) ([]byte, error) {

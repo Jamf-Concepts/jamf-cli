@@ -124,11 +124,14 @@ but the pinned profile. `config show` runs with every credential field shown as
 query of `protect action-configs get` and `apply`, the Sentinel shared key of
 `protect data-forwarding get` and `update`, the password of `protect api-clients
 get`, the CloudFront private key and CDN password of `pro
-cloud-distribution-point list`, every Classic field that Classic `--set` refuses as a credential, and
-each secret inside a Classic configuration profile's payloads (a Wi-Fi, EAP,
-VPN or account password, a VPN shared secret, a SCEP challenge, an identity
-certificate and its password), in `get`, `list` and the old and new values
-`pro diff` reports. Secrets of the pinned tenant's devices (the LAPS password, the
+cloud-distribution-point list`, and every Classic field that Classic `--set` refuses as a credential,
+in `get`, `list` and the old and new values `pro diff` reports. Configuration
+profile payloads, in a Classic profile `get` or `list`, `pro diff` and `pro
+blueprints components configuration-profile --id/--name`, are redacted by key
+name: the value of a key named `Challenge`, or ending in any case in
+`password`, `secret`, `token`, `authkey`, `apikey`, `accesskey`, `privatekey`,
+`secretkey`, `passcode` or `credential`, and a PKCS#12 certificate. Every other
+payload value is shown, a custom payload's included. Secrets of the pinned tenant's devices (the LAPS password, the
 recovery lock password, the FileVault personal recovery key), the JCDS upload
 credentials and blueprint configuration, a secret a component carries
 included, are shown. A relative read path resolves against the server's start

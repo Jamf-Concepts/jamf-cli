@@ -98,6 +98,7 @@ func TestRedactPayloadSecrets_MatchesTokenAndKeySuffixes(t *testing.T) {
 <key>AWSAccessKey</key><string>S3CRET-aws</string>
 <key>SecretKey</key><string>S3CRET-sk</string>
 <key>DevicePasscode</key><string>S3CRET-passcode</string>
+<key>VPNCredential</key><string>S3CRET-cred</string>
 <key>TokenURL</key><string>https://idp.example.com/token-url</string>
 <key>TokenEndpoint</key><string>https://idp.example.com/token-endpoint</string>
 <key>PIN</key><string>visible-pin</string>
@@ -108,7 +109,7 @@ func TestRedactPayloadSecrets_MatchesTokenAndKeySuffixes(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := decodePlist(t, out)["PayloadContent"].([]any)[0].(map[string]any)
-	for _, k := range []string{"CloudManagementEnrollmentToken", "TailscaleAuthKey", "APIKey", "PrivateKey", "AWSAccessKey", "SecretKey", "DevicePasscode"} {
+	for _, k := range []string{"CloudManagementEnrollmentToken", "TailscaleAuthKey", "APIKey", "PrivateKey", "AWSAccessKey", "SecretKey", "DevicePasscode", "VPNCredential"} {
 		if p[k] != RedactedPayloadValue {
 			t.Errorf("%s should be redacted, got %v", k, p[k])
 		}
