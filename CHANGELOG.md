@@ -11,6 +11,27 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — device secrets are read from a file, not a flag value
+
+Three flags took a device secret as their value, where `ps`, shell history and
+a CI log could read it. Each is removed and replaced by a file flag on the same
+command, with no alias. The old name now fails with `unknown flag` and a hint
+naming the new one.
+
+| command | removed | use instead |
+|---|---|---|
+| `pro computer-inventory set-recovery-lock` | `--new-password <pw>` | `--new-password-file <path>`, or the no-echo prompt |
+| `pro computer-inventory set-recovery-lock` | omitting `--new-password` to clear | `--clear` |
+| `pro mobile-devices lock` | `--pin <pin>` | `--pin-file <path>` |
+| `pro mobile-devices clear-passcode` | `--unlock-token <token>` | `--unlock-token-file <path>`, or `-` for stdin |
+
+Clearing a Recovery Lock is now something a caller asks for. With neither
+`--new-password-file` nor `--clear`, `set-recovery-lock` prompts on a terminal,
+and under `--no-input` it refuses. It used to clear the password, so a script
+that relied on "no flag means clear" has to pass `--clear`. An empty file or an
+empty prompt is refused too, rather than read as a clear. A trailing line
+ending in any of the files is dropped.
+
 ### Behaviour — `-vvv` and `--dry-run` redact token, PIN, passcode and keystore fields
 
 The `-vvv` body log redacted passwords, secrets and the OAuth `access_token`,
