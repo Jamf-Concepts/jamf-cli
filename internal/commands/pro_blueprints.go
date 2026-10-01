@@ -1641,7 +1641,7 @@ func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, gro
 		}
 		return "", fmt.Errorf("%d groups match name %q (ids %s); rename one so the name is unique", max(result.TotalCount, len(result.Results)), groupName, strings.Join(ids, ", "))
 	}
-	if len(result.Results) == 0 || result.Results[0].GroupName != groupName {
+	if len(result.Results) == 0 || !strings.EqualFold(result.Results[0].GroupName, groupName) {
 		if groupType != "" {
 			return "", fmt.Errorf("no %s group found with name %q", groupType, groupName)
 		}
