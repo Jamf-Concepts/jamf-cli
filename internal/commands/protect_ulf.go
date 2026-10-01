@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -138,7 +139,9 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveUnifiedLoggingFilterUUID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreateUnifiedLoggingFilter(ctx, input)
 				if err != nil {
 					return err

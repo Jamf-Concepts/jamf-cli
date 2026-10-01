@@ -24,6 +24,43 @@ Migration: a script that pointed the Radar client elsewhere with `--url` or a
 profile `url` sets `JAMFSECURITY_URL` instead. `--url` still selects the
 gateway for the gateway-served commands (`dns-*`, `ztna-*`, and the rest).
 
+### Behaviour — an identifier that names more than one record is refused
+
+These commands used to pick one record when an identifier matched several.
+Some picked the last match, and some picked a record whose name equalled
+another record's serial number. They now act on one record, or refuse and
+name every candidate:
+
+- `school devices get`, `erase`, `unenroll`, `trash`, `clear-activation-lock`,
+  `restore`, `restart` and `refresh` match an exact UDID, then a serial
+  number, then a name. The confirmation names the device it resolved: name,
+  serial and UDID. Every other School command that takes a name (users,
+  profiles, apps, classes, groups, device groups, locations, iBeacons)
+  refuses a name that two records share.
+- `protect computers get`, `delete`, `set-plan` and `update` match an exact
+  UUID, then a serial number, then a hostname. A UUID was not accepted
+  before. The `delete` confirmation names the computer it resolved.
+- `--group` on the Jamf Pro device actions compares the static-group name as
+  the server sent it, so `--group 14` no longer finds a group named `14.2`.
+  If two static groups differ only in case, the one that matches exactly is
+  used. If neither matches exactly, the command refuses. A smart-group lookup
+  that finds two groups is now an error. Before, the Classic static-group
+  lookup ran after it and picked one of the two.
+- `pro packages upload` refuses when two packages have the local file name,
+  and it accepts a match only when the server returns that exact name.
+
+RSQL filter values are now escaped completely: `\`, `"`, `*`, `(`, `)`, `;`
+and `,`. A `*` in a name, serial or file name is now matched literally. It is
+no longer a wildcard.
+
+`protect <resource> apply` creates a record only when the lookup completes
+and finds no record with that name. A lookup that fails (a 401, a 403, a 5xx,
+a GraphQL error or a timeout) now returns the error. Before, the command
+created a duplicate. This applies to plans, API clients, users, groups,
+roles, action configs, analytic sets, exception sets, custom prevent lists,
+telemetry, removable storage control sets, unified logging filters and
+unified logging filter sets.
+
 ### Behaviour — the MCP `list_commands` tool browses and searches the catalog
 
 `list_commands` returned the whole catalog in one result. That result was

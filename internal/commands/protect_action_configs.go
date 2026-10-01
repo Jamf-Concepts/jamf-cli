@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -104,7 +105,9 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveActionConfigID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreateActionConfig(ctx, input)
 				if err != nil {
 					return err

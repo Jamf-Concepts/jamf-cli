@@ -52,8 +52,8 @@ func newProtectComputersListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newProtectComputersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <hostname|serial>",
-		Short: "Get a computer by hostname or serial number",
+		Use:   "get <uuid|serial|hostname>",
+		Short: "Get a computer by UUID, serial number, or hostname",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -77,25 +77,25 @@ func newProtectComputersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 
 	cmd := &cobra.Command{
-		Use:         "delete <hostname|serial>",
-		Short:       "Delete a computer by hostname or serial number",
+		Use:         "delete <uuid|serial|hostname>",
+		Short:       "Delete a computer by UUID, serial number, or hostname",
 		Annotations: map[string]string{"jamf:destructive": "true"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)
-			uuid, err := r.ResolveComputerUUID(ctx, args[0])
+			computer, err := r.ResolveComputer(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("computer", args[0], yes)
+			proceed, err := confirmDelete("computer", protect.DescribeComputer(computer), yes)
 			if err != nil {
 				return err
 			}
 			if !proceed {
 				return nil
 			}
-			return cliCtx.ProtectClient.DeleteComputer(ctx, uuid)
+			return cliCtx.ProtectClient.DeleteComputer(ctx, *computer.UUID)
 		},
 	}
 
@@ -106,8 +106,8 @@ func newProtectComputersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newProtectComputersSetPlanCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
-		Use:   "set-plan <hostname|serial> <plan-name>",
-		Short: "Assign a plan to a computer by hostname or serial number",
+		Use:   "set-plan <uuid|serial|hostname> <plan-name>",
+		Short: "Assign a plan to a computer by UUID, serial number, or hostname",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -134,7 +134,7 @@ func newProtectComputersUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var tags []string
 
 	cmd := &cobra.Command{
-		Use:   "update <hostname|serial>",
+		Use:   "update <uuid|serial|hostname>",
 		Short: "Update a computer's label and/or tags",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

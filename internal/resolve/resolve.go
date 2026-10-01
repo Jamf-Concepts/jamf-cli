@@ -10,6 +10,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +21,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
@@ -91,15 +94,18 @@ func ResolveMobileDevice(ctx context.Context, client registry.HTTPClient, serial
 func ResolveComputerGroup(ctx context.Context, client registry.HTTPClient, groupName string) ([]*DeviceIdentifiers, error) {
 	// Try smart group first (modern API), fall back to static group.
 	memberIDs, err := fetchSmartComputerGroupMemberIDs(ctx, client, groupName)
-	if err != nil {
-		// Not found as smart group — try static group (Classic API, no modern
-		// membership endpoint exists for static computer groups).
+	if errors.Is(err, errGroupNotFound) {
+		// Static groups have no modern membership endpoint, so they are read
+		// through the Classic API.
 		staticIDs, staticErr := fetchClassicGroupMemberIDs(ctx, client,
 			"/JSSResource/computergroups", "computer_groups", "computers", groupName)
 		if staticErr != nil {
-			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%v)", groupName, err, staticErr)
+			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%w)", groupName, err, staticErr)
 		}
-		memberIDs = staticIDs
+		memberIDs, err = staticIDs, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	return batchResolveComputers(ctx, client, memberIDs)
 }
@@ -109,13 +115,16 @@ func ResolveMobileDeviceGroup(ctx context.Context, client registry.HTTPClient, g
 	// Try smart group first (modern API), fall back to Classic for static
 	// (no modern static mobile device group API exists yet).
 	memberIDs, err := fetchSmartMobileGroupMemberIDs(ctx, client, groupName)
-	if err != nil {
+	if errors.Is(err, errGroupNotFound) {
 		staticIDs, staticErr := fetchClassicGroupMemberIDs(ctx, client,
 			"/JSSResource/mobiledevicegroups", "mobile_device_groups", "mobile_devices", groupName)
 		if staticErr != nil {
-			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%v)", groupName, err, staticErr)
+			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%w)", groupName, err, staticErr)
 		}
-		memberIDs = staticIDs
+		memberIDs, err = staticIDs, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	return batchResolveMobileDevices(ctx, client, memberIDs)
 }
@@ -546,18 +555,28 @@ func fetchSmartMobileGroupMemberIDs(ctx context.Context, client registry.HTTPCli
 	return ids, nil
 }
 
+// errGroupNotFound reports that a group lookup completed and found no group
+// of that name. Only this error lets a smart-group miss fall back to the
+// static-group lookup; an ambiguity or a failed request is returned as is.
+var errGroupNotFound = errors.New("group not found")
+
 // resolveGroupIDByName uses RSQL filtering on a group list endpoint to find
-// a group by name and return its ID.
+// a group by name and return its ID. A 404 from the search endpoint means it
+// does not exist on this server, which is read as not found.
 func resolveGroupIDByName(ctx context.Context, client registry.HTTPClient, listPath, nameField, groupName string) (string, error) {
 	filter := fmt.Sprintf(`%s=="%s"`, nameField, EscapeRSQL(groupName))
 	path := fmt.Sprintf("%s?page-size=2&filter=%s", listPath, url.QueryEscape(filter))
 
 	results, total, err := fetchInventoryPage(ctx, client, path)
+	var status *httpStatusError
+	if errors.As(err, &status) && status.code == http.StatusNotFound {
+		return "", fmt.Errorf("group %q: %w (search answered HTTP 404)", groupName, errGroupNotFound)
+	}
 	if err != nil {
 		return "", fmt.Errorf("searching for group %q: %w", groupName, err)
 	}
 	if total == 0 || len(results) == 0 {
-		return "", fmt.Errorf("group %q not found", groupName)
+		return "", fmt.Errorf("group %q: %w", groupName, errGroupNotFound)
 	}
 	if total > 1 {
 		return "", fmt.Errorf("multiple groups found with name %q (%d matches)", groupName, total)
@@ -586,26 +605,26 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 	if err != nil {
 		return nil, err
 	}
-	listData, err := unmarshalClassic(body)
+	groups, err := parseClassicGroupList(body, listKey)
 	if err != nil {
 		return nil, fmt.Errorf("parsing group list: %w", err)
 	}
-
-	groups, _ := listData[listKey].([]any)
-	var groupID string
-	for _, g := range groups {
-		gm, ok := g.(map[string]any)
-		if !ok {
-			continue
-		}
-		name := jsonString(gm, "name")
-		if strings.EqualFold(name, groupName) {
-			groupID = jsonString(gm, "id")
-			break
-		}
-	}
-	if groupID == "" {
+	group, candidates, err := pickone.One(groups, groupName,
+		pickone.Exact(func(g classicGroupRef) string { return g.Name }),
+		pickone.Fold(func(g classicGroupRef) string { return g.Name }))
+	switch {
+	case errors.Is(err, pickone.ErrNone):
 		return nil, fmt.Errorf("group %q not found", groupName)
+	case errors.Is(err, pickone.ErrAmbiguous):
+		ids := make([]string, len(candidates))
+		for i, c := range candidates {
+			ids[i] = fmt.Sprintf("%q (id %s)", c.Name, c.ID)
+		}
+		return nil, fmt.Errorf("group %q matches %d static groups: %s; rename one or pass the exact name", groupName, len(candidates), strings.Join(ids, ", "))
+	}
+	groupID := group.ID
+	if groupID == "" {
+		return nil, fmt.Errorf("group %q found but missing id field", groupName)
 	}
 
 	// Fetch group detail to get member IDs.
@@ -646,6 +665,43 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		}
 	}
 	return ids, nil
+}
+
+// classicGroupRef is one entry of a Classic group listing, its name kept as
+// the literal text the server sent.
+type classicGroupRef struct {
+	ID   string `xml:"id"`
+	Name string `xml:"name"`
+}
+
+// parseClassicGroupList reads a Classic group listing without coercing names.
+// xmlconv turns numeric-looking text into numbers, so a group named "14.2"
+// would otherwise compare equal to a request for "14".
+func parseClassicGroupList(body []byte, listKey string) ([]classicGroupRef, error) {
+	if xmlconv.IsXML(body) {
+		var list struct {
+			Groups []classicGroupRef `xml:",any"`
+		}
+		if err := xml.Unmarshal(body, &list); err != nil {
+			return nil, err
+		}
+		return list.Groups, nil
+	}
+	var listData map[string]any
+	if err := json.Unmarshal(body, &listData); err != nil {
+		return nil, err
+	}
+	raw, _ := listData[listKey].([]any)
+	groups := make([]classicGroupRef, 0, len(raw))
+	for _, g := range raw {
+		gm, ok := g.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := gm["name"].(string)
+		groups = append(groups, classicGroupRef{ID: jsonString(gm, "id"), Name: name})
+	}
+	return groups, nil
 }
 
 func batchResolveComputers(ctx context.Context, client registry.HTTPClient, ids []string) ([]*DeviceIdentifiers, error) {
@@ -724,7 +780,7 @@ func fetchInventoryPage(ctx context.Context, client registry.HTTPClient, path st
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return nil, 0, &httpStatusError{code: resp.StatusCode}
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
@@ -741,6 +797,10 @@ func fetchInventoryPage(ctx context.Context, client registry.HTTPClient, path st
 	}
 	return page.Results, page.TotalCount, nil
 }
+
+type httpStatusError struct{ code int }
+
+func (e *httpStatusError) Error() string { return fmt.Sprintf("HTTP %d", e.code) }
 
 // jsonString extracts a string field from a map, handling both string and
 // numeric ID values (the Jamf API sometimes returns IDs as numbers).
@@ -759,9 +819,13 @@ func jsonString(m map[string]any, key string) string {
 	}
 }
 
-// EscapeRSQL escapes double quotes in a value for use in RSQL filter expressions.
+var rsqlEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`, `*`, `\*`, `(`, `\(`, `)`, `\)`, `;`, `\;`, `,`, `\,`)
+
+// EscapeRSQL escapes a value for use as one quoted RSQL literal: the quote
+// cannot close the string, `*` is not a wildcard, and no operator or grouping
+// character reaches the parser.
 func EscapeRSQL(s string) string {
-	return strings.ReplaceAll(s, `"`, `\"`)
+	return rsqlEscaper.Replace(s)
 }
 
 // isNumericID returns true if s contains only digits (i.e., it's a Jamf Pro ID,

@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -142,7 +143,9 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if user exists by email
 			id, err := r.ResolveUserID(ctx, input.Email)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreateUser(ctx, input)
 				if err != nil {
 					return err

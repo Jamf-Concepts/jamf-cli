@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -126,7 +127,9 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if API client exists by name
 			clientID, err := r.ResolveApiClientID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreateApiClient(ctx, input)
 				if err != nil {
 					return err

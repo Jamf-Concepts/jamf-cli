@@ -6,7 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -39,24 +43,24 @@ func notFoundf(format string, args ...any) error {
 type Resolver struct {
 	client registry.ProtectClient
 
-	plans          map[string]string
-	analytics      map[string]string
-	analyticSets   map[string]string
-	exceptionSets  map[string]string
-	rscSets        map[string]string
-	actionConfigs  map[string]string
-	telemetriesV2  map[string]string
-	preventLists   map[string]string
-	ulfFilters     map[string]string
-	ulfSets        map[string]string
-	roles          map[string]string
-	users          map[string]string
-	groups         map[string]string
-	apiClients     map[string]string
-	computers      map[string]string // hostname -> uuid
-	computerSerial map[string]string // serial -> uuid
-	insights       map[string]string // label -> uuid
-	connections    map[string]string // identity provider name -> id
+	plans         map[string]string
+	analytics     map[string]string
+	analyticSets  map[string]string
+	exceptionSets map[string]string
+	rscSets       map[string]string
+	actionConfigs map[string]string
+	telemetriesV2 map[string]string
+	preventLists  map[string]string
+	ulfFilters    map[string]string
+	ulfSets       map[string]string
+	roles         map[string]string
+	users         map[string]string
+	groups        map[string]string
+	apiClients    map[string]string
+	computers     []jamfprotect.Computer
+	computersOK   bool
+	insights      map[string]string // label -> uuid
+	connections   map[string]string // identity provider name -> id
 }
 
 // NewResolver creates a Resolver for the given Protect client.
@@ -349,31 +353,56 @@ func (r *Resolver) ResolveInsightUUID(ctx context.Context, label string) (string
 	return id, nil
 }
 
-// ResolveComputerUUID returns the UUID for a computer given its hostname or serial number.
-func (r *Resolver) ResolveComputerUUID(ctx context.Context, nameOrSerial string) (string, error) {
-	if r.computers == nil {
+func derefOr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// DescribeComputer renders a computer as hostname, serial and UUID for
+// confirmations and ambiguity refusals.
+func DescribeComputer(c jamfprotect.Computer) string {
+	return fmt.Sprintf("%s (serial %s, uuid %s)", derefOr(c.HostName), derefOr(c.Serial), derefOr(c.UUID))
+}
+
+// ResolveComputer returns the one computer identified by arg, matched as an
+// exact UUID, then serial number, then hostname. The first identifier that
+// matches decides, so a hostname set to another computer's serial cannot
+// capture it, and two computers sharing the deciding value are refused.
+func (r *Resolver) ResolveComputer(ctx context.Context, arg string) (jamfprotect.Computer, error) {
+	if !r.computersOK {
 		items, err := r.client.ListComputers(ctx)
 		if err != nil {
-			return "", fmt.Errorf("listing computers: %w", err)
+			return jamfprotect.Computer{}, fmt.Errorf("listing computers: %w", err)
 		}
-		r.computers = make(map[string]string, len(items))
-		r.computerSerial = make(map[string]string, len(items))
-		for _, c := range items {
-			if c.HostName != nil {
-				r.computers[*c.HostName] = *c.UUID
-			}
-			if c.Serial != nil {
-				r.computerSerial[*c.Serial] = *c.UUID
-			}
+		r.computers, r.computersOK = items, true
+	}
+	c, candidates, err := pickone.One(r.computers, arg,
+		pickone.Exact(func(c jamfprotect.Computer) string { return derefOr(c.UUID) }),
+		pickone.Exact(func(c jamfprotect.Computer) string { return derefOr(c.Serial) }),
+		pickone.Exact(func(c jamfprotect.Computer) string { return derefOr(c.HostName) }))
+	switch {
+	case errors.Is(err, pickone.ErrNone):
+		return c, notFoundf("computer %q not found by uuid, serial or hostname; use 'protect computers list' to see available computers", arg)
+	case errors.Is(err, pickone.ErrAmbiguous):
+		names := make([]string, len(candidates))
+		for i, cand := range candidates {
+			names[i] = DescribeComputer(cand)
 		}
+		return c, fmt.Errorf("%q matches %d computers: %s; pass the uuid instead", arg, len(candidates), strings.Join(names, "; "))
+	case err != nil:
+		return c, err
+	case c.UUID == nil:
+		return c, fmt.Errorf("computer %s has no uuid", DescribeComputer(c))
 	}
-	if id, ok := r.computers[nameOrSerial]; ok {
-		return id, nil
-	}
-	if id, ok := r.computerSerial[nameOrSerial]; ok {
-		return id, nil
-	}
-	return "", notFoundf("computer %q not found by hostname or serial; use 'protect computers list' to see available computers", nameOrSerial)
+	return c, nil
+}
+
+// ResolveComputerUUID returns the UUID of the computer ResolveComputer picks.
+func (r *Resolver) ResolveComputerUUID(ctx context.Context, arg string) (string, error) {
+	c, err := r.ResolveComputer(ctx, arg)
+	return derefOr(c.UUID), err
 }
 
 // ResolveConnectionID returns the ID for an identity provider connection given

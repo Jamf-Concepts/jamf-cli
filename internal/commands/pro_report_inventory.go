@@ -5,11 +5,13 @@ package commands
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sort"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 func newReportInventorySummaryCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -56,8 +58,7 @@ type inventoryKey struct {
 func runReportInventorySummary(ctx context.Context, client registry.HTTPClient, groupFilter, groupBy string) ([]map[string]any, error) {
 	basePath := "/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM"
 	if groupFilter != "" {
-		basePath = fmt.Sprintf("%s&filter=general.groupMemberships.groupName%%3D%%3D\"%s\"",
-			basePath, groupFilter)
+		basePath += "&filter=" + url.QueryEscape(fmt.Sprintf(`general.groupMemberships.groupName=="%s"`, resolve.EscapeRSQL(groupFilter)))
 	}
 
 	computers, err := FetchAllPaginated(ctx, client, basePath, PageSizeFromPath)

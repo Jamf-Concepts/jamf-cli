@@ -25,6 +25,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
@@ -1605,8 +1606,7 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 // a version bump and not a shape change. (v2's filter drops groupPlatformId,
 // which nothing here sends.)
 func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, groupName, groupType string) (string, error) {
-	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, `*`, `\*`, `(`, `\(`, `)`, `\)`, `;`, `\;`).Replace(groupName)
-	filter := fmt.Sprintf(`groupName=="%s"`, escaped)
+	filter := fmt.Sprintf(`groupName=="%s"`, resolve.EscapeRSQL(groupName))
 	if groupType != "" {
 		filter += fmt.Sprintf(` and groupType=="%s"`, groupType)
 	}
