@@ -22,6 +22,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // newMCPCmd exposes the entire jamf-cli command tree to MCP-capable AI clients
@@ -103,10 +104,19 @@ spelling. It refuses:
   - 'auth token' under 'platform', 'pro' and 'protect', and 'pro
     api-authentication token', 'oauth-token' and 'keep-alive', which print a
     live access token
+  - 'pro sso-oauth-session-tokens', which prints the session's access and ID
+    tokens
   - 'pro api-integrations client-credentials' and 'protect api-clients
     apply', which mint a new client secret or password and print it
+  - 'pro cloud-distribution-point list', 'create' and 'patch', whose response
+    carries the CloudFront private key that signs download URLs
+  - 'pro jamf-pro-user-account-settings change-password' and 'pro accounts
+    create', 'update' and 'apply', which set a Jamf Pro login password to a
+    value the model chose
   - 'protect action-configs export', whose document carries each report
     client's header values, the SIEM or webhook credential, verbatim
+  - 'protect downloads csr' and 'websocket-auth', which write the tenant's
+    .p12 key material into the directory this server was started in
   - any flag naming a profile, URL, token, tenant, environment or output file
   - any flag whose value is a local path: --from-file, --file, --script-file,
     --mobileconfig-file, --appconfig-file, --custom-payload-file, --body-file,
@@ -116,13 +126,24 @@ spelling. It refuses:
   - 'pro diff' with a --source or --target that is neither this server's
     profile nor a directory inside --input-dir
 Some allowed commands print a third-party credential, shown as <redacted>
-here: the report-client header values of 'protect action-configs get' and
-'apply', the Sentinel shared key of 'protect data-forwarding get' and 'update',
-and the password of 'protect api-clients get'.
+here: the report-client header values and the userinfo and query of each
+report-client URL in 'protect action-configs get' and 'apply' (a secret in a
+URL path, as a Slack webhook carries, is still shown), the Sentinel shared key
+of 'protect data-forwarding get' and 'update', the password of 'protect
+api-clients get', and every Classic 'get' and 'list' field the Classic --set
+refuses as a credential (an SMTP, LDAP, webhook, directory binding or
+distribution point password, the VPP sToken, the JWT signing key, the
+institutional FileVault keystore). So a Classic '-o raw' is not the wire bytes
+here.
+Secrets of the pinned tenant's own devices are shown: the LAPS password, the
+recovery lock password, the FileVault personal recovery key, and the bootstrap
+token, unlock token and AirPlay password in device inventory. So are the JCDS
+upload credentials of 'pro jamf-cloud-distribution-service renew-credentials'
+and 'pro jamf-cloud-distribution-service-files create'.
 Some allowed commands write a file into the directory this server was started
-in, named by Jamf or by the command's own argument: 'protect downloads' and
-'pro jcds download' without -O, and 'protect plans config-profile'. Start the
-server from a directory where that is acceptable.
+in, named by Jamf or by the command's own argument: the other 'protect
+downloads' and 'pro jcds download' without -O, and 'protect plans
+config-profile'. Start the server from a directory where that is acceptable.
 
 It also refuses 'dashboard', because it returns a command's stdout as text and
 the report is a 320-800 KB document — generate_report writes that to a file
@@ -134,11 +155,14 @@ instead.
 directory, or the --dir of 'protect analytics import' and 'protect
 unified-logging-filters import' is accepted when it exists and resolves inside
 <dir>, symlinks followed. A relative path is taken from the directory this
-server was started in. --password-file and every
-write-side path flag stay refused. The directory must exist; there is no
-config key for it.`,
+server was started in, so pass an absolute path. --password-file and every
+write-side path flag stay refused. The directory must exist, and an empty
+value is an error; there is no config key for it.`,
 		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("input-dir") && inputDirFlag == "" {
+				return errors.New("--input-dir is empty: name the directory the model may read from, or drop the flag to allow no reads")
+			}
 			executable, err := os.Executable()
 			if err != nil {
 				return fmt.Errorf("determining executable path: %w", err)
@@ -204,16 +228,23 @@ config key for it.`,
 					"the config write subcommands, 'config validate', 'doctor', " +
 					"every command that prints an access token ('auth token', " +
 					"'pro api-authentication token', 'oauth-token', 'keep-alive'), " +
+					"'pro sso-oauth-session-tokens', " +
 					"the commands that mint and print a credential ('pro api-integrations " +
 					"client-credentials', 'protect api-clients apply'), " +
+					"'pro cloud-distribution-point list', 'create' and 'patch' (they print a " +
+					"CloudFront private key), the commands that set a Jamf Pro login password " +
+					"('pro jamf-pro-user-account-settings change-password', 'pro accounts " +
+					"create', 'update', 'apply'), 'protect downloads csr' and 'websocket-auth', " +
 					"'protect action-configs export', " +
 					"every 'setup', the backup commands and jcds sync; and " +
 					"'pro diff' against anything but this server's profile or a directory the " +
 					"input directory allows. " + inputDirToolNote(inputDir) +
 					" Use generate_report rather than 'dashboard': this tool returns " +
 					"stdout as text and the dashboard writes a 320-800 KB HTML document there. " +
-					"Report-client header values, the Sentinel shared key and Protect API " +
-					"client passwords print as <redacted>. " +
+					"Report-client header values and URL userinfo and query, the Sentinel " +
+					"shared key, Protect API client passwords and Classic credential fields " +
+					"(passwords, the VPP sToken, the JWT signing key) print as <redacted>; " +
+					"device secrets such as the LAPS password are shown. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in runCommandInput) (*mcp.CallToolResult, any, error) {
@@ -337,7 +368,7 @@ func childEnv() []string {
 }
 
 const (
-	mcpChildEnvVar         = "JAMF_CLI_MCP"
+	mcpChildEnvVar         = registry.MCPChildEnvVar
 	mcpPinnedProfileEnvVar = "JAMF_CLI_MCP_PROFILE"
 	mcpInputDirEnvVar      = "JAMF_CLI_MCP_INPUT_DIR"
 )
@@ -533,6 +564,20 @@ var blockedChildFlagPrefixes = []string{
 // beneath it, and why. `dashboard` is not here: generate_report shares
 // buildChildArgs and must still spawn it, so the run_command handler refuses it
 // instead.
+//
+// A command that prints a credential working outside this server is refused.
+// A secret of the pinned tenant's own devices is not: the operator decided the
+// model may read them. So the LAPS password (`pro local-admin-password
+// password`, `password-by-guid`, `audit`, `audit-by-guid`), the recovery lock
+// password (`pro computer-inventory view-recovery-lock-password`), the
+// FileVault personal recovery key (`filevault`, `filevault-by-id`) and the
+// bootstrap token, unlock token and AirPlay password in device inventory all
+// run, as do the commands that set or clear such a secret. So do `pro
+// jamf-cloud-distribution-service renew-credentials` and
+// `pro jamf-cloud-distribution-service-files create`, whose upload credentials
+// reach only the pinned tenant's JCDS bucket.
+// TestMCPSecretNamingLeaves_AreClassified holds every leaf whose help names a
+// credential to one side of this line.
 var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli multi", refusedPicksTarget},
 	{"jamf-cli mcp", refusedPicksTarget},
@@ -549,7 +594,17 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli pro api-authentication token", refusedPrintsToken},
 	{"jamf-cli pro api-authentication oauth-token", refusedPrintsToken},
 	{"jamf-cli pro api-authentication keep-alive", refusedPrintsToken},
+	{"jamf-cli pro sso-oauth-session-tokens", refusedPrintsToken},
 	{"jamf-cli pro api-integrations client-credentials", refusedMintsClientSecret},
+	{"jamf-cli pro cloud-distribution-point list", refusedPrintsCDNKey},
+	{"jamf-cli pro cloud-distribution-point create", refusedPrintsCDNKey},
+	{"jamf-cli pro cloud-distribution-point patch", refusedPrintsCDNKey},
+	{"jamf-cli pro jamf-pro-user-account-settings change-password", refusedSetsLoginPassword},
+	{"jamf-cli pro accounts create", refusedSetsLoginPassword},
+	{"jamf-cli pro accounts update", refusedSetsLoginPassword},
+	{"jamf-cli pro accounts apply", refusedSetsLoginPassword},
+	{"jamf-cli protect downloads csr", refusedWritesKeyMaterial},
+	{"jamf-cli protect downloads websocket-auth", refusedWritesKeyMaterial},
 	{"jamf-cli protect api-clients apply", refusedMintsProtectPassword},
 	{"jamf-cli protect action-configs export", refusedExportsHeaders},
 	{"jamf-cli pro setup", refusedPicksTarget},
@@ -573,6 +628,9 @@ const (
 	refusedPrintsToken          = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
 	refusedMintsClientSecret    = "it mints a new client secret for the API integration and prints it, a credential that works outside this server until it is rotated"
 	refusedMintsProtectPassword = "creating an API client mints a new password and prints it, a credential that works outside this server until the client is deleted"
+	refusedPrintsCDNKey         = "its response carries the CloudFront private key that signs download URLs, a credential that works outside this server"
+	refusedSetsLoginPassword    = "it sets a Jamf Pro login password to a value the model chose, a credential that works outside this server"
+	refusedWritesKeyMaterial    = "it writes the tenant's .p12 key material into the directory this server was started in, under a fixed name that replaces any file already there"
 	refusedExportsHeaders       = "its document carries each report client's header values verbatim (the SIEM or webhook bearer token), and a redacted copy would overwrite the real credential when applied; 'protect action-configs get' shows the configuration with them redacted"
 )
 
@@ -799,8 +857,11 @@ func refuseDiffSide(s flagSetting, pinnedProfile, inputDir string) error {
 func refuseLocalPath(use localPathUse, s flagSetting, inputDir string) error {
 	if use != pathRead || inputDir == "" {
 		err := fmt.Errorf("flag --%s is not available over MCP: it %s a path on the machine running this server, which the connecting model must not choose", s.name, use)
-		if use == pathRead {
+		switch {
+		case use == pathRead:
 			err = fmt.Errorf("%w; the administrator can allow reads from one directory with 'mcp serve --input-dir <dir>'", err)
+		case s.name == "output":
+			err = fmt.Errorf("%w; the global -o <format> flag (json, yaml, table, csv) is still accepted", err)
 		}
 		return err
 	}
@@ -815,7 +876,11 @@ func refuseLocalPath(use localPathUse, s flagSetting, inputDir string) error {
 		return fmt.Errorf("flag --%s %q cannot be used over MCP: %v; it must name an existing path inside the input directory %s", s.name, s.value, err, inputDir)
 	}
 	if !insideDir(inputDir, resolved) {
-		return fmt.Errorf("flag --%s %q is not available over MCP: it resolves to %s, outside the input directory %s", s.name, s.value, resolved, inputDir)
+		err := fmt.Errorf("flag --%s %q is not available over MCP: it resolves to %s, outside the input directory %s", s.name, s.value, resolved, inputDir)
+		if !filepath.IsAbs(s.value) {
+			err = fmt.Errorf("%w; a relative path resolves against the directory this server was started in, not the input directory, so pass an absolute path inside it", err)
+		}
+		return err
 	}
 	return nil
 }

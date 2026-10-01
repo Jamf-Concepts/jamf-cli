@@ -5,7 +5,9 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -195,8 +197,10 @@ func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 }
 
 // printActionConfig prints an action configuration. In a child of `mcp serve`
-// each report client's header values are shown as "<redacted>": they hold the
-// bearer token or API key the tenant forwards alerts to a SIEM or webhook with.
+// each report client's header values, and the userinfo and query of its URL,
+// are shown as "<redacted>": they hold the bearer token, API key or signature
+// the tenant forwards alerts to a SIEM or webhook with. A secret carried in the
+// URL path, as a Slack webhook's is, is still printed.
 func printActionConfig(out registry.OutputFormatter, a *jamfprotect.ActionConfig) error {
 	if a != nil && os.Getenv(mcpChildEnvVar) == "1" {
 		a = redactReportClientHeaders(*a)
@@ -218,11 +222,42 @@ func redactReportClientHeaders(a jamfprotect.ActionConfig) *jamfprotect.ActionCo
 				}
 				c.Params.Headers = headers
 			}
+			c.Params.URL = redactURLSecrets(c.Params.URL)
 			clients[i] = c
 		}
 		a.Clients = clients
 	}
 	return &a
+}
+
+// redactURLSecrets replaces a URL's userinfo and query with the redaction
+// marker. A value that does not parse is replaced whole when it could carry
+// either, so a malformed URL fails closed.
+func redactURLSecrets(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		if strings.ContainsAny(raw, "@?") {
+			return protectRedacted
+		}
+		return raw
+	}
+	if u.User == nil && u.RawQuery == "" && !u.ForceQuery {
+		return raw
+	}
+	hasUser, hasQuery := u.User != nil, u.RawQuery != "" || u.ForceQuery
+	u.User, u.RawQuery, u.ForceQuery = nil, "", false
+	out := u.String()
+	if hasUser {
+		out = strings.Replace(out, "//", "//"+protectRedacted+"@", 1)
+	}
+	if hasQuery {
+		if i := strings.IndexByte(out, '#'); i >= 0 {
+			out = out[:i] + "?" + protectRedacted + out[i:]
+		} else {
+			out += "?" + protectRedacted
+		}
+	}
+	return out
 }
 
 // actionConfigToInput converts an ActionConfig response to an ActionConfigInput, stripping server-only fields.

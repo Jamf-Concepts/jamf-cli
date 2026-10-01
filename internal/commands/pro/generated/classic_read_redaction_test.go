@@ -91,7 +91,8 @@ func runClassicRead(t *testing.T, body, format string, args ...string) string {
 // TestClassicRead_RedactsEveryCredentialFieldInAnMCPChild walks every
 // string-typed field the generator refuses for --set and shows a Classic get in
 // an MCP child prints the marker in its place, in every format a model can ask
-// for. XML keeps the marker escaped, since it is element text.
+// for. XML keeps the marker escaped, since it is element text, and JSON prints
+// it with the formatter's usual \u003c and \u003e escapes.
 func TestClassicRead_RedactsEveryCredentialFieldInAnMCPChild(t *testing.T) {
 	t.Setenv(mcpChildEnv, "1")
 	checked := 0
@@ -123,6 +124,9 @@ func TestClassicRead_RedactsEveryCredentialFieldInAnMCPChild(t *testing.T) {
 			marker := "<redacted>"
 			if format == "" || format == "xml" || format == "raw" {
 				marker = "&lt;redacted&gt;"
+			}
+			if format == "json" {
+				got = strings.NewReplacer(`\u003c`, "<", `\u003e`, ">").Replace(got)
 			}
 			if !strings.Contains(got, marker) {
 				t.Errorf("%s get -o %q should print %s for each credential field (%v):\n%s", r.CLIName, format, marker, paths, got)

@@ -38,19 +38,37 @@ child process checks again before it runs. These now fail over MCP:
 - The commands that print an access token: `auth token` under `platform`,
   `pro` and `protect`, and `pro api-authentication token`, `oauth-token` and
   `keep-alive`.
+- `pro sso-oauth-session-tokens`, which prints the session's access and ID
+  tokens.
 - The commands that mint a credential and print it:
   `pro api-integrations client-credentials` (a new client secret) and
   `protect api-clients apply` (a new API client's password).
+- `pro cloud-distribution-point list`, `create` and `patch`, whose response
+  carries the CloudFront private key that signs download URLs.
+- The commands that set a Jamf Pro login password to a value the model
+  chose: `pro jamf-pro-user-account-settings change-password` and
+  `pro accounts create`, `update` and `apply`.
+- `protect downloads csr` and `websocket-auth`, which write the tenant's
+  `.p12` key material into the server's working directory.
 - `protect action-configs export`, whose document carries each report
   client's header values, such as a SIEM or webhook bearer token. A redacted
   copy would overwrite the real credential when applied.
+- `mcp serve --input-dir ""`, which used to start with no input directory.
 
 `config show` still runs over MCP, with each token, client ID and client
 secret shown as `<redacted>`. `config list --status` checks only the server's
 profile. These Protect commands also run over MCP with the credential shown as
 `<redacted>`: `action-configs get` and `apply` (each report client's header
-values), `data-forwarding get` and `update` (the Sentinel shared key) and
-`api-clients get` (the password). Outside MCP their output is unchanged.
+values, and the userinfo and query of each report-client URL),
+`data-forwarding get` and `update` (the Sentinel shared key) and
+`api-clients get` (the password). Every Classic `get` and `list` prints each
+field that Classic `--set` refuses as a credential as `<redacted>`, in every
+output format, so `-o raw` is not the wire bytes over MCP. Outside MCP their
+output is unchanged. Secrets of the pinned tenant's devices (the LAPS
+password, the recovery lock password, the FileVault personal recovery key)
+and the JCDS upload credentials of `pro jamf-cloud-distribution-service
+renew-credentials` and `pro jamf-cloud-distribution-service-files create` are
+still shown.
 
 **Migration:** if an agent sends file bodies through `run_command` (for
 example `pro scripts create --script-file …`), start the server with

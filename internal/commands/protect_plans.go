@@ -231,6 +231,9 @@ func newProtectPlansDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // the default can never leave the working directory.
 func planConfigProfileFileName(plan string) (string, error) {
 	if plan == "" || plan == "." || plan == ".." || strings.ContainsAny(plan, `/\`) {
+		if registry.InMCPChild() {
+			return "", fmt.Errorf("plan name %q cannot be used as a file name in the working directory, and run_command cannot choose another, so this plan's profile cannot be saved through run_command", plan)
+		}
 		return "", fmt.Errorf("plan name %q cannot be used as a file name in the working directory; pass -O/--output to choose where the profile is saved", plan)
 	}
 	return plan + ".mobileconfig", nil

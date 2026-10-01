@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"slices"
 	"time"
 
@@ -336,6 +337,15 @@ type SchoolClient interface {
 
 	// Client metadata
 	BaseURL() string
+}
+
+// MCPChildEnvVar is set to "1" on every process `mcp serve` spawns. Commands
+// that print a credential the connecting model must not receive read it.
+const MCPChildEnvVar = "JAMF_CLI_MCP"
+
+// InMCPChild reports whether this process was spawned by `mcp serve`.
+func InMCPChild() bool {
+	return os.Getenv(MCPChildEnvVar) == "1"
 }
 
 // CLIContext holds the shared client and output formatter for all commands.

@@ -110,15 +110,24 @@ file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
 `--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`,
 `completion`, the config write subcommands, `config validate`, `doctor`, the
 commands that print an access token (`auth token` under `platform`, `pro` and
-`protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`), the
-commands that mint and print a credential (`pro api-integrations
-client-credentials`, `protect api-clients apply`), `protect action-configs
-export`, every `setup`, both `backup` commands and jcds `sync`; and `pro diff`
-against anything but the pinned profile. `config show` runs with every
-credential field shown as `<redacted>`, and so do the report-client header
-values of `protect action-configs get` and `apply`, the Sentinel shared key of
-`protect data-forwarding get` and `update`, and the password of `protect
-api-clients get`. An administrator who
+`protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`; `pro
+sso-oauth-session-tokens`), the commands that mint and print a credential (`pro
+api-integrations client-credentials`, `protect api-clients apply`), `pro
+cloud-distribution-point list`, `create` and `patch` (a CloudFront private key),
+the commands that set a Jamf Pro login password (`pro
+jamf-pro-user-account-settings change-password`, `pro accounts create`,
+`update`, `apply`), `protect downloads csr` and `websocket-auth` (they write a
+.p12 into the server's directory), `protect action-configs export`, every
+`setup`, both `backup` commands and jcds `sync`; and `pro diff` against anything
+but the pinned profile. `config show` runs with every credential field shown as
+`<redacted>`, and so do the report-client header values and URL userinfo and
+query of `protect action-configs get` and `apply`, the Sentinel shared key of
+`protect data-forwarding get` and `update`, the password of `protect api-clients
+get`, and every Classic `get` and `list` field that Classic `--set` refuses as a
+credential. Secrets of the pinned tenant's devices (the LAPS password, the
+recovery lock password, the FileVault personal recovery key) and the JCDS upload
+credentials are shown. A relative read path resolves against the server's start
+directory, so pass an absolute one. An administrator who
 starts the server with `--input-dir <dir>` allows the read-side flags, and a
 `pro diff` side that is a directory, for existing paths inside that directory;
 `run_command`'s description names it.
