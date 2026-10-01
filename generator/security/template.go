@@ -40,8 +40,8 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "{{.Name}}",
-		Short: "Manage {{.Name}} (Security Cloud · Radar API)",
+		Use:   {{goStr .Name}},
+		Short: {{goStr (print "Manage " .Name " (Security Cloud · Radar API)")}},
 		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 {{- range .Operations }}
@@ -71,7 +71,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- end }}
 	cmd := &cobra.Command{
-		Use:   "{{.Name}}",
+		Use:   {{goStr .Name}},
 		Short: {{printf "%q" .Short}},
 {{- $ann := opAnnotations . }}{{ if $ann }}
 		Annotations: {{ $ann }},
@@ -105,7 +105,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .IsDestructive }}
 {{- if .HasBody }}
 			if body == nil {
-				return fmt.Errorf("{{.Name}} requires --from-file, piped stdin or --set specifying a scope; refusing an unscoped {{.Name}}")
+				return fmt.Errorf({{goStr (print .Name " requires --from-file, piped stdin or --set specifying a scope; refusing an unscoped " .Name)}})
 			}
 {{- end }}
 {{- end }}
@@ -126,7 +126,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				if page >= maxPages {
-					return fmt.Errorf("{{.Name}}: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
+					return fmt.Errorf({{goStr (print .Name ": exceeded %d pages without reaching the end; the server may not be honoring the page parameter")}}, maxPages)
 				}
 				q := url.Values{}
 				q.Set("page", fmt.Sprintf("%d", page))
@@ -134,23 +134,23 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
 				if {{.Var}} {
-					q.Set("{{.Name}}", "true")
+					q.Set({{goStr .Name}}, "true")
 				}
 {{- else if eq .GoType "[]string" }}
 				for _, v := range {{.Var}} {
-					q.Add("{{.Name}}", v)
+					q.Add({{goStr .Name}}, v)
 				}
 {{- else }}
 				if {{.Var}} != "" {
-					q.Set("{{.Name}}", {{.Var}})
+					q.Set({{goStr .Name}}, {{.Var}})
 				}
 {{- end }}
 {{- end }}
 				var pageResult struct {
-					Items []json.RawMessage ` + "`json:\"{{.UnwrapArrayKey}}\"`" + `
+					Items []json.RawMessage {{goStructTag .UnwrapArrayKey}}
 				}
 				if err := cliCtx.SecurityClient.DoExpect{{$.Scope}}(cmd.Context(), {{printf "%q" .Method}}, path+"?"+q.Encode(), body, &pageResult); err != nil {
-					return fmt.Errorf("{{.Name}}: %w", err)
+					return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 				}
 				aggregated = append(aggregated, pageResult.Items...)
 				if len(pageResult.Items) < pageSize {
@@ -168,15 +168,15 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
 			if {{.Var}} {
-				q.Set("{{.Name}}", "true")
+				q.Set({{goStr .Name}}, "true")
 			}
 {{- else if eq .GoType "[]string" }}
 			for _, v := range {{.Var}} {
-				q.Add("{{.Name}}", v)
+				q.Add({{goStr .Name}}, v)
 			}
 {{- else }}
 			if {{.Var}} != "" {
-				q.Set("{{.Name}}", {{.Var}})
+				q.Set({{goStr .Name}}, {{.Var}})
 			}
 {{- end }}
 {{- end }}
@@ -206,7 +206,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 			var result any
 			if err := cliCtx.SecurityClient.DoExpect{{$.Scope}}(cmd.Context(), {{printf "%q" .Method}}, path, body, &result); err != nil {
-				return fmt.Errorf("{{.Name}}: %w", err)
+				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}
 			if result == nil {
 				return nil
@@ -237,11 +237,11 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
-	cmd.Flags().BoolVar(&{{.Var}}, "{{.FlagName}}", false, {{printf "%q" .Description}})
+	cmd.Flags().BoolVar(&{{.Var}}, {{goStr .FlagName}}, false, {{printf "%q" .Description}})
 {{- else if eq .GoType "[]string" }}
-	cmd.Flags().StringArrayVar(&{{.Var}}, "{{.FlagName}}", nil, {{printf "%q" .Description}})
+	cmd.Flags().StringArrayVar(&{{.Var}}, {{goStr .FlagName}}, nil, {{printf "%q" .Description}})
 {{- else }}
-	cmd.Flags().StringVar(&{{.Var}}, "{{.FlagName}}", "", {{printf "%q" .Description}})
+	cmd.Flags().StringVar(&{{.Var}}, {{goStr .FlagName}}, "", {{printf "%q" .Description}})
 {{- end }}
 {{- end }}
 	return cmd

@@ -15,9 +15,9 @@ import (
 // Baked in at generation time rather than loaded at runtime, so the CLI binary
 // carries no schema and no parser for one. The same choice the modern Pro
 // generator makes for its --set field-type map.
-func bodySpecLiteral(r ClassicResource) string {
+func bodySpecLiteral(r ClassicResource) (string, error) {
 	if !r.HasBodySchema() {
-		return ""
+		return "", nil
 	}
 
 	var b strings.Builder
@@ -27,11 +27,7 @@ func bodySpecLiteral(r ClassicResource) string {
 
 	scaffold, err := r.ScaffoldXML()
 	if err != nil {
-		// Unreachable for a resource that passed HasBodySchema, and rendered as
-		// a compile error rather than an empty scaffold if it ever happens:
-		// `make generate` exiting 0 with a silently empty --scaffold is the
-		// failure mode this whole feature exists to remove.
-		return fmt.Sprintf("classicBodySpec{} /* ERROR rendering scaffold: %v */", err)
+		return "", fmt.Errorf("classic resource %q: %w", r.CLIName, err)
 	}
 	fmt.Fprintf(&b, "\tScaffold: %s,\n", backquote(scaffold))
 
@@ -73,7 +69,7 @@ func bodySpecLiteral(r ClassicResource) string {
 	}
 
 	b.WriteString("}")
-	return b.String()
+	return b.String(), nil
 }
 
 // backquote renders a string as a Go raw string literal, falling back to an
