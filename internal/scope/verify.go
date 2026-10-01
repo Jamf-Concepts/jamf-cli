@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -42,7 +41,7 @@ func VerifyScopeWrite(ctx context.Context, client registry.HTTPClient, res Resou
 	// The member the command changed, reported in its own words: absent when
 	// it should be there is usually an identifier that named no record, which
 	// is a different diagnosis from a category the server refused to keep.
-	if items := readScopeItems(got, touchedSection, touched.FlagName); itemPresent(items, touched.Name) != expectPresent {
+	if items := readScopeItems(got, touchedSection, touched.FlagName); targetPresent(items, touched) != expectPresent {
 		return silentDropError(res.SingularKey, touchedSection, touched.FlagName, touched.display(), expectPresent)
 	}
 
@@ -77,7 +76,7 @@ func DiffScope(sent, got *ScopeXML, touchedSection string, touched ScopeTarget) 
 			var missing []string
 			for _, item := range before.Items {
 				label := itemLabel(item)
-				if section == touchedSection && flag == touched.FlagName && strings.EqualFold(label, touched.Name) {
+				if section == touchedSection && flag == touched.FlagName && touched.matches(item) {
 					continue
 				}
 				if !itemPresent(after, label) {
@@ -109,13 +108,21 @@ func itemLabel(item NamedItem) string {
 // it was sent (a member sent by name comes back with an ID, and a network
 // segment gains a uid), so equality of the elements is not the test.
 func itemPresent(items *ScopeItemSlice, value string) bool {
-	if items == nil || value == "" {
+	if value == "" {
+		return false
+	}
+	return targetPresent(items, ScopeTarget{Name: value})
+}
+
+// targetPresent is itemPresent for the member a command touched, matched as
+// ScopeTarget.matches matches it: a resolved device by its ID alone, so a
+// different device whose name is the same digits cannot stand in for it.
+func targetPresent(items *ScopeItemSlice, t ScopeTarget) bool {
+	if items == nil || (t.Device == nil && t.Name == "") {
 		return false
 	}
 	for _, item := range items.Items {
-		if strings.EqualFold(item.Name, value) ||
-			item.ID == value ||
-			strings.EqualFold(item.UDID, value) {
+		if t.matches(item) {
 			return true
 		}
 	}

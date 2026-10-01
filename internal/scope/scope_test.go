@@ -1376,3 +1376,116 @@ func TestResolveDeviceTarget_NonDeviceFlagIsUntouched(t *testing.T) {
 		t.Errorf("got %+v, %v", got, err)
 	}
 }
+
+// A resolved device is matched by its ID alone. Another device whose name is
+// the same digits must not count as already present on add, be removed with it
+// on remove, or stand in for it in the verification read.
+func TestResolvedDeviceIsMatchedByIDOnly(t *testing.T) {
+	resolved := ScopeTarget{
+		FlagName: flagComputer,
+		Name:     "107",
+		Input:    "FWWT058JG5",
+		Device:   &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5"},
+	}
+	namesake := NamedItem{ID: "31", Name: "107"}
+
+	s := &ScopeXML{}
+	s.Computers.Items = []NamedItem{namesake}
+	if !AddTargetToScope(s, SectionTarget, resolved) {
+		t.Fatal(`add treated computer 31, named "107", as computer 107 already in scope`)
+	}
+	if len(s.Computers.Items) != 2 || s.Computers.Items[1].ID != "107" {
+		t.Fatalf("want the namesake kept and id 107 appended: %+v", s.Computers.Items)
+	}
+	if AddTargetToScope(s, SectionTarget, resolved) {
+		t.Error("add of a member already present by ID must be a no-op")
+	}
+
+	if !RemoveTargetFromScope(s, SectionTarget, resolved) {
+		t.Fatal("remove did not find computer 107")
+	}
+	if len(s.Computers.Items) != 1 || s.Computers.Items[0] != namesake {
+		t.Fatalf(`remove took the computer named "107" as well: %+v`, s.Computers.Items)
+	}
+
+	if targetPresent(&s.Computers, resolved) {
+		t.Error(`verification counted the computer named "107" as computer 107`)
+	}
+
+	// A target that did not resolve (remove's fallback) still matches by name,
+	// ID or UDID, so a member whose inventory record is gone can be removed.
+	literal := ScopeTarget{FlagName: flagComputer, Name: "107"}
+	if !targetPresent(&s.Computers, literal) {
+		t.Error("an unresolved literal value should still match a member by name")
+	}
+}
+
+// DiffScope leaves out only the touched member itself, not a different member
+// whose name is the touched device's ID.
+func TestDiffScope_ResolvedTouchedMemberIsExcludedByID(t *testing.T) {
+	touched := ScopeTarget{FlagName: flagComputer, Name: "107", Device: &resolve.DeviceIdentifiers{ID: "107"}}
+	sent := &ScopeXML{}
+	sent.Computers.Items = []NamedItem{{ID: "31", Name: "107"}, {ID: "107"}}
+	got := &ScopeXML{}
+	drops := DiffScope(sent, got, SectionTarget, touched)
+	if len(drops) != 1 || len(drops[0].Missing) != 1 || drops[0].Missing[0] != "107" {
+		t.Fatalf(`want the dropped namesake (label "107") reported and the touched member left out: %+v`, drops)
+	}
+}
+
+// The command, not just the helpers, must match a resolved device by ID: a
+// remove of computer 107 on a scope holding only computer 31, which is named
+// "107", finds nothing and sends no write.
+func TestScopeRemoveCommand_DoesNotTakeANamesakeOfTheResolvedID(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5"}, nil
+	})
+	client := &mockPutClient{getBody: `<policy><general><id>5</id><name>P</name></general><scope>` +
+		`<computers><computer><id>31</id><name>107</name></computer></computers></scope></policy>`}
+	res := Resource{APIPath: "policies", SingularKey: "policy", CLIName: "classic-policies"}
+	cmd := newScopeRemoveCmd(&registry.CLIContext{Client: client}, res)
+	cmd.SetArgs([]string{"5", "--computer", "FWWT058JG5"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range client.requests {
+		if !strings.HasPrefix(r, "GET ") {
+			t.Fatalf(`remove of computer 107 wrote the scope, taking computer 31 named "107": %v`, client.requests)
+		}
+	}
+}
+
+// And add of computer 107 is not a no-op because computer 31 is named "107".
+func TestScopeAddCommand_ANamesakeOfTheResolvedIDIsNotAlreadyPresent(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5"}, nil
+	})
+	client := &mockPutClient{getBody: `<policy><general><id>5</id><name>P</name></general><scope>` +
+		`<computers><computer><id>31</id><name>107</name></computer></computers></scope></policy>`}
+	res := Resource{APIPath: "policies", SingularKey: "policy", CLIName: "classic-policies"}
+	cmd := newScopeAddCmd(&registry.CLIContext{Client: client, Output: &captureFormatter{}}, res)
+	cmd.SetArgs([]string{"5", "--computer", "FWWT058JG5"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	// The canned GET never shows computer 107, so the verification read must
+	// report it missing rather than accept computer 31 named "107" in its place.
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "is not in the target scope") {
+		t.Errorf(`verification took computer 31 named "107" for computer 107: %v`, err)
+	}
+
+	var put string
+	for i, r := range client.requests {
+		if strings.HasPrefix(r, "PUT ") {
+			put = client.bodies[i]
+		}
+	}
+	if put == "" {
+		t.Fatalf(`add of computer 107 was skipped as already present because computer 31 is named "107": %v`, client.requests)
+	}
+	if !strings.Contains(put, "<id>107</id>") || !strings.Contains(put, "<id>31</id>") {
+		t.Errorf("want computer 107 added beside computer 31:\n%s", put)
+	}
+}

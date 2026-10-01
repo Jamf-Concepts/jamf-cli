@@ -334,15 +334,21 @@ func silentDropError(singularKey, section, flagName, itemName string, expectedPr
 // used to carry is gone, the server keeping that element in step with
 // <limitations><user_groups> by itself (see ScopeXML).
 func AddToScope(s *ScopeXML, section, flagName, name string) bool {
+	return AddTargetToScope(s, section, ScopeTarget{FlagName: flagName, Name: name})
+}
+
+// AddTargetToScope is AddToScope for a ScopeTarget, so a device that
+// resolveDeviceTarget resolved is matched by its ID alone (see
+// ScopeTarget.matches).
+func AddTargetToScope(s *ScopeXML, section string, t ScopeTarget) bool {
+	flagName, name := t.FlagName, t.Name
 	items := getOrCreateScopeItems(s, section, flagName)
 	if items == nil {
 		return false
 	}
 
 	for _, item := range items.Items {
-		if strings.EqualFold(item.Name, name) ||
-			(item.ID != "" && item.ID == name) ||
-			(item.UDID != "" && strings.EqualFold(item.UDID, name)) {
+		if t.matches(item) {
 			return false
 		}
 	}
@@ -363,7 +369,13 @@ func AddToScope(s *ScopeXML, section, flagName, name string) bool {
 // RemoveFromScope removes a named item from the given scope section. Returns
 // true if removed, false if not found (idempotent no-op).
 func RemoveFromScope(s *ScopeXML, section, flagName, name string) bool {
-	return removeNamedItem(readScopeItems(s, section, flagName), name)
+	return RemoveTargetFromScope(s, section, ScopeTarget{FlagName: flagName, Name: name})
+}
+
+// RemoveTargetFromScope is RemoveFromScope for a ScopeTarget, matched as
+// AddTargetToScope matches.
+func RemoveTargetFromScope(s *ScopeXML, section string, t ScopeTarget) bool {
+	return removeNamedItem(readScopeItems(s, section, t.FlagName), t)
 }
 
 // OutputScope writes the scope to the output formatter. The column formats get
@@ -453,16 +465,14 @@ func FlattenScope(s *ScopeXML) []map[string]any {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-func removeNamedItem(items *ScopeItemSlice, name string) bool {
+func removeNamedItem(items *ScopeItemSlice, t ScopeTarget) bool {
 	if items == nil {
 		return false
 	}
 	var keep []NamedItem
 	found := false
 	for _, item := range items.Items {
-		if strings.EqualFold(item.Name, name) ||
-			(item.ID != "" && item.ID == name) ||
-			(item.UDID != "" && strings.EqualFold(item.UDID, name)) {
+		if t.matches(item) {
 			found = true
 			continue
 		}

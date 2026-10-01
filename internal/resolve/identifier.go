@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -38,29 +39,34 @@ type identifierSpec struct {
 	// fields are the RSQL fields holding the name, UDID and serial number.
 	nameField, udidField, serialField string
 	parse                             func(map[string]any) (*DeviceIdentifiers, error)
+	// readPrivilege is the Jamf Pro privilege the lookup needs, named in the
+	// hint on a 401 or 403.
+	readPrivilege string
 }
 
 // Both endpoints are published on the platform gateway; the per-ID inventory
 // paths the other resolvers use are not all, so the ID goes through the filter
 // as well.
 var computerIdentifierSpec = identifierSpec{
-	label:       "computer",
-	path:        "/v4/computers-inventory?section=GENERAL&section=HARDWARE",
-	idField:     "id",
-	nameField:   "general.name",
-	udidField:   "udid",
-	serialField: "hardware.serialNumber",
-	parse:       parseComputerInventory,
+	label:         "computer",
+	path:          "/v4/computers-inventory?section=GENERAL&section=HARDWARE",
+	idField:       "id",
+	nameField:     "general.name",
+	udidField:     "udid",
+	serialField:   "hardware.serialNumber",
+	parse:         parseComputerInventory,
+	readPrivilege: "Read Computers",
 }
 
 var mobileIdentifierSpec = identifierSpec{
-	label:       "mobile device",
-	path:        "/v2/mobile-devices/detail?section=GENERAL&section=HARDWARE",
-	idField:     "mobileDeviceId",
-	nameField:   "displayName",
-	udidField:   "udid",
-	serialField: "serialNumber",
-	parse:       parseMobileDevice,
+	label:         "mobile device",
+	path:          "/v2/mobile-devices/detail?section=GENERAL&section=HARDWARE",
+	idField:       "mobileDeviceId",
+	nameField:     "displayName",
+	udidField:     "udid",
+	serialField:   "serialNumber",
+	parse:         parseMobileDevice,
+	readPrivilege: "Read Mobile Devices",
 }
 
 // identifierPageSize bounds the lookup. One exact identifier names a handful of
@@ -111,7 +117,7 @@ func resolveIdentifier(ctx context.Context, client registry.HTTPClient, spec ide
 
 	records, _, err := fetchInventoryPage(ctx, client, path)
 	if err != nil {
-		return nil, fmt.Errorf("looking up %s %q: %w", spec.label, value, err)
+		return nil, lookupError(spec, value, err)
 	}
 
 	var matches []*DeviceIdentifiers
@@ -140,6 +146,23 @@ func resolveIdentifier(ctx context.Context, client registry.HTTPClient, spec ide
 	}
 	return nil, fmt.Errorf("%q matches %d %ss: %s; pass the numeric ID of the one you mean",
 		value, len(matches), spec.label, strings.Join(described, ", "))
+}
+
+// lookupError wraps a failed inventory lookup. A 401 or 403 gets a hint naming
+// the read privilege. Resolving a device is a new inventory read, so an API
+// client that could scope a computer by numeric ID before now fails here, and
+// the bare status does not say which privilege is missing.
+func lookupError(spec identifierSpec, value string, err error) error {
+	msg := fmt.Sprintf("looking up %s %q", spec.label, value)
+	var ee *exitcode.Error
+	if !errors.As(err, &ee) || (ee.Code != exitcode.PermissionDenied && ee.Code != exitcode.Authentication) {
+		return fmt.Errorf("%s: %w", msg, err)
+	}
+	hint := fmt.Sprintf("resolving a %s to its ID reads inventory, so the API client needs %s", spec.label, spec.readPrivilege)
+	if ee.Hint != "" {
+		hint += "; " + ee.Hint
+	}
+	return &exitcode.Error{Code: ee.Code, Message: msg, Err: err, Hint: hint, Details: ee.Details}
 }
 
 // matchedBy names the identifier a record matched value on, or "" for none.

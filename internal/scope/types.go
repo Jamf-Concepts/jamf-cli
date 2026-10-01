@@ -56,6 +56,28 @@ func (t ScopeTarget) display() string {
 	return fmt.Sprintf("%q (id %s, %s)", t.Input, t.Device.ID, t.Device.Name)
 }
 
+// matches reports whether item is the member t names. A resolved device
+// (Device set) is matched by its ID alone: Name then holds that ID, and also
+// comparing it against each member's name and UDID would let a different device
+// whose name is the same digits count as "already in scope" on add, and be
+// removed alongside it on remove. Anything else matches by name, ID or UDID,
+// since the server augments what it was sent (a member sent by name comes back
+// with an ID).
+func (t ScopeTarget) matches(item NamedItem) bool {
+	if t.Device != nil {
+		return item.ID == t.Device.ID
+	}
+	return namedItemMatches(item, t.Name)
+}
+
+// namedItemMatches matches a member by name or UDID, case-insensitively, or by
+// ID exactly.
+func namedItemMatches(item NamedItem, value string) bool {
+	return strings.EqualFold(item.Name, value) ||
+		(item.ID != "" && item.ID == value) ||
+		(item.UDID != "" && strings.EqualFold(item.UDID, value))
+}
+
 // ─── XML types ─────────────────────────────────────────────────────────────────
 // These model the Classic API scope XML structure. Custom XML marshalers on the
 // slice types handle the parent/child nesting (e.g. <computer_groups> wrapping

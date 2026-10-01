@@ -120,7 +120,7 @@ func newScopeAddCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 				return err
 			}
 
-			if !AddToScope(s, section, target.FlagName, target.Name) {
+			if !AddTargetToScope(s, section, target) {
 				fmt.Fprintf(os.Stderr, "%s %s already in %s scope of %s\n",
 					target.FlagName, target.display(), section, ref)
 				return nil
@@ -179,7 +179,7 @@ func newScopeRemoveCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 				return err
 			}
 
-			if !RemoveFromScope(s, section, target.FlagName, target.Name) {
+			if !RemoveTargetFromScope(s, section, target) {
 				fmt.Fprintf(os.Stderr, "%s %s not found in %s scope of %s\n",
 					target.FlagName, target.display(), section, ref)
 				return nil

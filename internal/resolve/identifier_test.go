@@ -6,8 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 func inventoryPage(records ...string) string {
@@ -123,5 +128,55 @@ func TestResolveMobileDeviceIdentifier_DetailShape(t *testing.T) {
 		if !strings.Contains(client.calls[0], "section=HARDWARE") {
 			t.Errorf("%s: the serial is only populated with section=HARDWARE: %s", value, client.calls[0])
 		}
+	}
+}
+
+// statusErrClient answers every request the way client.Do answers a non-2xx:
+// with an *exitcode.Error and no response.
+type statusErrClient struct{ err error }
+
+func (c statusErrClient) Do(context.Context, string, string, io.Reader) (*http.Response, error) {
+	return nil, c.err
+}
+
+// A 401 or 403 on the lookup names the read privilege the resolution needs,
+// keeps the exit code, and keeps the hint the client already attached.
+func TestResolveDeviceIdentifier_PermissionFailureNamesThePrivilege(t *testing.T) {
+	cases := []struct {
+		resolve   func(context.Context, registry.HTTPClient, string) (*DeviceIdentifiers, error)
+		code      int
+		privilege string
+	}{
+		{ResolveComputerIdentifier, exitcode.PermissionDenied, "Read Computers"},
+		{ResolveMobileDeviceIdentifier, exitcode.PermissionDenied, "Read Mobile Devices"},
+		{ResolveComputerIdentifier, exitcode.Authentication, "Read Computers"},
+	}
+	for _, tc := range cases {
+		upstream := exitcode.New(tc.code, "permission denied (HTTP 403)").WithHint("upstream hint")
+		_, err := tc.resolve(context.Background(), statusErrClient{upstream}, "5")
+		var ee *exitcode.Error
+		if !errors.As(err, &ee) {
+			t.Fatalf("want an *exitcode.Error, got %T %v", err, err)
+		}
+		if ee.Code != tc.code {
+			t.Errorf("exit code = %d, want %d", ee.Code, tc.code)
+		}
+		if !strings.Contains(ee.Hint, tc.privilege) || !strings.Contains(ee.Hint, "upstream hint") {
+			t.Errorf("hint %q should name %s and keep the upstream hint", ee.Hint, tc.privilege)
+		}
+		if !strings.Contains(err.Error(), `looking up`) || !strings.Contains(err.Error(), "HTTP 403") {
+			t.Errorf("message should say what was looked up and keep the status: %v", err)
+		}
+		if errors.Is(err, ErrNoDeviceMatch) {
+			t.Error("a permission failure must not read as no match")
+		}
+	}
+
+	// Any other failure is wrapped as before, with no privilege hint.
+	other := exitcode.New(exitcode.General, "server error (HTTP 500)")
+	_, err := ResolveComputerIdentifier(context.Background(), statusErrClient{other}, "5")
+	var ee *exitcode.Error
+	if errors.As(err, &ee) && strings.Contains(ee.Hint, "Read Computers") {
+		t.Errorf("a 5xx must not be blamed on a missing privilege: %q", ee.Hint)
 	}
 }
