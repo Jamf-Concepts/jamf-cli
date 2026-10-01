@@ -27,6 +27,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/security"
@@ -256,7 +257,7 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 	if body != nil {
 		data, err := io.ReadAll(io.LimitReader(body, 10<<20)) // 10 MB limit
 		if err == nil && len(data) > 0 {
-			fmt.Fprintf(os.Stderr, "[dry-run] Request body:\n%s\n", string(data))
+			fmt.Fprintf(os.Stderr, "[dry-run] Request body:\n%s\n", redact.Body(data))
 		}
 	}
 
@@ -2537,7 +2538,7 @@ func secretShapedAssignment(v string) bool {
 	// the doc comment claimed a transition rule. Inserting one only at
 	// lower-to-upper then misses the other end of a run: SECRETValue keeps V
 	// attached to SECRET, because V follows an uppercase T.
-	for _, seg := range splitIdentifier(key) {
+	for _, seg := range redact.Words(key) {
 		if secretFlagSegments[seg] {
 			return true
 		}
@@ -2552,7 +2553,7 @@ func secretShapedAssignment(v string) bool {
 	// redacted a value that is no secret. Over-redaction is the right bias on
 	// the value side — a false negative prints a credential — but it is not a
 	// reason to stop distinguishing.
-	for _, seg := range splitIdentifier(key) {
+	for _, seg := range redact.Words(key) {
 		for word := range secretFlagSegments {
 			if strings.HasSuffix(seg, word) {
 				return true
@@ -2560,32 +2561,6 @@ func secretShapedAssignment(v string) bool {
 		}
 	}
 	return false
-}
-
-// splitIdentifier lowercases key and splits it into words, on "." "-" "_" and
-// on camelCase boundaries.
-//
-// A boundary sits before an uppercase rune when the previous rune is lowercase
-// or a digit (clientSecret -> client, secret), and also when the previous rune
-// is uppercase and the NEXT is lowercase (SECRETValue -> secret, value). The
-// second case is what carries an env-style prefix with a camel tail; without
-// it, a run of capitals swallows the word that follows it.
-func splitIdentifier(key string) []string {
-	runes := []rune(key)
-	var b strings.Builder
-	for i, r := range runes {
-		if unicode.IsUpper(r) && i > 0 {
-			prev := runes[i-1]
-			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
-			if !unicode.IsUpper(prev) || nextLower {
-				b.WriteByte('-')
-			}
-		}
-		b.WriteRune(unicode.ToLower(r))
-	}
-	return strings.FieldsFunc(b.String(), func(r rune) bool {
-		return r == '.' || r == '-' || r == '_'
-	})
 }
 
 // setPairSplitByASpace reports whether a stray positional on cmd is most likely

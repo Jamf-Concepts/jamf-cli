@@ -24,6 +24,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
 	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
+	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -157,7 +158,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		logHeaders(os.Stderr, req.Header, true)
 	}
 	if c.verboseLevel >= 3 {
-		logBody(os.Stderr, redactBodyForLog(bodyData))
+		logBody(os.Stderr, redact.Body(bodyData))
 	}
 
 	resp, err := c.doWithRetry(ctx, req, bodyData)
@@ -179,7 +180,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 		_ = resp.Body.Close()
 		if c.verboseLevel >= 3 {
-			logBody(os.Stderr, redactBodyForLog(body))
+			logBody(os.Stderr, redact.Body(body))
 		}
 		return nil, httpStatusError(resp.StatusCode, method, path, body)
 	}
@@ -187,7 +188,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	if c.verboseLevel >= 3 {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 		resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
-		logBody(os.Stderr, redactBodyForLog(preview))
+		logBody(os.Stderr, redact.Body(preview))
 	}
 
 	return resp, nil
@@ -282,7 +283,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 			_ = resp.Body.Close()
 			if c.verboseLevel >= 3 {
-				logBody(os.Stderr, redactBodyForLog(respBody))
+				logBody(os.Stderr, redact.Body(respBody))
 			}
 			if resp.StatusCode == http.StatusTooManyRequests {
 				return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited (HTTP 429) after %d attempt(s): %s", attempt+1, string(respBody)))
@@ -293,7 +294,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		if c.verboseLevel >= 3 {
 			preview, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 			resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
-			logBody(os.Stderr, redactBodyForLog(preview))
+			logBody(os.Stderr, redact.Body(preview))
 		}
 
 		return resp, nil
@@ -458,88 +459,16 @@ func LogBody(w io.Writer, data []byte) {
 	logBody(w, data)
 }
 
-// tokenFieldRe matches JSON string values for sensitive auth fields so they can
-// be replaced with "[REDACTED]" before logging. Handles access_token,
-// refresh_token, and id_token — the fields returned by OAuth2 token endpoints.
-var tokenFieldRe = regexp.MustCompile(`("(?:access_token|refresh_token|id_token)"\s*:\s*)"[^"]*"`)
+// RedactTokenBody, RedactCredentialBody and RedactBodyForLog are one rule,
+// redact.Body, under the names this package's callers already use.
+func RedactTokenBody(data []byte) []byte { return redact.Body(data) }
 
-// RedactTokenBody replaces OAuth2 token values in raw JSON with "[REDACTED]"
-// so response bodies are safe to log at -vvv. Non-JSON data is returned as-is.
-func RedactTokenBody(data []byte) []byte {
-	if !bytes.Contains(data, []byte("access_token")) &&
-		!bytes.Contains(data, []byte("refresh_token")) &&
-		!bytes.Contains(data, []byte("id_token")) {
-		return data
-	}
-	return tokenFieldRe.ReplaceAll(data, []byte(`$1"[REDACTED]"`))
-}
+// RedactCredentialBody is redact.Body.
+func RedactCredentialBody(data []byte) []byte { return redact.Body(data) }
 
-// credentialNamePattern is the field-name alternation the three body redactors
-// below share. Deliberately name-based and generous rather than schema-aware:
-// a body reaches the log as bytes with no schema attached, and over-redacting a
-// log line costs nothing while under-redacting one writes a secret to stderr
-// and into whatever collects it.
-const credentialNamePattern = `[a-zA-Z0-9_.\[\]-]*(?:client[_-]?secret|password|passwd|passphrase|secret|private[_-]?key|encryption[_-]?key|recovery[_-]?key|signing[_-]?key|api[_-]?key|service[_-]?token|shared[_-]?secret)[a-zA-Z0-9_.\[\]-]*`
-
-var (
-	// credentialJSONFieldRe matches a JSON string value whose key names a
-	// credential. Covers both spellings a Jamf body uses (clientSecret,
-	// client_secret) and the nested Classic ones.
-	credentialJSONFieldRe = regexp.MustCompile(`(?i)("` + credentialNamePattern + `"\s*:\s*)"(?:[^"\\]|\\.)*"`)
-
-	// credentialFormFieldRe matches an application/x-www-form-urlencoded
-	// parameter whose name names a credential. This is the one that mattered:
-	// the SDK's clientcredentials.Config uses the auto-detect AuthStyle, which
-	// retries with AuthStyleInParams on any first-attempt error — so a rotated
-	// secret, a WAF 403 or a 5xx on the first token attempt is followed by one
-	// whose *body* carries client_secret in plaintext.
-	credentialFormFieldRe = regexp.MustCompile(`(?i)(^|&)(` + credentialNamePattern + `)=[^&]*`)
-
-	// credentialXMLElementRe matches a Classic API element whose tag names a
-	// credential — a distribution point, SMTP server, LDAP server, directory
-	// binding, VPP account or disk-encryption configuration all carry one.
-	//
-	// The text run is [^<]* and the closing tag is matched generically rather
-	// than by backreference, which RE2 does not have. That is exact for a leaf
-	// element, which is what every credential field in the Classic schemas is:
-	// the run stops at the next '<', so it cannot swallow a sibling.
-	credentialXMLElementRe = regexp.MustCompile(`(?i)<(` + credentialNamePattern + `)(\s[^>]*)?>([^<]*)</[^>]*>`)
-)
-
-// RedactCredentialBody replaces credential values in a request or response body
-// with "[REDACTED]", across the three encodings this CLI logs: JSON, form-
-// encoded and Classic XML.
-//
-// Request bodies were logged verbatim at -vvv while responses were redacted,
-// which is the wrong way round for the one body that is guaranteed to carry a
-// secret — the token exchange's. Bodies also carry credentials on the way in by
-// design: the credential policy routes an SMTP or LDAP account password through
-// --from-file precisely so it stays out of argv, and logging it here would put
-// it back in the CI job output.
-//
-// Applied to responses too, composed with RedactTokenBody: a Classic read of a
-// distribution point or an SMTP server returns its password field.
-func RedactCredentialBody(data []byte) []byte {
-	if len(data) == 0 {
-		return data
-	}
-	out := credentialJSONFieldRe.ReplaceAll(data, []byte(`$1"[REDACTED]"`))
-	out = credentialXMLElementRe.ReplaceAll(out, []byte(`<${1}${2}>[REDACTED]</${1}>`))
-	out = credentialFormFieldRe.ReplaceAll(out, []byte(`${1}${2}=[REDACTED]`))
-	return out
-}
-
-// redactBodyForLog is what every -vvv body log goes through.
-func redactBodyForLog(data []byte) []byte {
-	return RedactCredentialBody(RedactTokenBody(data))
-}
-
-// RedactBodyForLog is the exported alias of redactBodyForLog, for transports
-// wrapped outside this package (the Platform Gateway client wired through the
-// SDK).
-func RedactBodyForLog(data []byte) []byte {
-	return redactBodyForLog(data)
-}
+// RedactBodyForLog is redact.Body, for transports wrapped outside this package
+// (the Platform Gateway client wired through the SDK).
+func RedactBodyForLog(data []byte) []byte { return redact.Body(data) }
 
 // logHeaders prints HTTP headers to w in sorted order. When redactAuth is true,
 // the Authorization header value is replaced with "[redacted]".

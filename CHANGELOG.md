@@ -11,6 +11,26 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — `-vvv` and `--dry-run` redact token, PIN, passcode and keystore fields
+
+The `-vvv` body log redacted passwords, secrets and the OAuth `access_token`,
+and missed every other credential a body carries: `token`, `pin`,
+`unlockToken`, `accessToken`, `serverToken`, `bootstrapToken`, `encodedToken`,
+`identityKeystore`, `gsxKeystore.keystoreBytes`, an XML `<token>` and a form
+`token=`. A field is now redacted when its name, split on camelCase and
+`_ - .`, ends in `token`, `pin`, `passcode`, `keystore`, `keystore bytes`,
+`authorization` or `authorization header`, or when it holds one of the old
+credential words anywhere. A field that only starts with one of these words is
+left alone, so `tokenUrl`, `tokenEndpointAuthMethod`, `token_type`, `pinned`,
+`keystoreFileName` and `authorizationEndpoint` still read in full. A numeric
+value is redacted as well as a string; a boolean is not.
+
+`--dry-run` printed request bodies with no redaction at all, on Jamf Pro and
+Classic writes, on Platform gateway writes (including the gateway-served
+Security Cloud commands) and on Security Cloud Radar writes. All three previews
+now go through the same redactor as `-vvv`. A script that read a credential
+back out of a `--dry-run` preview gets `[REDACTED]`.
+
 ### Behaviour — the MCP `list_commands` tool browses and searches the catalog
 
 `list_commands` returned the whole catalog in one result. That result was
