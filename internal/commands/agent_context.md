@@ -103,10 +103,43 @@ tools:
   directory `jamf-cli config set-report-dir` designates, and return its path and
   size. Never the HTML.
 
-The server is pinned to the profile it was launched with; per-command
-credential- and target-selecting flags are rejected, as are `multi`, the config
-write subcommands and the two `backup` commands, which choose their own target
-or destination.
+The server is pinned to the profile it was launched with, and `run_command` is
+judged on the command and flags your arguments resolve to, aliases included.
+Rejected: credential- and target-selecting flags; flags whose value is a local
+file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
+`--dir` and the like; `-o/--output` as a format is fine); body logging (`-vvv`
+or a `--verbose` level of 3 or more; `-vv` and less are fine); `multi`, `mcp`,
+`completion`, the config write subcommands, `config validate`, `doctor`, the
+commands that print an access token (`auth token` under `platform`, `pro` and
+`protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`; `pro
+sso-oauth-session-tokens`), the commands that mint and print a credential (`pro
+api-integrations client-credentials`, `protect api-clients apply`), `pro
+cloud-distribution-point create` and `patch` (a CloudFront private key),
+the commands that set a Jamf Pro login password (`pro
+jamf-pro-user-account-settings change-password`, `pro accounts create`,
+`update`, `apply`), `protect downloads csr` and `websocket-auth` (they write a
+.p12 into the server's directory), `protect action-configs export`, every
+`setup`, both `backup` commands and jcds `sync`; and `pro diff` against anything
+but the pinned profile. `config show` runs with every credential field shown as
+`<redacted>`, and so do the report-client header values and URL userinfo and
+query of `protect action-configs get` and `apply`, the Sentinel shared key of
+`protect data-forwarding get` and `update`, the password of `protect api-clients
+get`, the CloudFront private key and CDN password of `pro
+cloud-distribution-point list`, and every Classic field that Classic `--set` refuses as a credential,
+in `get`, `list` and the old and new values `pro diff` reports. Configuration
+profile payloads, in a Classic profile `get` or `list`, `pro diff` and `pro
+blueprints components configuration-profile --id/--name`, are redacted by key
+name: the value of a key named `Challenge`, or ending in any case in
+`password`, `secret`, `token`, `authkey`, `apikey`, `accesskey`, `privatekey`,
+`secretkey`, `passcode` or `credential`, and a PKCS#12 certificate. Every other
+payload value is shown, a custom payload's included. Secrets of the pinned tenant's devices (the LAPS password, the
+recovery lock password, the FileVault personal recovery key), the JCDS upload
+credentials and blueprint configuration, a secret a component carries
+included, are shown. A relative read path resolves against the server's start
+directory, so pass an absolute one. An administrator who
+starts the server with `--input-dir <dir>` allows the read-side flags, and a
+`pro diff` side that is a directory, for existing paths inside that directory;
+`run_command`'s description names it.
 
 **`dashboard` output belongs in a file, not a tool result.** The command writes
 a 320–800 KB HTML document to stdout (80k–200k tokens), so `run_command` refuses

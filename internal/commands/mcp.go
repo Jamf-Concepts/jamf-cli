@@ -11,14 +11,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // newMCPCmd exposes the entire jamf-cli command tree to MCP-capable AI clients
@@ -59,7 +64,8 @@ choose. Set one with: jamf-cli config set-report-dir <dir>`,
 }
 
 func newMCPServeCmd() *cobra.Command {
-	return &cobra.Command{
+	var inputDirFlag string
+	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start an MCP server on stdio",
 		Long: `Start an MCP server that speaks JSON-RPC over stdin/stdout.
@@ -85,14 +91,94 @@ fast one first and ask before the full one. So an administrator should expect a
 question about a "full report" rather than a long silence; what each tier costs
 is in 'jamf-cli dashboard --help'.
 
-run_command refuses anything that picks its own instance or destination: any
-flag naming a profile, URL, token, tenant, environment or output file, plus
-'multi', the config write subcommands and the two 'backup' commands. It also
-refuses 'dashboard', because it returns a command's stdout as text and the
-report is a 320-800 KB document — generate_report writes that to a file
-instead.`,
+run_command judges the command and flags cobra resolves the arguments to, so
+an alias or a flag ahead of the command path is judged the same as the plain
+spelling. It refuses:
+  - 'multi', 'mcp', 'completion' and shell completion, the config write
+    subcommands, every 'setup', both 'backup' commands and
+    'jamf-cloud-distribution-service sync' (also mounted as 'packages sync'),
+    which pick their own instance or write where the model says
+  - 'config validate' and 'doctor', which resolve or report every profile's
+    credentials and probe other profiles' URLs ('config show' runs, with each
+    token, client ID and client secret shown as <redacted>, and 'config list
+    --status' checks only this server's profile)
+  - 'auth token' under 'platform', 'pro' and 'protect', and 'pro
+    api-authentication token', 'oauth-token' and 'keep-alive', which print a
+    live access token
+  - 'pro sso-oauth-session-tokens', which prints the session's access and ID
+    tokens
+  - 'pro api-integrations client-credentials' and 'protect api-clients
+    apply', which mint a new client secret or password and print it
+  - 'pro cloud-distribution-point create' and 'patch', whose response carries
+    the CloudFront private key that signs download URLs
+  - 'pro jamf-pro-user-account-settings change-password' and 'pro accounts
+    create', 'update' and 'apply', which set a Jamf Pro login password to a
+    value the model chose
+  - 'protect action-configs export', whose document carries each report
+    client's header values, the SIEM or webhook credential, verbatim
+  - 'protect downloads csr' and 'websocket-auth', which write the tenant's
+    .p12 key material into the directory this server was started in
+  - any flag naming a profile, URL, token, tenant, environment or output file
+  - any flag whose value is a local path: --from-file, --file, --script-file,
+    --mobileconfig-file, --appconfig-file, --custom-payload-file, --body-file,
+    --input, --password-file, --dir, --save-to, --report-dir, and a command's
+    own --output (the global -o/--output format flag stays available), except
+    as --input-dir allows below
+  - a --verbose level of 3 or more (-vvv), which logs response bodies before
+    any redaction; -vv and less stay available, with Authorization, Cookie and
+    Set-Cookie values shown as [redacted]
+  - 'pro diff' with a --source or --target that is neither this server's
+    profile nor a directory inside --input-dir
+Some allowed commands print a third-party credential, shown as <redacted>
+here: the report-client header values and the userinfo and query of each
+report-client URL in 'protect action-configs get' and 'apply' (a secret in a
+URL path, as a Slack webhook carries, is still shown), the Sentinel shared key
+of 'protect data-forwarding get' and 'update', the password of 'protect
+api-clients get', the CloudFront private key and CDN password of 'pro
+cloud-distribution-point list', and every Classic 'get' and 'list' field the
+Classic --set refuses as a credential (an SMTP, LDAP, webhook, directory
+binding or distribution point password, the VPP sToken, the JWT signing key,
+the institutional FileVault keystore). Configuration profile payloads are
+redacted by key name in 'classic-macos-config-profiles', in
+'classic-mobile-config-profiles' and in 'pro blueprints components
+configuration-profile --id/--name': the value of a key named Challenge, or
+ending in any case in password, secret, token, authkey, apikey, accesskey,
+privatekey, secretkey, passcode or credential, and a PKCS#12 identity
+certificate. Every other payload value is shown, a custom payload's included.
+A payload that does not decode is redacted whole, or refused by the blueprint
+converter. So a Classic '-o raw' is not the wire bytes here, and 'pro diff' shows those
+fields' old and new values as <redacted> while still reporting the change.
+Secrets of the pinned tenant's own devices are shown: the LAPS password, the
+recovery lock password, the FileVault personal recovery key, and the bootstrap
+token, unlock token and AirPlay password in device inventory. So are the JCDS
+upload credentials of 'pro jamf-cloud-distribution-service renew-credentials'
+and 'pro jamf-cloud-distribution-service-files create'. Blueprint configuration
+is shown as the Platform API answers it, a secret a component carries
+included, in the 'pro blueprints' and 'school blueprints' reads and in 'pro
+diff' on blueprints.
+Some allowed commands write a file into the directory this server was started
+in, named by Jamf or by the command's own argument: the other 'protect
+downloads' and 'pro jcds download' without -O, and 'protect plans
+config-profile'. Start the server from a directory where that is acceptable.
+
+It also refuses 'dashboard', because it returns a command's stdout as text and
+the report is a 320-800 KB document — generate_report writes that to a file
+instead.
+
+--input-dir <dir> lets the model pass files it needs to read: a path given to
+--from-file, --file, --script-file, --mobileconfig-file, --appconfig-file,
+--custom-payload-file, --body-file, --input, a 'pro diff' --source or --target
+directory, or the --dir of 'protect analytics import' and 'protect
+unified-logging-filters import' is accepted when it exists and resolves inside
+<dir>, symlinks followed. A relative path is taken from the directory this
+server was started in, so pass an absolute path. --password-file and every
+write-side path flag stay refused. The directory must exist, and an empty
+value is an error; there is no config key for it.`,
 		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("input-dir") && inputDirFlag == "" {
+				return errors.New("--input-dir is empty: name the directory the model may read from, or drop the flag to allow no reads")
+			}
 			executable, err := os.Executable()
 			if err != nil {
 				return fmt.Errorf("determining executable path: %w", err)
@@ -108,9 +194,15 @@ instead.`,
 				return err
 			}
 
+			inputDir, err := resolveMCPInputDir(inputDirFlag)
+			if err != nil {
+				return err
+			}
+
 			if !noHints {
 				printMCPStartupHints(cmd.ErrOrStderr(), cfg)
 			}
+			installMCPResolver(cmd.Root(), inputDir)
 
 			server := mcp.NewServer(&mcp.Implementation{
 				Name:    "jamf-cli",
@@ -144,11 +236,34 @@ instead.`,
 					"args array, e.g. [\"pro\",\"computers\",\"list\"] or " +
 					"[\"pro\",\"policies\",\"get\",\"--name\",\"My Policy\"]. Output defaults to " +
 					"JSON. Do not include credentials. The server is pinned to the profile it " +
-					"was started with, so any flag naming a profile, URL, token, tenant, " +
-					"environment or output file is rejected, as are 'multi', the config write " +
-					"subcommands and the backup commands, which choose their own target or " +
-					"destination. Use generate_report rather than 'dashboard': this tool returns " +
+					"was started with and judges the command your args resolve to, aliases " +
+					"included. Rejected: any flag naming a profile, URL, token, tenant, " +
+					"environment or output file; any flag whose value is a local file or " +
+					"directory (--from-file, --file, --script-file, --save-to, --dir and the " +
+					"like; the -o/--output format flag is fine); body logging (-vvv or a " +
+					"--verbose level of 3 or more; use -vv or less); 'multi', 'mcp', 'completion', " +
+					"the config write subcommands, 'config validate', 'doctor', " +
+					"every command that prints an access token ('auth token', " +
+					"'pro api-authentication token', 'oauth-token', 'keep-alive'), " +
+					"'pro sso-oauth-session-tokens', " +
+					"the commands that mint and print a credential ('pro api-integrations " +
+					"client-credentials', 'protect api-clients apply'), " +
+					"'pro cloud-distribution-point create' and 'patch' (they print a " +
+					"CloudFront private key), the commands that set a Jamf Pro login password " +
+					"('pro jamf-pro-user-account-settings change-password', 'pro accounts " +
+					"create', 'update', 'apply'), 'protect downloads csr' and 'websocket-auth', " +
+					"'protect action-configs export', " +
+					"every 'setup', the backup commands and jcds sync; and " +
+					"'pro diff' against anything but this server's profile or a directory the " +
+					"input directory allows. " + inputDirToolNote(inputDir) +
+					" Use generate_report rather than 'dashboard': this tool returns " +
 					"stdout as text and the dashboard writes a 320-800 KB HTML document there. " +
+					"Report-client header values and URL userinfo and query, the Sentinel " +
+					"shared key, Protect API client passwords, the CloudFront private key of " +
+					"'pro cloud-distribution-point list' and Classic credential fields " +
+					"(passwords, the VPP sToken, the JWT signing key), in 'get', 'list' and " +
+					"'pro diff', print as <redacted>. " + payloadRedactionToolNote +
+					" Device secrets such as the LAPS password, and blueprint configuration, are shown. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in runCommandInput) (*mcp.CallToolResult, any, error) {
@@ -200,6 +315,40 @@ instead.`,
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&inputDirFlag, "input-dir", "", "directory the connecting model may name files inside for read-side path flags such as --from-file")
+	return cmd
+}
+
+// inputDirToolNote tells the model where read-side path flags may point.
+func inputDirToolNote(inputDir string) string {
+	if inputDir == "" {
+		return "Read-side path flags are refused too: this server allows no input directory."
+	}
+	return "Read-side path flags (--from-file, --file, --script-file and the like) are accepted for existing paths inside " +
+		inputDir + ", the only directory this server reads from; --password-file stays refused."
+}
+
+// resolveMCPInputDir returns dir with every symlink resolved, or "" when no
+// input directory is set. The server refuses to start on one it cannot use.
+func resolveMCPInputDir(dir string) (string, error) {
+	if dir == "" {
+		return "", nil
+	}
+	abs, err := filepath.Abs(dir)
+	if err == nil {
+		abs, err = filepath.EvalSymlinks(abs)
+	}
+	if err != nil {
+		return "", fmt.Errorf("--input-dir %s is not accessible: %w", dir, err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", fmt.Errorf("--input-dir %s is not accessible: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("--input-dir %s is not a directory", dir)
+	}
+	return abs, nil
 }
 
 type runCommandInput struct {
@@ -222,17 +371,34 @@ type generateReportInput struct {
 // the model was told the report had been written. The server builds this argv;
 // nothing may be prepended to it.
 //
-// JAMF_CLI_MCP=1 is appended so the child knows it is an MCP child.
+// JAMF_CLI_MCP=1 is appended so the child knows it is an MCP child, and an
+// inherited JAMF_CLI_MCP_PROFILE or JAMF_CLI_MCP_INPUT_DIR is dropped so only
+// pinnedChildEnv sets them.
 func childEnv() []string {
 	env := os.Environ()
 	kept := make([]string, 0, len(env)+1)
 	for _, kv := range env {
-		if name, _, ok := strings.Cut(kv, "="); ok && name == "JAMF_CLI_ARGS" {
+		if name, _, ok := strings.Cut(kv, "="); ok && (name == "JAMF_CLI_ARGS" || name == mcpPinnedProfileEnvVar || name == mcpInputDirEnvVar) {
 			continue
 		}
 		kept = append(kept, kv)
 	}
-	return append(kept, "JAMF_CLI_MCP=1")
+	return append(kept, mcpChildEnvVar+"=1")
+}
+
+const (
+	mcpChildEnvVar         = registry.MCPChildEnvVar
+	mcpPinnedProfileEnvVar = "JAMF_CLI_MCP_PROFILE"
+	mcpInputDirEnvVar      = "JAMF_CLI_MCP_INPUT_DIR"
+)
+
+// pinnedChildEnv is childEnv plus the profile the server is pinned to and the
+// input directory it allows, which refuseInMCPChild judges the child's own
+// parse against.
+func pinnedChildEnv(serverProfile string) []string {
+	return append(childEnv(),
+		mcpPinnedProfileEnvVar+"="+serverProfile,
+		mcpInputDirEnvVar+"="+installedMCPInputDir())
 }
 
 type listCommandsInput struct {
@@ -274,7 +440,7 @@ func listCommands(ctx context.Context, executable, serverProfile string, in list
 
 	var stderr bytes.Buffer
 	child := exec.CommandContext(ctx, executable, childArgs...)
-	child.Env = childEnv()
+	child.Env = pinnedChildEnv(serverProfile)
 	child.Stderr = &stderr
 	out, err := child.Output()
 	if err != nil {
@@ -332,7 +498,7 @@ func runChild(ctx context.Context, executable, serverProfile string, args []stri
 	}
 
 	child := exec.CommandContext(ctx, executable, childArgs...)
-	child.Env = childEnv()
+	child.Env = pinnedChildEnv(serverProfile)
 	out, err := child.CombinedOutput()
 
 	text := capChildOutput(out)
@@ -400,9 +566,9 @@ func errorResult(text string) *mcp.CallToolResult {
 // mutually-exclusive gateway scope selectors and both redirect the request, so
 // blocking one without the other leaves the hole open.
 //
-// A deny-list cannot be complete — 362 commands declare --from-file alone — so
-// this is a floor rather than the boundary. blockedChildCommandPaths carries
-// the namespaces no flag list can pin.
+// A deny-list cannot be complete, so this is a floor rather than the boundary:
+// mcpRefusedCommands carries the namespaces no flag list can pin, and
+// mcpLocalPathFlags the flags whose value is a path on this machine.
 var blockedChildFlagPrefixes = []string{
 	"--profile",
 	"--include-profile",
@@ -413,38 +579,410 @@ var blockedChildFlagPrefixes = []string{
 	"--out-file",
 }
 
-// blockedChildCommandPaths are command paths a model must not run, as
-// space-joined prefixes of the argument list.
+// payloadRedactionToolNote is the run_command description's account of
+// profileconvert.SecretPayloadKeySuffixes; TestMCPPolicyTexts_NameEveryPayloadSecretSuffix
+// holds it and the other policy texts to that list.
+const payloadRedactionToolNote = "In a configuration profile's payloads, from a Classic profile 'get' or " +
+	"'list', 'pro diff' or 'pro blueprints components configuration-profile', the value of a " +
+	"key named Challenge or ending in any case in password, secret, token, authkey, apikey, " +
+	"accesskey, privatekey, secretkey, passcode or credential, and a PKCS#12 certificate, print " +
+	"as <redacted>; every other payload value is shown."
+
+// mcpRefusedCommands are resolved command paths, each refused with everything
+// beneath it, and why. `dashboard` is not here: generate_report shares
+// buildChildArgs and must still spawn it, so the run_command handler refuses it
+// instead.
 //
-// These resolve their own target or destination, so no flag list can pin them:
-// `multi` takes its own --profiles and fans out across instances, and the
-// config write subcommands persist a new default profile, a new credential or a
-// new report directory to disk — after which every later child is pointed
-// somewhere the operator never chose. `dashboard` is refused on the
-// run_command path only, by the tool handler, because generate_report shares
-// buildChildArgs and must still be able to spawn it.
-var blockedChildCommandPaths = [][]string{
-	{"multi"},
-	{"config", "set-default"},
-	{"config", "add-profile"},
-	{"config", "remove-profile"},
-	{"config", "set-report-dir"},
-	// Both backup commands take --output as a destination *directory* rather
-	// than an output format, so they write a tree wherever the model says.
-	{"pro", "backup"},
-	{"protect", "backup"},
+// A command that prints a credential working outside this server is refused.
+// A secret of the pinned tenant's own devices is not: the operator decided the
+// model may read them. So the LAPS password (`pro local-admin-password
+// password`, `password-by-guid`, `audit`, `audit-by-guid`), the recovery lock
+// password (`pro computer-inventory view-recovery-lock-password`), the
+// FileVault personal recovery key (`filevault`, `filevault-by-id`) and the
+// bootstrap token, unlock token and AirPlay password in device inventory all
+// run, as do the commands that set or clear such a secret. So do `pro
+// jamf-cloud-distribution-service renew-credentials` and
+// `pro jamf-cloud-distribution-service-files create`, whose upload credentials
+// reach only the pinned tenant's JCDS bucket.
+//
+// A command that prints such a credential inside a larger record runs with it
+// redacted instead, in every output format: the Classic credential fields
+// (redactClassicReadInMCPChild), the secrets in a Classic configuration
+// profile's payloads plist (redactClassicProfilePayloadsInMCPChild, and the
+// download of `pro blueprints components configuration-profile`, through
+// profileconvert.RedactPayloadSecrets, which matches by key name), the cloud
+// distribution point's keys
+// (cdnKeyRedactingClient), and the same fields in `pro diff`. Blueprint
+// configuration is not redacted: the Platform SDK decodes each response
+// inside its transport, so there is no per-response hook, and a component's
+// secret keys vary by declaration type. It is named as shown in the help and
+// the tool description instead.
+// TestMCPSecretNamingLeaves_AreClassified holds every leaf whose help names a
+// credential to one side of this line.
+var mcpRefusedCommands = []refusedCommand{
+	{"jamf-cli multi", refusedPicksTarget},
+	{"jamf-cli mcp", refusedPicksTarget},
+	{"jamf-cli completion", "'completion install' writes into this machine's shell configuration, and the rest print a script no MCP client can use"},
+	{"jamf-cli config set-default", refusedPicksTarget},
+	{"jamf-cli config add-profile", refusedPicksTarget},
+	{"jamf-cli config remove-profile", refusedPicksTarget},
+	{"jamf-cli config set-report-dir", refusedPicksTarget},
+	{"jamf-cli config validate", refusedReadsCredentials},
+	{"jamf-cli doctor", refusedReadsCredentials},
+	{"jamf-cli platform auth token", refusedPrintsToken},
+	{"jamf-cli pro auth token", refusedPrintsToken},
+	{"jamf-cli protect auth token", refusedPrintsToken},
+	{"jamf-cli pro api-authentication token", refusedPrintsToken},
+	{"jamf-cli pro api-authentication oauth-token", refusedPrintsToken},
+	{"jamf-cli pro api-authentication keep-alive", refusedPrintsToken},
+	{"jamf-cli pro sso-oauth-session-tokens", refusedPrintsToken},
+	{"jamf-cli pro api-integrations client-credentials", refusedMintsClientSecret},
+	{"jamf-cli pro cloud-distribution-point create", refusedPrintsCDNKey},
+	{"jamf-cli pro cloud-distribution-point patch", refusedPrintsCDNKey},
+	{"jamf-cli pro jamf-pro-user-account-settings change-password", refusedSetsLoginPassword},
+	{"jamf-cli pro accounts create", refusedSetsLoginPassword},
+	{"jamf-cli pro accounts update", refusedSetsLoginPassword},
+	{"jamf-cli pro accounts apply", refusedSetsLoginPassword},
+	{"jamf-cli protect downloads csr", refusedWritesKeyMaterial},
+	{"jamf-cli protect downloads websocket-auth", refusedWritesKeyMaterial},
+	{"jamf-cli protect api-clients apply", refusedMintsProtectPassword},
+	{"jamf-cli protect action-configs export", refusedExportsHeaders},
+	{"jamf-cli pro setup", refusedPicksTarget},
+	{"jamf-cli platform setup", refusedPicksTarget},
+	{"jamf-cli protect setup", refusedPicksTarget},
+	{"jamf-cli school setup", refusedPicksTarget},
+	{"jamf-cli security setup", refusedPicksTarget},
+	{"jamf-cli pro backup", refusedPicksTarget},
+	{"jamf-cli protect backup", refusedPicksTarget},
+	{"jamf-cli pro jamf-cloud-distribution-service sync", refusedPicksTarget},
+	{"jamf-cli pro packages sync", refusedPicksTarget},
 }
 
-func isBlockedChildFlag(arg string) bool {
-	// Short-flag form (single dash, not "--"): pflag accepts the --profile
-	// shorthand -p attached (-pProd) or clustered after value-less bool
-	// shorthands (-np Prod), so any short token carrying 'p' can set the
-	// profile. Reject them all — 'p' is the only sensitive shorthand and no
-	// other global shorthand uses it. A rare false positive (e.g. -oplain)
-	// fails closed; the model can fall back to "-o plain".
-	if len(arg) >= 2 && arg[0] == '-' && arg[1] != '-' && strings.ContainsRune(arg, 'p') {
-		return true
+type refusedCommand struct {
+	path, why string
+}
+
+const (
+	refusedPicksTarget          = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
+	refusedReadsCredentials     = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
+	refusedPrintsToken          = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
+	refusedMintsClientSecret    = "it mints a new client secret for the API integration and prints it, a credential that works outside this server until it is rotated"
+	refusedMintsProtectPassword = "creating an API client mints a new password and prints it, a credential that works outside this server until the client is deleted"
+	refusedPrintsCDNKey         = "its response carries the CloudFront private key that signs download URLs, a credential that works outside this server"
+	refusedSetsLoginPassword    = "it sets a Jamf Pro login password to a value the model chose, a credential that works outside this server"
+	refusedWritesKeyMaterial    = "it writes the tenant's .p12 key material into the directory this server was started in, under a fixed name that replaces any file already there"
+	refusedExportsHeaders       = "its document carries each report client's header values verbatim (the SIEM or webhook bearer token), and a redacted copy would overwrite the real credential when applied; 'protect action-configs get' shows the configuration with them redacted"
+)
+
+// isCompletionRequest reports whether name is cobra's hidden completion
+// command, which parses no flags of its own and runs the target command's
+// completion functions. Cobra adds it only when it is invoked, so a resolve
+// against the tree cannot find it and it is matched by name instead.
+func isCompletionRequest(name string) bool {
+	return name == cobra.ShellCompRequestCmd || name == cobra.ShellCompNoDescRequestCmd
+}
+
+// localPathUse is what a command does with a flag whose value is a path on the
+// machine running the server.
+type localPathUse string
+
+const (
+	pathRead       localPathUse = "reads"
+	pathCredential localPathUse = "reads a credential from"
+	pathWrite      localPathUse = "writes"
+)
+
+// mcpLocalPathFlags classifies path flags by name. `output` reaches here only
+// where a leaf declares its own; the root's persistent --output is the format
+// selector.
+var mcpLocalPathFlags = map[string]localPathUse{
+	"from-file":           pathRead,
+	"file":                pathRead,
+	"script-file":         pathRead,
+	"mobileconfig-file":   pathRead,
+	"appconfig-file":      pathRead,
+	"custom-payload-file": pathRead,
+	"body-file":           pathRead,
+	"input":               pathRead,
+	"password-file":       pathCredential,
+	"save-to":             pathWrite,
+	"output":              pathWrite,
+	"report-dir":          pathWrite,
+}
+
+// mcpDirFlags classifies --dir per command, since it is an input on some and a
+// destination that `--delete` empties on others.
+var mcpDirFlags = map[string]localPathUse{
+	"jamf-cli protect analytics import":                 pathRead,
+	"jamf-cli protect unified-logging-filters import":   pathRead,
+	"jamf-cli pro jamf-cloud-distribution-service sync": pathWrite,
+	"jamf-cli pro packages sync":                        pathWrite,
+}
+
+// localPathFlagUse classifies one flag occurrence on the command at path. A
+// --dir on a command mcpDirFlags does not name is taken as a destination.
+func localPathFlagUse(path string, s flagSetting) (localPathUse, bool) {
+	if s.rootOutput {
+		return "", false
 	}
+	if s.name == "dir" {
+		if use, ok := mcpDirFlags[path]; ok {
+			return use, true
+		}
+		return pathWrite, true
+	}
+	use, ok := mcpLocalPathFlags[s.name]
+	return use, ok
+}
+
+const (
+	proDiffPath   = "jamf-cli pro diff"
+	dashboardPath = "jamf-cli dashboard"
+)
+
+// childInvocation is what cobra resolves a child argv to. An empty path means
+// cobra refuses the argv before running anything. inputDir is the one
+// directory read-side path flags may name, "" when none is allowed.
+type childInvocation struct {
+	path     string
+	settings []flagSetting
+	inputDir string
+}
+
+// flagSetting is one occurrence of a flag on the command line, in order. A
+// repeatable flag set twice is two settings.
+type flagSetting struct {
+	name, value string
+	rootOutput  bool
+}
+
+// mcpResolver is the tree run_command argv is resolved against and the input
+// directory `mcp serve` allows reads from. Every resolve holds the lock for its
+// whole length: Find merges persistent flags into the leaf, and ParseAll
+// records its arguments on the leaf's flag set.
+var mcpResolver struct {
+	sync.Mutex
+	root     *cobra.Command
+	inputDir string
+}
+
+// installMCPResolver makes later resolves use root and inputDir, which must
+// already be symlink-resolved. `mcp serve` installs the tree it is running in,
+// because NewRootCmd rebinds every flag variable in this package to its
+// default, and main reads those after serve returns.
+func installMCPResolver(root *cobra.Command, inputDir string) {
+	mcpResolver.Lock()
+	defer mcpResolver.Unlock()
+	mcpResolver.root = root
+	mcpResolver.inputDir = inputDir
+}
+
+func installedMCPInputDir() string {
+	mcpResolver.Lock()
+	defer mcpResolver.Unlock()
+	return mcpResolver.inputDir
+}
+
+// resolveChildInvocation returns what a child process given args would run.
+//
+// It mirrors ExecuteC: Find, not Traverse, since the root does not set
+// TraverseChildren. ParseAll hands each occurrence to a callback and never
+// calls Set, so no flag variable changes. A parse error ends the list where the
+// child's own parse stops, and the child's FlagErrorFunc always returns an
+// error, so nothing after it can run.
+func resolveChildInvocation(args []string) childInvocation {
+	mcpResolver.Lock()
+	defer mcpResolver.Unlock()
+	root := mcpResolver.root
+	if root == nil {
+		root = NewRootCmd(cliVersion, "", "", "")
+		root.InitDefaultHelpCmd()
+		root.InitDefaultCompletionCmd()
+		root.InitDefaultVersionFlag()
+	}
+
+	cmd, rest, err := root.Find(args)
+	if err != nil {
+		return childInvocation{}
+	}
+	inv := childInvocation{path: cmd.CommandPath(), inputDir: mcpResolver.inputDir}
+	if cmd.DisableFlagParsing {
+		return inv
+	}
+	cmd.InitDefaultHelpFlag()
+	rootOutput := root.PersistentFlags().Lookup("output")
+	_ = cmd.Flags().ParseAll(rest, func(f *pflag.Flag, value string) error {
+		inv.settings = append(inv.settings, flagSetting{name: f.Name, value: value, rootOutput: f == rootOutput})
+		return nil
+	})
+	return inv
+}
+
+// refuseOverMCP returns why inv is not available to an MCP client pinned to
+// pinnedProfile, or nil.
+func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
+	for _, refused := range mcpRefusedCommands {
+		if inv.path == refused.path || strings.HasPrefix(inv.path, refused.path+" ") {
+			return fmt.Errorf("command %q is not available over MCP: %s", strings.TrimPrefix(inv.path, "jamf-cli "), refused.why)
+		}
+	}
+	if n := verboseCount(inv.settings); n >= verboseLogsBodies {
+		return fmt.Errorf("--verbose at level %d is not available over MCP: response bodies are logged at -vvv, which is not available over MCP; use -vv or less", n)
+	}
+	for _, s := range inv.settings {
+		if isBlockedChildFlag("--" + s.name) {
+			return fmt.Errorf("flag %q is not allowed: the MCP server is pinned to the configuration it was started with; the target instance, credentials, and output destination cannot be overridden per command", "--"+s.name)
+		}
+		if use, ok := localPathFlagUse(inv.path, s); ok {
+			if err := refuseLocalPath(use, s, inv.inputDir); err != nil {
+				return err
+			}
+		}
+		if inv.path == proDiffPath && (s.name == "source" || s.name == "target") {
+			if err := refuseDiffSide(s, pinnedProfile, inv.inputDir); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// verboseLogsBodies is the --verbose level at which the client logs each
+// request and response body to stderr, inside the client and so ahead of every
+// MCP redaction, and run_command returns stderr to the model.
+const verboseLogsBodies = 3
+
+// verboseCount resolves --verbose the way pflag's count flag does: a bare -v
+// arrives as "+1" and adds one, and --verbose=N sets N. A child-side setting is already the final count.
+func verboseCount(settings []flagSetting) int {
+	n := 0
+	for _, s := range settings {
+		if s.name != "verbose" {
+			continue
+		}
+		if s.value == "+1" {
+			n++
+		} else if v, err := strconv.Atoi(s.value); err == nil {
+			n = v
+		}
+	}
+	return n
+}
+
+// refuseInMCPChild applies refuseOverMCP to the command this process parsed,
+// when it was spawned by `mcp serve`. The server's own --profile is not a
+// setting the model made, so it is skipped when it names the pinned profile.
+func refuseInMCPChild(cmd *cobra.Command) error {
+	if os.Getenv(mcpChildEnvVar) != "1" {
+		return nil
+	}
+	if isCompletionRequest(cmd.Name()) {
+		return errCompletionOverMCP
+	}
+	pinned := os.Getenv(mcpPinnedProfileEnvVar)
+	inv := childInvocation{path: cmd.CommandPath(), inputDir: os.Getenv(mcpInputDirEnvVar)}
+	rootOutput := cmd.Root().PersistentFlags().Lookup("output")
+	cmd.Flags().Visit(func(f *pflag.Flag) {
+		if f.Name == "profile" && pinned != "" && f.Value.String() == pinned {
+			return
+		}
+		values := []string{f.Value.String()}
+		if sv, ok := f.Value.(pflag.SliceValue); ok {
+			values = sv.GetSlice()
+		}
+		for _, v := range values {
+			inv.settings = append(inv.settings, flagSetting{name: f.Name, value: v, rootOutput: f == rootOutput})
+		}
+	})
+	return refuseOverMCP(inv, pinned)
+}
+
+// refuseDiffSide judges one `pro diff` side: a directory is a local read under
+// the input-directory rule, and a profile must be the pinned one.
+func refuseDiffSide(s flagSetting, pinnedProfile, inputDir string) error {
+	if isDirectoryPath(s.value) {
+		dir, err := expandDiffDir(s.value)
+		if err != nil {
+			return fmt.Errorf("pro diff --%s %q is not available over MCP: %w", s.name, s.value, err)
+		}
+		return refuseLocalPath(pathRead, flagSetting{name: s.name, value: dir}, inputDir)
+	}
+	if pinnedProfile == "" {
+		return fmt.Errorf("pro diff --%s %q names a config profile, and this server was started without one: over MCP each side must be a backup directory inside --input-dir", s.name, s.value)
+	}
+	if s.value != pinnedProfile {
+		return fmt.Errorf("pro diff --%s %q names a config profile other than %q, the one this server is pinned to: over MCP each side must be that profile or a backup directory inside --input-dir", s.name, s.value, pinnedProfile)
+	}
+	return nil
+}
+
+// refuseLocalPath allows a read-side path only when it exists and resolves
+// inside inputDir. The child opens the path again after this check, so a
+// symlink swapped in between is not caught.
+func refuseLocalPath(use localPathUse, s flagSetting, inputDir string) error {
+	if use != pathRead || inputDir == "" {
+		err := fmt.Errorf("flag --%s is not available over MCP: it %s a path on the machine running this server, which the connecting model must not choose", s.name, use)
+		switch {
+		case use == pathRead:
+			err = fmt.Errorf("%w; the administrator can allow reads from one directory with 'mcp serve --input-dir <dir>'", err)
+		case s.name == "output":
+			err = fmt.Errorf("%w; the global -o <format> flag (json, yaml, table, csv) is still accepted", err)
+		}
+		return err
+	}
+	if s.value == "" {
+		return fmt.Errorf("flag --%s names no path; over MCP it must name an existing path inside the input directory %s", s.name, inputDir)
+	}
+	resolved, err := filepath.Abs(s.value)
+	if err == nil {
+		resolved, err = filepath.EvalSymlinks(resolved)
+	}
+	if err != nil {
+		return fmt.Errorf("flag --%s %q cannot be used over MCP: %v; it must name an existing path inside the input directory %s", s.name, s.value, err, inputDir)
+	}
+	if !insideDir(inputDir, resolved) {
+		err := fmt.Errorf("flag --%s %q is not available over MCP: it resolves to %s, outside the input directory %s", s.name, s.value, resolved, inputDir)
+		if !filepath.IsAbs(s.value) {
+			err = fmt.Errorf("%w; a relative path resolves against the directory this server was started in, not the input directory, so pass an absolute path inside it", err)
+		}
+		return err
+	}
+	return nil
+}
+
+// insideDir reports whether path is dir or lies beneath it. Both must be
+// absolute and symlink-resolved.
+func insideDir(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// refuseMCPChildReadOutsideInputDir refuses a file a command found by listing
+// a directory when it resolves outside the input directory of the `mcp serve`
+// that spawned this process. Outside an MCP child it allows everything.
+func refuseMCPChildReadOutsideInputDir(path string) error {
+	inputDir := os.Getenv(mcpInputDirEnvVar)
+	if os.Getenv(mcpChildEnvVar) != "1" || inputDir == "" {
+		return nil
+	}
+	resolved, err := filepath.Abs(path)
+	if err == nil {
+		resolved, err = filepath.EvalSymlinks(resolved)
+	}
+	if err != nil {
+		return fmt.Errorf("%s is %w: %v", path, errMCPChildReadRefused, err)
+	}
+	if !insideDir(inputDir, resolved) {
+		return fmt.Errorf("%s is %w: it resolves to %s, outside the input directory %s", path, errMCPChildReadRefused, resolved, inputDir)
+	}
+	return nil
+}
+
+var errMCPChildReadRefused = errors.New("not readable over MCP")
+
+var errCompletionOverMCP = errors.New("shell completion is not available over MCP: it runs another command's completion without the flag checks every command gets; use list_commands or --help instead")
+
+func isBlockedChildFlag(arg string) bool {
 	if !strings.HasPrefix(arg, "--") {
 		return false
 	}
@@ -458,49 +996,23 @@ func isBlockedChildFlag(arg string) bool {
 	return false
 }
 
-// blockedChildCommand returns the refused command path when args begins with
-// one, or nil. Positional matching only: a flag cannot name a command, and the
-// first tokens of a jamf-cli invocation are its command path.
-func blockedChildCommand(args []string) []string {
-	for _, path := range blockedChildCommandPaths {
-		if len(args) < len(path) {
-			continue
-		}
-		match := true
-		for i, seg := range path {
-			if args[i] != seg {
-				match = false
-				break
-			}
-		}
-		if match {
-			return path
-		}
-	}
-	return nil
-}
-
 // buildChildArgs validates a model-supplied command and returns the full
-// argument list for the child invocation. It rejects empty input and any
-// instance-, credential-, or output-redirecting flag (see blockedChildFlags),
-// drops any model-supplied --no-input, then injects the server's pinned profile
-// and an enforced --no-input the model cannot disable.
+// argument list for the child invocation: the server's pinned profile and an
+// enforced --no-input, then the model's args with any --no-input of its own
+// dropped. The refusal is judged on what cobra resolves that argv to.
 func buildChildArgs(serverProfile string, args []string) ([]string, error) {
 	if len(args) == 0 {
 		return nil, errors.New("args must not be empty; provide a command such as [\"pro\",\"computers\",\"list\"]")
 	}
-	if path := blockedChildCommand(args); path != nil {
-		return nil, fmt.Errorf("command %q is not available over MCP: it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it", strings.Join(path, " "))
-	}
-	for _, a := range args {
-		if isBlockedChildFlag(a) {
-			return nil, fmt.Errorf("flag %q is not allowed: the MCP server is pinned to the configuration it was started with; the target instance, credentials, and output destination cannot be overridden per command", a)
-		}
+	if slices.ContainsFunc(args, isCompletionRequest) {
+		return nil, errCompletionOverMCP
 	}
 
 	childArgs := make([]string, 0, len(args)+3)
+	injected := 1
 	if serverProfile != "" {
 		childArgs = append(childArgs, "--profile", serverProfile)
+		injected++
 	}
 	// Enforce --no-input: inject our own and drop any the model supplied, so it
 	// cannot re-enable prompting (e.g. --no-input=false) in a child that has no
@@ -511,6 +1023,17 @@ func buildChildArgs(serverProfile string, args []string) ([]string, error) {
 			continue
 		}
 		childArgs = append(childArgs, a)
+	}
+
+	inv := resolveChildInvocation(childArgs)
+	if inv.path == "" {
+		return childArgs, nil
+	}
+	// The injected flags lead the argv, so they are the first settings; a
+	// model-supplied --profile naming the pinned profile is still refused.
+	inv.settings = inv.settings[min(injected, len(inv.settings)):]
+	if err := refuseOverMCP(inv, serverProfile); err != nil {
+		return nil, err
 	}
 	return childArgs, nil
 }
@@ -659,10 +1182,7 @@ func buildReportArgs(in generateReportInput) ([]string, error) {
 // Refused here rather than in buildChildArgs, which runReportChild shares and
 // which must still be able to spawn it.
 func refuseReportThroughRunCommand(args []string) error {
-	if len(args) == 0 {
-		return nil
-	}
-	if args[0] != "dashboard" && args[0] != "db" {
+	if resolveChildInvocation(args).path != dashboardPath {
 		return nil
 	}
 	return errors.New("use the generate_report tool for HTML reports: run_command returns stdout as tool text, " +
@@ -751,7 +1271,7 @@ func runReportChild(ctx context.Context, executable, serverProfile string, in ge
 
 	var stderr bytes.Buffer
 	child := exec.CommandContext(ctx, executable, childArgs...)
-	child.Env = childEnv()
+	child.Env = pinnedChildEnv(serverProfile)
 	child.Stdout = f
 	child.Stderr = &stderr
 
