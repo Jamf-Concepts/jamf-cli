@@ -48,6 +48,13 @@ name every candidate:
   lookup ran after it and picked one of the two.
 - `pro packages upload` refuses when two packages have the local file name,
   and it accepts a match only when the server returns that exact name.
+- `pro classic-<resource> scope get`, `add`, `remove` and `set` with `--name`
+  list the collection and resolve the name to exactly one record, for every
+  scopeable resource. Before, they used the Classic `/name/` endpoint. When
+  two records share a name, that endpoint returns one of them, and the scope
+  was written to that record. The command now refuses and names the ids. Pass
+  one as `<id>`. Names are compared without case, and a name lookup costs one
+  more request.
 
 RSQL filter values are now escaped completely: `\`, `"`, `*`, `(`, `)`, `;`
 and `,`. A `*` in a name, serial or file name is now matched literally. It is
