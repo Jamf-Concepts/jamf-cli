@@ -310,6 +310,11 @@ type Schema struct {
 	Variants []string
 	// Discriminator is the property whose value selects the variant.
 	Discriminator string
+	// VariantSchemas holds the parsed shape of every variant after the first,
+	// which the schema itself carries. Only CredentialPaths reads it: a secret
+	// declared by a variant --scaffold does not render must still be refused
+	// by --set.
+	VariantSchemas []*Schema
 }
 
 // Property represents a schema property

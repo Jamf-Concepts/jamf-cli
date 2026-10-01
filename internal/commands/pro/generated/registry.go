@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -900,7 +901,13 @@ func fetchForMerge(ctx context.Context, client registry.HTTPClient, getPath stri
 // type, and a mismatch is rejected with a hint rather than silently stringified
 // (issue #304). Fields absent from fieldTypes (unmodelled schemas, or paths deeper
 // than the map records) fall back to best-effort inference.
-func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string) ([]byte, error) {
+//
+// credentialPaths are the operation's secret-bearing body paths; a pair naming
+// one is refused before anything is built.
+func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string, credentialPaths ...string) ([]byte, error) {
+	if err := refuseCredentialSets(pairs, credentialPaths); err != nil {
+		return nil, err
+	}
 	result := make(map[string]any)
 	for _, pair := range pairs {
 		eq := strings.Index(pair, "=")
@@ -921,6 +928,63 @@ func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string) ([]byt
 		}
 	}
 	return json.Marshal(result)
+}
+
+// refuseCredentialSets returns an error for the first --set pair that would put
+// a credential on the command line, where it lands in shell history, ps output
+// and CI logs: its key is one of credentialPaths ("[]" marks an array element),
+// or its value is a JSON object or array carrying one. Paths compare
+// case-insensitively. Mirrors internal/bodyinput.RefuseCredentialSets.
+func refuseCredentialSets(pairs []string, credentialPaths []string) error {
+	if len(credentialPaths) == 0 {
+		return nil
+	}
+	refused := make(map[string]bool, len(credentialPaths))
+	for _, p := range credentialPaths {
+		refused[strings.ToLower(p)] = true
+	}
+	for _, pair := range pairs {
+		key, raw, _ := strings.Cut(pair, "=")
+		hit := ""
+		if refused[strings.ToLower(key)] {
+			hit = key
+		} else if len(raw) > 0 && (raw[0] == '{' || raw[0] == '[') {
+			var v any
+			if json.Unmarshal([]byte(raw), &v) == nil {
+				hit = credentialIn(key, v, refused)
+			}
+		}
+		if hit != "" {
+			return fmt.Errorf("--set %s: %s is a credential and cannot be passed as a flag value, where it would land in shell history, ps output and CI logs; put it in a JSON body and pipe it on stdin, or pass the file with --from-file where the command takes one", key, hit)
+		}
+	}
+	return nil
+}
+
+func credentialIn(path string, v any, refused map[string]bool) string {
+	if refused[strings.ToLower(path)] {
+		return path
+	}
+	switch t := v.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(t))
+		for k := range t {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if hit := credentialIn(path+"."+k, t[k], refused); hit != "" {
+				return hit
+			}
+		}
+	case []any:
+		for _, child := range t {
+			if hit := credentialIn(path+"[]", child, refused); hit != "" {
+				return hit
+			}
+		}
+	}
+	return ""
 }
 
 // checkSetParentKind rejects a dotted "--set" key whose parent path resolves to a

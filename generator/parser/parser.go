@@ -2036,9 +2036,9 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 			}
 		} else if content, ok := rb.Content["application/merge-patch+json"]; ok && content.Schema != nil && content.Schema.Value != nil {
 			operation.RequestBody.IsMergePatch = true
-			operation.RequestBody.Schema = parseSchema("", content.Schema.Value)
+			operation.RequestBody.Schema = parseSchema(refName(content.Schema.Ref), content.Schema.Value)
 		} else if content, ok := rb.Content["application/json"]; ok && content.Schema != nil && content.Schema.Value != nil {
-			operation.RequestBody.Schema = parseSchema("", content.Schema.Value)
+			operation.RequestBody.Schema = parseSchema(refName(content.Schema.Ref), content.Schema.Value)
 		}
 	}
 
@@ -2340,6 +2340,9 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 					s.Required = composedRequired(branch.Value)
 					continue
 				}
+				if depth < maxSchemaDepth {
+					s.VariantSchemas = append(s.VariantSchemas, parseSchemaDepth(refName(branch.Ref), branch.Value, depth+1))
+				}
 				for _, props := range composedPropSources(branch.Value) {
 					for propName, propRef := range props {
 						if propRef == nil || propRef.Value == nil {
@@ -2430,6 +2433,17 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 					p.Nested = parseSchemaDepth(propName, prop, depth+1)
 					if p.Type == "" {
 						p.Type = "object"
+					}
+				}
+			}
+			if p.Nested == nil && len(prop.Properties) == 0 && depth < maxSchemaDepth {
+				for _, item := range prop.AllOf {
+					if item != nil && item.Value != nil && len(item.Value.Properties) > 0 {
+						p.Nested = parseSchemaDepth(propName, prop, depth+1)
+						if p.Type == "" {
+							p.Type = "object"
+						}
+						break
 					}
 				}
 			}

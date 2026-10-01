@@ -101,7 +101,7 @@ func newSsoConnectionsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			path := "/sso/v1/connections"
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "connection.clientSecret")
 			if err != nil {
 				return err
 			}
@@ -307,7 +307,7 @@ func newSsoConnectionsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/sso/v1/connections/{connectionId}"
 			path = strings.Replace(path, "{connectionId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "connection.clientSecret")
 			if err != nil {
 				return err
 			}

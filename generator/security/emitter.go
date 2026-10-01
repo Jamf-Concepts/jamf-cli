@@ -29,11 +29,12 @@ type queryParam struct {
 // templateOp wraps *parser.Operation with template-friendly fields.
 type templateOp struct {
 	*parser.Operation
-	GoName          string // PascalCase form of Name, used in Go identifiers
-	Short           string // Short help text for the cobra subcommand
-	HasBody         bool   // operation accepts a request body — emit --file/--set flags
-	Scaffold        string // pretty-printed JSON template for the request body ("" when the body has no shape to show)
-	HasScaffold     bool   // body carries enough shape for --scaffold to be worth offering (parser.HasScaffoldShape)
+	GoName          string   // PascalCase form of Name, used in Go identifiers
+	Short           string   // Short help text for the cobra subcommand
+	HasBody         bool     // operation accepts a request body — emit --file/--set flags
+	CredentialPaths []string // body paths carrying a secret, which --set refuses (parser.RequestCredentialPaths)
+	Scaffold        string   // pretty-printed JSON template for the request body ("" when the body has no shape to show)
+	HasScaffold     bool     // body carries enough shape for --scaffold to be worth offering (parser.HasScaffoldShape)
 	QueryParams     []queryParam
 	Paginate        bool   // op exposes page+pageSize — always fetch every page, aggregating the array named by UnwrapArrayKey
 	PageSize        int    // page size the pagination loop requests (parser.PageSizeFromSpec)
@@ -135,6 +136,7 @@ func buildTemplateResource(r *parser.Resource, scope string) (templateResource, 
 			GoName:          strcase.ToCamel(opCopy.Name),
 			Short:           shortFromOp(&opCopy),
 			HasBody:         opCopy.RequestBody != nil,
+			CredentialPaths: parser.RequestCredentialPaths(nil, &opCopy),
 			Scaffold:        scaffold,
 			HasScaffold:     scaffold != "",
 			QueryParams:     buildQueryParams(opCopy.Parameters),

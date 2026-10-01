@@ -81,7 +81,7 @@ Two specs tag a resource `activation-profiles` (enrollment + UEM Connect). Both 
 ## UEM Connect Wire Facts
 
 - `authStrategy` enum: `M2M`, `JAMF_PRO_OAUTH`, `BASIC`. With `M2M`, Security Cloud self-provisions an API role and integration on the named Jamf Pro — **that integration survives the connector's DELETE** (SDK test tenant had accumulated 97 enabled "JSC Connector" integrations against zero live connectors). Nothing in this CLI creates or cleans them up.
-- `deviceSyncAuth` contains credentials; belongs in `--from-file`, not `--set` (shell history exposure).
+- `deviceSyncAuth` contains credentials; `--set` refuses them, so they go in `--from-file` or stdin.
 - `uem-connectors create` answers **500** if `authStrategy` is absent — body validation runs before the 500 escalates, but the error comes from the wrong layer with no field attribution.
 - A tenant holds at most one connector whatever its vendor; `create` on a tenant that already has one answers `409 CONNECTOR_CONFIG_ALREADY_EXISTS`.
 - `refreshRateMinutes` enforces its enum on the wire; `deviceUnmanagedThreshold` is **silently ignored for `JAMF_PRO`** (204 regardless of value, always reads back as `0`).
@@ -165,8 +165,9 @@ credentials under `deviceSyncAuth` are absent upstream; the SDK restores both
 body → `409 CONNECTOR_CONFIG_ALREADY_EXISTS`, because **a tenant holds at most
 one connector whatever its vendor**.
 
-The secret belongs in `--from-file` or a pipe: `--set
-deviceSyncAuth.clientSecret=…` puts it in shell history and `ps`.
+The secret belongs in `--from-file` or a pipe, and `--set
+deviceSyncAuth.clientSecret=…` is refused, since it would put it in shell
+history and `ps`.
 `authStrategy: M2M` avoids the question entirely, taking a `tenantId` and no
 credentials — **at the cost of leaking a Jamf Pro API integration per create.**
 M2M self-provisions an API role and integration on the named Jamf Pro, and

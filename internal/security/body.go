@@ -24,7 +24,13 @@ import (
 // Generated security commands call this for PUT/POST bodies. Returns nil
 // when there's nothing to send (no input, no overrides) so callers can decide
 // whether the op accepts an empty body or should error.
-func ReadBody(file string, sets []string) (any, error) {
+//
+// credentialPaths are the operation's secret-bearing body paths; a --set naming
+// one is refused before any body input is read.
+func ReadBody(file string, sets []string, credentialPaths ...string) (any, error) {
+	if err := bodyinput.RefuseCredentialSets(sets, credentialPaths); err != nil {
+		return nil, err
+	}
 	var body any = map[string]any{}
 	raw, err := readBodyInput(file)
 	if err != nil {

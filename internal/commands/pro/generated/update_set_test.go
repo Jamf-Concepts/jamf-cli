@@ -238,27 +238,18 @@ func TestUpdateSetWriteOnlyWarning(t *testing.T) {
 		}
 	})
 
-	t.Run("no warning when write-only password supplied", func(t *testing.T) {
+	t.Run("refuses a write-only password supplied on --set", func(t *testing.T) {
 		mock := &updateSetRecordingClient{getBody: getBody}
 		ctx := &registry.CLIContext{Client: mock, Output: newNDJSONOutput()}
 		cmd := newComputerPrestagesUpdateCmd(ctx)
 		cmd.SetArgs([]string{"12", "--set", `department=Config Management`, "--set", "accountSettings.adminPassword=hunter2"})
-		stderr := captureStderr(t, func() {
-			if err := cmd.Execute(); err != nil {
-				t.Fatalf("update --set failed: %v", err)
-			}
-		})
-		if strings.Contains(stderr, `field "accountSettings.adminPassword" is write-only`) {
-			t.Errorf("did not expect adminPassword warning when supplied, got: %q", stderr)
+		var err error
+		_ = captureStderr(t, func() { err = cmd.Execute() })
+		if err == nil || !strings.Contains(err.Error(), "--from-file") {
+			t.Fatalf("update --set accountSettings.adminPassword: err = %v, want a credential refusal naming --from-file", err)
 		}
-		// The supplied password must actually reach the PUT body.
-		var putBody map[string]any
-		if err := json.Unmarshal(mock.putBody, &putBody); err != nil {
-			t.Fatalf("PUT body not valid JSON: %v (%s)", err, mock.putBody)
-		}
-		acct, _ := putBody["accountSettings"].(map[string]any)
-		if acct == nil || acct["adminPassword"] != "hunter2" {
-			t.Errorf("PUT body missing supplied adminPassword: %v", putBody)
+		if mock.putBody != nil {
+			t.Errorf("PUT sent despite the refusal: %s", mock.putBody)
 		}
 	})
 }

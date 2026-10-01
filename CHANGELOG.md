@@ -11,6 +11,30 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — `--set` refuses credential fields in Pro, Platform and Security Cloud
+
+A `--set` value is on the command line, so it lands in shell history, in `ps`
+output and in CI job logs. Classic `--set` already refused a credential field.
+The generated Pro `patch` and `update`, Platform and Security Cloud commands
+accepted one, and the Pro `update` warning for a write-only field told you to
+pass it as `--set <field>=<value>`.
+
+`--set` now refuses a field that carries a secret: a password, client or shared
+secret, token, API or access key, private key, keystore, authorization header or
+device PIN, and any string the spec marks write-only. The refusal also catches a
+JSON value that carries one, such as `--set deviceSyncAuth='{"clientSecret":"…"}'`.
+Examples are `security uem-connectors create --set deviceSyncAuth.clientSecret=…`,
+`security stream update --set delivery.authorization_header=…` and
+`pro computer-prestages update --set recoveryLockPassword=…`.
+
+**Migration.** Put the secret in the request body and pass it with
+`--from-file <file>` or on stdin. On Platform and Security Cloud, `--set` still
+overrides the other fields of that body. A Pro `update` reads its body from
+stdin only, so pipe the whole record, secret included. Pro `update --set` on a
+resource with a write-only secret now always blanks that secret, and its
+warning says so. Pro `--help` and shell completion no longer list credential
+fields; the help names them and says where they go.
+
 ### Behaviour — the MCP `list_commands` tool browses and searches the catalog
 
 `list_commands` returned the whole catalog in one result. That result was

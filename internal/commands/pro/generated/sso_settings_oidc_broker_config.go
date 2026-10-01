@@ -77,7 +77,7 @@ func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update the OIDC broker configuration",
-		Long:  "Full-replacement update of the tenant's selected broker configuration's contents on the\nremote authentication service. Omit clientSecret/privateKeyJwt to keep the currently\nstored value; supply either to rotate it — except when this request changes\nclientAuthMethod, which requires the new method's credential to be supplied, because the\nauthentication service clears the credential belonging to the method being left. The\nconfiguration is always written as an ADMIN_SSO capability, CONFIDENTIAL client; neither\nvalue is settable through this request.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  clientAuthMethod                             string\n  clientId                                     string\n  clientSecret                                 string\n  discoveryUrl                                 string\n  enabled                                      boolean\n  privateKeyJwt                                string\n  productUserMapping                           string\n  productUsernameClaim                         string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  scopes                                       array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Full-replacement update of the tenant's selected broker configuration's contents on the\nremote authentication service. Omit clientSecret/privateKeyJwt to keep the currently\nstored value; supply either to rotate it — except when this request changes\nclientAuthMethod, which requires the new method's credential to be supplied, because the\nauthentication service clears the credential belonging to the method being left. The\nconfiguration is always written as an ADMIN_SSO capability, CONFIDENTIAL client; neither\nvalue is settable through this request.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  clientAuthMethod                             string\n  clientId                                     string\n  discoveryUrl                                 string\n  enabled                                      boolean\n  productUserMapping                           string\n  productUsernameClaim                         string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  scopes                                       array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: clientSecret, privateKeyJwt. Send them in a JSON body on stdin, as the whole record.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro sso-settings oidc-broker-config update --set field=value
 
@@ -135,7 +135,7 @@ func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"clientAuthMethod": nil, "clientId": nil, "clientSecret": nil, "discoveryUrl": nil, "enabled": nil, "privateKeyJwt": nil, "productUserMapping": nil, "productUsernameClaim": nil, "scopes": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"clientAuthMethod": "string", "clientId": "string", "clientSecret": "string", "discoveryUrl": "string", "enabled": "boolean", "privateKeyJwt": "string", "productUserMapping": "string", "productUsernameClaim": "string", "scopes": "array"})
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"clientAuthMethod": "string", "clientId": "string", "clientSecret": "string", "discoveryUrl": "string", "enabled": "boolean", "privateKeyJwt": "string", "productUserMapping": "string", "productUsernameClaim": "string", "scopes": "array"}, "clientSecret", "privateKeyJwt")
 				if serr != nil {
 					return serr
 				}
@@ -143,12 +143,8 @@ func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
-				if !hasNestedKey(setMap, "clientSecret") {
-					fmt.Fprintf(os.Stderr, "warning: oidc-broker-config field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set clientSecret=<value> to preserve it.\n", "clientSecret")
-				}
-				if !hasNestedKey(setMap, "privateKeyJwt") {
-					fmt.Fprintf(os.Stderr, "warning: oidc-broker-config field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set privateKeyJwt=<value> to preserve it.\n", "privateKeyJwt")
-				}
+				fmt.Fprintf(os.Stderr, "warning: oidc-broker-config field %q is write-only: the server never returns it, so this update will blank any existing value. It is a credential --set cannot carry; to keep it, pipe the whole record with the field included on stdin instead of using --set.\n", "clientSecret")
+				fmt.Fprintf(os.Stderr, "warning: oidc-broker-config field %q is write-only: the server never returns it, so this update will blank any existing value. It is a credential --set cannot carry; to keep it, pipe the whole record with the field included on stdin instead of using --set.\n", "privateKeyJwt")
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {
@@ -187,7 +183,7 @@ func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"clientAuthMethod=", "clientId=", "clientSecret=", "discoveryUrl=", "enabled=", "privateKeyJwt=", "productUserMapping=", "productUsernameClaim=",
+			"clientAuthMethod=", "clientId=", "discoveryUrl=", "enabled=", "productUserMapping=", "productUsernameClaim=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd

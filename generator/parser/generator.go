@@ -604,6 +604,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"setFieldTypesLiteral": func(op *Operation, schemas map[string]*Schema) string {
 			return setFieldTypesLiteral(op, schemas)
 		},
+		"credentialPaths": func(op *Operation, schemas map[string]*Schema) []string {
+			return RequestCredentialPaths(schemas, op)
+		},
+		"containsString":  slices.Contains[[]string],
 		"writeOnlyFields": writeOnlyFields,
 		"hasScaffold":     hasScaffold,
 		"scaffoldJSON":    scaffoldJSON,
@@ -1713,7 +1717,7 @@ func patchSetCompletions(op *Operation, schemas map[string]*Schema) []string {
 	if op.RequestBody == nil {
 		return nil
 	}
-	fields := flattenSchemaToScalarFields(op.RequestBody.Schema, schemas)
+	fields := settableScalarFields(op, schemas)
 	result := make([]string, len(fields))
 	for i, f := range fields {
 		result[i] = f.Path + "="
@@ -1721,10 +1725,33 @@ func patchSetCompletions(op *Operation, schemas map[string]*Schema) []string {
 	return result
 }
 
+// settableScalarFields is flattenSchemaToScalarFields less the credential
+// fields --set refuses, so help and completion never offer one.
+func settableScalarFields(op *Operation, schemas map[string]*Schema) []ScalarField {
+	refused := RequestCredentialPaths(schemas, op)
+	var out []ScalarField
+	for _, f := range flattenSchemaToScalarFields(op.RequestBody.Schema, schemas) {
+		if !slices.Contains(refused, f.Path) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// credentialFieldsNote names the fields --set refuses and the route that
+// still takes them; empty when the body carries no credential.
+func credentialFieldsNote(op *Operation, schemas map[string]*Schema, route string) string {
+	refused := RequestCredentialPaths(schemas, op)
+	if len(refused) == 0 {
+		return ""
+	}
+	return "\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: " + strings.Join(refused, ", ") + ". Send them in a JSON body " + route + "."
+}
+
 // patchLongDesc builds the Long description string (as a Go double-quoted literal)
 // for a PATCH command, embedding the list of patchable scalar fields and lookup info.
 func patchLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) string {
-	fields := flattenSchemaToScalarFields(op.RequestBody.Schema, schemas)
+	fields := settableScalarFields(op, schemas)
 
 	goEscape := func(s string) string {
 		s = strings.ReplaceAll(s, `\`, `\\`)
@@ -1768,6 +1795,7 @@ func patchLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) strin
 		}
 		sb.WriteString(`\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).`)
 	}
+	sb.WriteString(goEscape(credentialFieldsNote(op, schemas, "with --from-file or on stdin")))
 
 	sb.WriteString(`"`)
 	return sb.String()
@@ -1956,7 +1984,7 @@ func collectWriteOnlyFields(s *Schema, schemas map[string]*Schema, prefix string
 // for a PUT "update" command that supports "--set", listing the writable scalar
 // fields and explaining the fetch-merge-put semantics.
 func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) string {
-	fields := flattenSchemaToScalarFields(op.RequestBody.Schema, schemas)
+	fields := settableScalarFields(op, schemas)
 
 	goEscape := func(s string) string {
 		s = strings.ReplaceAll(s, `\`, `\\`)
@@ -1999,6 +2027,7 @@ func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) s
 	}
 
 	sb.WriteString(`\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.`)
+	sb.WriteString(goEscape(credentialFieldsNote(op, schemas, "on stdin, as the whole record")))
 
 	sb.WriteString(`"`)
 	return sb.String()
@@ -2925,7 +2954,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, {{ setFieldTypesLiteral . $.Schemas }})
+				data, err := buildMergePatchFromSet(flagSet, {{ setFieldTypesLiteral . $.Schemas }}{{ range credentialPaths . $.Schemas }}, {{ goStr . }}{{ end }})
 				if err != nil {
 					return err
 				}
@@ -3019,7 +3048,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 				}
 				({{ writableFilterLiteral . $.Schemas }}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet, {{ setFieldTypesLiteral . $.Schemas }})
+				setDoc, serr := buildMergePatchFromSet(flagSet, {{ setFieldTypesLiteral . $.Schemas }}{{ range credentialPaths . $.Schemas }}, {{ goStr . }}{{ end }})
 				if serr != nil {
 					return serr
 				}
@@ -3027,10 +3056,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
+{{- $credentials := credentialPaths . $.Schemas }}
 {{- range writeOnlyFields . $.Schemas }}
+{{- if containsString $credentials . }}
+				fmt.Fprintf(os.Stderr, {{ goStr (print "warning: " $.NameSingular " field %q is write-only: the server never returns it, so this update will blank any existing value. It is a credential --set cannot carry; to keep it, pipe the whole record with the field included on stdin instead of using --set.\n") }}, {{ goStr (.) }})
+{{- else }}
 				if !hasNestedKey(setMap, {{ goStr (.) }}) {
 					fmt.Fprintf(os.Stderr, {{ goStr (print "warning: " $.NameSingular " field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set " . "=<value> to preserve it.\n") }}, {{ goStr (.) }})
 				}
+{{- end }}
 {{- end }}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
@@ -3624,6 +3658,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -4372,7 +4407,13 @@ func fetchForMerge(ctx context.Context, client registry.HTTPClient, getPath stri
 // type, and a mismatch is rejected with a hint rather than silently stringified
 // (issue #304). Fields absent from fieldTypes (unmodelled schemas, or paths deeper
 // than the map records) fall back to best-effort inference.
-func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string) ([]byte, error) {
+//
+// credentialPaths are the operation's secret-bearing body paths; a pair naming
+// one is refused before anything is built.
+func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string, credentialPaths ...string) ([]byte, error) {
+	if err := refuseCredentialSets(pairs, credentialPaths); err != nil {
+		return nil, err
+	}
 	result := make(map[string]any)
 	for _, pair := range pairs {
 		eq := strings.Index(pair, "=")
@@ -4393,6 +4434,63 @@ func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string) ([]byt
 		}
 	}
 	return json.Marshal(result)
+}
+
+// refuseCredentialSets returns an error for the first --set pair that would put
+// a credential on the command line, where it lands in shell history, ps output
+// and CI logs: its key is one of credentialPaths ("[]" marks an array element),
+// or its value is a JSON object or array carrying one. Paths compare
+// case-insensitively. Mirrors internal/bodyinput.RefuseCredentialSets.
+func refuseCredentialSets(pairs []string, credentialPaths []string) error {
+	if len(credentialPaths) == 0 {
+		return nil
+	}
+	refused := make(map[string]bool, len(credentialPaths))
+	for _, p := range credentialPaths {
+		refused[strings.ToLower(p)] = true
+	}
+	for _, pair := range pairs {
+		key, raw, _ := strings.Cut(pair, "=")
+		hit := ""
+		if refused[strings.ToLower(key)] {
+			hit = key
+		} else if len(raw) > 0 && (raw[0] == '{' || raw[0] == '[') {
+			var v any
+			if json.Unmarshal([]byte(raw), &v) == nil {
+				hit = credentialIn(key, v, refused)
+			}
+		}
+		if hit != "" {
+			return fmt.Errorf("--set %s: %s is a credential and cannot be passed as a flag value, where it would land in shell history, ps output and CI logs; put it in a JSON body and pipe it on stdin, or pass the file with --from-file where the command takes one", key, hit)
+		}
+	}
+	return nil
+}
+
+func credentialIn(path string, v any, refused map[string]bool) string {
+	if refused[strings.ToLower(path)] {
+		return path
+	}
+	switch t := v.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(t))
+		for k := range t {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if hit := credentialIn(path+"."+k, t[k], refused); hit != "" {
+				return hit
+			}
+		}
+	case []any:
+		for _, child := range t {
+			if hit := credentialIn(path+"[]", child, refused); hit != "" {
+				return hit
+			}
+		}
+	}
+	return ""
 }
 
 // checkSetParentKind rejects a dotted "--set" key whose parent path resolves to a
