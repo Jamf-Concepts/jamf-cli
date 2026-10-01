@@ -188,7 +188,7 @@ func TestClassicFindIDByName(t *testing.T) {
 			groupsPath + "/id/6": {body: makeGroupXML("computers", "computer", []string{"60"}), status: 200},
 		}}
 		ids, err := fetchClassicGroupMemberIDs(context.Background(), client, groupsPath, "computers", "computer", "Dupe")
-		if err == nil || !strings.Contains(err.Error(), "5") || !strings.Contains(err.Error(), "6") {
+		if err == nil || !strings.Contains(err.Error(), "IDs: 5, 6") {
 			t.Fatalf("got ids=%v err=%v, want a refusal naming ids 5 and 6", ids, err)
 		}
 	})

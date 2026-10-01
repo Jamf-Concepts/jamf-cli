@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -22,6 +23,7 @@ type duplicateNameClassicServer struct {
 	ids                     []string
 	serverPick              string
 	calls                   []string
+	puts                    []string
 }
 
 func (s *duplicateNameClassicServer) record(id string) string {
@@ -31,7 +33,10 @@ func (s *duplicateNameClassicServer) record(id string) string {
 func (s *duplicateNameClassicServer) Do(_ context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	s.calls = append(s.calls, method+" "+path)
 	if body != nil {
-		_, _ = io.ReadAll(body)
+		b, _ := io.ReadAll(body)
+		if method == "PUT" {
+			s.puts = append(s.puts, string(b))
+		}
 	}
 	reply := func(code int, b string) (*http.Response, error) {
 		return &http.Response{StatusCode: code, Header: http.Header{"Content-Type": {"application/xml"}}, Body: io.NopCloser(strings.NewReader(b))}, nil
@@ -50,6 +55,9 @@ func (s *duplicateNameClassicServer) Do(_ context.Context, method, path string, 
 		return reply(200, s.record(s.serverPick))
 	case method == "GET" && strings.HasPrefix(path, base+"/id/"):
 		id := strings.SplitN(strings.TrimPrefix(path, base+"/id/"), "/", 2)[0]
+		if !slices.Contains(s.ids, id) {
+			return reply(404, "not found")
+		}
 		return reply(200, s.record(id))
 	case method == "PUT":
 		return reply(201, fmt.Sprintf("<%s><id>%s</id></%s>", s.root, s.serverPick, s.root))
@@ -80,19 +88,19 @@ func TestClassicUpdateByNameRefusesDuplicateName(t *testing.T) {
 		body   string
 	}{
 		{
-			name:   "config profile branch (fetchClassicProfileByName)",
+			name:   "config profile branch",
 			newCmd: newClassicMacosConfigProfilesUpdateCmd,
 			server: &duplicateNameClassicServer{apiPath: "osxconfigurationprofiles", root: "os_x_configuration_profile", listRoot: "os_x_configuration_profiles"},
 			body:   "<os_x_configuration_profile><general><description>new</description></general></os_x_configuration_profile>",
 		},
 		{
-			name:   "fetch-merge-put branch (fetchClassicFullXMLByName)",
+			name:   "fetch-merge-put branch",
 			newCmd: newClassicMacAppsUpdateCmd,
 			server: &duplicateNameClassicServer{apiPath: "macapplications", root: "mac_application", listRoot: "mac_applications"},
 			body:   "<mac_application><general><name>Baseline</name></general></mac_application>",
 		},
 		{
-			name:   "generic branch (PUT /name/)",
+			name:   "generic branch",
 			newCmd: newClassicPoliciesUpdateCmd,
 			server: &duplicateNameClassicServer{apiPath: "policies", root: "policy", listRoot: "policies"},
 			body:   "<policy><general><enabled>false</enabled></general></policy>",

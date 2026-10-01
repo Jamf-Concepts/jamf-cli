@@ -1611,6 +1611,9 @@ import (
 {{- if anyHasCustomPayload . }}
 	"howett.net/plist"
 {{- end }}
+{{- if anyNeedsClassicNameResolve . }}
+	"golang.org/x/term"
+{{- end }}
 )
 
 // RegisterClassicCommands registers all Classic API resource commands.
@@ -2081,6 +2084,8 @@ func (e *ClassicNameCollisionError) Error() string {
 	return fmt.Sprintf("multiple resources found with name %q (IDs: %s)", e.Name, strings.Join(e.IDs, ", "))
 }
 
+var classicStdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
 // resolveClassicNameToIDForApply looks up a classic resource by name using
 // the list endpoint. Returns all matching IDs for collision detection.
 // Returns ("", nil) when no resource is found (caller should create).
@@ -2137,8 +2142,9 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return matches[0].id, nil
 	}
 
-	// Collision: multiple resources with the same name
-	if noInput {
+	// Collision: multiple resources with the same name. Only prompt when a
+	// human can answer: a non-terminal stdin would feed the pick from a pipe.
+	if noInput || !classicStdinIsTerminal() {
 		ids := make([]string, len(matches))
 		for i, m := range matches {
 			ids[i] = m.id
@@ -2993,7 +2999,7 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 			return nil, fmt.Errorf("listing groups: %w", err)
 		}
 		defer func() { _ = resp.Body.Close() }()
-		body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		body, err := readClassicGroupBody(resp.Body, groupsPath)
 		if err != nil {
 			return nil, err
 		}
@@ -3013,7 +3019,7 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		return nil, fmt.Errorf("fetching group %s: %w", groupID, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	body, err := readClassicGroupBody(resp.Body, groupsPath+"/id/"+groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -3047,6 +3053,21 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		}
 	}
 	return ids, nil
+}
+
+const classicGroupBodyLimit = 4 << 20
+
+// readClassicGroupBody reads a group response, refusing one larger than
+// classicGroupBodyLimit rather than matching against a truncated document.
+func readClassicGroupBody(r io.Reader, path string) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(r, classicGroupBodyLimit+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > classicGroupBodyLimit {
+		return nil, fmt.Errorf("GET %s: response exceeds %d MiB", path, classicGroupBodyLimit>>20)
+	}
+	return body, nil
 }
 
 // classicFindIDByName returns the id classicFindIDsByName resolves name to,
