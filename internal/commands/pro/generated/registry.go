@@ -933,8 +933,9 @@ func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string, creden
 // refuseCredentialSets returns an error for the first --set pair that would put
 // a credential on the command line, where it lands in shell history, ps output
 // and CI logs: its key is one of credentialPaths ("[]" marks an array element),
-// or its value is a JSON object or array carrying one. Paths compare
-// case-insensitively. The value is decoded by parseJSONSetValue, the body
+// or its value is a JSON object or array carrying one. Paths are compared in
+// canonical form (canonicalSetPath), and a key no canonical form can safely
+// match is refused outright. The value is decoded by parseJSONSetValue, the body
 // builder's own decoder, so the two cannot disagree on what is an object.
 // Mirrors internal/bodyinput.RefuseCredentialSets.
 func refuseCredentialSets(pairs []string, credentialPaths []string) error {
@@ -943,12 +944,15 @@ func refuseCredentialSets(pairs []string, credentialPaths []string) error {
 	}
 	refused := make(map[string]bool, len(credentialPaths))
 	for _, p := range credentialPaths {
-		refused[strings.ToLower(p)] = true
+		refused[canonicalSetPath(p)] = true
 	}
 	for _, pair := range pairs {
 		key, raw, _ := strings.Cut(pair, "=")
+		if malformedSetKey(key) {
+			return fmt.Errorf("--set %q: a key with an empty segment, a '[' or surrounding whitespace cannot be checked against this operation's credential fields; spell the field's dotted path exactly", key)
+		}
 		hit := ""
-		if refused[strings.ToLower(key)] {
+		if refused[canonicalSetPath(key)] {
 			hit = key
 		} else if v, err := parseJSONSetValue(raw); err == nil {
 			hit = credentialIn(key, v, refused)
@@ -961,7 +965,7 @@ func refuseCredentialSets(pairs []string, credentialPaths []string) error {
 }
 
 func credentialIn(path string, v any, refused map[string]bool) string {
-	if refused[strings.ToLower(path)] {
+	if refused[canonicalSetPath(path)] {
 		return path
 	}
 	switch t := v.(type) {
@@ -984,6 +988,31 @@ func credentialIn(path string, v any, refused map[string]bool) string {
 		}
 	}
 	return ""
+}
+
+// canonicalSetPath lowercases p, drops "_" and "-" as the generator's
+// normalizeFieldName does, and collapses nested "[]" segments, so pass_word,
+// basic_auth_credentials.password and a list of lists all meet their path.
+func canonicalSetPath(p string) string {
+	p = strings.NewReplacer("_", "", "-", "").Replace(strings.ToLower(p))
+	for strings.Contains(p, "[][]") {
+		p = strings.ReplaceAll(p, "[][]", "[]")
+	}
+	return p
+}
+
+// malformedSetKey reports a key whose spelling could slip past the path match:
+// an empty segment, an index, or whitespace around a segment.
+func malformedSetKey(key string) bool {
+	if strings.Contains(key, "[") {
+		return true
+	}
+	for _, seg := range strings.Split(key, ".") {
+		if seg == "" || seg != strings.TrimSpace(seg) {
+			return true
+		}
+	}
+	return false
 }
 
 // checkSetParentKind rejects a dotted "--set" key whose parent path resolves to a

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -68,7 +69,7 @@ func isolateProSetCredentialEnv(t *testing.T, serverURL string) {
 // TestProSetRefusesACredentialField holds the generated Pro update and patch
 // commands to the credential policy Classic --set already enforces: a
 // credential value on argv reaches shell history, ps and CI logs, so it must be
-// refused before any request is sent.
+// refused before any write.
 func TestProSetRefusesACredentialField(t *testing.T) {
 	const secret = "FAKE-S3cret-value"
 	cases := []struct {
@@ -137,6 +138,9 @@ func TestProWriteOnlyWarningNeverRecommendsArgv(t *testing.T) {
 			t.Errorf("stderr recommends passing %s on argv:\n%s", field, stderr)
 		}
 	}
+	if !strings.Contains(stderr, "pipe the whole record with the field included on stdin") {
+		t.Errorf("stderr does not give the stdin remedy:\n%s", stderr)
+	}
 }
 
 // TestProSetCompletionOffersNoCredentialField keeps credential fields out of
@@ -166,6 +170,15 @@ func TestProSetCompletionOffersNoCredentialField(t *testing.T) {
 				t.Errorf("%v: --set completion offers %q", tc.path, tc.field)
 			}
 		}
+	}
+
+	cmd, _, err := root.Find([]string{"pro", "computer-prestages", "update"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn, _ := cmd.GetFlagCompletionFunc("set")
+	if got, _ := fn(cmd, nil, ""); !slices.Contains(got, "department=") {
+		t.Errorf("--set completion no longer offers the settable department=; got %v", got)
 	}
 }
 
@@ -213,3 +226,59 @@ func TestProSetRefusesACredentialObjectLedByWhitespace(t *testing.T) {
 }
 
 func strconvQuote(s string) string { return fmt.Sprintf("%q", s) }
+
+// TestProSetRefusesAPrivateKeyBlob covers the PKCS#12 fields whose leaf name
+// says nothing: an ADCS or DigiCert clientCert.data and a cloud LDAP
+// keystore's fileBytes carry the client's private key. serverCert.data shares
+// the ADCS schema and holds a public certificate, so it must still be sent.
+func TestProSetRefusesAPrivateKeyBlob(t *testing.T) {
+	const secret = "FAKE-P12-blob"
+	oldNoInput := noInput
+	t.Cleanup(func() { noInput = oldNoInput })
+	run := func(t *testing.T, args []string, getBody string) (*proSetCredentialServer, error) {
+		srv := &proSetCredentialServer{}
+		ts := httptest.NewServer(srv.handler(getBody))
+		t.Cleanup(ts.Close)
+		isolateProSetCredentialEnv(t, ts.URL)
+		root := NewRootCmd("test", "none", "none", "none")
+		root.SetArgs(append(append([]string{}, args...), "--no-input"))
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+		var err error
+		_ = captureStdout(t, func() {
+			_ = captureStderr(t, func() { err = root.Execute() })
+		})
+		return srv, err
+	}
+	for _, tc := range []struct {
+		name    string
+		args    []string
+		getBody string
+	}{
+		{"adcs-settings patch clientCert.data", []string{"pro", "adcs-settings", "patch", "1", "--set", `clientCert.data=["` + secret + `"]`}, `{}`},
+		{"digicert patch clientCert as a JSON object", []string{"pro", "digicert", "patch", "1", "--set", `clientCert={"filename":"c.p12","data":["` + secret + `"]}`}, `{}`},
+		{"cloud-ldap update server.keystore.fileBytes", []string{"pro", "cloud-ldap", "update", "1", "--set", "server.keystore.fileBytes=" + secret}, `{"cloudIdPCommon":{"displayName":"x"},"server":{"enabled":true}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, err := run(t, tc.args, tc.getBody)
+			if err == nil || !strings.Contains(err.Error(), "is a credential") {
+				t.Errorf("err = %v; want a credential refusal", err)
+			}
+			if w := srv.writes(); len(w) > 0 {
+				t.Errorf("credential --set reached the server: %v", w)
+			}
+			if strings.Contains(srv.body, secret) {
+				t.Errorf("the argv blob was sent in the request body: %s", srv.body)
+			}
+		})
+	}
+	t.Run("adcs-settings patch serverCert.data stays settable", func(t *testing.T) {
+		srv, err := run(t, []string{"pro", "adcs-settings", "patch", "1", "--set", `serverCert.data=["PUBLIC-cert"]`}, `{}`)
+		if err != nil {
+			t.Fatalf("serverCert.data refused: %v", err)
+		}
+		if !strings.Contains(srv.body, "PUBLIC-cert") {
+			t.Errorf("serverCert.data was not sent; body %q, calls %v", srv.body, srv.calls)
+		}
+	})
+}

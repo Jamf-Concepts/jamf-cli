@@ -150,3 +150,68 @@ func recordBody(received *[]string) http.HandlerFunc {
 		writeJSONStatus(w, http.StatusCreated, map[string]any{"id": "c-1", "href": "/x"})
 	}
 }
+
+// TestGeneratedApplyAndUnionVariantSetRefuseCredentials covers two wirings the
+// create and update cases do not: apply, whose paths are the union of its
+// create and update bodies, and a secret only a blueprint component's union
+// variant declares. The assertion names the refusal itself, since a lookup or
+// body error would also mention --from-file.
+func TestGeneratedApplyAndUnionVariantSetRefuseCredentials(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	blueprint := func(program string) string {
+		return `steps=[{"name":"s","components":[{"identifier":"com.jamf.ddm.software-update-settings","configuration":{"Beta":{"Value":{"ProgramEnrollment":"Allowed",` + program + `}}}}]}]`
+	}
+	for _, tc := range []struct {
+		name string
+		path string
+		new  func(*registry.CLIContext) *cobra.Command
+		args []string
+	}{
+		{
+			name: "ztna-gateways apply ipsec.left.secret",
+			path: "/securitycloud/v1/ztna/gateways",
+			new:  platformgen.NewZtnaGatewaysCmd,
+			args: []string{"apply", "--yes", "--set", "name=x", "--set", "ipsec.left.secret=" + fakeSecret},
+		},
+		{
+			name: "blueprints create RequireProgram.Token",
+			path: "/blueprints/v1/blueprints",
+			new:  platformgen.NewBlueprintsCmd,
+			args: []string{"create", "--set", "name=x", "--set", blueprint(`"RequireProgram":{"Description":"d","Token":"` + fakeSecret + `"}`)},
+		},
+		{
+			name: "blueprints create OfferPrograms[].Token",
+			path: "/blueprints/v1/blueprints",
+			new:  platformgen.NewBlueprintsCmd,
+			args: []string{"create", "--set", "name=x", "--set", blueprint(`"OfferPrograms":[{"Description":"d","Token":"` + fakeSecret + `"}]`)},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var received []string
+			sdk, mux := newTestPlatformSDK(t)
+			mux.HandleFunc(tc.path, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					writeJSON(w, map[string]any{"results": []any{}, "totalCount": 0})
+					return
+				}
+				recordBody(&received)(w, r)
+			})
+			cmd := tc.new(&registry.CLIContext{PlatformSDKClient: sdk, Output: &captureOutput{}})
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tc.args)
+			err := cmd.Execute()
+
+			if err == nil || !strings.Contains(err.Error(), "is a credential") {
+				t.Errorf("err = %v; want a credential refusal", err)
+			}
+			for _, b := range received {
+				if strings.Contains(b, fakeSecret) {
+					t.Errorf("server received the --set credential in the request body: %s", b)
+				}
+			}
+		})
+	}
+}

@@ -70,9 +70,16 @@ var notCredentialSuffixes = []string{
 // worn by `key_type` and by base64 icon, `.ipa` and `.mobileconfig` blobs that
 // are not credentials and must stay settable. Matched on a path suffix, so the
 // same object is still refused if a future schema nests it.
+//
+// A Pro ADCS or DigiCert `clientCert.data` and a cloud LDAP
+// `keystore.fileBytes` are a base64 `.p12` or `.pfx` carrying the client's
+// private key. `serverCert.data` shares the ADCS schema and holds only a public
+// certificate, so it stays settable.
 var credentialPathSuffixes = []string{
 	"institutional_recovery_key.key",
 	"institutional_recovery_key.data",
+	"clientcert.data",
+	"keystore.filebytes",
 }
 
 // notCredentialFields are fields whose name marks a secret and whose content is
@@ -166,7 +173,11 @@ func collectCredentialPaths(s *Schema, schemas map[string]*Schema, prefix string
 		if _, exempt := notCredentialFields[s.Name+"."+name]; exempt {
 			continue
 		}
-		if IsCredentialField(path, name, prop.Type, prop.WriteOnly) {
+		kind := prop.Type
+		if prop.ByteArray {
+			kind = "string"
+		}
+		if IsCredentialField(path, name, kind, prop.WriteOnly) {
 			out[path] = true
 			continue
 		}

@@ -23,6 +23,11 @@ pass it as `--set <field>=<value>`.
 secret, token, API or access key, private key, keystore, authorization header or
 device PIN, and any string the spec marks write-only. The refusal also catches a
 JSON value that carries one, such as `--set deviceSyncAuth='{"clientSecret":"…"}'`.
+A private-key blob is refused too: ADCS and DigiCert `clientCert.data` and the
+cloud LDAP `server.keystore.fileBytes`, while the public `serverCert.data` stays
+settable. A key is matched however it is spelled (`pass_word`,
+`basic_auth_credentials.password`), and on an operation that carries a secret a
+key with an empty segment, a `[` or surrounding whitespace is refused.
 Examples are `security uem-connectors create --set deviceSyncAuth.clientSecret=…`,
 `security stream update --set delivery.authorization_header=…` and
 `pro computer-prestages update --set recoveryLockPassword=…`.

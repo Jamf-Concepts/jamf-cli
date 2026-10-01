@@ -2357,6 +2357,15 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 				}
 			}
 		}
+	} else if depth < maxSchemaDepth {
+		// A union that also declares properties of its own (a blueprint Component
+		// is {identifier, configuration} beside twelve variants) keeps that own
+		// shape, but CredentialPaths still has to see each variant.
+		for _, branch := range unionBranches(schema) {
+			if branch != nil && branch.Value != nil {
+				s.VariantSchemas = append(s.VariantSchemas, parseSchemaDepth(refName(branch.Ref), branch.Value, depth+1))
+			}
+		}
 	}
 
 	for _, props := range propSources {
@@ -2375,6 +2384,9 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 			}
 			if len(prop.Type.Slice()) > 0 {
 				p.Type = prop.Type.Slice()[0]
+			}
+			if p.Type == "array" && prop.Items != nil && prop.Items.Value != nil && prop.Items.Value.Format == "byte" {
+				p.ByteArray = true
 			}
 			for _, v := range prop.Enum {
 				if s, ok := enumValueString(v); ok {

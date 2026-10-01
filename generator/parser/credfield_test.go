@@ -174,3 +174,36 @@ func walkForTest(s *Schema, schemas map[string]*Schema, prefix string, depth int
 		}
 	}
 }
+
+// TestShippedProSpecsRefusePrivateKeyBlobs pins the PKCS#12 fields matched on
+// their path: a byte array or string whose leaf name says nothing, beside a
+// serverCert.data of the same schema that holds only a public certificate.
+func TestShippedProSpecsRefusePrivateKeyBlobs(t *testing.T) {
+	refused := map[string][]string{}
+	var add func(r *Resource)
+	add = func(r *Resource) {
+		for _, op := range r.Operations {
+			if op.RequestBody != nil && op.RequestBody.Schema != nil {
+				refused[r.Name] = append(refused[r.Name], CredentialPaths(op.RequestBody.Schema, r.Schemas)...)
+			}
+		}
+		for _, sub := range r.SubResources {
+			add(sub)
+		}
+	}
+	for _, r := range loadShippedResources(t) {
+		add(r)
+	}
+	for resource, path := range map[string]string{
+		"adcs-settings": "clientCert.data",
+		"digicert":      "clientCert.data",
+		"cloud-ldap":    "server.keystore.fileBytes",
+	} {
+		if !slices.Contains(refused[resource], path) {
+			t.Errorf("%s: --set accepts the private key blob %q; refused: %v", resource, path, refused[resource])
+		}
+	}
+	if slices.Contains(refused["adcs-settings"], "serverCert.data") {
+		t.Error("adcs-settings: serverCert.data is a public certificate and must stay settable")
+	}
+}

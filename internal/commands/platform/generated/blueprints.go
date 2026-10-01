@@ -151,7 +151,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			path := "/blueprints/v1/blueprints"
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "steps[].components[].configuration.Beta.Value.OfferPrograms[].Token", "steps[].components[].configuration.Beta.Value.RequireProgram.Token")
 			if err != nil {
 				return err
 			}
@@ -357,7 +357,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "steps[].components[].configuration.Beta.Value.OfferPrograms[].Token", "steps[].components[].configuration.Beta.Value.RequireProgram.Token")
 			if err != nil {
 				return err
 			}

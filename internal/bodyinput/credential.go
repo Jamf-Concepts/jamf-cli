@@ -16,19 +16,23 @@ import (
 // is one of them, or when its value is a JSON object or array that carries one,
 // since `--set deviceSyncAuth='{"clientSecret":"…"}'` exposes the secret just
 // the same. The value is decoded whatever its first byte, so leading whitespace
-// cannot hide one. Paths compare case-insensitively.
+// cannot hide one. Paths are compared in canonical form (canonicalSetPath), and
+// a key no canonical form can safely match is refused outright.
 func RefuseCredentialSets(sets []string, credentialPaths []string) error {
 	if len(credentialPaths) == 0 {
 		return nil
 	}
 	refused := make(map[string]bool, len(credentialPaths))
 	for _, p := range credentialPaths {
-		refused[strings.ToLower(p)] = true
+		refused[canonicalSetPath(p)] = true
 	}
 	for _, s := range sets {
 		key, raw, _ := strings.Cut(s, "=")
+		if malformedSetKey(key) {
+			return fmt.Errorf("--set %q: a key with an empty segment, a '[' or surrounding whitespace cannot be checked against this operation's credential fields; spell the field's dotted path exactly", key)
+		}
 		hit := ""
-		if refused[strings.ToLower(key)] {
+		if refused[canonicalSetPath(key)] {
 			hit = key
 		} else if v := any(nil); json.Unmarshal([]byte(raw), &v) == nil {
 			hit = credentialIn(key, v, refused)
@@ -41,7 +45,7 @@ func RefuseCredentialSets(sets []string, credentialPaths []string) error {
 }
 
 func credentialIn(path string, v any, refused map[string]bool) string {
-	if refused[strings.ToLower(path)] {
+	if refused[canonicalSetPath(path)] {
 		return path
 	}
 	switch t := v.(type) {
@@ -64,4 +68,29 @@ func credentialIn(path string, v any, refused map[string]bool) string {
 		}
 	}
 	return ""
+}
+
+// canonicalSetPath lowercases p, drops "_" and "-" as the generator's
+// normalizeFieldName does, and collapses nested "[]" segments, so pass_word,
+// basic_auth_credentials.password and a list of lists all meet their path.
+func canonicalSetPath(p string) string {
+	p = strings.NewReplacer("_", "", "-", "").Replace(strings.ToLower(p))
+	for strings.Contains(p, "[][]") {
+		p = strings.ReplaceAll(p, "[][]", "[]")
+	}
+	return p
+}
+
+// malformedSetKey reports a key whose spelling could slip past the path match:
+// an empty segment, an index, or whitespace around a segment.
+func malformedSetKey(key string) bool {
+	if strings.Contains(key, "[") {
+		return true
+	}
+	for _, seg := range strings.Split(key, ".") {
+		if seg == "" || seg != strings.TrimSpace(seg) {
+			return true
+		}
+	}
+	return false
 }
