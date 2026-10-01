@@ -93,10 +93,14 @@ const mobileV2Response = `{
 	"totalCount": 1,
 	"results": [{
 		"mobileDeviceId": "99",
-		"managementId": "mgmt-uuid-mobile",
-		"udid": "MOBILE-UDID",
-		"displayName": "Lab iPad",
-		"serialNumber": "F4GH5678"
+		"general": {
+			"displayName": "Lab iPad",
+			"udid": "MOBILE-UDID",
+			"managementId": "mgmt-uuid-mobile"
+		},
+		"hardware": {
+			"serialNumber": "F4GH5678"
+		}
 	}]
 }`
 
