@@ -5,10 +5,12 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
@@ -28,6 +30,9 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 	id, name, err := tryDeviceByID(ctx, client, identifier)
 	if err == nil {
 		return id, name, nil
+	}
+	if !errors.Is(err, errNoDeviceWithID) {
+		return "", "", fmt.Errorf("looking up %q as a device ID: %w", identifier, err)
 	}
 
 	// 2. Try as serial number.
@@ -51,7 +56,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 	if err != nil {
 		return "", "", fmt.Errorf("searching by name: %w", err)
 	}
-	if count == 1 {
+	if count == 1 && strings.EqualFold(name, identifier) {
 		return id, name, nil
 	}
 	if count > 1 {
@@ -61,12 +66,33 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 	return "", "", fmt.Errorf("no device found matching %q", identifier)
 }
 
-// tryDeviceByID attempts to fetch a device directly by its Jamf ID.
-// Returns id, name, error. A non-200 response is treated as a miss (returns error).
+// errNoDeviceWithID is the one ID-lookup failure that lets resolution move on
+// to the serial and name searches.
+var errNoDeviceWithID = errors.New("no device with that ID")
+
+// tryDeviceByID attempts to fetch a device directly by its Jamf ID. A 404
+// returns errNoDeviceWithID; any other failure is returned as is.
 func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (string, string, error) {
-	obj, err := fetchJSON(ctx, client, "/v4/computers-inventory-detail/"+id)
+	resp, err := client.Do(ctx, "GET", "/v4/computers-inventory-detail/"+url.PathEscape(id), nil)
 	if err != nil {
 		return "", "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusNotFound {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", "", errNoDeviceWithID
+	}
+	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return "", "", err
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(body, &obj); err != nil {
+		return "", "", fmt.Errorf("parsing device %s: %w", id, err)
 	}
 	return extractField(obj, "id"), extractDeviceName(obj), nil
 }

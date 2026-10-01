@@ -127,3 +127,20 @@ func TestScopeAdd_UniquePolicyNameWritesToItsID(t *testing.T) {
 		t.Errorf("the group landed on the wrong policy: 11=%q 12=%q", store.docs["11"], store.docs["12"])
 	}
 }
+
+type statusOnly int
+
+func (s statusOnly) Do(context.Context, string, string, io.Reader) (*http.Response, error) {
+	return &http.Response{StatusCode: int(s), Body: io.NopCloser(strings.NewReader(`<html><title>Status page</title></html>`))}, nil
+}
+
+// A collection request answered with an error page is a failed lookup, not a
+// listing that holds no record of that name.
+func TestResolveNameToID_ErrorPageIsAnError(t *testing.T) {
+	for _, code := range []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError} {
+		_, err := resolveNameToID(context.Background(), statusOnly(code), "policies", "policy", "Decom")
+		if err == nil || strings.Contains(err.Error(), "not found") || !strings.Contains(err.Error(), "HTTP") {
+			t.Errorf("HTTP %d on the listing: err = %v; want an HTTP error, not not-found", code, err)
+		}
+	}
+}

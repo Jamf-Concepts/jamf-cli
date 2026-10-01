@@ -1610,7 +1610,7 @@ func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, gro
 	if groupType != "" {
 		filter += fmt.Sprintf(` and groupType=="%s"`, groupType)
 	}
-	path := "/v2/groups?page-size=1&filter=" + url.QueryEscape(filter)
+	path := "/v2/groups?page-size=2&filter=" + url.QueryEscape(filter)
 
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
@@ -1624,7 +1624,8 @@ func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, gro
 	}
 
 	var result struct {
-		Results []struct {
+		TotalCount int `json:"totalCount"`
+		Results    []struct {
 			GroupPlatformID string `json:"groupPlatformId"`
 			GroupName       string `json:"groupName"`
 		} `json:"results"`
@@ -1633,7 +1634,14 @@ func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, gro
 		return "", fmt.Errorf("parsing groups response: %w", err)
 	}
 
-	if len(result.Results) == 0 {
+	if result.TotalCount > 1 || len(result.Results) > 1 {
+		ids := make([]string, len(result.Results))
+		for i, g := range result.Results {
+			ids[i] = g.GroupPlatformID
+		}
+		return "", fmt.Errorf("%d groups match name %q (ids %s); rename one so the name is unique", max(result.TotalCount, len(result.Results)), groupName, strings.Join(ids, ", "))
+	}
+	if len(result.Results) == 0 || result.Results[0].GroupName != groupName {
 		if groupType != "" {
 			return "", fmt.Errorf("no %s group found with name %q", groupType, groupName)
 		}

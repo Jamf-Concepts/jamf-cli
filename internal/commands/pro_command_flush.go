@@ -77,10 +77,11 @@ For group targets, a single API call flushes all members of the group at once.`,
 
 			// Group flush: resolve group name → Classic group ID → one API call.
 			if dt.group != "" {
-				groupID, err := resolve.ResolveClassicComputerGroupID(ctx, cliCtx.Client, dt.group)
+				group, err := resolve.ResolveClassicComputerGroup(ctx, cliCtx.Client, dt.group)
 				if err != nil {
 					return err
 				}
+				groupID := group.ID
 				if dryRun {
 					_, _ = fmt.Fprintf(stderr, "[dry-run] Would flush %s commands from computer group %q (id: %s)\n", status, dt.group, groupID)
 					return nil
@@ -92,7 +93,7 @@ For group targets, a single API call flushes all members of the group at once.`,
 					if isNoInput {
 						return fmt.Errorf("flush-commands requires --yes when --no-input is set")
 					}
-					_, _ = fmt.Fprintf(stderr, "This will flush %s MDM commands from all computers in group %q. Use --yes to execute.\n", status, dt.group)
+					_, _ = fmt.Fprintf(stderr, "This will flush %s MDM commands from all computers in group %q (id: %s). Use --yes to execute.\n", status, group.Name, group.ID)
 					return nil
 				}
 				path := fmt.Sprintf("/JSSResource/commandflush/computergroups/id/%s/status/%s",
@@ -196,10 +197,11 @@ For group targets, a single API call flushes all members of the group at once.`,
 
 			// Group flush: resolve group name → Classic group ID → one API call.
 			if dt.group != "" {
-				groupID, err := resolve.ResolveClassicMobileGroupID(ctx, cliCtx.Client, dt.group)
+				group, err := resolve.ResolveClassicMobileGroup(ctx, cliCtx.Client, dt.group)
 				if err != nil {
 					return err
 				}
+				groupID := group.ID
 				if dryRun {
 					_, _ = fmt.Fprintf(stderr, "[dry-run] Would flush %s commands from mobile device group %q (id: %s)\n", status, dt.group, groupID)
 					return nil
@@ -211,7 +213,7 @@ For group targets, a single API call flushes all members of the group at once.`,
 					if isNoInput {
 						return fmt.Errorf("flush-commands requires --yes when --no-input is set")
 					}
-					_, _ = fmt.Fprintf(stderr, "This will flush %s MDM commands from all mobile devices in group %q. Use --yes to execute.\n", status, dt.group)
+					_, _ = fmt.Fprintf(stderr, "This will flush %s MDM commands from all mobile devices in group %q (id: %s). Use --yes to execute.\n", status, group.Name, group.ID)
 					return nil
 				}
 				path := fmt.Sprintf("/JSSResource/commandflush/mobiledevicegroups/id/%s/status/%s",

@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -167,6 +168,10 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, apiPath, s
 		return "", fmt.Errorf("listing %s: %w", singularKey, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", fmt.Errorf("listing %s: HTTP %d", singularKey, resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {

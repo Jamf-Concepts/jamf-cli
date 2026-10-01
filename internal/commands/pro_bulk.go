@@ -301,25 +301,9 @@ func doClassicPolicyUpdate(ctx context.Context, client registry.HTTPClient, id s
 // fetchComputerGroupMemberIDs returns the computer IDs that belong to the
 // named static or smart computer group (Classic API).
 func fetchComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupName string) ([]string, error) {
-	raw, err := FetchClassicList(ctx, client, "/JSSResource/computergroups", "computer_groups")
+	groupID, err := resolve.ResolveClassicComputerGroupID(ctx, client, groupName)
 	if err != nil {
-		return nil, fmt.Errorf("listing computer groups: %w", err)
-	}
-
-	groupID := ""
-	for _, r := range raw {
-		m, ok := r.(map[string]any)
-		if !ok {
-			continue
-		}
-		name, _ := m["name"].(string)
-		if strings.EqualFold(name, groupName) {
-			groupID = extractID(m)
-			break
-		}
-	}
-	if groupID == "" {
-		return nil, fmt.Errorf("computer group %q not found", groupName)
+		return nil, err
 	}
 
 	data, err := fetchJSON(ctx, client, fmt.Sprintf("/JSSResource/computergroups/id/%s", groupID))
@@ -471,31 +455,20 @@ func staticGroupRemoveComputerXML(computerID string) string {
 
 // lookupStaticGroupID returns the numeric ID of a static computer group by name.
 func lookupStaticGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	raw, err := FetchClassicList(ctx, client, "/JSSResource/computergroups", "computer_groups")
+	id, err := resolve.ResolveClassicComputerGroupID(ctx, client, groupName)
 	if err != nil {
-		return "", fmt.Errorf("listing computer groups: %w", err)
+		return "", err
 	}
-	for _, r := range raw {
-		m, ok := r.(map[string]any)
-		if !ok {
-			continue
-		}
-		name, _ := m["name"].(string)
-		if strings.EqualFold(name, groupName) {
-			id := extractID(m)
-			data, err := fetchJSON(ctx, client, fmt.Sprintf("/JSSResource/computergroups/id/%s", id))
-			if err != nil {
-				return "", fmt.Errorf("fetching group %s: %w", id, err)
-			}
-			detail := unwrapClassicDetail(data)
-			isSmart, _ := detail["is_smart"].(bool)
-			if isSmart {
-				return "", fmt.Errorf("group %q is a smart group; only static groups can be modified", groupName)
-			}
-			return id, nil
-		}
+	data, err := fetchJSON(ctx, client, fmt.Sprintf("/JSSResource/computergroups/id/%s", id))
+	if err != nil {
+		return "", fmt.Errorf("fetching group %s: %w", id, err)
 	}
-	return "", fmt.Errorf("computer group %q not found", groupName)
+	detail := unwrapClassicDetail(data)
+	isSmart, _ := detail["is_smart"].(bool)
+	if isSmart {
+		return "", fmt.Errorf("group %q is a smart group; only static groups can be modified", groupName)
+	}
+	return id, nil
 }
 
 // applyStaticGroupMutation sends add or remove XML to a static group for one computer.

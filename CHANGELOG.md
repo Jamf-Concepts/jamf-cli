@@ -53,9 +53,21 @@ name every candidate:
   flush-commands --group` list the Classic group collection and resolve the
   name to exactly one group. Before, they used the Classic `/name/` endpoint,
   which returns one group when two share a name, and the commands were
-  flushed from that group. The command now refuses and names the ids.
+  flushed from that group. The command now refuses and names the ids. The
+  prompt shown without `--yes` names the group's stored name and id.
+- `pro bulk send-command --group`, `pro bulk add-to-group` and
+  `pro bulk remove-from-group` (`--group` and `--target-group`) resolve a
+  group name to exactly one group, by the same rule. Before, they took the
+  first group in the listing whose name matched without case.
+- Blueprint scoping by group name refuses a name that two groups share and
+  names their ids. It accepts a group only when the server returns that exact
+  name. Before, it took the first result.
 - `pro packages upload` refuses when two packages have the local file name,
   and it accepts a match only when the server returns that exact name.
+- `protect <resource> apply`, `protect analytics import` and
+  `protect unified-logging-filters import` refuse a name that two records
+  share and name their ids. Before, the last record in the listing was
+  updated. Every other Protect command that takes a name refuses it too.
 - `pro classic-<resource> scope get`, `add`, `remove` and `set` with `--name`
   list the collection and resolve the name to exactly one record, for every
   scopeable resource. Before, they used the Classic `/name/` endpoint. When
@@ -64,9 +76,15 @@ name every candidate:
   one as `<id>`. Names are compared without case, and a name lookup costs one
   more request.
 
-RSQL filter values are now escaped completely: `\`, `"`, `*`, `(`, `)`, `;`
-and `,`. A `*` in a name, serial or file name is now matched literally. It is
-no longer a wildcard.
+RSQL filter values now escape `\` as well as `"`, so a value cannot close its
+quotes. A Jamf Pro lookup by serial number, name, management ID, UDID or
+group name accepts a result only when its value matches the one requested,
+ignoring case. A `*` in the value can make the server return other records,
+and those are now refused instead of acted on.
+
+`school devices` actions send an argument that the device listing does not
+hold only when it has a UDID's form. Before, any argument went into the
+request path.
 
 `protect <resource> apply` creates a record only when the lookup completes
 and finds no record with that name. A lookup that fails (a 401, a 403, a 5xx,

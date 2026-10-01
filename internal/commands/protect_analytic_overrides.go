@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
@@ -84,19 +86,30 @@ func flattenOverride(a jamfprotect.Analytic) map[string]any {
 	}
 }
 
-// listAnalyticsByName fetches every analytic once and indexes it by name. Used
-// instead of the resolver's per-name lookup so bulk apply/export stay at one
-// API call rather than one per analytic.
-func listAnalyticsByName(ctx context.Context, c registry.ProtectClient) (map[string]jamfprotect.Analytic, error) {
-	all, err := c.ListAnalytics(ctx)
-	if err != nil {
-		return nil, err
+// analyticIndex is every analytic in the tenant, fetched once so bulk
+// apply/export stay at one API call rather than one per analytic.
+type analyticIndex []jamfprotect.Analytic
+
+// listAnalyticsByName fetches every analytic once for lookups by name.
+func listAnalyticsByName(ctx context.Context, c registry.ProtectClient) (analyticIndex, error) {
+	return c.ListAnalytics(ctx)
+}
+
+// one returns the analytic named exactly name. An absent name matches
+// protect.ErrNotFound; a name two analytics share is refused with both UUIDs.
+func (ix analyticIndex) one(name string) (jamfprotect.Analytic, error) {
+	a, candidates, err := pickone.One(ix, name, pickone.Exact(func(a jamfprotect.Analytic) string { return a.Name }))
+	switch {
+	case errors.Is(err, pickone.ErrNone):
+		return a, fmt.Errorf("analytic %q not found: %w", name, protect.ErrNotFound)
+	case errors.Is(err, pickone.ErrAmbiguous):
+		uuids := make([]string, len(candidates))
+		for i, c := range candidates {
+			uuids[i] = c.UUID
+		}
+		return a, fmt.Errorf("%d analytics are named %q (uuids %s); rename one so the name is unique", len(candidates), name, strings.Join(uuids, ", "))
 	}
-	byName := make(map[string]jamfprotect.Analytic, len(all))
-	for _, a := range all {
-		byName[a.Name] = a
-	}
-	return byName, nil
+	return a, nil
 }
 
 // parseActionFlag parses a --action value of the form "Name" or "Name=<json>".
@@ -195,9 +208,9 @@ func newProtectAnalyticsOverridesGetCmd(cliCtx *registry.CLIContext) *cobra.Comm
 			if err != nil {
 				return err
 			}
-			a, ok := byName[args[0]]
-			if !ok {
-				return fmt.Errorf("analytic %q not found", args[0])
+			a, err := byName.one(args[0])
+			if err != nil {
+				return err
 			}
 			if !hasOverride(a) {
 				fmt.Fprintf(os.Stderr, "Analytic %q has no tenant override (baseline severity %s)\n", a.Name, a.Severity)
@@ -238,9 +251,9 @@ explicitly, or 'overrides clear' to remove both.
 			if err != nil {
 				return err
 			}
-			a, ok := byName[args[0]]
-			if !ok {
-				return fmt.Errorf("analytic %q not found", args[0])
+			a, err := byName.one(args[0])
+			if err != nil {
+				return err
 			}
 			if !a.Jamf {
 				return fmt.Errorf("analytic %q is a custom analytic — edit it with 'protect analytics apply' instead; overrides apply only to Jamf-managed analytics", a.Name)
@@ -297,9 +310,9 @@ func newProtectAnalyticsOverridesClearCmd(cliCtx *registry.CLIContext) *cobra.Co
 			if err != nil {
 				return err
 			}
-			a, ok := byName[args[0]]
-			if !ok {
-				return fmt.Errorf("analytic %q not found", args[0])
+			a, err := byName.one(args[0])
+			if err != nil {
+				return err
 			}
 			if !hasOverride(a) {
 				fmt.Fprintf(os.Stderr, "Analytic %q has no tenant override — nothing to clear\n", a.Name)
@@ -416,9 +429,14 @@ non-zero if any failed.`,
 
 			var applied, skipped, failed int
 			for _, o := range doc.Overrides {
-				a, ok := byName[o.Analytic]
-				if !ok {
+				a, err := byName.one(o.Analytic)
+				if errors.Is(err, protect.ErrNotFound) {
 					fmt.Fprintf(os.Stderr, "Skipped %q: not present in this tenant\n", o.Analytic)
+					skipped++
+					continue
+				}
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Skipped %q: %v\n", o.Analytic, err)
 					skipped++
 					continue
 				}

@@ -279,6 +279,8 @@ var hostilePackageNames = []string{
 	`Nope",id!="0";fileName=="Global*`,                 // quote , ; != * : targets by wildcard
 	`*.pkg`,                                            // bare * inside the literal: EscapeRSQL leaves it
 	`Nope",(fileName=="GlobalSecurityAgent.pkg");x=="`, // parentheses
+	`Nope\" or fileName!="x.pkg`,                       // a backslash before the quote
+	`GlobalSecurity*`,                                  // a wildcard matching exactly one other package
 }
 
 // The lookup must send the filename as one quoted literal and must never
@@ -289,11 +291,12 @@ func TestRepro_FindPackageByFileName_FilenameIsRSQLEscaped(t *testing.T) {
 			fake := &fakeRSQLPackages{records: tenantPackages()}
 			id, err := findPackageByFileName(context.Background(), fake, name)
 
-			if len(fake.filters) == 1 {
-				n := fake.filters[0]
-				if n.kind != "cmp" || n.field != "fileName" || n.op != "==" || n.wildcard || n.literal != name {
-					t.Errorf("filter %q is not a single fileName== literal equal to the local name", fake.rawFilters[0])
-				}
+			if len(fake.filters) != 1 {
+				t.Fatalf("lookup sent %d parsed filters (%q); want exactly one", len(fake.filters), fake.rawFilters)
+			}
+			n := fake.filters[0]
+			if n.kind != "cmp" || n.field != "fileName" || n.op != "==" || n.literal != name {
+				t.Errorf("filter %q is not a single fileName== literal equal to the local name", fake.rawFilters[0])
 			}
 			if err == nil && id != "" {
 				t.Errorf("hostile filename %q resolved to unrelated package id %s; want not-found or an error", name, id)
@@ -349,27 +352,29 @@ func TestRepro_PackagesUpload_HostileNameDoesNotReplaceUnrelatedPackage(t *testi
 	}
 }
 
-// Controls: the fake resolves a benign name, and a correctly escaped literal
-// for each hostile name matches nothing, so the failures above are the
-// lookup's and not the fake's.
+// Controls: the fake resolves a benign name and a name holding parentheses,
+// and an unescaped hostile name does break out of the literal, so the
+// failures above are the lookup's and not the fake's.
 func TestRepro_Control_FakeIsNotOverPermissive(t *testing.T) {
-	fake := &fakeRSQLPackages{records: tenantPackages()}
+	fake := &fakeRSQLPackages{records: append(tenantPackages(), map[string]string{"id": "3", "fileName": "Firefox (1).pkg"})}
 	if id, err := findPackageByFileName(context.Background(), fake, "Firefox.pkg"); err != nil || id != "2" {
 		t.Fatalf("benign lookup = %q, %v; want 2", id, err)
 	}
-	esc := strings.NewReplacer(`\`, `\\`, `"`, `\"`, `*`, `\*`, `(`, `\(`, `)`, `\)`, `;`, `\;`, `,`, `\,`)
-	for _, name := range hostilePackageNames {
-		node, err := parseRSQL(`fileName=="` + esc.Replace(name) + `"`)
-		if err != nil {
-			t.Fatalf("%q: %v", name, err)
-		}
-		if node.kind != "cmp" || node.literal != name || node.wildcard {
-			t.Errorf("%q: escaped filter did not parse as one literal", name)
-		}
-		for _, r := range fake.records {
-			if node.match(r) {
-				t.Errorf("%q: escaped filter matched %v", name, r)
-			}
-		}
+	if id, err := findPackageByFileName(context.Background(), fake, "Firefox (1).pkg"); err != nil || id != "3" {
+		t.Fatalf("lookup of a name holding parentheses = %q, %v; want 3", id, err)
+	}
+	node, err := parseRSQL(`fileName=="` + hostilePackageNames[0] + `"`)
+	if err == nil && node.kind == "cmp" {
+		t.Errorf("unescaped %q parsed as one comparison; the fake would not catch a missing escape", hostilePackageNames[0])
+	}
+}
+
+// A wildcard that matches more packages than the page returns cannot show the
+// name is unused, so the lookup refuses rather than reporting not found.
+func TestRepro_FindPackageByFileName_RefusesATruncatedWildcardMatch(t *testing.T) {
+	fake := &fakeRSQLPackages{records: append(tenantPackages(), map[string]string{"id": "3", "fileName": "Other.pkg"})}
+	id, err := findPackageByFileName(context.Background(), fake, "*.pkg")
+	if err == nil {
+		t.Errorf("*.pkg matched 3 packages and the page held 2; lookup returned %q with no error", id)
 	}
 }

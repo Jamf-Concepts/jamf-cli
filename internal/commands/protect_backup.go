@@ -417,8 +417,12 @@ func protectResources() []protectResource {
 				// FAILED line — so a retry was unsafe to reason about.
 				var applied, failed int
 				for _, o := range doc.Overrides {
-					a, ok := byName[o.Analytic]
-					if !ok || !a.Jamf {
+					a, err := byName.one(o.Analytic)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "  skipped override for %q: %v\n", o.Analytic, err)
+						continue
+					}
+					if !a.Jamf {
 						fmt.Fprintf(os.Stderr, "  skipped override for %q: absent or not Jamf-managed\n", o.Analytic)
 						continue
 					}

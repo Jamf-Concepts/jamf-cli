@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/spf13/cobra"
 
@@ -296,14 +297,22 @@ func newSchoolDevicesRestoreCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+// udidShape matches the three forms an Apple device UDID takes: 40 hex
+// digits, 8-16 hex digits joined by a hyphen, or a UUID.
+var udidShape = regexp.MustCompile(`^(?:[0-9A-Fa-f]{40}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$`)
+
 // resolveSchoolDevice resolves a UDID, serial or name to one device's UDID and
 // a label naming the device for confirmations. Only a device absent from the
 // listing falls back to treating the argument as a UDID (a trashed device is
-// not listed); an ambiguous or failed lookup is returned.
+// not listed), and only when it has a UDID's shape, since it goes into the
+// request path; an ambiguous or failed lookup is returned.
 func resolveSchoolDevice(ctx context.Context, cliCtx *registry.CLIContext, arg string) (udid, label string, err error) {
 	d, err := school.NewResolver(cliCtx.SchoolClient).ResolveDevice(ctx, arg)
 	var notFound *school.ErrNotFound
 	if errors.As(err, &notFound) {
+		if !udidShape.MatchString(arg) {
+			return "", "", fmt.Errorf("%w; %q is not a UDID, so it cannot name a device missing from the listing", err, arg)
+		}
 		return arg, arg, nil
 	}
 	if err != nil {

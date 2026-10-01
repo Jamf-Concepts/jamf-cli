@@ -241,6 +241,9 @@ func findPackageByFileName(ctx context.Context, client registry.HTTPClient, file
 	if len(ids) > 1 || (len(ids) == 1 && totalCount > 1) {
 		return "", fmt.Errorf("%d packages have file name %q; refusing to pick one, remove the duplicate or upload under another name", max(len(ids), int(totalCount)), fileName)
 	}
+	if len(ids) == 0 && int(totalCount) > len(results) {
+		return "", fmt.Errorf("the search for file name %q matched %d packages and returned %d, so it cannot show the name is unused; rename the file or remove the packages it matches", fileName, int(totalCount), len(results))
+	}
 	if len(ids) == 0 {
 		return "", nil
 	}

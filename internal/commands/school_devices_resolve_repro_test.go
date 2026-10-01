@@ -126,3 +126,36 @@ func TestSchoolDeviceAction_AmbiguousNameIsRefusedNamingTheCandidates(t *testing
 		})
 	}
 }
+
+// An argument the listing does not hold is sent as a UDID only when it has a
+// UDID's shape; anything else is refused before it reaches the request path.
+func TestSchoolDeviceAction_UnlistedArgumentMustLookLikeAUDID(t *testing.T) {
+	cases := []struct {
+		arg      string
+		wantSent bool
+	}{
+		{"00008030-001A1C3A0E38802E", true},
+		{"0123456789abcdef0123456789abcdef01234567", true},
+		{"../../api/devices/OTHER-UDID/wipe", false},
+		{"Lost iPad", false},
+		{"", false},
+	}
+	for _, a := range schoolDeviceActions {
+		for _, tc := range cases {
+			t.Run(a.name+"/"+tc.arg, func(t *testing.T) {
+				fake, cliCtx := newFakeSchoolServer(t, nil)
+				err := runSchoolDeviceAction(t, a, cliCtx, tc.arg)
+				sent := fake.sent()
+				if tc.wantSent {
+					if err != nil || len(sent) != 1 || !strings.Contains(sent[0], tc.arg) {
+						t.Errorf("UDID-shaped %q: err %v, sent %v; want one request carrying it", tc.arg, err, sent)
+					}
+					return
+				}
+				if err == nil || len(sent) != 0 {
+					t.Errorf("%q is not a UDID: err %v, sent %v; want a refusal and nothing sent", tc.arg, err, sent)
+				}
+			})
+		}
+	}
+}
