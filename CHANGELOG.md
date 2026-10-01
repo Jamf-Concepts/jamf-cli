@@ -22,7 +22,11 @@ the command asks which one to update. With `--no-input`, or when stdin is not
 a terminal, it fails, names the colliding IDs, and writes nothing. The same
 refusal now applies to `delete --name`, `apply` and `pro blueprints
 import-profile` when stdin is not a terminal, where they used to read the
-choice from a pipe.
+choice from a pipe. The refusal exits 2 and its hint says to pass one of the
+IDs as `<id>`. A name that reads as a number or a boolean, such as `2024`,
+`true` or `1.50`, is now matched as text, so `update --name`, `delete --name`
+and `apply` find that record, and two records that both have that name are
+refused as a collision.
 
 `pro classic-mac-apps apply` and `pro classic-mobile-apps apply` resolved the
 name to an ID and then fetched the record to merge by name again, so they

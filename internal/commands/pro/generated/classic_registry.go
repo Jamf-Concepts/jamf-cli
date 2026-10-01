@@ -666,42 +666,122 @@ func classicXMLText(s string) string {
 	return b.String()
 }
 
+type classicNameMatch struct {
+	id, name string
+}
+
+// classicFoldedNameMatches walks a Classic API XML list response and returns
+// every item whose <name> matches name case-insensitively. <name> is read as
+// text, never coerced, so a record named "2024" or "true" matches. Matches
+// found before a malformed token are returned alongside the error.
+func classicFoldedNameMatches(body []byte, name string) ([]classicNameMatch, error) {
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	var stack []string
+	var curID, curName string
+	var folded []classicNameMatch
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			return folded, nil
+		}
+		if err != nil {
+			return folded, err
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+			if len(stack) == 2 {
+				curID = ""
+				curName = ""
+			}
+		case xml.EndElement:
+			n := len(stack)
+			if n == 2 && curID != "" && strings.EqualFold(curName, name) {
+				folded = append(folded, classicNameMatch{id: curID, name: curName})
+			}
+			if n > 0 {
+				stack = stack[:n-1]
+			}
+		case xml.CharData:
+			n := len(stack)
+			if n == 3 {
+				val := strings.TrimSpace(string(t))
+				switch stack[n-1] {
+				case "id":
+					curID = val
+				case "name":
+					curName = val
+				}
+			}
+		}
+	}
+}
+
+// classicNarrowToExactName returns the one match whose name equals name with
+// the same case, when exactly one does, and otherwise every folded match.
+func classicNarrowToExactName(folded []classicNameMatch, name string) []classicNameMatch {
+	var exact []classicNameMatch
+	for _, m := range folded {
+		if m.name == name {
+			exact = append(exact, m)
+		}
+	}
+	if len(exact) == 1 {
+		return exact
+	}
+	return folded
+}
+
 // Classic apply/delete-by-name helpers. These share the generated package with
 // registry.go and depend on readApplyInput and extractIDString defined there.
 
-// extractClassicName extracts the resource name from XML input.
-// It tries direct-child "name" first, then checks under common sub-elements
-// like "general". The singularKey is the XML wrapper element (e.g., "policy").
+// extractClassicName extracts the resource name from XML input as text, so a
+// name that reads as a number or boolean ("2024", "true") is kept verbatim.
+// It tries a direct-child <name> first, then one under <general>. The
+// singularKey is the XML wrapper element (e.g., "policy"); a body that omits
+// the wrapper is read from its root.
 func extractClassicName(data []byte, singularKey string) (string, error) {
-	m, err := xmlconv.ToMap(data)
-	if err != nil {
-		return "", fmt.Errorf("parsing XML: %w", err)
-	}
-
-	// Unwrap the root element if it matches the singular key
-	inner, ok := m[singularKey]
-	if !ok {
-		// Try without wrapper (user may omit it)
-		inner = m
-	}
-
-	obj, ok := inner.(map[string]any)
-	if !ok {
-		return "", fmt.Errorf("unexpected XML structure")
-	}
-
-	// Direct name field
-	if name, ok := obj["name"].(string); ok && name != "" {
-		return name, nil
-	}
-
-	// Check under "general" sub-element (policies, profiles, etc.)
-	if general, ok := obj["general"].(map[string]any); ok {
-		if name, ok := general["name"].(string); ok && name != "" {
-			return name, nil
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	var stack []string
+	var text strings.Builder
+	var direct, general string
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("parsing XML: %w", err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+			text.Reset()
+		case xml.CharData:
+			text.Write(t)
+		case xml.EndElement:
+			path := stack
+			if len(path) > 0 && path[0] == singularKey {
+				path = path[1:]
+			}
+			if len(path) > 0 && path[len(path)-1] == "name" {
+				switch {
+				case len(path) == 1 && direct == "":
+					direct = strings.TrimSpace(text.String())
+				case len(path) == 2 && path[0] == "general" && general == "":
+					general = strings.TrimSpace(text.String())
+				}
+			}
+			text.Reset()
+			stack = stack[:len(stack)-1]
 		}
 	}
-
+	if direct != "" {
+		return direct, nil
+	}
+	if general != "" {
+		return general, nil
+	}
 	return "", fmt.Errorf("could not find 'name' field in XML input")
 }
 
@@ -742,35 +822,32 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return "", fmt.Errorf("reading list response: %w", err)
 	}
 
-	var items []map[string]any
+	var folded []classicNameMatch
 	if xmlconv.IsXML(body) {
-		items, err = xmlconv.ExtractListItems(body)
+		folded, err = classicFoldedNameMatches(body, name)
 		if err != nil {
 			return "", fmt.Errorf("parsing XML list: %w", err)
 		}
 	} else {
-		// JSON fallback
 		var wrapper map[string]json.RawMessage
 		if err := json.Unmarshal(body, &wrapper); err == nil {
 			if inner, ok := wrapper[wrapperKey]; ok {
-				_ = json.Unmarshal(inner, &items)
+				var items []struct {
+					ID   json.Number `json:"id"`
+					Name string      `json:"name"`
+				}
+				if err := json.Unmarshal(inner, &items); err != nil {
+					return "", fmt.Errorf("parsing JSON list: %w", err)
+				}
+				for _, item := range items {
+					if item.ID != "" && strings.EqualFold(item.Name, name) {
+						folded = append(folded, classicNameMatch{id: item.ID.String(), name: item.Name})
+					}
+				}
 			}
 		}
 	}
-
-	// Filter by case-insensitive name match.
-	type classicMatch struct {
-		id, name string
-	}
-	var matches []classicMatch
-	for _, item := range items {
-		itemName, _ := item["name"].(string)
-		if strings.EqualFold(itemName, name) {
-			if id := extractIDString(item, "id"); id != "" {
-				matches = append(matches, classicMatch{id: id, name: itemName})
-			}
-		}
-	}
+	matches := classicNarrowToExactName(folded, name)
 
 	if len(matches) == 0 {
 		return "", nil
@@ -1719,50 +1796,12 @@ func classicFindIDByName(body []byte, name string) string {
 // one of them matches case-sensitively, in which case only that id. More than
 // one id means the name is ambiguous.
 func classicFindIDsByName(body []byte, name string) []string {
-	dec := xml.NewDecoder(bytes.NewReader(body))
-	var stack []string
-	var curID, curName string
-	var folded, exact []string
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			break
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			stack = append(stack, t.Name.Local)
-			if len(stack) == 2 {
-				curID = ""
-				curName = ""
-			}
-		case xml.EndElement:
-			n := len(stack)
-			if n == 2 && curID != "" && strings.EqualFold(curName, name) {
-				folded = append(folded, curID)
-				if curName == name {
-					exact = append(exact, curID)
-				}
-			}
-			if n > 0 {
-				stack = stack[:n-1]
-			}
-		case xml.CharData:
-			n := len(stack)
-			if n == 3 {
-				val := strings.TrimSpace(string(t))
-				switch stack[n-1] {
-				case "id":
-					curID = val
-				case "name":
-					curName = val
-				}
-			}
-		}
+	folded, _ := classicFoldedNameMatches(body, name)
+	var ids []string
+	for _, m := range classicNarrowToExactName(folded, name) {
+		ids = append(ids, m.id)
 	}
-	if len(exact) == 1 {
-		return exact
-	}
-	return folded
+	return ids
 }
 
 // resolveClassicRecordID fetches a Classic record by a non-id lookup path (no
