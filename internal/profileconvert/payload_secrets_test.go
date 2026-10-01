@@ -84,3 +84,41 @@ func TestRedactClassicProfilePayloads_HandlesCDATAAndFailsClosed(t *testing.T) {
 		t.Errorf("an empty payloads element should be left alone, got %s", out)
 	}
 }
+
+func TestRedactPayloadSecrets_MatchesTokenAndKeySuffixes(t *testing.T) {
+	in := `<plist version="1.0"><dict>
+<key>PayloadContent</key><array><dict>
+<key>PayloadType</key><string>com.apple.ManagedClient.preferences</string>
+<key>PayloadIdentifier</key><string>com.example.custom</string>
+<key>SSID_STR</key><string>Corp</string>
+<key>CloudManagementEnrollmentToken</key><string>S3CRET-cbcm</string>
+<key>TailscaleAuthKey</key><string>S3CRET-tskey</string>
+<key>APIKey</key><string>S3CRET-api</string>
+<key>PrivateKey</key><data>UzNDUkVULXBr</data>
+<key>AWSAccessKey</key><string>S3CRET-aws</string>
+<key>SecretKey</key><string>S3CRET-sk</string>
+<key>DevicePasscode</key><string>S3CRET-passcode</string>
+<key>TokenURL</key><string>https://idp.example.com/token-url</string>
+<key>TokenEndpoint</key><string>https://idp.example.com/token-endpoint</string>
+<key>PIN</key><string>visible-pin</string>
+<key>KeyID</key><string>visible-key-id</string>
+</dict></array></dict></plist>`
+	out, err := RedactPayloadSecrets([]byte(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := decodePlist(t, out)["PayloadContent"].([]any)[0].(map[string]any)
+	for _, k := range []string{"CloudManagementEnrollmentToken", "TailscaleAuthKey", "APIKey", "PrivateKey", "AWSAccessKey", "SecretKey", "DevicePasscode"} {
+		if p[k] != RedactedPayloadValue {
+			t.Errorf("%s should be redacted, got %v", k, p[k])
+		}
+	}
+	for k, want := range map[string]string{
+		"TokenURL": "https://idp.example.com/token-url", "TokenEndpoint": "https://idp.example.com/token-endpoint",
+		"PIN": "visible-pin", "KeyID": "visible-key-id", "SSID_STR": "Corp", "PayloadIdentifier": "com.example.custom",
+	} {
+		if p[k] != want {
+			t.Errorf("%s does not end in a secret suffix and must stay %q, got %v", k, want, p[k])
+		}
+	}
+}

@@ -22,6 +22,7 @@ func wifiProfilePlist(password string) string {
 		</dict>
 	</array>
 	<key>PayloadIdentifier</key><string>com.example.profile</string>
+	<key>PayloadDisplayName</key><string>Corp Wi-Fi</string>
 </dict>
 </plist>
 `
