@@ -199,8 +199,7 @@ var computerEntrySpec = fileEntrySpec{
 
 var mobileEntrySpec = fileEntrySpec{
 	label: "mobile device",
-	// /v2/mobile-devices ignores RSQL filters; /detail honors them.
-	basePath:    "/v2/mobile-devices/detail",
+	basePath:    mobileDetailPath,
 	idField:     "mobileDeviceId",
 	serialField: "serialNumber",
 	parse:       parseMobileDevice,
@@ -434,10 +433,13 @@ func parseComputerInventory(obj map[string]any) (*DeviceIdentifiers, error) {
 
 // --- Mobile device resolution helpers ---
 
+// mobileDetailPath is the one mobile list path that honors RSQL filters
+// (/v2/mobile-devices ignores them). It answers "hardware": null, and so no
+// serial number, unless HARDWARE is requested.
+const mobileDetailPath = "/v2/mobile-devices/detail?section=GENERAL&section=HARDWARE"
+
 func resolveMobileByFilter(ctx context.Context, client registry.HTTPClient, q deviceQuery) (*DeviceIdentifiers, error) {
-	// Use /v2/mobile-devices/detail because /v2/mobile-devices ignores RSQL filters.
-	path := fmt.Sprintf("/v2/mobile-devices/detail?page-size=2&filter=%s",
-		url.QueryEscape(q.filter()))
+	path := fmt.Sprintf("%s&page-size=2&filter=%s", mobileDetailPath, url.QueryEscape(q.filter()))
 
 	results, total, err := fetchInventoryPage(ctx, client, path)
 	if err != nil {
@@ -490,8 +492,9 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		Name:         jsonString(obj, "name"),
 		SerialNumber: jsonString(obj, "serialNumber"),
 	}
-	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id"
-	// and nests managementId/displayName/osVersion inside "general".
+	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id",
+	// nests managementId/udid/displayName inside "general", and the serial
+	// number inside "hardware".
 	if d.ID == "" {
 		d.ID = jsonString(obj, "mobileDeviceId")
 	}
@@ -499,9 +502,15 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		if d.ManagementID == "" {
 			d.ManagementID = jsonString(general, "managementId")
 		}
+		if d.UDID == "" {
+			d.UDID = jsonString(general, "udid")
+		}
 		if d.Name == "" {
 			d.Name = jsonString(general, "displayName")
 		}
+	}
+	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
+		d.SerialNumber = jsonString(hardware, "serialNumber")
 	}
 	if d.Name == "" {
 		d.Name = jsonString(obj, "displayName")
