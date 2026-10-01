@@ -135,3 +135,52 @@ func TestResolveMobileDeviceGroup_NumericLookingClassicNameIsNotCoerced(t *testi
 		t.Fatalf("--group 101 fetched membership of the group named \"101.5\": %v", hits)
 	}
 }
+
+// The /name/ endpoint answers with one group when two share a name, so the
+// flush-commands --group id has to come from the collection.
+func TestResolveClassicComputerGroupID_SharedNameIsRefusedWithBothIDs(t *testing.T) {
+	client := &mockClient{responses: map[string]mockResponse{
+		"GET /JSSResource/computergroups":            {200, classicComputerGroupList([2]string{"21", "Decom"}, [2]string{"22", "Decom"})},
+		"GET /JSSResource/computergroups/name/Decom": {200, classicComputerGroupDetail("21", "Decom", "42")},
+	}}
+	id, err := ResolveClassicComputerGroupID(context.Background(), client, "Decom")
+	if err == nil {
+		t.Fatalf("resolved %q to id %s; two groups share the name", "Decom", id)
+	}
+	for _, want := range []string{"21", "22"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal %q does not name id %s", err, want)
+		}
+	}
+}
+
+func TestResolveClassicComputerGroupID_ExactNameWinsOverCaseVariant(t *testing.T) {
+	client := &mockClient{responses: map[string]mockResponse{
+		"GET /JSSResource/computergroups": {200, classicComputerGroupList([2]string{"21", "decom"}, [2]string{"22", "Decom"})},
+	}}
+	id, err := ResolveClassicComputerGroupID(context.Background(), client, "Decom")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "22" {
+		t.Errorf("ID = %q, want 22, the group whose name matches exactly", id)
+	}
+}
+
+func TestResolveClassicMobileGroupID_SharedNameIsRefusedWithBothIDs(t *testing.T) {
+	list := `<?xml version="1.0" encoding="UTF-8"?><mobile_device_groups><size>2</size>` +
+		`<mobile_device_group><id>31</id><name>Decom</name><is_smart>true</is_smart></mobile_device_group>` +
+		`<mobile_device_group><id>32</id><name>Decom</name><is_smart>false</is_smart></mobile_device_group></mobile_device_groups>`
+	client := &mockClient{responses: map[string]mockResponse{
+		"GET /JSSResource/mobiledevicegroups": {200, list},
+	}}
+	id, err := ResolveClassicMobileGroupID(context.Background(), client, "Decom")
+	if err == nil {
+		t.Fatalf("resolved %q to id %s; two groups share the name", "Decom", id)
+	}
+	for _, want := range []string{"31", "32"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal %q does not name id %s", err, want)
+		}
+	}
+}

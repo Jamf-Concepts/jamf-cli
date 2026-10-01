@@ -40,12 +40,20 @@ name every candidate:
 - `protect computers get`, `delete`, `set-plan` and `update` match an exact
   UUID, then a serial number, then a hostname. A UUID was not accepted
   before. The `delete` confirmation names the computer it resolved.
-- `--group` on the Jamf Pro device actions compares the static-group name as
-  the server sent it, so `--group 14` no longer finds a group named `14.2`.
+- `--group` on the Jamf Pro device actions (`pro computer-inventory erase`,
+  `pro mobile-devices erase`, and the `pro computers` and `pro mobile-devices`
+  actions such as `lock`, `restart`, `blank-push` and `update-inventory`)
+  compares the static-group name as the server sent it, so `--group 14` no
+  longer finds a group named `14.2`.
   If two static groups differ only in case, the one that matches exactly is
   used. If neither matches exactly, the command refuses. A smart-group lookup
   that finds two groups is now an error. Before, the Classic static-group
-  lookup ran after it and picked one of the two.
+  lookup ran after it and picked one of the two. The refusal names the ids.
+- `pro computers flush-commands --group` and `pro mobile-devices
+  flush-commands --group` list the Classic group collection and resolve the
+  name to exactly one group. Before, they used the Classic `/name/` endpoint,
+  which returns one group when two share a name, and the commands were
+  flushed from that group. The command now refuses and names the ids.
 - `pro packages upload` refuses when two packages have the local file name,
   and it accepts a match only when the server returns that exact name.
 - `pro classic-<resource> scope get`, `add`, `remove` and `set` with `--name`

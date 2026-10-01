@@ -579,52 +579,32 @@ func resolveGroupIDByName(ctx context.Context, client registry.HTTPClient, listP
 		return "", fmt.Errorf("group %q: %w", groupName, errGroupNotFound)
 	}
 	if total > 1 {
-		return "", fmt.Errorf("multiple groups found with name %q (%d matches)", groupName, total)
+		ids := make([]string, len(results))
+		for i, r := range results {
+			ids[i] = groupResultID(r)
+		}
+		return "", fmt.Errorf("multiple groups found with name %q (%d matches, ids %s); rename one so the name is unique", groupName, total, strings.Join(ids, ", "))
 	}
-	id := jsonString(results[0], "id")
-	if id == "" {
-		id = jsonString(results[0], "groupId")
-	}
+	id := groupResultID(results[0])
 	if id == "" {
 		return "", fmt.Errorf("group %q found but missing id field", groupName)
 	}
 	return id, nil
 }
 
+func groupResultID(r map[string]any) string {
+	if id := jsonString(r, "id"); id != "" {
+		return id
+	}
+	return jsonString(r, "groupId")
+}
+
 // --- Classic API group fallback (static groups) ---
 
 func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient, listPath, listKey, membersKey, groupName string) ([]string, error) {
-	// List all groups to find the ID by name.
-	resp, err := client.Do(ctx, "GET", listPath, nil)
-	if err != nil {
-		return nil, fmt.Errorf("listing groups: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	groupID, err := pickClassicGroupID(ctx, client, listPath, listKey, "static group", groupName)
 	if err != nil {
 		return nil, err
-	}
-	groups, err := parseClassicGroupList(body, listKey)
-	if err != nil {
-		return nil, fmt.Errorf("parsing group list: %w", err)
-	}
-	group, candidates, err := pickone.One(groups, groupName,
-		pickone.Exact(func(g classicGroupRef) string { return g.Name }),
-		pickone.Fold(func(g classicGroupRef) string { return g.Name }))
-	switch {
-	case errors.Is(err, pickone.ErrNone):
-		return nil, fmt.Errorf("group %q not found", groupName)
-	case errors.Is(err, pickone.ErrAmbiguous):
-		ids := make([]string, len(candidates))
-		for i, c := range candidates {
-			ids[i] = fmt.Sprintf("%q (id %s)", c.Name, c.ID)
-		}
-		return nil, fmt.Errorf("group %q matches %d static groups: %s; rename one or pass the exact name", groupName, len(candidates), strings.Join(ids, ", "))
-	}
-	groupID := group.ID
-	if groupID == "" {
-		return nil, fmt.Errorf("group %q found but missing id field", groupName)
 	}
 
 	// Fetch group detail to get member IDs.
@@ -665,6 +645,49 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		}
 	}
 	return ids, nil
+}
+
+// pickClassicGroupID lists a Classic group collection and resolves groupName
+// to exactly one id: a unique exact match wins, then a unique case-insensitive
+// one, and a name more than one group shares is refused with every id.
+func pickClassicGroupID(ctx context.Context, client registry.HTTPClient, listPath, listKey, label, groupName string) (string, error) {
+	resp, err := client.Do(ctx, "GET", listPath, nil)
+	if err != nil {
+		return "", fmt.Errorf("listing %ss: %w", label, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("%s %q not found (listing %ss answered HTTP 404)", label, groupName, label)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("listing %ss: HTTP %d", label, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return "", err
+	}
+	groups, err := parseClassicGroupList(body, listKey)
+	if err != nil {
+		return "", fmt.Errorf("parsing %s list: %w", label, err)
+	}
+	group, candidates, err := pickone.One(groups, groupName,
+		pickone.Exact(func(g classicGroupRef) string { return g.Name }),
+		pickone.Fold(func(g classicGroupRef) string { return g.Name }))
+	switch {
+	case errors.Is(err, pickone.ErrNone):
+		return "", fmt.Errorf("%s %q not found", label, groupName)
+	case errors.Is(err, pickone.ErrAmbiguous):
+		ids := make([]string, len(candidates))
+		for i, c := range candidates {
+			ids[i] = fmt.Sprintf("%q (id %s)", c.Name, c.ID)
+		}
+		return "", fmt.Errorf("group %q matches %d %ss: %s; rename one or pass the exact name", groupName, len(candidates), label, strings.Join(ids, ", "))
+	}
+	if group.ID == "" {
+		return "", fmt.Errorf("%s %q found but missing id field", label, groupName)
+	}
+	return group.ID, nil
 }
 
 // classicGroupRef is one entry of a Classic group listing, its name kept as
@@ -887,52 +910,16 @@ func readEntriesFromFile(path string) ([]string, error) {
 	return entries, nil
 }
 
-// resolveClassicGroupID is the shared implementation for Classic API group ID
-// lookups. pathSegment is the JSSResource collection name (e.g. "computergroups"),
-// label is the human-readable type used in error messages (e.g. "computer group").
-func resolveClassicGroupID(ctx context.Context, client registry.HTTPClient, pathSegment, label, groupName string) (string, error) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", pathSegment, registry.EscapeClassicPathSegment(groupName))
-	resp, err := client.Do(ctx, "GET", path, nil)
-	if err != nil {
-		return "", fmt.Errorf("looking up %s %q: %w", label, groupName, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("%s %q not found", label, groupName)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("looking up %s %q: HTTP %d", label, groupName, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return "", err
-	}
-	detail, err := unmarshalClassic(body)
-	if err != nil {
-		return "", fmt.Errorf("parsing %s response: %w", label, err)
-	}
-	for _, v := range detail {
-		if inner, ok := v.(map[string]any); ok {
-			if id := jsonString(inner, "id"); id != "" {
-				return id, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("%s %q: id not found in response", label, groupName)
-}
-
 // ResolveClassicComputerGroupID resolves a computer group name to its Classic API
 // numeric ID. Works for both smart and static computer groups.
 func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	return resolveClassicGroupID(ctx, client, "computergroups", "computer group", groupName)
+	return pickClassicGroupID(ctx, client, "/JSSResource/computergroups", "computer_groups", "computer group", groupName)
 }
 
 // ResolveClassicMobileGroupID resolves a mobile device group name to its Classic API
 // numeric ID. Works for both smart and static mobile device groups.
 func ResolveClassicMobileGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	return resolveClassicGroupID(ctx, client, "mobiledevicegroups", "mobile device group", groupName)
+	return pickClassicGroupID(ctx, client, "/JSSResource/mobiledevicegroups", "mobile_device_groups", "mobile device group", groupName)
 }
 
 // FormatDeviceDesc returns a human-readable device description for confirmation messages.

@@ -512,6 +512,7 @@ func TestResolveClassicComputerGroupID(t *testing.T) {
 
 	client := &mockClient{responses: map[string]mockResponse{
 		"GET /JSSResource/computergroups/name/Lab%20Macs": {200, groupXML},
+		"GET /JSSResource/computergroups":                 {200, `<computer_groups><size>1</size><computer_group><id>7</id><name>Lab Macs</name><is_smart>true</is_smart></computer_group></computer_groups>`},
 	}}
 
 	id, err := ResolveClassicComputerGroupID(context.Background(), client, "Lab Macs")
@@ -548,6 +549,7 @@ func TestResolveClassicMobileGroupID(t *testing.T) {
 
 	client := &mockClient{responses: map[string]mockResponse{
 		"GET /JSSResource/mobiledevicegroups/name/Lab%20iPads": {200, groupXML},
+		"GET /JSSResource/mobiledevicegroups":                  {200, `<mobile_device_groups><size>1</size><mobile_device_group><id>12</id><name>Lab iPads</name><is_smart>false</is_smart></mobile_device_group></mobile_device_groups>`},
 	}}
 
 	id, err := ResolveClassicMobileGroupID(context.Background(), client, "Lab iPads")
