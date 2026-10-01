@@ -383,7 +383,7 @@ func newComputerInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro computer-inventory create
 
   # Get a computer-inventory, modify it, and create a copy
-  jamf-cli pro computer-inventory get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-inventory create`,
+  jamf-cli pro computer-inventory get 1 -o json | jq '.general.name = "Copy"' | jamf-cli pro computer-inventory create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Computers", "jamf:api": "pro", "jamf:gateway-privileges": "devices:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

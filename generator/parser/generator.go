@@ -317,7 +317,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					fmt.Sprintf("  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create%s", nameSingular, bin, resourceName, createArg),
 					getPipeBlock(r, bin,
 						fmt.Sprintf("Get a %s, modify it, and create a copy", nameSingular),
-						`.name = "Copy"`,
+						fmt.Sprintf(`.%s = "Copy"`, resourceNameField(r)),
 						fmt.Sprintf("%s %s create%s", bin, resourceName, createArg)),
 				)
 			case "update":
@@ -351,7 +351,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 						fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update %s", nameSingular, bin, resourceName, idStr),
 						getPipeBlock(r, bin,
 							fmt.Sprintf("Get a %s, modify, and update", nameSingular),
-							`.name = "New Name"`,
+							fmt.Sprintf(`.%s = "New Name"`, resourceNameField(r)),
 							fmt.Sprintf("%s %s update %s", bin, resourceName, idStr)),
 					)
 				}
@@ -365,7 +365,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					byName,
 					getPipeBlock(r, bin,
 						fmt.Sprintf("Get a %s, modify, and update", nameSingular),
-						`.name = "New Name"`,
+						fmt.Sprintf(`.%s = "New Name"`, resourceNameField(r)),
 						fmt.Sprintf("%s %s update 1", bin, resourceName)),
 				)
 			case "delete":
@@ -787,12 +787,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return false
 		},
-		"resourceNameField": func(r *Resource) string {
-			if r.NameField != "" {
-				return r.NameField
-			}
-			return "name"
-		},
+		"resourceNameField":   resourceNameField,
 		"opHasBinaryResponse": opHasBinaryResponse,
 		"shouldGenerateApply": shouldGenerateApply,
 		"hasResolvableID":     hasResolvableID,
@@ -1636,6 +1631,16 @@ func getPipeBlock(r *Resource, bin, comment, jq, write string) string {
 		ids += fmt.Sprintf(" %d", i+1)
 	}
 	return fmt.Sprintf("  # %s\n  %s %s get%s -o json | jq '%s' | %s", comment, bin, r.CmdPath(), ids, jq, write)
+}
+
+// resourceNameField is the body field holding a resource's name: "name"
+// unless the resource names itself with another field, as the prestages do
+// with "displayName".
+func resourceNameField(r *Resource) string {
+	if r.NameField != "" {
+		return r.NameField
+	}
+	return "name"
 }
 
 // getByNamePipeBlock is getPipeBlock addressing the resource by name rather than
@@ -3052,10 +3057,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err != nil {
 					return err
 				}
-{{- if and (opHasVersionLock .) (eq .Name "create") }}
+{{- if and $.HasVersionLock (eq .Name "create") }}
 
-				// Optimistic locking: new resources require versionLock 0
-				normalized = setVersionLockZero(normalized)
+				// Optimistic locking: new resources require versionLock 0, and
+				// nested records need fresh ids or the server reassigns the
+				// source's rows to the new resource (#393).
+				normalized = resetOwnedRecordIDs(setVersionLockZero(normalized))
 {{- else if and (opHasVersionLock .) (ne .Name "create") }}
 
 				// Optimistic locking: fetch current versionLock and inject into request
@@ -3506,7 +3513,7 @@ If not, a new resource is created.` + "`" + `,
 				return ctx.Output.PrintResponse(bodyResp)
 {{- else }}
 {{- if .HasVersionLock }}
-				data = setVersionLockZero(data)
+				data = resetOwnedRecordIDs(setVersionLockZero(data))
 {{- end }}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "{{ createPath .Operations }}", bytes.NewReader(data))
 				if err != nil {
@@ -4589,11 +4596,37 @@ func injectVersionLocks(data, serverResponse []byte) ([]byte, error) {
 		return data, fmt.Errorf("parsing server response for version lock: %w", err)
 	}
 	mergeVersionLocks(dst, src)
+	pinOwnedRecordIDs(dst, src)
 	out, err := json.Marshal(dst)
 	if err != nil {
 		return data, nil
 	}
 	return out, nil
+}
+
+// pinOwnedRecordIDs gives every nested record in dst that carries its own
+// versionLock the id of the target's record at the same key, or "-1" when the
+// target has none. A body copied from another resource otherwise names that
+// resource's rows, and the PUT moves them onto the target — wire-checked on a
+// prestage, which answered 500 and applied the move anyway (#393).
+func pinOwnedRecordIDs(dst, src map[string]any) {
+	for key, dstVal := range dst {
+		dstObj, ok := dstVal.(map[string]any)
+		if !ok {
+			continue
+		}
+		srcObj, _ := src[key].(map[string]any)
+		if _, owned := dstObj["versionLock"]; owned {
+			if _, ok := dstObj["id"]; ok {
+				if id, ok := srcObj["id"]; ok && id != nil {
+					dstObj["id"] = id
+				} else {
+					dstObj["id"] = newOwnedRecordID
+				}
+			}
+		}
+		pinOwnedRecordIDs(dstObj, srcObj)
+	}
 }
 
 // mergeVersionLocks recursively copies versionLock fields from src into dst.
@@ -4641,6 +4674,51 @@ func zeroVersionLocks(obj map[string]any) {
 	for _, v := range obj {
 		if nested, ok := v.(map[string]any); ok {
 			zeroVersionLocks(nested)
+		}
+	}
+}
+
+// newOwnedRecordID is the id that asks the server to allocate a fresh row.
+// Omitting the id instead is refused (400 FIELD_REQUIRED on
+// locationInformation.id and purchasingInformation.id).
+const newOwnedRecordID = "-1"
+
+// resetOwnedRecordIDs sets the id of every nested object that carries its own
+// versionLock to "-1". Such an object is a separately stored record owned by
+// the parent (a prestage's locationInformation, purchasingInformation and
+// accountSettings), and the server binds a create body's id to that existing
+// row: a prestage created from another's GET took all three records from the
+// source and left it unloadable in the web UI (#393). The top-level id is
+// left alone; the server ignores it on create.
+func resetOwnedRecordIDs(data []byte) []byte {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return data
+	}
+	for _, v := range obj {
+		resetNestedRecordIDs(v)
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return data
+	}
+	return out
+}
+
+func resetNestedRecordIDs(v any) {
+	switch val := v.(type) {
+	case map[string]any:
+		if _, owned := val["versionLock"]; owned {
+			if _, ok := val["id"]; ok {
+				val["id"] = newOwnedRecordID
+			}
+		}
+		for _, child := range val {
+			resetNestedRecordIDs(child)
+		}
+	case []any:
+		for _, child := range val {
+			resetNestedRecordIDs(child)
 		}
 	}
 }

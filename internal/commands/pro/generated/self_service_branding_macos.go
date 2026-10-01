@@ -316,7 +316,7 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
   echo '{"name":"Example"}' | jamf-cli pro self-service-branding-macos create
 
   # Get a self-service-branding-maco, modify it, and create a copy
-  jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "Copy"' | jamf-cli pro self-service-branding-macos create`,
+  jamf-cli pro self-service-branding-macos get 1 -o json | jq '.brandingName = "Copy"' | jamf-cli pro self-service-branding-macos create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -396,7 +396,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
   jamf-cli pro self-service-branding-macos get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro self-service-branding-macos update --name "Example"
 
   # Get a self-service-branding-maco, modify, and update
-  jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "New Name"' | jamf-cli pro self-service-branding-macos update 1`,
+  jamf-cli pro self-service-branding-macos get 1 -o json | jq '.brandingName = "New Name"' | jamf-cli pro self-service-branding-macos update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
