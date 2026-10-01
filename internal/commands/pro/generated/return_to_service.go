@@ -154,7 +154,7 @@ func newReturnToServiceCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro return-to-service create
 
   # Get a return-to-service, modify it, and create a copy
-  jamf-cli pro return-to-service get 1 -o json | jq '.name = "Copy"' | jamf-cli pro return-to-service create`,
+  jamf-cli pro return-to-service get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro return-to-service create`,
 		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations", "jamf:api": "pro", "jamf:gateway-privileges": "return-to-service:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -229,7 +229,7 @@ func newReturnToServiceUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro return-to-service get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro return-to-service update --name "Example"
 
   # Get a return-to-service, modify, and update
-  jamf-cli pro return-to-service get 1 -o json | jq '.name = "New Name"' | jamf-cli pro return-to-service update 1`,
+  jamf-cli pro return-to-service get 1 -o json | jq '.displayName = "New Name"' | jamf-cli pro return-to-service update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations", "jamf:api": "pro", "jamf:gateway-privileges": "return-to-service:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

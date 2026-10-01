@@ -335,7 +335,7 @@ func newEnrollmentCustomizationCreateCmd(ctx *registry.CLIContext) *cobra.Comman
   echo '{"name":"Example"}' | jamf-cli pro enrollment-customization create
 
   # Get a enrollment-customization, modify it, and create a copy
-  jamf-cli pro enrollment-customization get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customization create`,
+  jamf-cli pro enrollment-customization get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro enrollment-customization create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -418,7 +418,7 @@ func newEnrollmentCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
   jamf-cli pro enrollment-customization get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro enrollment-customization update --name "Example"
 
   # Get a enrollment-customization, modify, and update
-  jamf-cli pro enrollment-customization get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customization update 1`,
+  jamf-cli pro enrollment-customization get 1 -o json | jq '.displayName = "New Name"' | jamf-cli pro enrollment-customization update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

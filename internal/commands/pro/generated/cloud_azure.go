@@ -93,7 +93,7 @@ func newCloudAzureCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro cloud-azure create
 
   # Get a cloud-azure, modify it, and create a copy
-  jamf-cli pro cloud-azure get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-azure create`,
+  jamf-cli pro cloud-azure get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro cloud-azure create`,
 		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -189,7 +189,7 @@ func newCloudAzureUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Updated"}' | jamf-cli pro cloud-azure update 1
 
   # Get a cloud-azure, modify, and update
-  jamf-cli pro cloud-azure get 1 -o json | jq '.name = "New Name"' | jamf-cli pro cloud-azure update 1`,
+  jamf-cli pro cloud-azure get 1 -o json | jq '.displayName = "New Name"' | jamf-cli pro cloud-azure update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:update"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			// --scaffold prints a body template and makes no request, so it
