@@ -441,7 +441,7 @@ func TestRuntimeEnumsExcludeRepeatedElementPaths(t *testing.T) {
 	if !strings.Contains(bodyHelp(r), "criteria[].and_or: and | or") {
 		t.Error("--help should document the enum inside the repeated element")
 	}
-	if strings.Contains(bodySpecLiteral(r), "criteria[].and_or") {
+	if strings.Contains(mustBodySpecLiteral(t, r), "criteria[].and_or") {
 		t.Error("the emitted literal should not carry an enum --set cannot receive")
 	}
 }
@@ -450,7 +450,7 @@ func TestBodyHelpIsEmptyWithoutASchema(t *testing.T) {
 	if got := bodyHelp(ClassicResource{Name: "x"}); got != "" {
 		t.Errorf("expected empty help for an unbound resource, got %q", got)
 	}
-	if got := bodySpecLiteral(ClassicResource{Name: "x"}); got != "" {
+	if got := mustBodySpecLiteral(t, ClassicResource{Name: "x"}); got != "" {
 		t.Errorf("expected no literal for an unbound resource, got %q", got)
 	}
 }
@@ -462,7 +462,7 @@ func TestBodyHelpIsEmptyWithoutASchema(t *testing.T) {
 func TestBodySpecLiteralCompilesAsAGoLiteral(t *testing.T) {
 	res := liveResources(t)
 	r := find(t, res, "computergroups")
-	got := bodySpecLiteral(r)
+	got := mustBodySpecLiteral(t, r)
 	for _, want := range []string{
 		"classicBodySpec{",
 		`Root:   "computer_group"`,
@@ -475,7 +475,7 @@ func TestBodySpecLiteralCompilesAsAGoLiteral(t *testing.T) {
 	}
 	// A resource with a settable enum gets the Enums map; computergroups' only
 	// enum lives inside a repeated element, which is asserted separately below.
-	dp := bodySpecLiteral(find(t, res, "distributionpoints"))
+	dp := mustBodySpecLiteral(t, find(t, res, "distributionpoints"))
 	for _, want := range []string{"Enums: map[string][]string{", `"connection_type": {"SMB", "AFP"}`, "Credentials: map[string]bool{"} {
 		if !strings.Contains(dp, want) {
 			t.Errorf("distributionpoints literal missing %q:\n%s", want, first(dp, 900))
@@ -523,4 +523,13 @@ func first(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+func mustBodySpecLiteral(t *testing.T, r ClassicResource) string {
+	t.Helper()
+	got, err := bodySpecLiteral(r)
+	if err != nil {
+		t.Fatalf("bodySpecLiteral: %v", err)
+	}
+	return got
 }

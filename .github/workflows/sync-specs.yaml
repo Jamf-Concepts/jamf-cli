@@ -50,8 +50,13 @@ jobs:
             exit 1
           fi
 
+      # Neither checkout persists its token: `make test` below compiles and runs
+      # code generated from upstream specs, and create-pull-request sets its own
+      # auth from its `token` input.
       - name: Checkout jamf-cli
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Checkout jss
         uses: actions/checkout@v7
@@ -59,6 +64,7 @@ jobs:
           repository: jamf/jss
           ref: ${{ inputs.server_repo_ref }}
           token: ${{ secrets.SERVER_REPO_TOKEN }}
+          persist-credentials: false
           path: jss
           sparse-checkout: |
             **/swagger_docs/uapi
