@@ -213,11 +213,10 @@ func TestAScopeFlagSettlesTheLevelOnBothPaths(t *testing.T) {
 			t.Setenv("JAMF_CLIENT_ID", "cid")
 			t.Setenv("JAMF_CLIENT_SECRET", "csecret")
 			t.Setenv("JAMF_TOKEN", "")
+			isolateAuthGlobals(t)
 			setScopeFlags(t, tc.flagT, tc.flagE)
 
 			// The `pro`/`platform` path: resolveAuth, which backfills.
-			restore := swapServerURL(t)
-			defer restore()
 			_, provider, err := resolveAuth(&config.Config{})
 			if err != nil {
 				t.Fatalf("resolveAuth refused a flag-plus-env combination that the "+
@@ -300,15 +299,6 @@ func isolateAuthGlobals(t *testing.T) {
 	})
 	profile, serverURL, token, tokenFile = "", "", "", ""
 	clientID, clientSecret, tenantID, environmentID = "", "", "", ""
-}
-
-// swapServerURL clears and restores the package-level serverURL, which
-// resolveAuth both reads and writes back.
-func swapServerURL(t *testing.T) func() {
-	t.Helper()
-	prev := serverURL
-	serverURL = ""
-	return func() { serverURL = prev }
 }
 
 // providerScope reads the scope a platform provider was built with.
