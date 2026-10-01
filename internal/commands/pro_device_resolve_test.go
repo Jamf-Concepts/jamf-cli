@@ -56,7 +56,7 @@ func TestResolveDeviceByIdentifier_BySerial(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
 			if strings.HasPrefix(path, "/v4/computers-inventory-detail/") {
-				return 404, `{"errors":[]}`, nil
+				return 400, invalidIDBody, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {
 				return 200, `{"totalCount":1,"results":[{"id":"99","general":{"name":"MacBook-Serial"}}]}`, nil
@@ -81,7 +81,7 @@ func TestResolveDeviceByIdentifier_ByName(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
 			if strings.HasPrefix(path, "/v4/computers-inventory-detail/") {
-				return 404, `{"errors":[]}`, nil
+				return 400, invalidIDBody, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {
 				return 200, `{"totalCount":0,"results":[]}`, nil
@@ -109,7 +109,7 @@ func TestResolveDeviceByIdentifier_NotFound(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
 			if strings.HasPrefix(path, "/v4/computers-inventory-detail/") {
-				return 404, `{"errors":[]}`, nil
+				return 400, invalidIDBody, nil
 			}
 			// Both serial and name searches return 0 results
 			return 200, `{"totalCount":0,"results":[]}`, nil
@@ -130,7 +130,7 @@ func TestResolveDeviceByIdentifier_NameWithApostrophe(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
 			if strings.HasPrefix(path, "/v4/computers-inventory-detail/") {
-				return 404, `{"errors":[]}`, nil
+				return 400, invalidIDBody, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {
 				return 200, `{"totalCount":0,"results":[]}`, nil
@@ -162,7 +162,7 @@ func TestResolveDeviceByIdentifier_MultipleMatches(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
 			if strings.HasPrefix(path, "/v4/computers-inventory-detail/") {
-				return 404, `{"errors":[]}`, nil
+				return 400, invalidIDBody, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {
 				return 200, `{"totalCount":0,"results":[]}`, nil
