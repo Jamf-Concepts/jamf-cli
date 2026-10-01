@@ -326,7 +326,7 @@ func newSupervisionIdentitiesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
   echo '{"name":"Example"}' | jamf-cli pro supervision-identities create
 
   # Get a supervision-identity, modify it, and create a copy
-  jamf-cli pro supervision-identities get 1 -o json | jq '.name = "Copy"' | jamf-cli pro supervision-identities create`,
+  jamf-cli pro supervision-identities get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro supervision-identities create`,
 		Annotations: map[string]string{"jamf:privileges": "Update Apple Configurator Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "apple-configurator-enrollment:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -401,7 +401,7 @@ func newSupervisionIdentitiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
   jamf-cli pro supervision-identities get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro supervision-identities update --name "Example"
 
   # Get a supervision-identity, modify, and update
-  jamf-cli pro supervision-identities get 1 -o json | jq '.name = "New Name"' | jamf-cli pro supervision-identities update 1`,
+  jamf-cli pro supervision-identities get 1 -o json | jq '.displayName = "New Name"' | jamf-cli pro supervision-identities update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Apple Configurator Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "apple-configurator-enrollment:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

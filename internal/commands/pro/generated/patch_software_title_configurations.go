@@ -169,7 +169,7 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
   echo '{"name":"Example"}' | jamf-cli pro patch-software-title-configurations create
 
   # Get a patch-software-title-configuration, modify it, and create a copy
-  jamf-cli pro patch-software-title-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro patch-software-title-configurations create`,
+  jamf-cli pro patch-software-title-configurations get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro patch-software-title-configurations create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Patch Management Software Titles", "jamf:api": "pro", "jamf:gateway-privileges": "patch-management-software-titles:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
