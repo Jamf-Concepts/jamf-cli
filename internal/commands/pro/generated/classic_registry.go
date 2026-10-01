@@ -85,6 +85,84 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicWebhooksCmd(ctx))
 }
 
+// classicBodySpecsByCommand maps each Classic command group to its body spec.
+var classicBodySpecsByCommand = map[string]classicBodySpec{
+	"classic-account-groups":                  bodySpecClassicAccountGroups,
+	"classic-account-users":                   bodySpecClassicAccountUsers,
+	"classic-accounts":                        bodySpecClassicAccounts,
+	"classic-advanced-computer-searches":      bodySpecClassicAdvancedComputerSearches,
+	"classic-advanced-mobile-device-searches": bodySpecClassicAdvancedMobileDeviceSearches,
+	"classic-allowed-file-extensions":         bodySpecClassicAllowedFileExtensions,
+	"classic-classes":                         bodySpecClassicClasses,
+	"classic-computer-apps":                   bodySpecClassicComputerApps,
+	"classic-computer-commands":               bodySpecClassicComputerCommands,
+	"classic-computer-configs":                bodySpecClassicComputerConfigs,
+	"classic-computer-ext-attrs":              bodySpecClassicComputerExtAttrs,
+	"classic-computer-groups":                 bodySpecClassicComputerGroups,
+	"classic-computer-history":                bodySpecClassicComputerHistory,
+	"classic-computer-invitations":            bodySpecClassicComputerInvitations,
+	"classic-directory-bindings":              bodySpecClassicDirectoryBindings,
+	"classic-disk-encryption-configs":         bodySpecClassicDiskEncryptionConfigs,
+	"classic-distribution-points":             bodySpecClassicDistributionPoints,
+	"classic-dock-items":                      bodySpecClassicDockItems,
+	"classic-ebooks":                          bodySpecClassicEbooks,
+	"classic-gsx-connection":                  bodySpecClassicGsxConnection,
+	"classic-ibeacons":                        bodySpecClassicIbeacons,
+	"classic-jwt-configs":                     bodySpecClassicJwtConfigs,
+	"classic-ldap-servers":                    bodySpecClassicLdapServers,
+	"classic-licensed-software":               bodySpecClassicLicensedSoftware,
+	"classic-mac-apps":                        bodySpecClassicMacApps,
+	"classic-macos-config-profiles":           bodySpecClassicMacosConfigProfiles,
+	"classic-mobile-apps":                     bodySpecClassicMobileApps,
+	"classic-mobile-commands":                 bodySpecClassicMobileCommands,
+	"classic-mobile-config-profiles":          bodySpecClassicMobileConfigProfiles,
+	"classic-mobile-device-groups":            bodySpecClassicMobileDeviceGroups,
+	"classic-mobile-devices":                  bodySpecClassicMobileDevices,
+	"classic-mobile-history":                  bodySpecClassicMobileHistory,
+	"classic-mobile-invitations":              bodySpecClassicMobileInvitations,
+	"classic-mobile-provisioning-profiles":    bodySpecClassicMobileProvisioningProfiles,
+	"classic-network-segments":                bodySpecClassicNetworkSegments,
+	"classic-packages":                        bodySpecClassicPackages,
+	"classic-patch-available-titles":          bodySpecClassicPatchAvailableTitles,
+	"classic-patch-external-sources":          bodySpecClassicPatchExternalSources,
+	"classic-patch-internal-sources":          bodySpecClassicPatchInternalSources,
+	"classic-patch-policies":                  bodySpecClassicPatchPolicies,
+	"classic-patch-reports":                   bodySpecClassicPatchReports,
+	"classic-patch-titles":                    bodySpecClassicPatchTitles,
+	"classic-policies":                        bodySpecClassicPolicies,
+	"classic-printers":                        bodySpecClassicPrinters,
+	"classic-removable-mac-addresses":         bodySpecClassicRemovableMacAddresses,
+	"classic-restricted-software":             bodySpecClassicRestrictedSoftware,
+	"classic-smtp-server":                     bodySpecClassicSmtpServer,
+	"classic-software-update-servers":         bodySpecClassicSoftwareUpdateServers,
+	"classic-user-ext-attrs":                  bodySpecClassicUserExtAttrs,
+	"classic-user-groups":                     bodySpecClassicUserGroups,
+	"classic-vpp-accounts":                    bodySpecClassicVppAccounts,
+	"classic-vpp-assignments":                 bodySpecClassicVppAssignments,
+	"classic-vpp-invitations":                 bodySpecClassicVppInvitations,
+	"classic-webhooks":                        bodySpecClassicWebhooks,
+}
+
+// ClassicCredentialLeaves returns the element names that carry a credential in
+// the Classic resource whose command group is cliName, or nil for none.
+func ClassicCredentialLeaves(cliName string) map[string]bool {
+	return classicCredentialLeaves(classicBodySpecsByCommand[cliName])
+}
+
+// classicCredentialLeaves is the last segment of each credential path in spec.
+// Within one resource no such name is also worn by a field that is not a
+// credential, so an element is matched by name alone at any depth.
+func classicCredentialLeaves(spec classicBodySpec) map[string]bool {
+	if len(spec.Credentials) == 0 {
+		return nil
+	}
+	leaves := make(map[string]bool, len(spec.Credentials))
+	for path := range spec.Credentials {
+		leaves[strings.TrimSuffix(path[strings.LastIndex(path, ".")+1:], "[]")] = true
+	}
+	return leaves
+}
+
 // readClassicBody reads an XML request body from --from-file, or from stdin when
 // the flag is absent. Unlike readApplyInput it tolerates an absent body and
 // returns nil, leaving the caller to decide whether that is an error — classic
@@ -108,6 +186,101 @@ func readClassicBody(fromFile string) ([]byte, error) {
 	}
 
 	return nil, nil
+}
+
+// classicRedactedText is "<redacted>" escaped as XML element text, so every
+// output format decodes it back to the marker.
+const classicRedactedText = "&lt;redacted&gt;"
+
+// redactClassicReadInMCPChild returns body with the text of every element
+// named after one of spec's credential fields replaced by the redaction
+// marker, when this process is a child of `mcp serve`. Every get and list
+// prints through it, before choosing a format, so -o raw is not the wire
+// bytes there. A body it cannot parse as XML is refused rather than printed.
+func redactClassicReadInMCPChild(body []byte, spec classicBodySpec) ([]byte, error) {
+	leaves := classicCredentialLeaves(spec)
+	if len(leaves) == 0 || !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+		return body, nil
+	}
+	if !xmlconv.IsXML(body) {
+		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its credential fields cannot be redacted and it is not printed over MCP")
+	}
+	type span struct{ start, end int64 }
+	var spans []span
+	var names []string
+	var starts []int64
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	for {
+		before := dec.InputOffset()
+		tok, err := dec.RawToken()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("parsing the Classic API response to redact its credential fields, so it is not printed over MCP: %w", err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			names = append(names, t.Name.Local)
+			starts = append(starts, dec.InputOffset())
+		case xml.EndElement:
+			n := len(names)
+			if n == 0 {
+				continue
+			}
+			if leaves[names[n-1]] && before > starts[n-1] {
+				spans = append(spans, span{starts[n-1], before})
+			}
+			names, starts = names[:n-1], starts[:n-1]
+		}
+	}
+	if len(spans) == 0 {
+		return body, nil
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+	var out bytes.Buffer
+	var cursor int64
+	for _, sp := range spans {
+		if sp.start < cursor {
+			continue
+		}
+		out.Write(body[cursor:sp.start])
+		out.WriteString(classicRedactedText)
+		cursor = sp.end
+	}
+	out.Write(body[cursor:])
+	return out.Bytes(), nil
+}
+
+// classicProfilePayloadCommands are the Classic command groups whose records
+// carry a configuration profile's plist in <payloads>.
+var classicProfilePayloadCommands = map[string]bool{
+	"classic-macos-config-profiles":  true,
+	"classic-mobile-config-profiles": true,
+}
+
+// ClassicCarriesProfilePayloads reports whether the Classic resource whose
+// command group is cliName carries a configuration profile in <payloads>.
+func ClassicCarriesProfilePayloads(cliName string) bool {
+	return classicProfilePayloadCommands[cliName]
+}
+
+// redactClassicProfilePayloadsInMCPChild returns body with each secret inside
+// a configuration profile's <payloads> plist replaced by the redaction marker,
+// when this process is a child of mcp serve. A payload that does not decode is
+// replaced whole, and a body that is not XML is refused rather than printed.
+func redactClassicProfilePayloadsInMCPChild(body []byte) ([]byte, error) {
+	if !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+		return body, nil
+	}
+	if !xmlconv.IsXML(body) {
+		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its profile payloads cannot be redacted and it is not printed over MCP")
+	}
+	out, err := profileconvert.RedactClassicProfilePayloads(body)
+	if err != nil {
+		return nil, fmt.Errorf("parsing the Classic API response to redact its profile payloads, so it is not printed over MCP: %w", err)
+	}
+	return out, nil
 }
 
 // ── Schema-derived request bodies (--scaffold and --set) ──────────────────

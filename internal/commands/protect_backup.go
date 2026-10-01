@@ -1770,6 +1770,9 @@ func collectProtectRestoreFiles(inputDir string, selected []protectResource, inc
 			for _, ext := range protectRestoreExts {
 				path := filepath.Join(inputDir, res.Name+ext)
 				if _, err := os.Stat(path); err == nil {
+					if err := refuseMCPChildReadOutsideInputDir(path); err != nil {
+						return nil, nil, err
+					}
 					files = append(files, protectRestoreFile{Resource: res, Path: path})
 					break
 				}
@@ -1798,6 +1801,9 @@ func collectProtectRestoreFiles(inputDir string, selected []protectResource, inc
 		// Deterministic order so a restore is reproducible and its log diffable.
 		sort.Strings(names)
 		for _, n := range names {
+			if err := refuseMCPChildReadOutsideInputDir(filepath.Join(dir, n)); err != nil {
+				return nil, nil, err
+			}
 			objectName := protectObjectNameFromFile(filepath.Join(dir, n))
 			if !includeDefaults && isProtectDefaultObject(res.Name, objectName) {
 				skipped = append(skipped, fmt.Sprintf("%s/%s: a tenant default, already present in the target (--include-defaults to apply anyway)", res.Name, objectName))

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -204,6 +205,38 @@ func activeProfileName(cfg *config.Config) string {
 	return active
 }
 
+// configShowRows is `config show`'s profile list. In a child of `mcp serve` a
+// token, client ID or client secret is shown as "<redacted>", since a literal
+// value in the config would otherwise reach the connecting model.
+func configShowRows(cfg *config.Config, active string) []configProfileRow {
+	credential := func(v string) string { return v }
+	if os.Getenv(mcpChildEnvVar) == "1" {
+		credential = func(v string) string {
+			if v == "" {
+				return ""
+			}
+			return "<redacted>"
+		}
+	}
+	names := sortedProfileNames(cfg)
+	rows := make([]configProfileRow, 0, len(names))
+	for _, name := range names {
+		p := cfg.Profiles[name]
+		rows = append(rows, configProfileRow{
+			Name:          name,
+			URL:           p.URL,
+			AuthMethod:    p.AuthMethod,
+			TenantID:      p.TenantID,
+			EnvironmentID: p.EnvironmentID,
+			Default:       name == active,
+			Token:         credential(p.Token),
+			ClientID:      credential(p.ClientID),
+			ClientSecret:  credential(p.ClientSecret),
+		})
+	}
+	return rows
+}
+
 func newConfigShowCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
@@ -214,23 +247,7 @@ func newConfigShowCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			active := activeProfileName(cfg)
-			names := sortedProfileNames(cfg)
-			profiles := make([]configProfileRow, 0, len(names))
-			for _, name := range names {
-				p := cfg.Profiles[name]
-				profiles = append(profiles, configProfileRow{
-					Name:          name,
-					URL:           p.URL,
-					AuthMethod:    p.AuthMethod,
-					TenantID:      p.TenantID,
-					EnvironmentID: p.EnvironmentID,
-					Default:       name == active,
-					Token:         p.Token,
-					ClientID:      p.ClientID,
-					ClientSecret:  p.ClientSecret,
-				})
-			}
+			profiles := configShowRows(cfg, activeProfileName(cfg))
 
 			out := map[string]any{
 				"config-file":     config.ConfigPath(),
@@ -258,6 +275,19 @@ func newConfigPathCmd() *cobra.Command {
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), config.ConfigPath())
 		},
 	}
+}
+
+// profilesToProbe is the profiles `config list --status` checks. A child of
+// `mcp serve` checks only the pinned one, so the connecting model cannot reach
+// the other configured instances.
+func profilesToProbe(names []string) []string {
+	if os.Getenv(mcpChildEnvVar) != "1" {
+		return names
+	}
+	if pinned := os.Getenv(mcpPinnedProfileEnvVar); slices.Contains(names, pinned) {
+		return []string{pinned}
+	}
+	return nil
 }
 
 // healthResult holds the outcome of a single health check.
@@ -320,7 +350,7 @@ func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				results = make(map[string]healthResult, len(names))
 				var mu sync.Mutex
 				var wg sync.WaitGroup
-				for _, name := range names {
+				for _, name := range profilesToProbe(names) {
 					wg.Add(1)
 					go func(n string) {
 						defer wg.Done()
@@ -344,11 +374,12 @@ func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					EnvironmentID: p.EnvironmentID,
 					Default:       name == active,
 				}
-				if status {
-					r := results[name]
+				if r, ok := results[name]; ok {
 					row.Status = r.Status
 					healthy := r.Healthy
 					row.Healthy = &healthy
+				} else if status {
+					row.Status = "not checked over MCP"
 				}
 				rows = append(rows, row)
 			}

@@ -5,7 +5,9 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -68,7 +70,7 @@ func newProtectActionConfigsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printActionConfig(cliCtx.Output, item)
 		},
 	}
 }
@@ -110,7 +112,7 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created action configuration %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printActionConfig(cliCtx.Output, &result)
 			}
 
 			// Found — confirm before replacing
@@ -127,7 +129,7 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated action configuration %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printActionConfig(cliCtx.Output, &result)
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -192,6 +194,70 @@ func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			return printExport(export)
 		},
 	}
+}
+
+// printActionConfig prints an action configuration. In a child of `mcp serve`
+// each report client's header values, and the userinfo and query of its URL,
+// are shown as "<redacted>": they hold the bearer token, API key or signature
+// the tenant forwards alerts to a SIEM or webhook with. A secret carried in the
+// URL path, as a Slack webhook's is, is still printed.
+func printActionConfig(out registry.OutputFormatter, a *jamfprotect.ActionConfig) error {
+	if a != nil && os.Getenv(mcpChildEnvVar) == "1" {
+		a = redactReportClientHeaders(*a)
+	}
+	return protect.PrintOne(out, a)
+}
+
+func redactReportClientHeaders(a jamfprotect.ActionConfig) *jamfprotect.ActionConfig {
+	if a.Clients != nil {
+		clients := make([]jamfprotect.ReportClient, len(a.Clients))
+		for i, c := range a.Clients {
+			if c.Params.Headers != nil {
+				headers := make([]jamfprotect.ReportClientHeader, len(c.Params.Headers))
+				for j, h := range c.Params.Headers {
+					if h.Value != "" {
+						h.Value = protectRedacted
+					}
+					headers[j] = h
+				}
+				c.Params.Headers = headers
+			}
+			c.Params.URL = redactURLSecrets(c.Params.URL)
+			clients[i] = c
+		}
+		a.Clients = clients
+	}
+	return &a
+}
+
+// redactURLSecrets replaces a URL's userinfo and query with the redaction
+// marker. A value that does not parse is replaced whole when it could carry
+// either, so a malformed URL fails closed.
+func redactURLSecrets(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		if strings.ContainsAny(raw, "@?") {
+			return protectRedacted
+		}
+		return raw
+	}
+	if u.User == nil && u.RawQuery == "" && !u.ForceQuery {
+		return raw
+	}
+	hasUser, hasQuery := u.User != nil, u.RawQuery != "" || u.ForceQuery
+	u.User, u.RawQuery, u.ForceQuery = nil, "", false
+	out := u.String()
+	if hasUser {
+		out = strings.Replace(out, "//", "//"+protectRedacted+"@", 1)
+	}
+	if hasQuery {
+		if i := strings.IndexByte(out, '#'); i >= 0 {
+			out = out[:i] + "?" + protectRedacted + out[i:]
+		} else {
+			out += "?" + protectRedacted
+		}
+	}
+	return out
 }
 
 // actionConfigToInput converts an ActionConfig response to an ActionConfigInput, stripping server-only fields.
