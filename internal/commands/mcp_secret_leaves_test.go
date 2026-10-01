@@ -186,7 +186,6 @@ func TestMCP_RefusesCommandsThatPrintOrSetALoginCredential(t *testing.T) {
 		want string
 	}{
 		{[]string{"pro", "sso-oauth-session-tokens", "list"}, "access token"},
-		{[]string{"pro", "cloud-distribution-point", "list"}, "private key"},
 		{[]string{"pro", "cloud-distribution-point", "create", "--from-file", "x"}, "private key"},
 		{[]string{"pro", "cloud-distribution-point", "patch"}, "private key"},
 		{[]string{"pro", "jamf-pro-user-account-settings", "change-password"}, "password"},

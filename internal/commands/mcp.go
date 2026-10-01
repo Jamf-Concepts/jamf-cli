@@ -108,8 +108,8 @@ spelling. It refuses:
     tokens
   - 'pro api-integrations client-credentials' and 'protect api-clients
     apply', which mint a new client secret or password and print it
-  - 'pro cloud-distribution-point list', 'create' and 'patch', whose response
-    carries the CloudFront private key that signs download URLs
+  - 'pro cloud-distribution-point create' and 'patch', whose response carries
+    the CloudFront private key that signs download URLs
   - 'pro jamf-pro-user-account-settings change-password' and 'pro accounts
     create', 'update' and 'apply', which set a Jamf Pro login password to a
     value the model chose
@@ -130,10 +130,11 @@ here: the report-client header values and the userinfo and query of each
 report-client URL in 'protect action-configs get' and 'apply' (a secret in a
 URL path, as a Slack webhook carries, is still shown), the Sentinel shared key
 of 'protect data-forwarding get' and 'update', the password of 'protect
-api-clients get', and every Classic 'get' and 'list' field the Classic --set
-refuses as a credential (an SMTP, LDAP, webhook, directory binding or
-distribution point password, the VPP sToken, the JWT signing key, the
-institutional FileVault keystore). So a Classic '-o raw' is not the wire bytes
+api-clients get', the CloudFront private key and CDN password of 'pro
+cloud-distribution-point list', and every Classic 'get' and 'list' field the
+Classic --set refuses as a credential (an SMTP, LDAP, webhook, directory
+binding or distribution point password, the VPP sToken, the JWT signing key,
+the institutional FileVault keystore). So a Classic '-o raw' is not the wire bytes
 here, and 'pro diff' shows those fields' old and new values as <redacted> while
 still reporting the change.
 Secrets of the pinned tenant's own devices are shown: the LAPS password, the
@@ -232,7 +233,7 @@ value is an error; there is no config key for it.`,
 					"'pro sso-oauth-session-tokens', " +
 					"the commands that mint and print a credential ('pro api-integrations " +
 					"client-credentials', 'protect api-clients apply'), " +
-					"'pro cloud-distribution-point list', 'create' and 'patch' (they print a " +
+					"'pro cloud-distribution-point create' and 'patch' (they print a " +
 					"CloudFront private key), the commands that set a Jamf Pro login password " +
 					"('pro jamf-pro-user-account-settings change-password', 'pro accounts " +
 					"create', 'update', 'apply'), 'protect downloads csr' and 'websocket-auth', " +
@@ -243,7 +244,8 @@ value is an error; there is no config key for it.`,
 					" Use generate_report rather than 'dashboard': this tool returns " +
 					"stdout as text and the dashboard writes a 320-800 KB HTML document there. " +
 					"Report-client header values and URL userinfo and query, the Sentinel " +
-					"shared key, Protect API client passwords and Classic credential fields " +
+					"shared key, Protect API client passwords, the CloudFront private key of " +
+					"'pro cloud-distribution-point list' and Classic credential fields " +
 					"(passwords, the VPP sToken, the JWT signing key), in 'get', 'list' and " +
 					"'pro diff', print as <redacted>; " +
 					"device secrets such as the LAPS password are shown. " +
@@ -598,7 +600,6 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli pro api-authentication keep-alive", refusedPrintsToken},
 	{"jamf-cli pro sso-oauth-session-tokens", refusedPrintsToken},
 	{"jamf-cli pro api-integrations client-credentials", refusedMintsClientSecret},
-	{"jamf-cli pro cloud-distribution-point list", refusedPrintsCDNKey},
 	{"jamf-cli pro cloud-distribution-point create", refusedPrintsCDNKey},
 	{"jamf-cli pro cloud-distribution-point patch", refusedPrintsCDNKey},
 	{"jamf-cli pro jamf-pro-user-account-settings change-password", refusedSetsLoginPassword},

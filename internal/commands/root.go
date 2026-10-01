@@ -931,6 +931,9 @@ in the config file. It never runs in CI, when output is piped, or under
 			proClient := &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
 			cliCtx.Uploader = proClient // set before wrapping with decorators
 			var httpClient registry.HTTPClient = proClient
+			if registry.InMCPChild() {
+				httpClient = &cdnKeyRedactingClient{inner: httpClient}
+			}
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}

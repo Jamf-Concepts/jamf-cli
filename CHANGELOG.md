@@ -43,7 +43,7 @@ child process checks again before it runs. These now fail over MCP:
 - The commands that mint a credential and print it:
   `pro api-integrations client-credentials` (a new client secret) and
   `protect api-clients apply` (a new API client's password).
-- `pro cloud-distribution-point list`, `create` and `patch`, whose response
+- `pro cloud-distribution-point create` and `patch`, whose response
   carries the CloudFront private key that signs download URLs.
 - The commands that set a Jamf Pro login password to a value the model
   chose: `pro jamf-pro-user-account-settings change-password` and
@@ -60,7 +60,9 @@ profile. These Protect commands also run over MCP with the credential shown as
 `<redacted>`: `action-configs get` and `apply` (each report client's header
 values, and the userinfo and query of each report-client URL),
 `data-forwarding get` and `update` (the Sentinel shared key) and
-`api-clients get` (the password). Every Classic `get` and `list` prints each
+`api-clients get` (the password). `pro cloud-distribution-point list` runs
+over MCP with the CloudFront private key and the CDN password shown as
+`<redacted>` in every output format. Every Classic `get` and `list` prints each
 field that Classic `--set` refuses as a credential as `<redacted>`, in every
 output format, so `-o raw` is not the wire bytes over MCP, and `pro diff`
 shows those fields' old and new values as `<redacted>` while still reporting
