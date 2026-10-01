@@ -21,6 +21,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -678,6 +679,7 @@ func runDiff(ctx context.Context, cliCtx *registry.CLIContext, opts diffOptions)
 	results := compareSnapshots(srcSnapshot, tgtSnapshot)
 	if registry.InMCPChild() {
 		redactDiffCredentials(results, classicCredentialLeavesByFilter())
+		redactDiffProfilePayloads(results, classicProfilePayloadFilters())
 	}
 
 	if len(results) == 0 {
@@ -720,6 +722,86 @@ func classicCredentialLeavesByFilter() map[string]map[string]bool {
 		}
 	}
 	return out
+}
+
+// classicProfilePayloadFilters are the diff resource filters whose Classic
+// records carry a configuration profile in general.payloads.
+func classicProfilePayloadFilters() map[string]bool {
+	out := map[string]bool{}
+	for _, r := range BackupResources {
+		if generated.ClassicCarriesProfilePayloads(r.Key) {
+			out[r.FilterName] = true
+		}
+	}
+	return out
+}
+
+// redactDiffProfilePayloads masks, in place, each secret inside a profile
+// payload that an old or new value carries. It runs after the comparison, so a
+// changed Wi-Fi password is still reported as a modified field.
+func redactDiffProfilePayloads(results []diffResult, filters map[string]bool) {
+	for i := range results {
+		r := &results[i]
+		if !filters[r.Resource] || r.Field == "" {
+			continue
+		}
+		r.OldValue = redactDiffPayloadValue(r.Field, r.OldValue)
+		r.NewValue = redactDiffPayloadValue(r.Field, r.NewValue)
+	}
+}
+
+// redactDiffPayloadValue redacts v when field is the payloads plist itself, or
+// each payloads plist inside v when v is the JSON of a nested field.
+func redactDiffPayloadValue(field, v string) string {
+	if v == "" || v == "<nil>" {
+		return v
+	}
+	if field == "payloads" {
+		return redactPayloadPlist(v)
+	}
+	var decoded any
+	if json.Unmarshal([]byte(v), &decoded) != nil || !redactPayloadsKeys(decoded) {
+		return v
+	}
+	b, err := json.Marshal(decoded)
+	if err != nil {
+		return protectRedacted
+	}
+	return string(b)
+}
+
+// redactPayloadPlist redacts the secrets in one payloads plist, or replaces it
+// whole when it does not decode.
+func redactPayloadPlist(s string) string {
+	out, err := profileconvert.RedactPayloadSecrets([]byte(s))
+	if err != nil {
+		return protectRedacted
+	}
+	return string(out)
+}
+
+// redactPayloadsKeys redacts each non-empty string under a payloads key, at
+// any depth, and reports whether it changed one.
+func redactPayloadsKeys(v any) bool {
+	changed := false
+	switch t := v.(type) {
+	case map[string]any:
+		for k, child := range t {
+			if s, ok := child.(string); ok && k == "payloads" && s != "" {
+				if r := redactPayloadPlist(s); r != s {
+					t[k] = r
+					changed = true
+				}
+				continue
+			}
+			changed = redactPayloadsKeys(child) || changed
+		}
+	case []any:
+		for _, child := range t {
+			changed = redactPayloadsKeys(child) || changed
+		}
+	}
+	return changed
 }
 
 // redactDiffCredentials masks, in place, every old and new value that is or

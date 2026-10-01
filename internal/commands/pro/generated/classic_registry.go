@@ -252,6 +252,37 @@ func redactClassicReadInMCPChild(body []byte, spec classicBodySpec) ([]byte, err
 	return out.Bytes(), nil
 }
 
+// classicProfilePayloadCommands are the Classic command groups whose records
+// carry a configuration profile's plist in <payloads>.
+var classicProfilePayloadCommands = map[string]bool{
+	"classic-macos-config-profiles":  true,
+	"classic-mobile-config-profiles": true,
+}
+
+// ClassicCarriesProfilePayloads reports whether the Classic resource whose
+// command group is cliName carries a configuration profile in <payloads>.
+func ClassicCarriesProfilePayloads(cliName string) bool {
+	return classicProfilePayloadCommands[cliName]
+}
+
+// redactClassicProfilePayloadsInMCPChild returns body with each secret inside
+// a configuration profile's <payloads> plist replaced by the redaction marker,
+// when this process is a child of mcp serve. A payload that does not decode is
+// replaced whole, and a body that is not XML is refused rather than printed.
+func redactClassicProfilePayloadsInMCPChild(body []byte) ([]byte, error) {
+	if !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+		return body, nil
+	}
+	if !xmlconv.IsXML(body) {
+		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its profile payloads cannot be redacted and it is not printed over MCP")
+	}
+	out, err := profileconvert.RedactClassicProfilePayloads(body)
+	if err != nil {
+		return nil, fmt.Errorf("parsing the Classic API response to redact its profile payloads, so it is not printed over MCP: %w", err)
+	}
+	return out, nil
+}
+
 // ── Schema-derived request bodies (--scaffold and --set) ──────────────────
 //
 // The Classic API takes XML and its manifest (specs/classic/resources.yaml)
