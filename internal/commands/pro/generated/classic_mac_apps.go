@@ -532,19 +532,10 @@ Optional sections: general, scope, self_service, vpp`,
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
 
-			getPath := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(resolvedID))
-			respX, ferr := ctx.Client.Do(reqCtx, "GET", getPath, nil)
+			var ferr error
+			existingBody, ferr = fetchClassicFullXMLByID(reqCtx, ctx.Client, "macapplications", "id", resolvedID)
 			if ferr != nil {
 				return fmt.Errorf("fetching existing mac_application: %w", ferr)
-			}
-			var readErr error
-			existingBody, readErr = io.ReadAll(respX.Body)
-			_ = respX.Body.Close()
-			if readErr != nil {
-				return fmt.Errorf("reading existing mac_application: %w", readErr)
-			}
-			if respX.StatusCode >= 400 {
-				return fmt.Errorf("fetching existing mac_application: GET %s returned %d: %s", getPath, respX.StatusCode, string(existingBody))
 			}
 
 			// Fetch-merge-put: start from the existing record, overlay file field.
@@ -873,7 +864,7 @@ Optional sections: general, scope, self_service, vpp`,
 			// Fetch the existing full record and overlay the file field(s) — the
 			// user's input (if any) is ignored beyond name resolution; AppConfig
 			// injection preserves every other field on the record.
-			_, fullBody, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "macapplications", name)
+			fullBody, ferr := fetchClassicFullXMLByID(reqCtx, ctx.Client, "macapplications", "id", id)
 			if ferr != nil || len(fullBody) == 0 {
 				return fmt.Errorf("fetching existing mac_application for merge-put: %w", ferr)
 			}

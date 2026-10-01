@@ -609,19 +609,10 @@ its default silently — so --set refuses one rather than letting it through.`,
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
 
-			getPath := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(resolvedID))
-			respX, ferr := ctx.Client.Do(reqCtx, "GET", getPath, nil)
+			var ferr error
+			existingBody, ferr = fetchClassicFullXMLByID(reqCtx, ctx.Client, "mobiledeviceapplications", "id", resolvedID)
 			if ferr != nil {
 				return fmt.Errorf("fetching existing mobile_device_application: %w", ferr)
-			}
-			var readErr error
-			existingBody, readErr = io.ReadAll(respX.Body)
-			_ = respX.Body.Close()
-			if readErr != nil {
-				return fmt.Errorf("reading existing mobile_device_application: %w", readErr)
-			}
-			if respX.StatusCode >= 400 {
-				return fmt.Errorf("fetching existing mobile_device_application: GET %s returned %d: %s", getPath, respX.StatusCode, string(existingBody))
 			}
 
 			// Fetch-merge-put: start from the existing record, overlay file field.
@@ -956,7 +947,7 @@ its default silently — so --set refuses one rather than letting it through.`,
 			// Fetch the existing full record and overlay the file field(s) — the
 			// user's input (if any) is ignored beyond name resolution; AppConfig
 			// injection preserves every other field on the record.
-			_, fullBody, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "mobiledeviceapplications", name)
+			fullBody, ferr := fetchClassicFullXMLByID(reqCtx, ctx.Client, "mobiledeviceapplications", "id", id)
 			if ferr != nil || len(fullBody) == 0 {
 				return fmt.Errorf("fetching existing mobile_device_application for merge-put: %w", ferr)
 			}

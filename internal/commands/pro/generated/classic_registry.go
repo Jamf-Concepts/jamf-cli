@@ -1350,36 +1350,24 @@ func setClassicGeneralName(body []byte, rootName, name string) []byte {
 	return []byte(s[:gOpen+len("<general>")] + nameEl + inner + s[gClose:])
 }
 
-// fetchClassicFullXMLByName fetches a Classic resource's full XML body by name,
-// returning the bytes and its ID. Used by apply for resources that need
-// fetch-merge-put semantics (e.g. mac/mobile app AppConfig). Returns an error
-// if the API responds with a non-2xx status so the caller doesn't PUT back an
-// HTML error page as the "existing record".
-func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, body []byte, err error) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, registry.EscapeClassicPathSegment(name))
+// fetchClassicFullXMLByID fetches a Classic resource's full XML body by id.
+// A non-2xx status is an error so the caller never PUTs an HTML error page
+// back as the existing record.
+func fetchClassicFullXMLByID(ctx context.Context, client registry.HTTPClient, apiPath, idPath, id string) ([]byte, error) {
+	path := fmt.Sprintf("/JSSResource/%s/%s/%s", apiPath, idPath, url.PathEscape(id))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err = io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", nil, fmt.Errorf("reading GET %s: %w", path, err)
+		return nil, fmt.Errorf("reading GET %s: %w", path, err)
 	}
 	if resp.StatusCode >= 400 {
-		return "", nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, string(body))
 	}
-	m, mapErr := xmlconv.ToMap(body)
-	if mapErr == nil {
-		for _, rootVal := range m {
-			if root, ok := rootVal.(map[string]any); ok {
-				if general, ok := root["general"].(map[string]any); ok {
-					id = extractIDString(general, "id")
-				}
-			}
-		}
-	}
-	return id, body, nil
+	return body, nil
 }
 
 // sliceClassicListSubsetXML returns the <subset>...</subset> subtree from a
