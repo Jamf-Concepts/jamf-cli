@@ -310,6 +310,13 @@ type Schema struct {
 	Variants []string
 	// Discriminator is the property whose value selects the variant.
 	Discriminator string
+	// VariantSchemas holds the parsed shape of every variant the schema itself
+	// does not carry: those after the first for a bare union, and all of them
+	// for a union that declares properties of its own (a blueprint Component).
+	// Only CredentialPaths reads it: a secret
+	// declared by a variant --scaffold does not render must still be refused
+	// by --set.
+	VariantSchemas []*Schema
 }
 
 // Property represents a schema property
@@ -321,6 +328,7 @@ type Property struct {
 	Nullable    bool
 	ReadOnly    bool
 	WriteOnly   bool    // true when the field is accepted in requests but never returned in responses (e.g. passwords, secrets)
+	ByteArray   bool    // an array of `format: byte` strings, which CredentialPaths treats as one string
 	SchemaRef   string  // name of the referenced component schema for object/array types (e.g. "ComputerGeneralUpdate")
 	Nested      *Schema // resolved nested schema for object types (may be nil)
 	// VariantOnly marks a property that only a non-scaffolded variant of a

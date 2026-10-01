@@ -223,6 +223,7 @@ type templateOp struct {
 	Use                string        // cobra Use string, includes <param> placeholders for path params
 	PathParams         []string      // path parameter names in order of appearance in Path
 	HasBody            bool          // operation accepts a request body — emit --file/--set flags
+	CredentialPaths    []string      // body paths carrying a secret, which --set refuses (parser.RequestCredentialPaths)
 	IsDestructive      bool          // destructive op — emit --yes flag, ConfirmAction guard, and jamf:destructive annotation
 	UsesMergePatch     bool          // PATCH with application/merge-patch+json content type
 	SuccessCode        int           // success HTTP status code (200 default; 201 for create, 204 for delete/patch, etc.)
@@ -606,6 +607,7 @@ type applySpec struct {
 	AfterApply       string   // resource-specific caveat for the help tail; empty when there is none
 	Scaffold         string   // create-body scaffold, reused verbatim for --scaffold
 	HasScaffold      bool     // scaffold is non-empty
+	CredentialPaths  []string // body paths carrying a secret in either the create or the update, which --set refuses
 	Privileges       []string // union of the three ops' privileges, for the annotation
 	ScopeTypes       []string // union of the scope levels those ops declare, for the annotation
 	PatchReplaces    string   // field a non-merging PATCH replaces wholesale; empty when the method behaves as documented
@@ -726,6 +728,7 @@ func buildApplySpec(r *parser.Resource, ownListPath string, nameLookupField stri
 		UpdateMergePatch: update.RequestBody.IsMergePatch || strings.EqualFold(update.Method, http.MethodPatch),
 		Scaffold:         scaffold,
 		HasScaffold:      scaffold != "",
+		CredentialPaths:  parser.RequestCredentialPaths(nil, create, update),
 		Privileges:       unionPrivileges(create, update),
 		ScopeTypes:       unionScopeTypes(create, update),
 		PatchReplaces:    platformPatchDoesNotMerge[r.Name],
@@ -871,20 +874,21 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			return templateResource{}, fmt.Errorf("resource %q op %q: %w", r.Name, opCopy.Name, err)
 		}
 		ops = append(ops, templateOp{
-			Operation:      &opCopy,
-			GoName:         strcase.ToCamel(opCopy.Name),
-			Short:          shortFromOp(&opCopy),
-			Long:           appendEnumChoices(appendVariantNote(firstParagraph(opCopy.Description), &opCopy), buildEnumChoices(&opCopy)),
-			Use:            buildUse(opCopy.Name, userParams),
-			PathParams:     userParams,
-			HasBody:        opCopy.RequestBody != nil,
-			IsDestructive:  opCopy.IsDestructive,
-			UsesMergePatch: opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
-			SuccessCode:    successCode,
-			HasResult:      hasResult,
-			QueryParams:    buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path), hasPaginationParams(opCopy.Parameters)),
-			Paginate:       hasPaginationParams(opCopy.Parameters),
-			PageSize:       parser.PageSizeFromSpec(opCopy.Parameters),
+			Operation:       &opCopy,
+			GoName:          strcase.ToCamel(opCopy.Name),
+			Short:           shortFromOp(&opCopy),
+			Long:            appendEnumChoices(appendVariantNote(firstParagraph(opCopy.Description), &opCopy), buildEnumChoices(&opCopy)),
+			Use:             buildUse(opCopy.Name, userParams),
+			PathParams:      userParams,
+			HasBody:         opCopy.RequestBody != nil,
+			CredentialPaths: parser.RequestCredentialPaths(nil, &opCopy),
+			IsDestructive:   opCopy.IsDestructive,
+			UsesMergePatch:  opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
+			SuccessCode:     successCode,
+			HasResult:       hasResult,
+			QueryParams:     buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path), hasPaginationParams(opCopy.Parameters)),
+			Paginate:        hasPaginationParams(opCopy.Parameters),
+			PageSize:        parser.PageSizeFromSpec(opCopy.Parameters),
 			ListArrayKey: func() string {
 				if opCopy.Name == "list" || opCopy.IsList {
 					return detectListArrayKey(&opCopy)

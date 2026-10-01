@@ -509,7 +509,7 @@ func newCloudDistributionPointPatchCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Update specific fields on a cloud distribution point",
-		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  cdnType                                      string\n  directory                                    string\n  downloadUrl                                  string\n  expirationSeconds                            integer\n  keyPairId                                    string\n  master                                       boolean\n  password                                     string\n  privateKey                                   string\n  requireSignedUrls                            boolean\n  secondaryAuthRequired                        boolean\n  secondaryAuthStatusCode                      integer\n  secondaryAuthTimeToLive                      integer\n  uploadUrl                                    string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  cdnType                                      string\n  directory                                    string\n  downloadUrl                                  string\n  expirationSeconds                            integer\n  keyPairId                                    string\n  master                                       boolean\n  requireSignedUrls                            boolean\n  secondaryAuthRequired                        boolean\n  secondaryAuthStatusCode                      integer\n  secondaryAuthTimeToLive                      integer\n  uploadUrl                                    string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: password, privateKey. Send them in a JSON body with --from-file or on stdin.",
 		Example: `  # Update a field
   jamf-cli pro cloud-distribution-point patch --set field=value`,
 		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
@@ -552,7 +552,7 @@ func newCloudDistributionPointPatchCmd(ctx *registry.CLIContext) *cobra.Command 
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, map[string]string{"cdnType": "string", "directory": "string", "downloadUrl": "string", "expirationSeconds": "integer", "keyPairId": "string", "master": "boolean", "password": "string", "privateKey": "string", "requireSignedUrls": "boolean", "secondaryAuthRequired": "boolean", "secondaryAuthStatusCode": "integer", "secondaryAuthTimeToLive": "integer", "uploadUrl": "string", "username": "string"})
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"cdnType": "string", "directory": "string", "downloadUrl": "string", "expirationSeconds": "integer", "keyPairId": "string", "master": "boolean", "password": "string", "privateKey": "string", "requireSignedUrls": "boolean", "secondaryAuthRequired": "boolean", "secondaryAuthStatusCode": "integer", "secondaryAuthTimeToLive": "integer", "uploadUrl": "string", "username": "string"}, "password", "privateKey")
 				if err != nil {
 					return err
 				}
@@ -591,7 +591,7 @@ func newCloudDistributionPointPatchCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"cdnType=", "directory=", "downloadUrl=", "expirationSeconds=", "keyPairId=", "master=", "password=", "privateKey=", "requireSignedUrls=", "secondaryAuthRequired=", "secondaryAuthStatusCode=", "secondaryAuthTimeToLive=", "uploadUrl=", "username=",
+			"cdnType=", "directory=", "downloadUrl=", "expirationSeconds=", "keyPairId=", "master=", "requireSignedUrls=", "secondaryAuthRequired=", "secondaryAuthStatusCode=", "secondaryAuthTimeToLive=", "uploadUrl=", "username=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd
