@@ -503,10 +503,9 @@ func securityPlatformSDKClient(cfg *config.Config, profileName string) (*jamfpla
 
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
 		if url == "" {
-			// PlatformURL first: a profile carrying both credential sets keeps
-			// the gateway URL there, because URL is the Radar host for the
-			// Risk/Lifecycle/SSE client. Falling back to URL covers a plain
-			// platform profile, whose URL *is* the gateway.
+			// PlatformURL first: `school setup` keeps the gateway there because
+			// its URL is the School instance. `platform setup` writes the
+			// gateway to URL, which the Radar client never reads.
 			url = p.PlatformURL
 		}
 		if url == "" {

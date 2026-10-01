@@ -2045,20 +2045,26 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 // here: security.NewClient falls back to its own defaults (api.wandera.com /
 // sse.jamf.com) when both are empty.
 //
+// The Radar host is overridden only by JAMFSECURITY_URL, never by --url or
+// the profile's url: those name the Jamf Pro instance or the platform gateway,
+// and the /v1/login request carries the Radar secret as Basic auth to
+// whatever host this resolves to.
+//
 // Also unlike those products, Security provisions a separate application
 // ID/secret per API (Risk, Device Lifecycle, SSE) — any subset may be
 // configured, and only commands that touch an unconfigured API fail (with a
 // "run security setup" hint), rather than failing here for the whole product.
 func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) error {
+	return buildSecurityClient(cfg, cliCtx, http.DefaultTransport)
+}
+
+func buildSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext, transport http.RoundTripper) error {
 	profileName := profile
 	if profileName == "" {
 		profileName = os.Getenv("JAMF_PROFILE")
 	}
 
-	url := serverURL
-	if url == "" {
-		url = os.Getenv("JAMFSECURITY_URL")
-	}
+	url := os.Getenv("JAMFSECURITY_URL")
 	sseURL := os.Getenv("JAMFSECURITY_SSE_URL")
 
 	riskID, riskSecret := os.Getenv("JAMFSECURITY_RISK_CLIENT_ID"), os.Getenv("JAMFSECURITY_RISK_CLIENT_SECRET")
@@ -2067,9 +2073,6 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 
 	// Fill any still-empty values from the config profile.
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
-		if url == "" {
-			url = p.URL
-		}
 		if sseURL == "" {
 			sseURL = p.SSEURL
 		}
@@ -2140,9 +2143,9 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
 	}
 
-	stdClient := &http.Client{Timeout: 60 * time.Second}
+	stdClient := &http.Client{Timeout: 60 * time.Second, Transport: transport}
 	if shouldShowSpinner() {
-		stdClient.Transport = &spinnerTransport{inner: http.DefaultTransport}
+		stdClient.Transport = &spinnerTransport{inner: transport}
 	}
 
 	cliCtx.SecurityClient = security.NewClient(
