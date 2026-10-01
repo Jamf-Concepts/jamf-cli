@@ -78,8 +78,11 @@ func newClassicAllowedFileExtensionsListCmd(ctx *registry.CLIContext) *cobra.Com
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicAllowedFileExtensions); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -144,8 +147,11 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicAllowedFileExtensions); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}

@@ -39,6 +39,96 @@ than searched in part. The device-action `--group` commands, such as `pro
 computer-inventory erase`, use a different resolver, which a separate change
 covers.
 
+### Breaking — MCP `run_command` refuses local paths and credential output unless the operator allows them
+
+`run_command` used to compare the model's raw argument list against a short
+deny-list. A command alias (`cfg`), a leading flag (`--no-color multi`) or a
+flag inside the path (`pro -q backup`) got past it. Flags that name a local
+file were not on the list, so the model could read, write or delete files on
+the machine running `mcp serve`, and `pro diff --target <profile>` used
+another profile's credentials.
+
+The server now judges the command and the flags that cobra resolves, and the
+child process checks again before it runs. These now fail over MCP:
+
+- A flag whose value is a local file to read (`--from-file`, `--file`,
+  `--script-file`, `--input` and the like), unless the path is inside the
+  directory the operator passes to `mcp serve --input-dir <dir>`.
+  `--password-file` is always refused.
+- A flag whose value is a local path to write (`--save-to`, a command's own
+  `--output`, `--report-dir`, `--dir` on `sync`). The `-o/--output` format
+  flag is not affected.
+- `pro diff` with a side that is neither the server's profile nor a directory
+  inside `--input-dir`.
+- Body logging: `-vvv`, or any `--verbose` level of 3 or more however it is
+  spelled. It logs each response body to stderr before any redaction, and
+  `run_command` returns stderr. Use `-vv` or less. In every mode, not only over MCP,
+  the `-vv` header log now shows `Cookie` and `Set-Cookie` values as
+  `[redacted]`, as it already did for `Authorization`.
+- `multi`, `mcp`, `completion`, the `config` write subcommands,
+  `config validate`, `doctor`, every `setup`, both `backup` commands and
+  `jcds sync`.
+- The commands that print an access token: `auth token` under `platform`,
+  `pro` and `protect`, and `pro api-authentication token`, `oauth-token` and
+  `keep-alive`.
+- `pro sso-oauth-session-tokens`, which prints the session's access and ID
+  tokens.
+- The commands that mint a credential and print it:
+  `pro api-integrations client-credentials` (a new client secret) and
+  `protect api-clients apply` (a new API client's password).
+- `pro cloud-distribution-point create` and `patch`, whose response
+  carries the CloudFront private key that signs download URLs.
+- The commands that set a Jamf Pro login password to a value the model
+  chose: `pro jamf-pro-user-account-settings change-password` and
+  `pro accounts create`, `update` and `apply`.
+- `protect downloads csr` and `websocket-auth`, which write the tenant's
+  `.p12` key material into the server's working directory.
+- `protect action-configs export`, whose document carries each report
+  client's header values, such as a SIEM or webhook bearer token. A redacted
+  copy would overwrite the real credential when applied.
+
+`config show` still runs over MCP, with each token, client ID and client
+secret shown as `<redacted>`. `config list --status` checks only the server's
+profile. These Protect commands also run over MCP with the credential shown as
+`<redacted>`: `action-configs get` and `apply` (each report client's header
+values, and the userinfo and query of each report-client URL),
+`data-forwarding get` and `update` (the Sentinel shared key) and
+`api-clients get` (the password). `pro cloud-distribution-point list` runs
+over MCP with the CloudFront private key and the CDN password shown as
+`<redacted>` in every output format. Every Classic `get` and `list` prints each
+field that Classic `--set` refuses as a credential as `<redacted>`, in every
+output format, so `-o raw` is not the wire bytes over MCP, and `pro diff`
+shows those fields' old and new values as `<redacted>` while still reporting
+the change. `get` and `list` on `classic-macos-config-profiles` and
+`classic-mobile-config-profiles`, `pro diff` on `profiles` and `pro blueprints
+components configuration-profile --id/--name` also redact profile payloads by
+key name: the value of a key named `Challenge`, or ending in any case in
+`password`, `secret`, `token`, `authkey`, `apikey`, `accesskey`, `privatekey`,
+`secretkey`, `passcode` or `credential`, prints as `<redacted>`, and so does a
+PKCS#12 certificate. Every other payload value is shown, a custom payload's
+included. The payload is re-encoded, so the record is still a profile
+document. A payload that does not decode is redacted whole, and the blueprint
+converter refuses it. Outside MCP their output is unchanged. Secrets of the pinned tenant's devices (the LAPS
+password, the recovery lock password, the FileVault personal recovery key),
+the JCDS upload credentials of `pro jamf-cloud-distribution-service
+renew-credentials` and `pro jamf-cloud-distribution-service-files create`,
+and blueprint configuration, a secret a component carries included, are
+still shown.
+
+`mcp serve --input-dir ""` (for example `--input-dir "$DIR"` with `DIR`
+unset) is now an error instead of starting with no input directory.
+
+**Migration:** if an agent sends file bodies through `run_command` (for
+example `pro scripts create --script-file …`), start the server with
+`mcp serve --input-dir <dir>` and keep those files in that directory.
+
+### Behaviour — `protect plans config-profile` refuses a plan name that is not a file name
+
+Without `-O`, the command saves `<plan name>.mobileconfig` in the working
+directory. It now refuses a plan name that contains `/` or `\`, or is empty,
+`.` or `..`, because that name would put the file somewhere else. Pass
+`-O <path>` for such a plan. Every other name is saved as before.
+
 ### Breaking — `--set` refuses credential fields in Pro, Platform and Security Cloud
 
 A `--set` value is on the command line, so it lands in shell history, in `ps`

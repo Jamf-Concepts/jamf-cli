@@ -617,6 +617,14 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, {{ bodySpecVar . }}); err != nil {
+				return err
+			}
+{{- if .IsConfigProfile }}
+			if body, err = redactClassicProfilePayloadsInMCPChild(body); err != nil {
+				return err
+			}
+{{- end }}
 {{- if .ListSubset }}
 			// /JSSResource/{{ .Path }} returns users + groups combined; narrow to
 			// the "{{ .ListSubset }}" subset so this command behaves like a
@@ -638,7 +646,7 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(subsetXML)
 {{- else }}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -725,8 +733,16 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, {{ bodySpecVar . }}); err != nil {
+				return err
+			}
+{{- if .IsConfigProfile }}
+			if body, err = redactClassicProfilePayloadsInMCPChild(body); err != nil {
+				return err
+			}
+{{- end }}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -1573,12 +1589,13 @@ const classicRegistryTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
+	"bytes"
+	"encoding/xml"
 	"io"
 	"os"
 {{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyHasGroupPath .) }}
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"path/filepath"
 {{- end }}
 	"slices"
@@ -1586,9 +1603,6 @@ import (
 	"strings"
 	"strconv"
 	"fmt"
-{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) (anyClassicExtraLookups .) (anyHasGroupPath .) }}
-	"bytes"
-{{- end }}
 {{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyClassicExtraLookups .) }}
 	"net/url"
 {{- end }}
@@ -1602,9 +1616,7 @@ import (
 {{- if anyClassicExtraLookups . }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 {{- end }}
-{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
-{{- end }}
 {{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 {{- end }}
@@ -1621,6 +1633,33 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 {{- range . }}
 	root.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
+}
+
+// classicBodySpecsByCommand maps each Classic command group to its body spec.
+var classicBodySpecsByCommand = map[string]classicBodySpec{
+{{- range . }}
+	"{{ .CLIName }}": {{ bodySpecVar . }},
+{{- end }}
+}
+
+// ClassicCredentialLeaves returns the element names that carry a credential in
+// the Classic resource whose command group is cliName, or nil for none.
+func ClassicCredentialLeaves(cliName string) map[string]bool {
+	return classicCredentialLeaves(classicBodySpecsByCommand[cliName])
+}
+
+// classicCredentialLeaves is the last segment of each credential path in spec.
+// Within one resource no such name is also worn by a field that is not a
+// credential, so an element is matched by name alone at any depth.
+func classicCredentialLeaves(spec classicBodySpec) map[string]bool {
+	if len(spec.Credentials) == 0 {
+		return nil
+	}
+	leaves := make(map[string]bool, len(spec.Credentials))
+	for path := range spec.Credentials {
+		leaves[strings.TrimSuffix(path[strings.LastIndex(path, ".")+1:], "[]")] = true
+	}
+	return leaves
 }
 
 // readClassicBody reads an XML request body from --from-file, or from stdin when
@@ -1648,6 +1687,102 @@ func readClassicBody(fromFile string) ([]byte, error) {
 	return nil, nil
 }
 
+// classicRedactedText is "<redacted>" escaped as XML element text, so every
+// output format decodes it back to the marker.
+const classicRedactedText = "&lt;redacted&gt;"
+
+// redactClassicReadInMCPChild returns body with the text of every element
+// named after one of spec's credential fields replaced by the redaction
+// marker, when this process is a child of ` + "`mcp serve`" + `. Every get and list
+// prints through it, before choosing a format, so -o raw is not the wire
+// bytes there. A body it cannot parse as XML is refused rather than printed.
+func redactClassicReadInMCPChild(body []byte, spec classicBodySpec) ([]byte, error) {
+	leaves := classicCredentialLeaves(spec)
+	if len(leaves) == 0 || !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+		return body, nil
+	}
+	if !xmlconv.IsXML(body) {
+		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its credential fields cannot be redacted and it is not printed over MCP")
+	}
+	type span struct{ start, end int64 }
+	var spans []span
+	var names []string
+	var starts []int64
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	for {
+		before := dec.InputOffset()
+		tok, err := dec.RawToken()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("parsing the Classic API response to redact its credential fields, so it is not printed over MCP: %w", err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			names = append(names, t.Name.Local)
+			starts = append(starts, dec.InputOffset())
+		case xml.EndElement:
+			n := len(names)
+			if n == 0 {
+				continue
+			}
+			if leaves[names[n-1]] && before > starts[n-1] {
+				spans = append(spans, span{starts[n-1], before})
+			}
+			names, starts = names[:n-1], starts[:n-1]
+		}
+	}
+	if len(spans) == 0 {
+		return body, nil
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+	var out bytes.Buffer
+	var cursor int64
+	for _, sp := range spans {
+		if sp.start < cursor {
+			continue
+		}
+		out.Write(body[cursor:sp.start])
+		out.WriteString(classicRedactedText)
+		cursor = sp.end
+	}
+	out.Write(body[cursor:])
+	return out.Bytes(), nil
+}
+
+// classicProfilePayloadCommands are the Classic command groups whose records
+// carry a configuration profile's plist in <payloads>.
+var classicProfilePayloadCommands = map[string]bool{
+{{- range . }}{{ if .IsConfigProfile }}
+	"{{ .CLIName }}": true,
+{{- end }}{{ end }}
+}
+
+// ClassicCarriesProfilePayloads reports whether the Classic resource whose
+// command group is cliName carries a configuration profile in <payloads>.
+func ClassicCarriesProfilePayloads(cliName string) bool {
+	return classicProfilePayloadCommands[cliName]
+}
+{{ if anyIsConfigProfile . }}
+// redactClassicProfilePayloadsInMCPChild returns body with each secret inside
+// a configuration profile's <payloads> plist replaced by the redaction marker,
+// when this process is a child of mcp serve. A payload that does not decode is
+// replaced whole, and a body that is not XML is refused rather than printed.
+func redactClassicProfilePayloadsInMCPChild(body []byte) ([]byte, error) {
+	if !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+		return body, nil
+	}
+	if !xmlconv.IsXML(body) {
+		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its profile payloads cannot be redacted and it is not printed over MCP")
+	}
+	out, err := profileconvert.RedactClassicProfilePayloads(body)
+	if err != nil {
+		return nil, fmt.Errorf("parsing the Classic API response to redact its profile payloads, so it is not printed over MCP: %w", err)
+	}
+	return out, nil
+}
+{{ end }}
 // ── Schema-derived request bodies (--scaffold and --set) ──────────────────
 //
 // The Classic API takes XML and its manifest (specs/classic/resources.yaml)

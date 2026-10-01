@@ -324,7 +324,7 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
   echo '{"name":"Example"}' | jamf-cli pro mobile-device-groups-static-groups create
 
   # Get a mobile-device-groups-static-group, modify it, and create a copy
-  jamf-cli pro mobile-device-groups-static-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-static-groups create`,
+  jamf-cli pro mobile-device-groups-static-groups get 1 -o json | jq '.groupName = "Copy"' | jamf-cli pro mobile-device-groups-static-groups create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

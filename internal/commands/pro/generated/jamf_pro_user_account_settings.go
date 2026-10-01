@@ -85,7 +85,7 @@ func newJamfProUserAccountSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
   echo '{"name":"Updated"}' | jamf-cli pro jamf-pro-user-account-settings update 1
 
   # Get a jamf-pro-user-account-setting, modify, and update
-  jamf-cli pro jamf-pro-user-account-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli pro jamf-pro-user-account-settings update 1`,
+  jamf-cli pro jamf-pro-user-account-settings get 1 -o json | jq '.username = "New Name"' | jamf-cli pro jamf-pro-user-account-settings update 1`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
