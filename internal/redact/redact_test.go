@@ -199,3 +199,25 @@ func mustParse(t *testing.T, s string) *url.URL {
 	}
 	return u
 }
+
+func TestURL_MasksAUserinfoPassword(t *testing.T) {
+	for _, raw := range []string{
+		"https://svc:SENT-userinfo@x.example.com/api",
+		"https://svc:SENT-userinfo@x.example.com/api?page=2",
+	} {
+		got := URL(mustParse(t, raw))
+		if strings.Contains(got, "SENT-userinfo") || !strings.Contains(got, "svc:") {
+			t.Errorf("URL(%s) = %s, want the password masked and the user kept", raw, got)
+		}
+	}
+}
+
+func TestBody_PlistPairSeparatedByCharacterReferences(t *testing.T) {
+	for _, in := range []string{
+		`<key>Password</key>&#13;&#10;<string>SENT-decimal-ref</string><key>SSID_STR</key><string>CorpWiFi</string>`,
+		`<key>Password</key>&#xA;&#x9;<string>SENT-hex-ref</string><key>SSID_STR</key><string>CorpWiFi</string>`,
+		`&lt;key&gt;Password&lt;/key&gt;&#13;&#10;&lt;string&gt;SENT-escaped-ref&lt;/string&gt;`,
+	} {
+		redactCase(t, in, []string{"SENT-decimal-ref", "SENT-hex-ref", "SENT-escaped-ref"}, nil)
+	}
+}

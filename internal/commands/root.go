@@ -2421,6 +2421,11 @@ const noAuthWhenFlagAnnotation = "jamf:no-auth-when-flag"
 // these — a group parent never calls an API itself.
 const groupParentAnnotation = "jamfcli/group-parent"
 
+// secretPositionalAnnotation marks a command whose stray positional is most
+// likely a secret meant for its body, so the refusal must not echo it. erase
+// takes a Find My PIN in a body that has no flag of its own to name it.
+const secretPositionalAnnotation = "jamf:secret-positional"
+
 // guardUnknownSubcommands makes every non-root group parent reject an unknown
 // subcommand with a "did you mean" hint and a usage exit code. Cobra applies
 // this only to the root command (via legacyArgs in Find); a child parent would
@@ -2644,7 +2649,8 @@ func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	value := args[0]
-	if registersASecretFileFlag(cmd) || secretShapedAssignment(value) || setPairSplitByASpace(cmd) {
+	if cmd.Annotations[secretPositionalAnnotation] == "true" || registersASecretFileFlag(cmd) ||
+		secretShapedAssignment(value) || setPairSplitByASpace(cmd) {
 		value = "<redacted>"
 	}
 	return &exitcode.Error{

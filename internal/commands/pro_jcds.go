@@ -183,7 +183,7 @@ func withoutURLQuery(err error) error {
 func jcdsStreamToFile(ctx context.Context, uri, outPath string) (int64, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
 	if err != nil {
-		return 0, fmt.Errorf("creating download request: %w", err)
+		return 0, fmt.Errorf("creating download request: %w", withoutURLQuery(err))
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

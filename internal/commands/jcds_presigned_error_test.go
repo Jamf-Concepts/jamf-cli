@@ -38,3 +38,19 @@ func TestJCDSDownloadErrorOmitsThePresignedQuery(t *testing.T) {
 		t.Errorf("the *url.Error is no longer in the chain: %v", err)
 	}
 }
+
+// TestJCDSRequestBuildErrorOmitsThePresignedQuery covers the earlier failure:
+// a URL NewRequest cannot parse is returned in a *url.Error too.
+func TestJCDSRequestBuildErrorOmitsThePresignedQuery(t *testing.T) {
+	uri := "http://bucket.example.com/f.pkg?X-Amz-Signature=SENT-sig\x7f"
+	_, err := jcdsStreamToFile(context.Background(), uri, filepath.Join(t.TempDir(), "f.pkg"))
+	if err == nil {
+		t.Fatal("a URL with a control character built a request")
+	}
+	if strings.Contains(err.Error(), "SENT-") {
+		t.Errorf("the pre-signed query reached the error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "creating download request") {
+		t.Errorf("unexpected failure path: %v", err)
+	}
+}

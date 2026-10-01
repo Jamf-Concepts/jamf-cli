@@ -141,7 +141,7 @@ const (
 	plistLT    = `(?:<|&(?:amp;)*lt;|\\u003c)`
 	plistGT    = `(?:>|&(?:amp;)*gt;|\\u003e)`
 	plistSlash = `\\?/`
-	plistGap   = `(?:\s|\\[nrt])*`
+	plistGap   = `(?:\s|\\[nrt]|&#(?:x[0-9a-fA-F]+|[0-9]+);)*`
 )
 
 var (
@@ -282,13 +282,14 @@ func jsonObjectLen(obj []byte) int {
 }
 
 // URL returns u for a log line with every credential-named query parameter's
-// value replaced, keeping the order and spelling of the rest.
+// value replaced, keeping the order and spelling of the rest, and any userinfo
+// password masked.
 func URL(u *url.URL) string {
 	if u == nil {
 		return ""
 	}
 	if u.RawQuery == "" {
-		return u.String()
+		return u.Redacted()
 	}
 	c := *u
 	params := strings.Split(c.RawQuery, "&")
@@ -299,7 +300,7 @@ func URL(u *url.URL) string {
 		}
 	}
 	c.RawQuery = strings.Join(params, "&")
-	return c.String()
+	return c.Redacted()
 }
 
 // replaceNamed rewrites each match of re whose "name" group names a credential,

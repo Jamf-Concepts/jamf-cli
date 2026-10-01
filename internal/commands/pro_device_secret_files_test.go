@@ -253,3 +253,22 @@ func TestStrayPositionalOnASecretFileCommandIsRedacted(t *testing.T) {
 		t.Errorf("a command with no secret flag must still name the typo: %v", err)
 	}
 }
+
+// TestStrayPositionalOnEraseIsRedacted covers erase, whose Find My PIN goes in
+// a body with no flag of its own, so no flag name marks the command.
+func TestStrayPositionalOnEraseIsRedacted(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	for _, path := range [][]string{
+		{"pro", "computer-inventory", "erase"},
+		{"pro", "mobile-devices", "erase"},
+	} {
+		cmd, _, err := root.Find(path)
+		if err != nil || cmd.Name() != path[len(path)-1] {
+			t.Fatalf("%v: found %q, err %v", path, cmd.Name(), err)
+		}
+		err = cmd.Args(cmd, []string{"515151"})
+		if err == nil || strings.Contains(err.Error(), "515151") || !strings.Contains(err.Error(), "<redacted>") {
+			t.Errorf("%v: want the stray positional refused and redacted, got %v", path, err)
+		}
+	}
+}

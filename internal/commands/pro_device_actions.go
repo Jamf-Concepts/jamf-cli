@@ -234,7 +234,7 @@ func newComputerEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "erase",
 		Short:       "Erase a computer",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", secretPositionalAnnotation: "true"},
 		Long: `Erase a computer by serial number, name, or ID, or target a group.
 
 This is a destructive operation that wipes the device. An optional request
@@ -466,7 +466,7 @@ func newMobileEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "erase",
 		Short:       "Erase a mobile device",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", secretPositionalAnnotation: "true"},
 		Long: `Erase a mobile device by serial number, name, or ID, or target a group.
 
 This is a destructive operation. An optional request body can configure
