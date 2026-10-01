@@ -71,7 +71,7 @@ func newStreamUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 			path := "/sse/v1/stream"
-			body, err := security.ReadBody(bodyFile, setFlags)
+			body, err := security.ReadBody(bodyFile, setFlags, "delivery.authorization_header")
 			if err != nil {
 				return err
 			}

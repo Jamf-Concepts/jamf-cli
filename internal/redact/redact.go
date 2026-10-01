@@ -17,8 +17,8 @@ import (
 const placeholder = "[REDACTED]"
 
 // CredentialFieldPaths are dotted body paths whose leaf name alone is too
-// generic to judge. The Classic generator refuses --set on them and Body
-// redacts them, so the two read this one list.
+// generic to judge. The generator's shared --set matcher (generator/parser)
+// refuses them and Body redacts them, so the two read this one list.
 //
 // A disk encryption configuration's institutional keystore is the case that
 // needs it: `.key` and `.data` together are the base64 `.p12` and its key

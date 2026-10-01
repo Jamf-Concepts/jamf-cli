@@ -584,7 +584,7 @@ func newTeamViewerRemoteAdministrationPatchCmd(ctx *registry.CLIContext) *cobra.
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
 		Short: "Update Team Viewer Remote Administration connection configuration",
-		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n  token                                        string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: token. Send them in a JSON body with --from-file or on stdin.",
 		Example: `  # Update a field by ID
   jamf-cli pro team-viewer-remote-administration patch 1 --set general.managed=true
 
@@ -638,7 +638,7 @@ func newTeamViewerRemoteAdministrationPatchCmd(ctx *registry.CLIContext) *cobra.
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, map[string]string{"displayName": "string", "enabled": "boolean", "sessionTimeout": "integer", "token": "string"})
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"displayName": "string", "enabled": "boolean", "sessionTimeout": "integer", "token": "string"}, "token")
 				if err != nil {
 					return err
 				}
@@ -677,7 +677,7 @@ func newTeamViewerRemoteAdministrationPatchCmd(ctx *registry.CLIContext) *cobra.
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"displayName=", "enabled=", "sessionTimeout=", "token=",
+			"displayName=", "enabled=", "sessionTimeout=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd

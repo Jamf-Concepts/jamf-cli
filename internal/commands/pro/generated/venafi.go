@@ -527,7 +527,7 @@ func newVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
 		Short: "Update a Venafi PKI configuration in Jamf Pro",
-		Long:  "Update a Venafi PKI configuration in Jamf Pro\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientId                                     string\n  name                                         string\n  proxyAddress                                 string\n  refreshToken                                 string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Update a Venafi PKI configuration in Jamf Pro\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientId                                     string\n  name                                         string\n  proxyAddress                                 string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: refreshToken. Send them in a JSON body with --from-file or on stdin.",
 		Example: `  # Update a field by ID
   jamf-cli pro venafi patch 1 --set general.managed=true
 
@@ -582,7 +582,7 @@ func newVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, map[string]string{"clientId": "string", "name": "string", "proxyAddress": "string", "refreshToken": "string", "revocationEnabled": "boolean"})
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"clientId": "string", "name": "string", "proxyAddress": "string", "refreshToken": "string", "revocationEnabled": "boolean"}, "refreshToken")
 				if err != nil {
 					return err
 				}
@@ -621,7 +621,7 @@ func newVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"clientId=", "name=", "proxyAddress=", "refreshToken=", "revocationEnabled=",
+			"clientId=", "name=", "proxyAddress=", "revocationEnabled=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd

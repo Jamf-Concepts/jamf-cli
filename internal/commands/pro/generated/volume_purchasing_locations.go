@@ -934,7 +934,7 @@ func newVolumePurchasingLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:   "patch [<id>]",
 		Short: "Update a Volume Purchasing Location",
-		Long:  "Updates a Volume Purchasing Location\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  autoRegisterManagedUsers                     boolean\n  automaticallyPopulatePurchasedContent        boolean\n  name                                         string\n  sendNotificationWhenNoLongerAssigned         boolean\n  serviceToken                                 string\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Updates a Volume Purchasing Location\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  autoRegisterManagedUsers                     boolean\n  automaticallyPopulatePurchasedContent        boolean\n  name                                         string\n  sendNotificationWhenNoLongerAssigned         boolean\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: serviceToken. Send them in a JSON body with --from-file or on stdin.",
 		Example: `  # Update a field by ID
   jamf-cli pro volume-purchasing-locations patch 1 --set general.managed=true
 
@@ -995,7 +995,7 @@ func newVolumePurchasingLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Comma
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, map[string]string{"autoRegisterManagedUsers": "boolean", "automaticallyPopulatePurchasedContent": "boolean", "name": "string", "sendNotificationWhenNoLongerAssigned": "boolean", "serviceToken": "string", "siteId": "string"})
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"autoRegisterManagedUsers": "boolean", "automaticallyPopulatePurchasedContent": "boolean", "name": "string", "sendNotificationWhenNoLongerAssigned": "boolean", "serviceToken": "string", "siteId": "string"}, "serviceToken")
 				if err != nil {
 					return err
 				}
@@ -1045,7 +1045,7 @@ func newVolumePurchasingLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"autoRegisterManagedUsers=", "automaticallyPopulatePurchasedContent=", "name=", "sendNotificationWhenNoLongerAssigned=", "serviceToken=", "siteId=",
+			"autoRegisterManagedUsers=", "automaticallyPopulatePurchasedContent=", "name=", "sendNotificationWhenNoLongerAssigned=", "siteId=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up volume-purchasing-location by name")

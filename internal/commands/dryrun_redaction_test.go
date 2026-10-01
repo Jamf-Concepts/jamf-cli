@@ -49,7 +49,16 @@ func TestDryRunPreviewRedactsCredentials_ProAndClassic(t *testing.T) {
 		{
 			name: "pro smtp-server update",
 			args: func(t *testing.T) []string {
-				return []string{"smtp-server", "update", "--set", "graphApiCredentials.clientSecret=" + dryRunSecret}
+				r, w, err := os.Pipe()
+				if err != nil {
+					t.Fatal(err)
+				}
+				orig := os.Stdin
+				os.Stdin = r
+				t.Cleanup(func() { os.Stdin = orig; _ = r.Close() })
+				_, _ = w.WriteString(`{"enabled":true,"authenticationType":"GRAPH_API","graphApiCredentials":{"tenantId":"t","clientId":"c","clientSecret":"` + dryRunSecret + `"}}`)
+				_ = w.Close()
+				return []string{"smtp-server", "update"}
 			},
 		},
 		{

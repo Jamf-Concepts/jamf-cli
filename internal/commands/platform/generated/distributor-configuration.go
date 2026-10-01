@@ -86,7 +86,7 @@ func newDistributorConfigurationPatchCmd(cliCtx *registry.CLIContext) *cobra.Com
 			}
 			path := "/partners/v1/distributor/configuration"
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "webhook.secretValue")
 			if err != nil {
 				return err
 			}
