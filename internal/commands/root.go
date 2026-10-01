@@ -2044,6 +2044,11 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 // here: security.NewClient falls back to its own defaults (api.wandera.com /
 // sse.jamf.com) when both are empty.
 //
+// The Radar host is overridden only by JAMFSECURITY_URL, never by --url or
+// the profile's url: those name the Jamf Pro instance or the platform gateway,
+// and the /v1/login request carries the Radar secret as Basic auth to
+// whatever host this resolves to.
+//
 // Also unlike those products, Security provisions a separate application
 // ID/secret per API (Risk, Device Lifecycle, SSE) — any subset may be
 // configured, and only commands that touch an unconfigured API fail (with a
@@ -2058,10 +2063,7 @@ func buildSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext, transp
 		profileName = os.Getenv("JAMF_PROFILE")
 	}
 
-	url := serverURL
-	if url == "" {
-		url = os.Getenv("JAMFSECURITY_URL")
-	}
+	url := os.Getenv("JAMFSECURITY_URL")
 	sseURL := os.Getenv("JAMFSECURITY_SSE_URL")
 
 	riskID, riskSecret := os.Getenv("JAMFSECURITY_RISK_CLIENT_ID"), os.Getenv("JAMFSECURITY_RISK_CLIENT_SECRET")
@@ -2070,9 +2072,6 @@ func buildSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext, transp
 
 	// Fill any still-empty values from the config profile.
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
-		if url == "" {
-			url = p.URL
-		}
 		if sseURL == "" {
 			sseURL = p.SSEURL
 		}

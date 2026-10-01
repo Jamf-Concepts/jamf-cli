@@ -715,8 +715,8 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				p := cfg.Profiles[name]
 
 				// URL — required for every product except Security, which has
-				// one shared global host (api.wandera.com) and treats URL as an
-				// optional override rather than a per-tenant address.
+				// one shared global host (api.wandera.com); the Radar client
+				// never reads URL.
 				if p.URL != "" {
 					pass(name, "url")
 				} else if p.Product != "security" {
