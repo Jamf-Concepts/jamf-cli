@@ -83,7 +83,7 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Updates Jamf Pro GSX Connection information",
-		Long:  "Updates Jamf Pro GSX Connection information\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  enabled                                      boolean\n  gsxKeystore.keystoreBytes                    string\n  gsxKeystore.keystorePassword                 string\n  gsxKeystore.name                             string\n  serviceAccountNo                             string\n  shipToNo                                     string\n  token                                        string\n  username                                     string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  gsxKeystore                                  object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates Jamf Pro GSX Connection information\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  enabled                                      boolean\n  gsxKeystore.name                             string\n  serviceAccountNo                             string\n  shipToNo                                     string\n  username                                     string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  gsxKeystore                                  object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: gsxKeystore.keystoreBytes, gsxKeystore.keystorePassword, token. Send them in a JSON body on stdin, as the whole record.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro gsx-connection update --set field=value
 
@@ -139,7 +139,7 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"enabled": nil, "gsxKeystore": &fieldFilter{fields: map[string]*fieldFilter{"keystoreBytes": nil, "keystorePassword": nil, "name": nil}}, "serviceAccountNo": nil, "shipToNo": nil, "token": nil, "username": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"enabled": "boolean", "gsxKeystore": "object", "gsxKeystore.keystoreBytes": "string", "gsxKeystore.keystorePassword": "string", "gsxKeystore.name": "string", "serviceAccountNo": "string", "shipToNo": "string", "token": "string", "username": "string"})
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"enabled": "boolean", "gsxKeystore": "object", "gsxKeystore.keystoreBytes": "string", "gsxKeystore.keystorePassword": "string", "gsxKeystore.name": "string", "serviceAccountNo": "string", "shipToNo": "string", "token": "string", "username": "string"}, "gsxKeystore.keystoreBytes", "gsxKeystore.keystorePassword", "token")
 				if serr != nil {
 					return serr
 				}
@@ -147,15 +147,9 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
-				if !hasNestedKey(setMap, "gsxKeystore.keystoreBytes") {
-					fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set gsxKeystore.keystoreBytes=<value> to preserve it.\n", "gsxKeystore.keystoreBytes")
-				}
-				if !hasNestedKey(setMap, "gsxKeystore.keystorePassword") {
-					fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set gsxKeystore.keystorePassword=<value> to preserve it.\n", "gsxKeystore.keystorePassword")
-				}
-				if !hasNestedKey(setMap, "token") {
-					fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set token=<value> to preserve it.\n", "token")
-				}
+				fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. It is a credential --set cannot carry; to keep it, pipe the whole record with the field included on stdin instead of using --set.\n", "gsxKeystore.keystoreBytes")
+				fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. It is a credential --set cannot carry; to keep it, pipe the whole record with the field included on stdin instead of using --set.\n", "gsxKeystore.keystorePassword")
+				fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. It is a credential --set cannot carry; to keep it, pipe the whole record with the field included on stdin instead of using --set.\n", "token")
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {
@@ -194,7 +188,7 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"enabled=", "gsxKeystore.keystoreBytes=", "gsxKeystore.keystorePassword=", "gsxKeystore.name=", "serviceAccountNo=", "shipToNo=", "token=", "username=",
+			"enabled=", "gsxKeystore.name=", "serviceAccountNo=", "shipToNo=", "username=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd
@@ -472,7 +466,7 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Updates Jamf Pro GSX Connection information",
-		Long:  "Updates Jamf Pro GSX Connection information\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  enabled                                      boolean\n  gsxKeystore.keystoreBytes                    string\n  gsxKeystore.keystorePassword                 string\n  gsxKeystore.name                             string\n  serviceAccountNo                             string\n  shipToNo                                     string\n  token                                        string\n  username                                     string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  gsxKeystore                                  object\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Updates Jamf Pro GSX Connection information\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  enabled                                      boolean\n  gsxKeystore.name                             string\n  serviceAccountNo                             string\n  shipToNo                                     string\n  username                                     string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  gsxKeystore                                  object\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: gsxKeystore.keystoreBytes, gsxKeystore.keystorePassword, token. Send them in a JSON body with --from-file or on stdin.",
 		Example: `  # Update a field
   jamf-cli pro gsx-connection patch --set field=value
 
@@ -514,7 +508,7 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, map[string]string{"enabled": "boolean", "gsxKeystore": "object", "gsxKeystore.keystoreBytes": "string", "gsxKeystore.keystorePassword": "string", "gsxKeystore.name": "string", "serviceAccountNo": "string", "shipToNo": "string", "token": "string", "username": "string"})
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"enabled": "boolean", "gsxKeystore": "object", "gsxKeystore.keystoreBytes": "string", "gsxKeystore.keystorePassword": "string", "gsxKeystore.name": "string", "serviceAccountNo": "string", "shipToNo": "string", "token": "string", "username": "string"}, "gsxKeystore.keystoreBytes", "gsxKeystore.keystorePassword", "token")
 				if err != nil {
 					return err
 				}
@@ -553,7 +547,7 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"enabled=", "gsxKeystore.keystoreBytes=", "gsxKeystore.keystorePassword=", "gsxKeystore.name=", "serviceAccountNo=", "shipToNo=", "token=", "username=",
+			"enabled=", "gsxKeystore.name=", "serviceAccountNo=", "shipToNo=", "username=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd

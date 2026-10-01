@@ -314,16 +314,15 @@ func (r ClassicResource) RepeatedElementKeys() []string {
 //
 // The repo's credential policy forbids passwords, tokens and client secrets in
 // flag values, because a flag value lands in shell history, in `ps` output and
-// in CI logs. None of the three existing --set implementations enforces it, and
-// on the Classic surface that gap is wide: an SMTP server, an LDAP server, a
+// in CI logs. On the Classic surface the exposure is wide: an SMTP server, an LDAP server, a
 // distribution point, a GSX connection, a VPP account and a directory binding
 // all carry one, and `apply`/`create`/`update` are exactly the commands a
 // caller reaches for. So Classic refuses the pair and names --from-file
 // instead, rather than inheriting a hazard the policy already rules out.
 //
-// Matched on the field name — or, where the leaf name alone is too generic to
-// be safe, on the dotted path — and not on a schema marker: the Classic spec
-// declares writeOnly 28 times in total and on none of these fields.
+// Matched by parser.IsCredentialField on the field name or dotted path, without
+// its writeOnly signal: the Classic spec declares writeOnly 28 times in total
+// and on none of these fields.
 func (r ClassicResource) CredentialFields() []string {
 	if r.BodySchema == nil {
 		return nil
@@ -336,7 +335,7 @@ func (r ClassicResource) CredentialFields() []string {
 				continue
 			}
 			full := joinPath(path, name)
-			if !isCredentialField(full, name, prop.Type) {
+			if !parser.IsCredentialField(full, name, prop.Type, false) {
 				continue
 			}
 			if !seen[full] {
@@ -347,67 +346,6 @@ func (r ClassicResource) CredentialFields() []string {
 	})
 	sort.Strings(out)
 	return out
-}
-
-// credentialFieldNames are the Classic body field names that carry a secret.
-// Substring matching on a curated list rather than a bare "contains password",
-// so `password_sha256` and `read_write_password` are caught while a field merely
-// mentioning a credential in prose is not.
-var credentialFieldNames = []string{
-	"password",
-	"secret",
-	"service_token",
-	"private_key",
-	"keystore_password",
-	"shared_secret",
-	// json_web_token_configuration.encryption_key is the JWT signing key —
-	// whoever holds it can mint a token Jamf Pro will trust. Named in full
-	// rather than as a bare "key", which would match key_type, remediate_key_type
-	// and certificate_type, none of which is a secret.
-	"encryption_key",
-}
-
-// credentialFieldPaths are matched against the whole dotted path, for fields
-// whose leaf name alone is too generic to match safely.
-//
-// A disk encryption configuration's institutional keystore is the case that
-// needs it: `.key` and `.data` together are the base64 `.p12` and its key
-// material — the private key that decrypts every institutionally-encrypted
-// FileVault volume in the fleet — while the leaf names `key` and `data` are also
-// worn by `key_type` and by the base64 icon, `.ipa` and `.mobileconfig` blobs on
-// six other resources, which are not credentials and must stay settable.
-//
-// Matched on a path suffix, so the same object refused at the root of a
-// disk encryption configuration is still refused if a future schema nests it.
-var credentialFieldPaths = []string{
-	"institutional_recovery_key.key",
-	"institutional_recovery_key.data",
-}
-
-// isCredentialField reports whether a body field carries a secret value.
-//
-// The type test is not belt-and-braces: a distribution point declares
-// `username_password_required`, a boolean switch whose name contains "password"
-// and whose value is not one. Refusing --set on it would block a legitimate
-// setting and send the caller to --from-file for no reason, so only a
-// string-valued field counts.
-func isCredentialField(path, name, kind string) bool {
-	if kind != "string" {
-		return false
-	}
-	lower := strings.ToLower(name)
-	for _, c := range credentialFieldNames {
-		if strings.Contains(lower, c) {
-			return true
-		}
-	}
-	lowerPath := strings.ToLower(path)
-	for _, p := range credentialFieldPaths {
-		if lowerPath == p || strings.HasSuffix(lowerPath, "."+p) {
-			return true
-		}
-	}
-	return false
 }
 
 // walkSchema visits a schema and every nested object and array-element schema

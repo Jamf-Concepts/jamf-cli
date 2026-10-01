@@ -93,7 +93,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			path := "/securitycloud/uem-connect/v1/connectors"
 			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
+			body, err := platform.ReadBody(bodyFile, setFlags, "apiKey", "apiSettings.clientSecret", "appAccessKey", "citrixCloudConfig.applicationSecret", "citrixCloudOauthConfig.applicationSecret", "deviceSyncAuth.clientSecret", "deviceSyncAuth.password", "emmPassword", "lcm.clientSecret", "mtd.clientSecret", "tag.clientSecret", "tenantCode")
 			if err != nil {
 				return err
 			}

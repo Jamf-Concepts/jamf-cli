@@ -45,11 +45,11 @@ The same spec uses two modellings: `policy.scripts` is an *object* holding a `sc
 
 ## Credential Field Refusals
 
-**Classic `--set` refuses a credential field, and it is the only one of the four `--set` implementations that enforces the credential policy.** Distribution points, SMTP servers, LDAP servers, directory bindings, VPP accounts and disk-encryption configurations all carry one.
+**Classic `--set` refuses a credential field**, through the matcher every `--set` shares (`parser.IsCredentialField`, `generator/parser/credfield.go`). Distribution points, SMTP servers, LDAP servers, directory bindings, VPP accounts and disk-encryption configurations all carry one.
 
 Matched on the field name **and** a string type, because a distribution point declares `username_password_required`, a boolean switch whose name contains "password"; refusing that would block a legitimate setting.
 
-**A credential field is matched on its leaf name *or* its full dotted path.** `credentialFieldNames` alone missed three string-typed secrets: `json_web_token_configuration.encryption_key`, and `disk_encryption_configuration.institutional_recovery_key.{key,data}`. All three were offered by shell completion. The leaf names `key` and `data` are far too broad to substring-match, hence `credentialFieldPaths`, matched on a path suffix. `TestEverySecretBearingFieldIsRefusedForSet` sweeps `specs/classic/schemas.json` for any string-typed field whose name or path names a key, token or secret and requires each to be refused, with four exemptions each carrying a reason. A stale exemption fails, and so does a vacuous walk.
+**A credential field is matched on its leaf name *or* its full dotted path.** Name matching alone missed three string-typed secrets: `json_web_token_configuration.encryption_key`, and `disk_encryption_configuration.institutional_recovery_key.{key,data}`. All three were offered by shell completion. The leaf names `key` and `data` are far too broad to substring-match, hence `credentialPathSuffixes`, matched on a path suffix. Classic passes no `writeOnly` signal: its spec marks 28 fields write-only and none of its secrets. `TestEverySecretBearingFieldIsRefusedForSet` sweeps `specs/classic/schemas.json` for any string-typed field whose name or path names a key, token or secret and requires each to be refused, with four exemptions each carrying a reason. A stale exemption fails, and so does a vacuous walk.
 
 Credential fields are kept out of shell completion.
 
