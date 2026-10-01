@@ -20,19 +20,21 @@ import (
 // number, or computer name) and returns the device's Jamf ID and display name.
 //
 // Resolution order:
-//  1. Try identifier as Jamf ID via the detail endpoint.
-//  2. If 404, try as serial number via RSQL filter on hardware.serialNumber.
-//  3. If 0 results, try as name via RSQL filter on general.name.
+//  1. If the identifier is numeric, try it as a Jamf ID via the detail endpoint.
+//  2. If that finds no device, try it as a serial number via RSQL filter on
+//     hardware.serialNumber.
+//  3. If 0 results, try it as a name via RSQL filter on general.name.
 //
 // Returns an error if zero matches or multiple matches are found.
 func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, identifier string) (string, string, error) {
-	// 1. Try as Jamf ID — direct lookup.
-	id, name, err := tryDeviceByID(ctx, client, identifier)
-	if err == nil {
-		return id, name, nil
-	}
-	if !errors.Is(err, errNoDeviceWithID) {
-		return "", "", fmt.Errorf("looking up %q as a device ID: %w", identifier, err)
+	if resolve.IsNumericID(identifier) {
+		id, name, err := tryDeviceByID(ctx, client, identifier)
+		if err == nil {
+			return id, name, nil
+		}
+		if !errors.Is(err, errNoDeviceWithID) {
+			return "", "", fmt.Errorf("looking up %q as a device ID: %w", identifier, err)
+		}
 	}
 
 	// 2. Try as serial number.
@@ -72,8 +74,9 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 // to the serial and name searches.
 var errNoDeviceWithID = errors.New("no device with that ID")
 
-// tryDeviceByID attempts to fetch a device directly by its Jamf ID. A 404
-// returns errNoDeviceWithID; any other failure is returned as is.
+// tryDeviceByID attempts to fetch a device directly by its Jamf ID. A 404, or
+// a 400 INVALID_ID (Jamf Pro's answer to an id it cannot parse), returns
+// errNoDeviceWithID; any other failure is returned as is.
 func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (string, string, error) {
 	resp, err := client.Do(ctx, "GET", "/v4/computers-inventory-detail/"+url.PathEscape(id), nil)
 	if err != nil {
@@ -83,6 +86,13 @@ func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (
 	if resp.StatusCode == http.StatusNotFound {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		return "", "", errNoDeviceWithID
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if hasAPIErrorCode(body, "INVALID_ID") {
+			return "", "", errNoDeviceWithID
+		}
+		return "", "", fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -97,6 +107,25 @@ func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (
 		return "", "", fmt.Errorf("parsing device %s: %w", id, err)
 	}
 	return extractField(obj, "id"), extractDeviceName(obj), nil
+}
+
+// hasAPIErrorCode reports whether a Jamf Pro API error body carries code in
+// its errors list.
+func hasAPIErrorCode(body []byte, code string) bool {
+	var envelope struct {
+		Errors []struct {
+			Code string `json:"code"`
+		} `json:"errors"`
+	}
+	if json.Unmarshal(body, &envelope) != nil {
+		return false
+	}
+	for _, e := range envelope.Errors {
+		if e.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 // searchInventoryForDevice executes a GET against the given inventory path

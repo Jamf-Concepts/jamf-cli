@@ -898,9 +898,11 @@ func EscapeRSQL(s string) string {
 	return rsqlEscaper.Replace(s)
 }
 
-// isNumericID returns true if s contains only digits (i.e., it's a Jamf Pro ID,
-// not a serial number).
-func isNumericID(s string) bool {
+func isNumericID(s string) bool { return IsNumericID(s) }
+
+// IsNumericID reports whether s contains only digits, so it can be a Jamf Pro
+// ID rather than a serial number or a name.
+func IsNumericID(s string) bool {
 	if s == "" {
 		return false
 	}
