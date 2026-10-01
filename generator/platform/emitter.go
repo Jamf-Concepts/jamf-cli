@@ -274,7 +274,7 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 		return nil, fmt.Errorf("creating output dir: %w", err)
 	}
 
-	tmpl, err := template.New("resource").Funcs(template.FuncMap{
+	tmpl, err := template.New("resource").Funcs(parser.GoLiteralFuncs()).Funcs(template.FuncMap{
 		"statusConstant": statusConstant,
 		"methodConstant": methodConstant,
 		// confirmStmt renders the destructive-action confirmation. A function
@@ -349,6 +349,9 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 		}
 		filtered := *r
 		filtered.Operations = generable
+		if err := parser.ValidateResourceNames(&filtered); err != nil {
+			return nil, err
+		}
 		tr, err := buildTemplateResource(&filtered)
 		if err != nil {
 			return nil, err
@@ -1493,7 +1496,7 @@ func buildUse(name string, params []string) string {
 // generic phrasing when the spec lacks a summary.
 func shortFromOp(op *parser.Operation) string {
 	if op.Summary != "" {
-		return escapeQuote(op.Summary)
+		return op.Summary
 	}
 	switch op.Name {
 	case "list":
@@ -1509,15 +1512,4 @@ func shortFromOp(op *parser.Operation) string {
 	default:
 		return op.Name
 	}
-}
-
-func escapeQuote(s string) string {
-	out := make([]rune, 0, len(s))
-	for _, r := range s {
-		if r == '"' || r == '\\' {
-			out = append(out, '\\')
-		}
-		out = append(out, r)
-	}
-	return string(out)
 }

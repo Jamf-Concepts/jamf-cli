@@ -4,10 +4,12 @@ package parser
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -142,8 +144,11 @@ func NewGenerator(outputDir string) *Generator {
 func (g *Generator) Generate(resource *Resource) (string, error) {
 	// Deduplicate operations before template execution
 	resource.Operations = dedupeOperations(resource.Operations)
+	if err := ValidateResourceNames(resource); err != nil {
+		return "", err
+	}
 
-	tmpl, err := template.New("resource").Funcs(template.FuncMap{
+	tmpl, err := template.New("resource").Funcs(GoLiteralFuncs()).Funcs(template.FuncMap{
 		"toCamel":           strcase.ToCamel,
 		"toLowerCamel":      strcase.ToLowerCamel,
 		"toSnake":           strcase.ToSnake,
@@ -188,19 +193,19 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			if op.Method == "DELETE" {
 				return "delete"
 			}
-			return `run \"` + op.Name + `\" on`
+			return `run "` + op.Name + `" on`
 		},
 		"actionPhraseTitle": func(op *Operation) string {
 			if op.Method == "DELETE" {
 				return "Delete"
 			}
-			return `Run \"` + op.Name + `\" on`
+			return `Run "` + op.Name + `" on`
 		},
 		"actionPhrasePast": func(op *Operation) string {
 			if op.Method == "DELETE" {
 				return "Deleted"
 			}
-			return `Ran \"` + op.Name + `\" on`
+			return `Ran "` + op.Name + `" on`
 		},
 		"actionNoun": func(op *Operation) string {
 			if op.Method == "DELETE" {
@@ -792,18 +797,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"shouldGenerateApply": shouldGenerateApply,
 		"hasResolvableID":     hasResolvableID,
 		"hasDeleteMultiple":   hasDeleteMultiple,
-		"defaultVal": func(paramType string, val any) string {
-			switch paramType {
-			case "string":
-				return fmt.Sprintf("%q", fmt.Sprintf("%v", val))
-			case "integer":
-				return fmt.Sprintf("%v", val)
-			case "boolean":
-				return fmt.Sprintf("%v", val)
-			default:
-				return fmt.Sprintf("%#v", val)
-			}
-		},
+		"defaultVal":          defaultVal,
 		"hasList": func(ops []*Operation) bool {
 			for _, op := range ops {
 				if op.IsList {
@@ -854,18 +848,9 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 	filename := safeFilename(resource.FileBase())
 	outPath := filepath.Join(g.outputDir, filename)
 
-	f, err := os.Create(outPath)
-	if err != nil {
-		return "", fmt.Errorf("creating file: %w", err)
+	if err := WriteGoSource(outPath, tmpl, resource); err != nil {
+		return "", err
 	}
-
-	if err := tmpl.Execute(f, resource); err != nil {
-		_ = f.Close()
-		_ = os.Remove(outPath)
-		return "", fmt.Errorf("executing template: %w", err)
-	}
-
-	_ = f.Close()
 	return outPath, nil
 }
 
@@ -916,7 +901,7 @@ func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
 		return "", err
 	}
 
-	tmpl, err := template.New("registry").Funcs(template.FuncMap{
+	tmpl, err := template.New("registry").Funcs(GoLiteralFuncs()).Funcs(template.FuncMap{
 		"nestedResources": func(resources []*Resource) []*Resource {
 			var out []*Resource
 			for _, r := range FlattenResources(resources) {
@@ -942,23 +927,14 @@ func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
 
 	outPath := filepath.Join(g.outputDir, "registry.go")
 
-	f, err := os.Create(outPath)
-	if err != nil {
-		return "", fmt.Errorf("creating file: %w", err)
-	}
-
 	// Sort resources by name
 	sort.Slice(resources, func(i, j int) bool {
 		return resources[i].Name < resources[j].Name
 	})
 
-	if err := tmpl.Execute(f, resources); err != nil {
-		_ = f.Close()
-		_ = os.Remove(outPath)
-		return "", fmt.Errorf("executing template: %w", err)
+	if err := WriteGoSource(outPath, tmpl, resources); err != nil {
+		return "", err
 	}
-
-	_ = f.Close()
 	return outPath, nil
 }
 
@@ -1078,6 +1054,31 @@ func flagType(t string) string {
 	default:
 		return "String"
 	}
+}
+
+// defaultVal renders a parameter default as a Go expression of the flag's type,
+// refusing a default whose value does not match the declared type.
+func defaultVal(paramType string, val any) (string, error) {
+	switch paramType {
+	case "string":
+		return strconv.Quote(fmt.Sprintf("%v", val)), nil
+	case "integer":
+		switch v := val.(type) {
+		case int, int32, int64, uint, uint32, uint64:
+			return fmt.Sprintf("%v", v), nil
+		case float64:
+			if v == math.Trunc(v) {
+				return fmt.Sprintf("%v", v), nil
+			}
+		}
+	case "boolean":
+		if b, ok := val.(bool); ok {
+			return strconv.FormatBool(b), nil
+		}
+	default:
+		return fmt.Sprintf("%#v", val), nil
+	}
+	return "", fmt.Errorf("default %#v does not match the declared %s type", val, paramType)
 }
 
 func escapeQuotes(s string) string {
@@ -1762,12 +1763,12 @@ func patchLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) strin
 	if len(fields) > 0 {
 		sb.WriteString(`\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n`)
 		for _, f := range fields {
-			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+			fmt.Fprintf(&sb, `  %-44s %s\n`, goEscape(f.Path), goEscape(f.Type))
 		}
 		if nonScalar := nonScalarSetFields(op, schemas); len(nonScalar) > 0 {
 			sb.WriteString(`\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n`)
 			for _, f := range nonScalar {
-				fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+				fmt.Fprintf(&sb, `  %-44s %s\n`, goEscape(f.Path), goEscape(f.Type))
 			}
 		}
 		sb.WriteString(`\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).`)
@@ -1991,14 +1992,14 @@ func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) s
 	if len(fields) > 0 {
 		sb.WriteString(`\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n`)
 		for _, f := range fields {
-			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+			fmt.Fprintf(&sb, `  %-44s %s\n`, goEscape(f.Path), goEscape(f.Type))
 		}
 	}
 
 	if nonScalar := nonScalarSetFields(op, schemas); len(nonScalar) > 0 {
 		sb.WriteString(`\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n`)
 		for _, f := range nonScalar {
-			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+			fmt.Fprintf(&sb, `  %-44s %s\n`, goEscape(f.Path), goEscape(f.Type))
 		}
 	}
 
@@ -2167,9 +2168,9 @@ import (
 // New{{ .GoName }}Cmd creates the {{ .CmdPath }} command group
 func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "{{ .Name }}",
-		Short: "Manage {{ .CmdPath }}",
-		Long:  ` + "`" + `Manage {{ .CmdPath }} in Jamf Pro.` + "`" + `,
+		Use:   {{ goStr (.Name) }},
+		Short: {{ goStr (print "Manage " .CmdPath) }},
+		Long:  {{ goRaw (print "Manage " .CmdPath " in Jamf Pro.") }},
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 {{ range dedupeOps (sortOps .Operations) }}
@@ -2254,11 +2255,11 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd := &cobra.Command{
 {{- if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}
-		Use:   "{{ .Name }} [<id>]",
+		Use:   {{ goStr (print .Name " [<id>]") }},
 {{- else if .BulkActionPath }}
-		Use:   "{{ .Name }}{{ optionalPathParamUsage .Parameters }}",
+		Use:   {{ goStr (print .Name (optionalPathParamUsage .Parameters)) }},
 {{- else }}
-		Use:   "{{ .Name }}{{ pathParamUsage .Parameters }}",
+		Use:   {{ goStr (print .Name (pathParamUsage .Parameters)) }},
 {{- end }}
 		Short: "{{ escapeQuotes .Summary }}",
 {{- if isPatchOp . }}
@@ -2269,10 +2270,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		Long:  "{{ escapeQuotes .Description }}",
 {{- end }}
 {{- if isPatchOp . }}
-		Example: ` + "`" + `{{ patchExampleText $ . }}` + "`" + `,
+		Example: {{ goRaw (patchExampleText $ .) }},
 {{- else }}
 {{- $ex := exampleText $ . }}{{ if $ex }}
-		Example: ` + "`" + `{{ $ex }}` + "`" + `,
+		Example: {{ goRaw $ex }},
 {{- end }}
 {{- end }}
 {{- $ann := opAnnotations . }}{{ if $ann }}
@@ -2332,7 +2333,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// call (no per-resource {id} needed).
 			if flagAll {
 				if len(args) > 0{{ if opHasNameLookup . $ }} || flagName != ""{{ end }} {
-					return fmt.Errorf("--all applies to every {{ $.NameSingular }}; do not combine it with an <id>{{ if opHasNameLookup . $ }} or --name{{ end }}")
+					return fmt.Errorf({{ if opHasNameLookup . $ }}{{ goStr (print "--all applies to every " $.NameSingular "; do not combine it with an <id> or --name") }}{{ else }}{{ goStr (print "--all applies to every " $.NameSingular "; do not combine it with an <id>") }}{{ end }})
 				}
 {{- if .IsDestructive }}
 				// The preview comes before the confirmation, and before the
@@ -2343,7 +2344,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				// tenant-wide {{ .Name }} under --dry-run; the id path's own
 				// check sits further down, after this block returns.
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "Would {{ .Name }} every {{ $.NameSingular }} ({{ .Method }} {{ .BulkActionPath }})\n")
+					fmt.Fprintf(os.Stderr, {{ goStr (print "Would " .Name " every " $.NameSingular " (" .Method " " .BulkActionPath ")\n") }})
 					return nil
 				}
 {{- end }}
@@ -2354,16 +2355,16 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if !flagYes {
 					noInput, _ := cmd.Flags().GetBool("no-input")
 					if noInput {
-						return fmt.Errorf("--all {{ .Name }} applies to every {{ $.NameSingular }}; pass --yes to confirm when --no-input is set")
+						return fmt.Errorf({{ goStr (print "--all " .Name " applies to every " $.NameSingular "; pass --yes to confirm when --no-input is set") }})
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  --all will {{ .Name }} across every {{ $.NameSingular }} in this tenant. Type 'yes' to confirm: ")
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  --all will " .Name " across every " $.NameSingular " in this tenant. Type 'yes' to confirm: ") }})
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
 						return fmt.Errorf("aborted")
 					}
 				}
-				resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", "{{ .BulkActionPath }}", nil)
+				resp, err := ctx.Client.Do(reqCtx, {{ goStr (.Method) }}, {{ goStr (.BulkActionPath) }}, nil)
 				if err != nil {
 					return err
 				}
@@ -2394,21 +2395,21 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					} else {
 						var rid string
 {{ range $.LookupFields }}					if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ lookupFieldPath $ . }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", entry, noInputBulk)
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (lookupFieldPath $ .) }}, {{ goStr (.RSQLField) }}, {{ goStr (lookupIDField $) }}, entry, noInputBulk)
 							if lookupErr != nil {
 								return fmt.Errorf("resolving %q via {{ .Flag }}: %w", entry, lookupErr)
 							}
 							rid = id
 						}
 {{ end }}					if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (nameLookupPath $) }}, {{ goStr ($.NameField) }}, {{ goStr (lookupIDField $) }}, entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no {{ $.NameSingular }} found matching %q", entry)
+							return fmt.Errorf({{ goStr (print "no " $.NameSingular " found matching %q") }}, entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -2427,7 +2428,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, e.id)
 					}
 					return nil
 				}
@@ -2435,7 +2436,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} %d {{ $.Name }}. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " %d " $.Name ". Type 'yes' to confirm: ") }}, len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -2448,10 +2449,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				var okCount, failCount int
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "{{ actionMethod . }}", delPath, nil)
+					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: %v\n") }}, e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2460,25 +2461,25 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: HTTP %d\n") }}, e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "{{ actionPhrasePast . }} {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} {{ actionNoun . }}")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, {{ goStr (print $.Name " " (actionNoun .)) }})
 			}
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
 
 			// --group: delete all members of a Classic API group
 			if flagGroup != "" {
-				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/{{ $.GroupsClassicPath }}", "{{ groupMembersKey $.GroupsClassicPath }}", "{{ groupMemberKey $.GroupsClassicPath }}", flagGroup)
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/{{ $.GroupsClassicPath }}", {{ goStr (groupMembersKey $.GroupsClassicPath) }}, {{ goStr (groupMemberKey $.GroupsClassicPath) }}, flagGroup)
 				if err != nil {
 					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
 				}
@@ -2493,7 +2494,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				noInputGrp, _ := cmd.Flags().GetBool("no-input")
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} id: %s (from group %q)\n", e.id, flagGroup)
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " id: %s (from group %q)\n") }}, e.id, flagGroup)
 					}
 					return nil
 				}
@@ -2501,7 +2502,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					if noInputGrp {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} %d {{ $.Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " %d " $.Name " from group %q. Type 'yes' to confirm: ") }}, len(bulk), flagGroup)
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -2514,10 +2515,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				var okCount, failCount int
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "{{ actionMethod . }}", delPath, nil)
+					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} id %s failed: %v\n", e.id, err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: %v\n") }}, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2526,25 +2527,25 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "{{ actionPhrase . }} {{ $.NameSingular }} id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: HTTP %d\n") }}, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "{{ actionPhrasePast . }} {{ $.NameSingular }} id: %s\n", e.id)
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " id: %s\n") }}, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} {{ actionNoun . }}")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, {{ goStr (print $.Name " " (actionNoun .)) }})
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would {{ actionPhrase . }}{{ if hasPathParam .Path }} resource %s{{ else }} this {{ $.NameSingular }}{{ end }}\n"{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
+				fmt.Fprintf(os.Stderr, {{ if hasPathParam .Path }}{{ goStr (print "Would " (actionPhrase .) " resource %s\n") }}, strings.Join(args, " "){{ else }}{{ goStr (print "Would " (actionPhrase .) " this " $.NameSingular "\n") }}{{ end }})
 				return nil
 			}
 			if !flagYes {
@@ -2552,7 +2553,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }}{{ if hasPathParam .Path }} resource %s{{ else }} this {{ $.NameSingular }}{{ end }}. Type 'yes' to confirm: "{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
+				fmt.Fprintf(os.Stderr, {{ if hasPathParam .Path }}{{ goStr (print "⚠️  This will " (actionPhrase .) " resource %s. Type 'yes' to confirm: ") }}, strings.Join(args, " "){{ else }}{{ goStr (print "⚠️  This will " (actionPhrase .) " this " $.NameSingular ". Type 'yes' to confirm: ") }}{{ end }})
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -2569,14 +2570,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{ range $.LookupFields }}
 			if flag{{ toCamel .Flag }} != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ lookupFieldPath $ . }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", flag{{ toCamel .Flag }}, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, {{ goStr (lookupFieldPath $ .) }}, {{ goStr (.RSQLField) }}, {{ goStr (lookupIDField $) }}, flag{{ toCamel .Flag }}, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
 				}
 				resolvedPatchID = rid
 			} else {{ end }}if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, {{ goStr (nameLookupPath $) }}, {{ goStr ($.NameField) }}, {{ goStr (lookupIDField $) }}, flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -2599,16 +2600,16 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			if flag{{ toCamel .Flag }} != "" {
 {{- if $opIsDestructive }}
 				noInputLookup, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ lookupFieldPath $ . }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", flag{{ toCamel .Flag }}, noInputLookup)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (lookupFieldPath $ .) }}, {{ goStr (.RSQLField) }}, {{ goStr (lookupIDField $) }}, flag{{ toCamel .Flag }}, noInputLookup)
 				if err != nil {
 					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
 				}
 				if rid == "" {
-					return fmt.Errorf("no {{ $.NameSingular }} found with --{{ .Flag }} %q", flag{{ toCamel .Flag }})
+					return fmt.Errorf({{ goStr (print "no " $.NameSingular " found with --" .Flag " %q") }}, flag{{ toCamel .Flag }})
 				}
 {{- else }}
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ lookupFieldPath $ . }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", flag{{ toCamel .Flag }}, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, {{ goStr (lookupFieldPath $ .) }}, {{ goStr (.RSQLField) }}, {{ goStr (lookupIDField $) }}, flag{{ toCamel .Flag }}, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
 				}
@@ -2620,16 +2621,16 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			} else {{ end }}if flagName != "" {
 {{- if .IsDestructive }}
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (nameLookupPath $) }}, {{ goStr ($.NameField) }}, {{ goStr (lookupIDField $) }}, flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no {{ $.NameSingular }} found with {{ $.NameField }} %q", flagName)
+					return fmt.Errorf({{ goStr (print "no " $.NameSingular " found with " $.NameField " %q") }}, flagName)
 				}
 {{- else }}
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, {{ goStr (nameLookupPath $) }}, {{ goStr ($.NameField) }}, {{ goStr (lookupIDField $) }}, flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -2649,9 +2650,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ actionPhrase . }} {{ $.NameSingular }} %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, resolvedID)
 				}
 				return nil
 			}
@@ -2661,9 +2662,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} {{ $.NameSingular }} %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %q (id: %s). Type 'yes' to confirm: ") }}, resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will {{ actionPhrase . }} {{ $.NameSingular }} %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %s. Type 'yes' to confirm: ") }}, resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -2683,27 +2684,27 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Build request path
 {{- if and $.GetDetailPath (not .IsList) (opHasNameLookup . $) (hasSectionParam .) }}
-			path := "{{ $.GetDetailPath }}"
+			path := {{ goStr ($.GetDetailPath) }}
 			if cmd.Flags().Changed("section") {
-				path = "{{ .Path }}"
+				path = {{ goStr (.Path) }}
 			}
 {{- else }}
-			path := "{{ .Path }}"
+			path := {{ goStr (.Path) }}
 {{- end }}
 {{- if and (isPatchOp .) (patchHasLookup $) }}
-			path = strings.Replace(path, "{{ patchPathParam $.Operations }}", url.PathEscape(resolvedPatchID), 1)
+			path = strings.Replace(path, {{ goStr (patchPathParam $.Operations) }}, url.PathEscape(resolvedPatchID), 1)
 {{- else if and (not (isPatchOp .)) (opHasNameLookup . $) }}
-			path = strings.Replace(path, "{{ pathParamName . }}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, {{ goStr (pathParamName .) }}, url.PathEscape(resolvedID), 1)
 {{- else }}
 {{- range indexedPathParams .Parameters }}
-			path = strings.Replace(path, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
+			path = strings.Replace(path, {{ goStr (print "{" .Param.Name "}") }}, url.PathEscape(args[{{ .Index }}]), 1)
 {{- end }}
 {{- end }}
 
 {{- if and $.DefaultSections .IsList (hasSectionParam .) }}
 			// Apply default list sections when --section was not explicitly set
 			if !cmd.Flags().Changed("section") {
-				flagSection = []string{ {{- range $i, $s := $.DefaultSections }}{{ if $i }}, {{ end }}"{{ $s }}"{{- end }} }
+				flagSection = []string{ {{- range $i, $s := $.DefaultSections }}{{ if $i }}, {{ end }}{{ goStr ($s) }}{{- end }} }
 			}
 {{- end }}
 {{- if and .IsPaginated (hasPageSizeParam .) }}
@@ -2730,20 +2731,20 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if .IsArray }}
 			if len(flag{{ toCamel .Name }}) > 0 {
 				for _, v := range flag{{ toCamel .Name }} {
-					queryParts = append(queryParts, "{{ .Name }}=" + url.QueryEscape(fmt.Sprintf("%v", v)))
+					queryParts = append(queryParts, {{ goStr (print .Name "=") }} + url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 {{- else if eq .Type "string" }}
 			if flag{{ toCamel .Name }} != "" {
-				queryParts = append(queryParts, "{{ .Name }}=" + url.QueryEscape(flag{{ toCamel .Name }}))
+				queryParts = append(queryParts, {{ goStr (print .Name "=") }} + url.QueryEscape(flag{{ toCamel .Name }}))
 			}
 {{- else if eq .Type "integer" }}
 			if flag{{ toCamel .Name }} != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("{{ .Name }}=%d", flag{{ toCamel .Name }}))
+				queryParts = append(queryParts, fmt.Sprintf({{ goStr (print .Name "=%d") }}, flag{{ toCamel .Name }}))
 			}
 {{- else if eq .Type "boolean" }}
 			if flag{{ toCamel .Name }} {
-				queryParts = append(queryParts, "{{ .Name }}=true")
+				queryParts = append(queryParts, {{ goStr (print .Name "=true") }})
 			}
 {{- end }}
 {{- end }}
@@ -2751,7 +2752,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 {{- if .FallbackPaths }}
-			vft := newVersionFallback("{{ .Path }}")
+			vft := newVersionFallback({{ goStr (.Path) }})
 {{- end }}
 {{- if .IsPaginated }}
 
@@ -2797,14 +2798,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 				for {
 					// Build page-specific query
-					pagePath := "{{ .Path }}"
+					pagePath := {{ goStr (.Path) }}
 {{- if and (not (isPatchOp .)) (opHasNameLookup . $) }}
-					pagePath = strings.Replace(pagePath, "{{ pathParamName . }}", url.PathEscape(resolvedID), 1)
+					pagePath = strings.Replace(pagePath, {{ goStr (pathParamName .) }}, url.PathEscape(resolvedID), 1)
 {{- else if and (isPatchOp .) (patchHasLookup $) }}
-					pagePath = strings.Replace(pagePath, "{{ patchPathParam $.Operations }}", url.PathEscape(resolvedPatchID), 1)
+					pagePath = strings.Replace(pagePath, {{ goStr (patchPathParam $.Operations) }}, url.PathEscape(resolvedPatchID), 1)
 {{- else }}
 {{- range indexedPathParams .Parameters }}
-					pagePath = strings.Replace(pagePath, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
+					pagePath = strings.Replace(pagePath, {{ goStr (print "{" .Param.Name "}") }}, url.PathEscape(args[{{ .Index }}]), 1)
 {{- end }}
 {{- end }}
 					var pageQuery []string
@@ -2820,7 +2821,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 {{- if .FallbackPaths }}
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{ {{- range .FallbackPaths }}"{{ . }}", {{ end -}} })
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{ {{- range .FallbackPaths }}{{ goStr (.) }}, {{ end -}} })
 {{- else }}
 
 					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
@@ -2883,7 +2884,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if $.TableColumns }}
 				combined = selectTableColumns(combined, []tableColumn{
 				{{- range $.TableColumns }}
-					{field: "{{ .Field }}", label: "{{ .Label }}"},
+					{field: {{ goStr (.Field) }}, label: {{ goStr (.Label) }}},
 				{{- end }}
 				}, ctx.Output.Format())
 {{- end }}
@@ -2911,15 +2912,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// Stream the file through a seekable multipart body so Upload can
 			// precompute Content-Length and retry on HTTP 429 without
 			// re-buffering the file.
-			body, contentType, contentLength, err := client.NewMultipartFileUpload("{{ .RequestBody.FileField }}", f)
+			body, contentType, contentLength, err := client.NewMultipartFileUpload({{ goStr (.RequestBody.FileField) }}, f)
 			if err != nil {
 				return fmt.Errorf("building multipart body: %w", err)
 			}
 			resp, err := ctx.Uploader.Upload(reqCtx, path, body, contentType, contentLength)
 {{- else if and .FallbackPaths (eq .Method "GET" "DELETE") }}
-			resp, err := vft.do(ctx.Client, reqCtx, "{{ .Method }}", path, nil, []string{ {{- range .FallbackPaths }}"{{ . }}", {{ end -}} })
+			resp, err := vft.do(ctx.Client, reqCtx, {{ goStr (.Method) }}, path, nil, []string{ {{- range .FallbackPaths }}{{ goStr (.) }}, {{ end -}} })
 {{- else if eq .Method "GET" "DELETE" }}
-			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, nil)
+			resp, err := ctx.Client.Do(reqCtx, {{ goStr (.Method) }}, path, nil)
 {{- else }}
 			// Read body from stdin if available
 			var body io.Reader
@@ -2958,7 +2959,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			var fileFieldErr error
 			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
 {{- range $.FileFields }}
-				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+				{FilePath: flag{{ toCamel .Flag }}, Field: {{ goStr (.Field) }}, Encoding: {{ goStr (.Encoding) }}, CompanionField: {{ goStr (.CompanionField) }}, NameFallback: {{ goStr (.NameFallback) }}, NameField: {{ goStr (resourceNameField $) }}},
 {{- end }}
 			})
 			if fileFieldErr != nil {
@@ -3019,7 +3020,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current {{ $.NameSingular }} for --set: %w", err)
+						return fmt.Errorf({{ goStr (print "parsing current " $.NameSingular " for --set: %w") }}, err)
 					}
 				}
 				({{ writableFilterLiteral . $.Schemas }}).apply(current)
@@ -3032,8 +3033,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return err
 				}
 {{- range writeOnlyFields . $.Schemas }}
-				if !hasNestedKey(setMap, "{{ . }}") {
-					fmt.Fprintf(os.Stderr, "warning: {{ $.NameSingular }} field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set {{ . }}=<value> to preserve it.\n", "{{ . }}")
+				if !hasNestedKey(setMap, {{ goStr (.) }}) {
+					fmt.Fprintf(os.Stderr, {{ goStr (print "warning: " $.NameSingular " field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set " . "=<value> to preserve it.\n") }}, {{ goStr (.) }})
 				}
 {{- end }}
 				deepMergeJSON(current, setMap)
@@ -3087,7 +3088,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// input so the main PUT never carries token payload keys.
 			if len(normalized) > 0 {
 				var stripErr error
-				normalized, stripErr = removeJSONFields(normalized{{ range $.FileFields }}, "{{ .Field }}"{{ if .CompanionField }}, "{{ .CompanionField }}"{{ end }}{{ end }})
+				normalized, stripErr = removeJSONFields(normalized{{ range $.FileFields }}, {{ goStr (.Field) }}{{ if .CompanionField }}, {{ goStr (.CompanionField) }}{{ end }}{{ end }})
 				if stripErr != nil {
 					return stripErr
 				}
@@ -3098,14 +3099,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// fallbacks only fill when absent.
 			var fileFieldErr error
 {{- if opEmitsBodyNameFlag . $ }}
-			normalized, fileFieldErr = setBodyStringField(normalized, "{{ resourceNameField $ }}", flagBodyName)
+			normalized, fileFieldErr = setBodyStringField(normalized, {{ goStr (resourceNameField $) }}, flagBodyName)
 			if fileFieldErr != nil {
 				return fileFieldErr
 			}
 {{- end }}
 			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
 {{- range $.FileFields }}
-				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+				{FilePath: flag{{ toCamel .Flag }}, Field: {{ goStr (.Field) }}, Encoding: {{ goStr (.Encoding) }}, CompanionField: {{ goStr (.CompanionField) }}, NameFallback: {{ goStr (.NameFallback) }}, NameField: {{ goStr (resourceNameField $) }}},
 {{- end }}
 			})
 			if fileFieldErr != nil {
@@ -3126,12 +3127,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- range $.FileFields }}
 			if flag{{ toCamel .Flag }} != "" {
 				tokenBody, tbErr := injectFileFields(nil, []fileFieldSpec{
-					{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+					{FilePath: flag{{ toCamel .Flag }}, Field: {{ goStr (.Field) }}, Encoding: {{ goStr (.Encoding) }}, CompanionField: {{ goStr (.CompanionField) }}, NameFallback: {{ goStr (.NameFallback) }}, NameField: {{ goStr (resourceNameField $) }}},
 				})
 				if tbErr != nil {
 					return tbErr
 				}
-				tokenPath := strings.Replace("{{ updateTokenPath $ }}", "{{ updateTokenPathParam $ }}", url.PathEscape(resolvedID), 1)
+				tokenPath := strings.Replace({{ goStr (updateTokenPath $) }}, {{ goStr (updateTokenPathParam $) }}, url.PathEscape(resolvedID), 1)
 				tokenResp, tokenErr := ctx.Client.Do(reqCtx, "PUT", tokenPath, bytes.NewReader(tokenBody))
 				if tokenErr != nil {
 					return tokenErr
@@ -3144,7 +3145,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			}
 {{- end }}
 {{- end }}
-			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, body)
+			resp, err := ctx.Client.Do(reqCtx, {{ goStr (.Method) }}, path, body)
 {{- end }}
 			if err != nil {
 				return err
@@ -3165,7 +3166,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				// Documented result: render the body and exit non-zero so a script
 				// can branch on it — unless it turns out to be a plain
 				// token-authorization failure, which keeps its usual error.
-				return renderDocumentedStatus(ctx, resp, "{{ $op.Method }}", path, "{{ escapeQuotes (oneLine .Description) }}")
+				return renderDocumentedStatus(ctx, resp, {{ goStr ($op.Method) }}, path, "{{ escapeQuotes (oneLine .Description) }}")
 			}
 {{- end }}
 {{- end }}
@@ -3201,8 +3202,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return fmt.Errorf("upload succeeded but response did not include id; cannot apply --name")
 				}
 {{- end }}
-				renameURL := strings.Replace("{{ resourceUpdatePath $ }}", "{{ resourceUpdatePathParam $ }}", url.PathEscape(renameID), 1)
-				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, "{{ resourceNameField $ }}", flagRename); err != nil {
+				renameURL := strings.Replace({{ goStr (resourceUpdatePath $) }}, {{ goStr (resourceUpdatePathParam $) }}, url.PathEscape(renameID), 1)
+				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, {{ goStr (resourceNameField $) }}, flagRename); err != nil {
 					return fmt.Errorf("upload succeeded (id %s) but rename failed: %w", renameID, err)
 				}
 				showResp, showErr := ctx.Client.Do(reqCtx, "GET", renameURL, nil)
@@ -3263,9 +3264,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	}
 {{ range queryParams .Parameters }}
 {{- if .IsArray }}
-	cmd.Flags().{{ flagType .Type }}SliceVar(&flag{{ toCamel .Name }}, "{{ toKebab .Name }}", nil, "{{ escapeQuotes .Description }}")
+	cmd.Flags().{{ flagType .Type }}SliceVar(&flag{{ toCamel .Name }}, {{ goStr (toKebab .Name) }}, nil, "{{ escapeQuotes .Description }}")
 {{- else }}
-	cmd.Flags().{{ flagType .Type }}Var(&flag{{ toCamel .Name }}, "{{ toKebab .Name }}", {{ if .Default }}{{ defaultVal .Type .Default }}{{ else if eq .Type "string" }}""{{ else if eq .Type "integer" }}0{{ else if eq .Type "boolean" }}false{{ else }}0{{ end }}, "{{ escapeQuotes .Description }}")
+	cmd.Flags().{{ flagType .Type }}Var(&flag{{ toCamel .Name }}, {{ goStr (toKebab .Name) }}, {{ if .Default }}{{ defaultVal .Type .Default }}{{ else if eq .Type "string" }}""{{ else if eq .Type "integer" }}0{{ else if eq .Type "boolean" }}false{{ else }}0{{ end }}, "{{ escapeQuotes .Description }}")
 {{- end }}
 {{- end }}
 {{- if .IsPaginated }}
@@ -3273,7 +3274,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 {{- end }}
 {{- if .BulkActionPath }}
-	cmd.Flags().BoolVar(&flagAll, "all", false, "Apply to every {{ $.NameSingular }} in one call (collection-level {{ .Name }} endpoint)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, {{ goStr (print "Apply to every " $.NameSingular " in one call (collection-level " .Name " endpoint)") }})
 {{- end }}
 {{- if and .BulkActionPath (not .IsDestructive) }}
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip the --all confirmation prompt")
@@ -3283,10 +3284,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to {{ actionPhrase . }} (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", {{ goStr (print "Path to file listing IDs or names to " (actionPhrase .) " (one per line, # comments ignored)") }})
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
-	cmd.Flags().StringVar(&flagGroup, "group", "", "{{ actionPhraseTitle . }} every {{ $.NameSingular }} in a Classic API group (name or ID)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", {{ goStr (print (actionPhraseTitle .) " every " $.NameSingular " in a Classic API group (name or ID)") }})
 {{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
@@ -3306,42 +3307,42 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			{{ range patchSetCompletions . $.Schemas }}"{{ . }}",{{ end }}
+			{{ range patchSetCompletions . $.Schemas }}{{ goStr (.) }},{{ end }}
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 {{- if patchHasLookup $ }}
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
-{{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+	cmd.Flags().StringVar(&flagName, "name", "", {{ goStr (print "Look up " $.NameSingular " by name") }})
+{{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, {{ goStr (.Flag) }}, "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
 {{- end }}
 {{- if and (not (isPatchOp .)) (opHasNameLookup . $) }}
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
-{{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+	cmd.Flags().StringVar(&flagName, "name", "", {{ goStr (print "Look up " $.NameSingular " by name") }})
+{{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, {{ goStr (.Flag) }}, "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
 {{- if isUpdateSetOp . $ }}
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			{{ range patchSetCompletions . $.Schemas }}"{{ . }}",{{ end }}
+			{{ range patchSetCompletions . $.Schemas }}{{ goStr (.) }},{{ end }}
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 {{- end }}
 {{- if opHasFileFields . $ }}
-{{ range $.FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+{{ range $.FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, {{ goStr (.Flag) }}, "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
 {{- if opEmitsBodyNameFlag . $ }}
-	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the {{ $.NameSingular }} (sets the body's {{ resourceNameField $ }} field)")
+	cmd.Flags().StringVar(&flagBodyName, "name", "", {{ goStr (print "Name for the " $.NameSingular " (sets the body's " (resourceNameField $) " field)") }})
 {{- end }}
 {{- if opEmitsRenameFlag . $ }}
-	cmd.Flags().StringVar(&flagRename, "name", "", "Canonical name to apply to the {{ $.NameSingular }} via a follow-up PUT to {{ resourceUpdatePath $ }} (this endpoint's body has no name field)")
+	cmd.Flags().StringVar(&flagRename, "name", "", {{ goStr (print "Canonical name to apply to the " $.NameSingular " via a follow-up PUT to " (resourceUpdatePath $) " (this endpoint's body has no name field)") }})
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("from-file", "{{ .Flag }}")
+{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("from-file", {{ goStr (.Flag) }})
 {{ end }}{{- if $.GroupsClassicPath }}
 	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
-{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("group", "{{ .Flag }}")
+{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("group", {{ goStr (.Flag) }})
 {{ end }}{{- end }}{{- end }}
 	return cmd
 }
@@ -3365,27 +3366,10 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a {{ .NameSingular }} by name",
+		Short: {{ goStr (print "Create or replace a " .NameSingular " by name") }},
 		Annotations: map[string]string{"jamf:api": "pro"{{ applyGatewayAnn $ }}},
-		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
-
-The {{ .NameField }} field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.` + "`" + `,
-		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a JSON file
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json
-
-  # Apply a {{ .NameSingular }} from a YAML file
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.yaml
-
-  # Apply from stdin
-  cat {{ .NameSingular }}.json | jamf-cli pro {{ .CmdPath }} apply
-
-  # Apply without replacement confirmation
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json --yes
-
-  # Preview what would happen
-  jamf-cli pro {{ .CmdPath }} apply --from-file {{ .NameSingular }}.json --dry-run` + "`" + `,
+		Long: {{ goRaw (print "Create or replace a " .NameSingular ". Reads JSON or YAML from --from-file or stdin.\n\nThe " .NameField " field in the input is used to check if the resource\nalready exists. If it does, the resource is replaced (with confirmation).\nIf not, a new resource is created.") }},
+		Example: {{ goRaw (print "  # Apply a " .NameSingular " from a JSON file\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".json\n\n  # Apply a " .NameSingular " from a YAML file\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".yaml\n\n  # Apply from stdin\n  cat " .NameSingular ".json | jamf-cli pro " .CmdPath " apply\n\n  # Apply without replacement confirmation\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".json --yes\n\n  # Preview what would happen\n  jamf-cli pro " .CmdPath " apply --from-file " .NameSingular ".json --dry-run") }},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -3416,7 +3400,7 @@ If not, a new resource is created.` + "`" + `,
 				}
 			}
 {{- if hasFileFieldNameFlag . }}
-			data, err = setBodyStringField(data, "{{ resourceNameField $ }}", flagBodyName)
+			data, err = setBodyStringField(data, {{ goStr (resourceNameField $) }}, flagBodyName)
 			if err != nil {
 				return err
 			}
@@ -3424,7 +3408,7 @@ If not, a new resource is created.` + "`" + `,
 {{- if and .FileFields (not .UpdateTokenOp) }}
 			data, err = injectFileFields(data, []fileFieldSpec{
 {{- range .FileFields }}
-				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+				{FilePath: flag{{ toCamel .Flag }}, Field: {{ goStr (.Field) }}, Encoding: {{ goStr (.Encoding) }}, CompanionField: {{ goStr (.CompanionField) }}, NameFallback: {{ goStr (.NameFallback) }}, NameField: {{ goStr (resourceNameField $) }}},
 {{- end }}
 			})
 			if err != nil {
@@ -3440,7 +3424,7 @@ If not, a new resource is created.` + "`" + `,
 {{- range .FileFields }}
 			if flag{{ toCamel .Flag }} != "" {
 				tb, tbErr := injectFileFields(nil, []fileFieldSpec{
-					{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+					{FilePath: flag{{ toCamel .Flag }}, Field: {{ goStr (.Field) }}, Encoding: {{ goStr (.Encoding) }}, CompanionField: {{ goStr (.CompanionField) }}, NameFallback: {{ goStr (.NameFallback) }}, NameField: {{ goStr (resourceNameField $) }}},
 				})
 				if tbErr != nil {
 					return tbErr
@@ -3451,14 +3435,14 @@ If not, a new resource is created.` + "`" + `,
 {{- end }}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "{{ .NameField }}")
+			name, err := extractJSONField(data, {{ goStr (.NameField) }})
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "{{ .NameField }}", err)
+				return fmt.Errorf("input must include a %q field: %w", {{ goStr (.NameField) }}, err)
 			}
 {{- if .UpdateTokenOp }}
 			// Strip file-field keys from the main body so the follow-up PUT never
 			// re-sends token payload (which belongs to {{ .UpdateTokenOp.Path }}).
-			data, err = removeJSONFields(data{{ range .FileFields }}, "{{ .Field }}"{{ if .CompanionField }}, "{{ .CompanionField }}"{{ end }}{{ end }})
+			data, err = removeJSONFields(data{{ range .FileFields }}, {{ goStr (.Field) }}{{ if .CompanionField }}, {{ goStr (.CompanionField) }}{{ end }}{{ end }})
 			if err != nil {
 				return err
 			}
@@ -3466,7 +3450,7 @@ If not, a new resource is created.` + "`" + `,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ listPathFromOps .Operations }}", "{{ .NameField }}", "{{ .IDField }}", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (listPathFromOps .Operations) }}, {{ goStr (.NameField) }}, {{ goStr (.IDField) }}, name, noInput)
 			if err != nil {
 				return err
 			}
@@ -3474,14 +3458,14 @@ If not, a new resource is created.` + "`" + `,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .NameSingular }} %q\n", name)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would create " .NameSingular " %q\n") }}, name)
 					return nil
 				}
 {{- if .UpdateTokenOp }}
 				if len(tokenBody) == 0 {
-					return fmt.Errorf("cannot create {{ .NameSingular }} %q: --{{ (index .FileFields 0).Flag }} is required", name)
+					return fmt.Errorf({{ goStr (print "cannot create " .NameSingular " %q: --" ((index .FileFields 0).Flag) " is required") }}, name)
 				}
-				postResp, err := ctx.Client.Do(reqCtx, "POST", "{{ createPath .Operations }}", bytes.NewReader(tokenBody))
+				postResp, err := ctx.Client.Do(reqCtx, "POST", {{ goStr (createPath .Operations) }}, bytes.NewReader(tokenBody))
 				if err != nil {
 					return err
 				}
@@ -3503,38 +3487,38 @@ If not, a new resource is created.` + "`" + `,
 					return fmt.Errorf("create succeeded but response did not include id")
 				}
 				// Follow-up: PUT main body to apply name/other DeviceEnrollmentInstance fields.
-				bodyPath := strings.Replace("{{ applyUpdatePath .Operations }}", "{{ applyUpdatePathParam .Operations }}", url.PathEscape(newID), 1)
-				bodyResp, err := ctx.Client.Do(reqCtx, "{{ applyUpdateMethod .Operations }}", bodyPath, bytes.NewReader(data))
+				bodyPath := strings.Replace({{ goStr (applyUpdatePath .Operations) }}, {{ goStr (applyUpdatePathParam .Operations) }}, url.PathEscape(newID), 1)
+				bodyResp, err := ctx.Client.Do(reqCtx, {{ goStr (applyUpdateMethod .Operations) }}, bodyPath, bytes.NewReader(data))
 				if err != nil {
-					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe {{ .NameSingular }} exists but is unnamed; to recover run: jamf-cli pro {{ .CmdPath }} update %s --from-file <body.json>", newID, err, newID)
+					return fmt.Errorf({{ goStr (print "create succeeded (id %s) but applying body fields failed: %w\nthe " .NameSingular " exists but is unnamed; to recover run: jamf-cli pro " .CmdPath " update %s --from-file <body.json>") }}, newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q (id: %s)\n", name, newID)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Created " .NameSingular " %q (id: %s)\n") }}, name, newID)
 				return ctx.Output.PrintResponse(bodyResp)
 {{- else }}
 {{- if .HasVersionLock }}
 				data = resetOwnedRecordIDs(setVersionLockZero(data))
 {{- end }}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "{{ createPath .Operations }}", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", {{ goStr (createPath .Operations) }}, bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q\n", name)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Created " .NameSingular " %q\n") }}, name)
 				return ctx.Output.PrintResponse(resp)
 {{- end }}
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace {{ .NameSingular }} %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would replace " .NameSingular " %q (id: %s)\n") }}, name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("{{ .NameSingular }} %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf({{ goStr (print .NameSingular " %q already exists (id: %s); use --yes to replace when --no-input is set") }}, name, id)
 				}
-				fmt.Fprintf(os.Stderr, "{{ .NameSingular }} %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print .NameSingular " %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ") }}, name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -3542,7 +3526,7 @@ If not, a new resource is created.` + "`" + `,
 				}
 			}
 
-			updatePath := strings.Replace("{{ applyUpdatePath .Operations }}", "{{ applyUpdatePathParam .Operations }}", url.PathEscape(id), 1)
+			updatePath := strings.Replace({{ goStr (applyUpdatePath .Operations) }}, {{ goStr (applyUpdatePathParam .Operations) }}, url.PathEscape(id), 1)
 {{- if .HasVersionLock }}
 			vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, updatePath)
 			if vlErr != nil {
@@ -3556,7 +3540,7 @@ If not, a new resource is created.` + "`" + `,
 {{- if .UpdateTokenOp }}
 			var tokenResp *http.Response
 			if len(tokenBody) > 0 {
-				tokenPath := strings.Replace("{{ .UpdateTokenOp.Path }}", "{{ updateTokenPathParam . }}", url.PathEscape(id), 1)
+				tokenPath := strings.Replace({{ goStr (.UpdateTokenOp.Path) }}, {{ goStr (updateTokenPathParam .) }}, url.PathEscape(id), 1)
 				tr, tokenErr := ctx.Client.Do(reqCtx, "PUT", tokenPath, bytes.NewReader(tokenBody))
 				if tokenErr != nil {
 					return tokenErr
@@ -3566,7 +3550,7 @@ If not, a new resource is created.` + "`" + `,
 			if len(data) == 0 && tokenResp != nil {
 				// Only the token was replaced — return its response.
 				defer tokenResp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Replaced {{ .NameSingular }} token %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " token %q (id: %s)\n") }}, name, id)
 				return ctx.Output.PrintResponse(tokenResp)
 			}
 			if tokenResp != nil {
@@ -3574,14 +3558,14 @@ If not, a new resource is created.` + "`" + `,
 			}
 {{- end }}
 {{- if eq (applyUpdateMethod .Operations) "PATCH" }}
-			reqCtx = registry.WithContentType(reqCtx, "{{ applyUpdateContentType .Operations }}")
+			reqCtx = registry.WithContentType(reqCtx, {{ goStr (applyUpdateContentType .Operations) }})
 {{- end }}
-			resp, err := ctx.Client.Do(reqCtx, "{{ applyUpdateMethod .Operations }}", updatePath, bytes.NewReader(data))
+			resp, err := ctx.Client.Do(reqCtx, {{ goStr (applyUpdateMethod .Operations) }}, updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced {{ .NameSingular }} %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " %q (id: %s)\n") }}, name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -3593,10 +3577,10 @@ If not, a new resource is created.` + "`" + `,
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 {{- end }}
 {{- if .FileFields }}
-{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, {{ goStr (.Flag) }}, "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
 {{- if hasFileFieldNameFlag . }}
-	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the {{ .NameSingular }} (sets the body's {{ resourceNameField . }} field)")
+	cmd.Flags().StringVar(&flagBodyName, "name", "", {{ goStr (print "Name for the " .NameSingular " (sets the body's " (resourceNameField .) " field)") }})
 {{- end }}
 
 	return cmd
@@ -3687,7 +3671,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 func NestedResourceCommands() map[string]func(*registry.CLIContext) *cobra.Command {
 	return map[string]func(*registry.CLIContext) *cobra.Command{
 {{- range nestedResources . }}
-		"{{ .CmdPath }}": New{{ .GoName }}Cmd,
+		{{ goStr .CmdPath }}: New{{ .GoName }}Cmd,
 {{- end }}
 	}
 }
