@@ -198,7 +198,7 @@ var computerEntrySpec = fileEntrySpec{
 }
 
 var mobileEntrySpec = fileEntrySpec{
-	label: "mobile device",
+	label:       "mobile device",
 	basePath:    mobileDetailPath,
 	idField:     "mobileDeviceId",
 	serialField: "serialNumber",
