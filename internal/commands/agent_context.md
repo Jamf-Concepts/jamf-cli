@@ -107,7 +107,8 @@ The server is pinned to the profile it was launched with, and `run_command` is
 judged on the command and flags your arguments resolve to, aliases included.
 Rejected: credential- and target-selecting flags; flags whose value is a local
 file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
-`--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`,
+`--dir` and the like; `-o/--output` as a format is fine); body logging (`-vvv`
+or a `--verbose` level of 3 or more; `-vv` and less are fine); `multi`, `mcp`,
 `completion`, the config write subcommands, `config validate`, `doctor`, the
 commands that print an access token (`auth token` under `platform`, `pro` and
 `protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`; `pro

@@ -32,6 +32,11 @@ child process checks again before it runs. These now fail over MCP:
   flag is not affected.
 - `pro diff` with a side that is neither the server's profile nor a directory
   inside `--input-dir`.
+- Body logging: `-vvv`, or any `--verbose` level of 3 or more however it is
+  spelled. It logs each response body to stderr before any redaction, and
+  `run_command` returns stderr. Use `-vv` or less. In every mode, not only over MCP,
+  the `-vv` header log now shows `Cookie` and `Set-Cookie` values as
+  `[redacted]`, as it already did for `Authorization`.
 - `multi`, `mcp`, `completion`, the `config` write subcommands,
   `config validate`, `doctor`, every `setup`, both `backup` commands and
   `jcds sync`.

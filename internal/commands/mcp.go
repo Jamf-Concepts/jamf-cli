@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -123,6 +124,9 @@ spelling. It refuses:
     --input, --password-file, --dir, --save-to, --report-dir, and a command's
     own --output (the global -o/--output format flag stays available), except
     as --input-dir allows below
+  - a --verbose level of 3 or more (-vvv), which logs response bodies before
+    any redaction; -vv and less stay available, with Authorization, Cookie and
+    Set-Cookie values shown as [redacted]
   - 'pro diff' with a --source or --target that is neither this server's
     profile nor a directory inside --input-dir
 Some allowed commands print a third-party credential, shown as <redacted>
@@ -236,7 +240,8 @@ value is an error; there is no config key for it.`,
 					"included. Rejected: any flag naming a profile, URL, token, tenant, " +
 					"environment or output file; any flag whose value is a local file or " +
 					"directory (--from-file, --file, --script-file, --save-to, --dir and the " +
-					"like; the -o/--output format flag is fine); 'multi', 'mcp', 'completion', " +
+					"like; the -o/--output format flag is fine); body logging (-vvv or a " +
+					"--verbose level of 3 or more; use -vv or less); 'multi', 'mcp', 'completion', " +
 					"the config write subcommands, 'config validate', 'doctor', " +
 					"every command that prints an access token ('auth token', " +
 					"'pro api-authentication token', 'oauth-token', 'keep-alive'), " +
@@ -821,6 +826,9 @@ func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
 			return fmt.Errorf("command %q is not available over MCP: %s", strings.TrimPrefix(inv.path, "jamf-cli "), refused.why)
 		}
 	}
+	if n := verboseCount(inv.settings); n >= verboseLogsBodies {
+		return fmt.Errorf("--verbose at level %d is not available over MCP: response bodies are logged at -vvv, which is not available over MCP; use -vv or less", n)
+	}
 	for _, s := range inv.settings {
 		if isBlockedChildFlag("--" + s.name) {
 			return fmt.Errorf("flag %q is not allowed: the MCP server is pinned to the configuration it was started with; the target instance, credentials, and output destination cannot be overridden per command", "--"+s.name)
@@ -837,6 +845,28 @@ func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
 		}
 	}
 	return nil
+}
+
+// verboseLogsBodies is the --verbose level at which the client logs each
+// request and response body to stderr, inside the client and so ahead of every
+// MCP redaction, and run_command returns stderr to the model.
+const verboseLogsBodies = 3
+
+// verboseCount resolves --verbose the way pflag's count flag does: a bare -v
+// arrives as "+1" and adds one, and --verbose=N sets N. A child-side setting is already the final count.
+func verboseCount(settings []flagSetting) int {
+	n := 0
+	for _, s := range settings {
+		if s.name != "verbose" {
+			continue
+		}
+		if s.value == "+1" {
+			n++
+		} else if v, err := strconv.Atoi(s.value); err == nil {
+			n = v
+		}
+	}
+	return n
 }
 
 // refuseInMCPChild applies refuseOverMCP to the command this process parsed,
