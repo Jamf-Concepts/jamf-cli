@@ -52,6 +52,7 @@ var notACredentialPrinter = map[string]string{
 	"pro jamf-cloud-distribution-service renew-credentials": exemptJCDS,
 	"pro jamf-cloud-distribution-service-files create":      exemptJCDS,
 
+	"pro cloud-ldap update":                                      "sends the keystore and its password in the request body; the response's keystore is CloudLdapKeystore, which carries only its name, type and expiry",
 	"pro adcs-settings patch":                                    exemptWriteOnly,
 	"pro adcs-settings validate-client-certificate":              exemptWriteOnly,
 	"pro computer-prestages update":                              exemptWriteOnly,
