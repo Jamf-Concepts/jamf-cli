@@ -4440,7 +4440,9 @@ func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string, creden
 // a credential on the command line, where it lands in shell history, ps output
 // and CI logs: its key is one of credentialPaths ("[]" marks an array element),
 // or its value is a JSON object or array carrying one. Paths compare
-// case-insensitively. Mirrors internal/bodyinput.RefuseCredentialSets.
+// case-insensitively. The value is decoded by parseJSONSetValue, the body
+// builder's own decoder, so the two cannot disagree on what is an object.
+// Mirrors internal/bodyinput.RefuseCredentialSets.
 func refuseCredentialSets(pairs []string, credentialPaths []string) error {
 	if len(credentialPaths) == 0 {
 		return nil
@@ -4454,11 +4456,8 @@ func refuseCredentialSets(pairs []string, credentialPaths []string) error {
 		hit := ""
 		if refused[strings.ToLower(key)] {
 			hit = key
-		} else if len(raw) > 0 && (raw[0] == '{' || raw[0] == '[') {
-			var v any
-			if json.Unmarshal([]byte(raw), &v) == nil {
-				hit = credentialIn(key, v, refused)
-			}
+		} else if v, err := parseJSONSetValue(raw); err == nil {
+			hit = credentialIn(key, v, refused)
 		}
 		if hit != "" {
 			return fmt.Errorf("--set %s: %s is a credential and cannot be passed as a flag value, where it would land in shell history, ps output and CI logs; put it in a JSON body and pipe it on stdin, or pass the file with --from-file where the command takes one", key, hit)

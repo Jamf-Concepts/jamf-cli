@@ -48,3 +48,19 @@ func TestRefuseCredentialSets(t *testing.T) {
 		t.Errorf("an operation with no credential paths refuses nothing, got %v", err)
 	}
 }
+
+// TestRefuseCredentialSetsLookPastLeadingWhitespace refuses a container value
+// whatever JSON whitespace precedes it, since the decoder skips it too.
+func TestRefuseCredentialSetsLookPastLeadingWhitespace(t *testing.T) {
+	paths := []string{"deviceSyncAuth.clientSecret", "users[].password"}
+	for _, lead := range []string{" ", "\t", "\n", "\r\n"} {
+		for _, set := range []string{
+			"deviceSyncAuth=" + lead + `{"clientSecret":"x"}`,
+			"users=" + lead + `[{"password":"x"}]`,
+		} {
+			if err := RefuseCredentialSets([]string{set}, paths); err == nil || !strings.Contains(err.Error(), "is a credential") {
+				t.Errorf("RefuseCredentialSets(%q) = %v, want a refusal", set, err)
+			}
+		}
+	}
+}

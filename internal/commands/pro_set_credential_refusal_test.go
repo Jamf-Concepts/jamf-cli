@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -167,3 +168,48 @@ func TestProSetCompletionOffersNoCredentialField(t *testing.T) {
 		}
 	}
 }
+
+// TestProSetRefusesACredentialObjectLedByWhitespace holds the refusal to the
+// decoder the body builder uses: parseJSONSetValue skips leading JSON
+// whitespace and tolerates a trailing closer, so a value the builder sends as
+// an object must be inspected as one, whatever its first byte.
+func TestProSetRefusesACredentialObjectLedByWhitespace(t *testing.T) {
+	const secret = "FAKE-S3cret-value"
+	oldNoInput := noInput
+	t.Cleanup(func() { noInput = oldNoInput })
+	for _, lead := range []string{" ", "\t", "\n", "\r\n"} {
+		for _, tc := range []struct {
+			name    string
+			args    []string
+			getBody string
+		}{
+			{"smtp-server update graphApiCredentials", []string{"pro", "smtp-server", "update", "--set", "graphApiCredentials=" + lead + `{"clientId":"id","clientSecret":"` + secret + `"}`}, `{"enabled":true}`},
+			{"gsx-connection patch gsxKeystore", []string{"pro", "gsx-connection", "patch", "--set", "gsxKeystore=" + lead + `{"keystorePassword":"` + secret + `"}`}, `{}`},
+		} {
+			t.Run(tc.name+" "+strconvQuote(lead), func(t *testing.T) {
+				srv := &proSetCredentialServer{}
+				ts := httptest.NewServer(srv.handler(tc.getBody))
+				t.Cleanup(ts.Close)
+				isolateProSetCredentialEnv(t, ts.URL)
+
+				root := NewRootCmd("test", "none", "none", "none")
+				root.SetArgs(append(append([]string{}, tc.args...), "--no-input"))
+				root.SetOut(io.Discard)
+				root.SetErr(io.Discard)
+				var err error
+				_ = captureStdout(t, func() {
+					_ = captureStderr(t, func() { err = root.Execute() })
+				})
+
+				if err == nil || !strings.Contains(err.Error(), "is a credential") {
+					t.Errorf("err = %v; want a credential refusal", err)
+				}
+				if strings.Contains(srv.body, secret) {
+					t.Errorf("the argv secret was sent in the request body: %s", srv.body)
+				}
+			})
+		}
+	}
+}
+
+func strconvQuote(s string) string { return fmt.Sprintf("%q", s) }

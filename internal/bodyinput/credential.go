@@ -15,7 +15,8 @@ import (
 // carry a secret, with "[]" for an array element. A pair is refused when its key
 // is one of them, or when its value is a JSON object or array that carries one,
 // since `--set deviceSyncAuth='{"clientSecret":"…"}'` exposes the secret just
-// the same. Paths compare case-insensitively.
+// the same. The value is decoded whatever its first byte, so leading whitespace
+// cannot hide one. Paths compare case-insensitively.
 func RefuseCredentialSets(sets []string, credentialPaths []string) error {
 	if len(credentialPaths) == 0 {
 		return nil
@@ -29,11 +30,8 @@ func RefuseCredentialSets(sets []string, credentialPaths []string) error {
 		hit := ""
 		if refused[strings.ToLower(key)] {
 			hit = key
-		} else if len(raw) > 0 && (raw[0] == '{' || raw[0] == '[') {
-			var v any
-			if json.Unmarshal([]byte(raw), &v) == nil {
-				hit = credentialIn(key, v, refused)
-			}
+		} else if v := any(nil); json.Unmarshal([]byte(raw), &v) == nil {
+			hit = credentialIn(key, v, refused)
 		}
 		if hit != "" {
 			return fmt.Errorf("--set %s: %s is a credential and cannot be passed as a flag value, where it would land in shell history, ps output and CI logs; put it in the request body and pass that with --from-file <file> or on stdin (--set can still override the other fields)", key, hit)
