@@ -62,6 +62,15 @@ name every candidate:
 - Blueprint scoping by group name refuses a name that two groups share and
   names their ids. It accepts a group only when the server returns that exact
   name. Before, it took the first result.
+- `pro computer-inventory set-auto-admin-password` refuses a `--user-name`
+  that matches several LAPS accounts, preferring an exact match over a case
+  variant. Without `--user-name` it uses the one MDM-created account, and
+  refuses and lists the accounts when there is none or more than one. Before,
+  it took the device's first account.
+- `pro setup` updates an API role or integration, and rotates its client
+  credentials, only when the search result carries the display name it
+  searched for.
+- `protect restore` refuses an insight label that two insights share.
 - `pro packages upload` refuses when two packages have the local file name,
   and it accepts a match only when the server returns that exact name.
 - `protect <resource> apply`, `protect analytics import` and
