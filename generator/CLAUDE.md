@@ -84,6 +84,26 @@ Four rendering facts, none derivable from the resource name:
 Name-resolution helpers (in `registry.go` / `classic_registry.go`): `readApplyInput`, `extractJSONField`, `resolveNameToIDForApply`, `extractClassicName`, `resolveClassicNameToIDForApply`.
 
 
+## Spec Strings in Templates
+
+**A spec-derived value reaches generated Go only through `goStr`, `goRaw` or
+`goStructTag`** (`generator/parser/golit.go`, registered in every emitter by
+`GoLiteralFuncs`). Never write `"{{ .X }}"` or a backquoted `{{ .X }}`: a `"` or
+backquote in an upstream spec then closes the literal, and whatever follows it
+compiles and runs when the command tree is built. To mix fixed text with a
+value, build the whole literal as `{{ goStr (print "Manage " .Name) }}`.
+
+- `escapeQuotes` is legacy. It still serves some Pro template sites and is safe
+  there, but do not add a site; use `goStr`.
+- Names and paths are held separately: `ValidateResourceNames` (kebab-case
+  names, no control characters in paths) and Classic `validateManifestTokens`.
+  A value that becomes an identifier, a file name or a `//` comment needs one of
+  those, not just quoting.
+- `WriteGoSource` refuses output that does not parse, which catches a broken
+  literal but not an injected payload that parses. The backstop is
+  `TestGeneratedCommandHelpFieldsAreOnlyStringLiterals`, which checks help
+  fields and flag registrations only, not RunE bodies.
+
 ## Named Passes and Helpers
 
 Symbols worth knowing by name, because a change in the wrong one is silent.

@@ -56,7 +56,7 @@ func Generate(resources []*parser.Resource, scopeOf map[string]string, outputDir
 		return nil, fmt.Errorf("creating output dir: %w", err)
 	}
 
-	tmpl, err := template.New("resource").Funcs(template.FuncMap{
+	tmpl, err := template.New("resource").Funcs(parser.GoLiteralFuncs()).Funcs(template.FuncMap{
 		// confirmStmt renders the destructive-action confirmation. A function
 		// rather than a literal because the statement is emitted at two points
 		// — after the dry-run preview on the single-request path, and before the
@@ -82,6 +82,9 @@ func Generate(resources []*parser.Resource, scopeOf map[string]string, outputDir
 
 	var generated []string
 	for _, r := range resources {
+		if err := parser.ValidateResourceNames(r); err != nil {
+			return nil, err
+		}
 		tr, err := buildTemplateResource(r, scopeOf[r.Name])
 		if err != nil {
 			return nil, err

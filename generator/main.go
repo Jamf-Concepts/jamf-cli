@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -297,14 +298,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, resource := range parser.FlattenResources(resources) {
-		outPath, err := gen.Generate(resource)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error generating %s: %v\n", resource.Name, err)
-			continue
-		}
-		fmt.Printf("Generated: %s\n", outPath)
-		generatedFiles[filepath.Base(outPath)] = true
+	if err := generateEach(parser.FlattenResources(resources), func(r *parser.Resource) string { return r.Name }, gen.Generate, generatedFiles); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Generate registry file
@@ -382,14 +378,9 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		for _, r := range classicResources {
-			outPath, err := classicGen.Generate(r)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error generating classic %s: %v\n", r.CLIName, err)
-				continue
-			}
-			fmt.Printf("Generated: %s\n", outPath)
-			generatedFiles[filepath.Base(outPath)] = true
+		if err := generateEach(classicResources, func(r classic.ClassicResource) string { return "classic " + r.CLIName }, classicGen.Generate, generatedFiles); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 
 		classicRegistryPath, err := classicGen.GenerateRegistry(classicResources)
@@ -580,6 +571,23 @@ func main() {
 			}
 		}
 	}
+}
+
+// generateEach generates every item and reports every refusal together; the
+// caller must exit on an error before writing a registry or sweeping stale
+// files, or a refused resource's committed file is deleted while still registered.
+func generateEach[T any](items []T, name func(T) string, generate func(T) (string, error), generated map[string]bool) error {
+	var errs []error
+	for _, item := range items {
+		outPath, err := generate(item)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("generating %s: %w", name(item), err))
+			continue
+		}
+		fmt.Printf("Generated: %s\n", outPath)
+		generated[filepath.Base(outPath)] = true
+	}
+	return errors.Join(errs...)
 }
 
 // generateSmokeRegistry collects all GET endpoints from both modern and classic

@@ -5,14 +5,17 @@ package classic
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/iancoleman/strcase"
+
+	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 )
 
 // classicListMethod is the pseudo-method the template passes for a collection
@@ -61,6 +64,9 @@ func NewGenerator(outputDir string) *Generator {
 
 // Generate writes a Go command file for a single Classic API resource.
 func (g *Generator) Generate(resource ClassicResource) (string, error) {
+	if err := validateManifestTokens(resource); err != nil {
+		return "", err
+	}
 	tmpl, err := template.New("classic_resource").Funcs(templateFuncs()).Parse(classicResourceTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
@@ -71,19 +77,50 @@ func (g *Generator) Generate(resource ClassicResource) (string, error) {
 	filename = strings.Replace(filename, "classic_classic_", "classic_", 1)
 	outPath := filepath.Join(g.outputDir, filename)
 
-	f, err := os.Create(outPath)
-	if err != nil {
-		return "", fmt.Errorf("creating file: %w", err)
+	if err := parser.WriteGoSource(outPath, tmpl, resource); err != nil {
+		return "", err
 	}
-
-	if err := tmpl.Execute(f, resource); err != nil {
-		_ = f.Close()
-		_ = os.Remove(outPath)
-		return "", fmt.Errorf("executing template: %w", err)
-	}
-
-	_ = f.Close()
 	return outPath, nil
+}
+
+// manifestToken is the shape of every manifest value the template emits as a
+// path, XML element, flag name or identifier fragment rather than as prose.
+var manifestToken = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
+
+var goIdentifier = regexp.MustCompile(`^[A-Z][A-Za-z0-9]*$`)
+
+// validateManifestTokens refuses a resource whose non-prose fields could close
+// a Go literal or an identifier; Description and flag Desc are quoted instead.
+func validateManifestTokens(r ClassicResource) error {
+	if err := parser.ValidateCommandName("classic cli_name", r.CLIName); err != nil {
+		return err
+	}
+	if !goIdentifier.MatchString(r.GoName) {
+		return fmt.Errorf("classic resource %q: Go name %q is not an exported Go identifier", r.CLIName, r.GoName)
+	}
+	fields := map[string][]string{
+		"name":        {r.Name},
+		"path":        {r.Path},
+		"singular":    {r.Singular},
+		"id_path":     {r.IDPath},
+		"lookups":     r.Lookups,
+		"subsets":     r.Subsets,
+		"list_subset": {r.ListSubset},
+		"group_path":  {r.GroupPath},
+		"body_root":   {r.BodyRoot},
+		"body_schema": {r.BodySchemaName},
+	}
+	for _, ff := range r.FileFields {
+		fields["file_fields"] = append(fields["file_fields"], ff.Flag, ff.XMLPath, ff.Encoding, ff.NameFallback)
+	}
+	for field, values := range fields {
+		for _, v := range values {
+			if v != "" && !manifestToken.MatchString(v) {
+				return fmt.Errorf("classic resource %q: %s value %q may only contain letters, digits, '_', '.', '/' and '-'", r.CLIName, field, v)
+			}
+		}
+	}
+	return nil
 }
 
 // GenerateRegistry writes the classic_registry.go file that registers all Classic commands.
@@ -126,24 +163,15 @@ func (g *Generator) GenerateRegistry(resources []ClassicResource) (string, error
 
 	outPath := filepath.Join(g.outputDir, "classic_registry.go")
 
-	f, err := os.Create(outPath)
-	if err != nil {
-		return "", fmt.Errorf("creating file: %w", err)
-	}
-
 	sorted := make([]ClassicResource, len(resources))
 	copy(sorted, resources)
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].CLIName < sorted[j].CLIName
 	})
 
-	if err := tmpl.Execute(f, sorted); err != nil {
-		_ = f.Close()
-		_ = os.Remove(outPath)
-		return "", fmt.Errorf("executing template: %w", err)
+	if err := parser.WriteGoSource(outPath, tmpl, sorted); err != nil {
+		return "", err
 	}
-
-	_ = f.Close()
 	return outPath, nil
 }
 
@@ -158,6 +186,8 @@ var lookupFlagAliases = map[string][]string{
 
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
+		"goStr":              strconv.Quote,
+		"backquote":          backquote,
 		"toCamel":            strcase.ToCamel,
 		"toKebab":            strcase.ToKebab,
 		"toLower":            strings.ToLower,
@@ -428,7 +458,7 @@ func templateFuncs() template.FuncMap {
 				if i > 0 {
 					out.WriteString(", ")
 				}
-				out.WriteString("\"" + p + "\"")
+				out.WriteString(strconv.Quote(p))
 			}
 			out.WriteString("}")
 			return out.String()
@@ -531,9 +561,9 @@ var bodySpec{{ .GoName }} = {{ if .HasBodySchema }}{{ bodySpecLiteral . }}{{ els
 // New{{ .GoName }}Cmd creates the {{ .CLIName }} command group
 func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "{{ .CLIName }}",
-		Short: "{{ .Description }} (Classic API)",
-		Long:  ` + "`" + `Manage {{ .Description | toLower }} via the Jamf Pro Classic API (/JSSResource/).` + "`" + `,
+		Use:   {{ goStr .CLIName }},
+		Short: {{ goStr (print .Description " (Classic API)") }},
+		Long:  {{ backquote (print "Manage " (toLower .Description) " via the Jamf Pro Classic API (/JSSResource/).") }},
 		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}},
 	}
 {{ if hasOp .Operations "list" }}
@@ -572,7 +602,7 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all {{ .Name }}",
-		Example: ` + "`" + `{{ classicExample . "list" }}` + "`" + `,
+		Example: {{ backquote (classicExample . "list") }},
 		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "list" }}{{ gatewayPrivAnn $ "list" }}},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -650,7 +680,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if extraLookups .Lookups }}		Use:   "get [<id>]",
 {{ else }}		Use:   "get <id>",
 {{ end }}		Short: "Get a {{ .Singular }} by ID",
-		Example: ` + "`" + `{{ classicExample . "get" }}` + "`" + `,
+		Example: {{ backquote (classicExample . "get") }},
 		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "GET" }}{{ gatewayPrivAnn $ "GET" }}},
 {{ if extraLookups .Lookups }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
@@ -726,7 +756,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}{{ end }}{{ end }}
 {{ if .Subsets }}	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (single value; tab-complete for values)")
 	_ = cmd.RegisterFlagCompletionFunc("subset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{ {{ range .Subsets }}"{{ . }}", {{ end }}}, cobra.ShellCompDirectiveNoFileComp
+		return []string{ {{ range .Subsets }}{{ goStr . }}, {{ end }}}, cobra.ShellCompDirectiveNoFileComp
 	})
 {{ end }}	return cmd
 }
@@ -744,9 +774,9 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
-		Long:  ` + "`" + `Create a new {{ .Singular }}. Reads the XML body from --from-file, --set or stdin.{{ bodyHelp . }}` + "`" + `,
+		Long:  {{ backquote (print "Create a new " .Singular ". Reads the XML body from --from-file, --set or stdin." (bodyHelp .)) }},
 		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "POST" }}{{ gatewayPrivAnn $ "POST" }}},
-		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
+		Example: {{ backquote (classicExample . "create") }},
 		RunE: func(cmd *cobra.Command, args []string) error {
 {{ if .HasBodySchema }}			if flagScaffold {
 				return printClassicScaffold(bodySpec{{ .GoName }})
@@ -844,7 +874,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		return []string{ {{ setCompletions . }} }, cobra.ShellCompDirectiveNoSpace
 	})
 {{ end }}{{ if .FileFields }}
-{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", {{ goStr .Desc }})
 {{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
 	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
 {{ end }}	return cmd
@@ -868,12 +898,9 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasLookup .Lookups "name" }}		Use:   "update [<id>]",
 {{ else }}		Use:   "update <id>",
 {{ end }}		Short: "Update a {{ .Singular }}",
-		Long:  ` + "`" + `Update an existing {{ .Singular }} by ID. Reads the XML body from --from-file, --set or stdin.
-
-The Classic API applies a partial update: fields the body omits keep their
-current values, so a body carrying one element changes only that element.{{ bodyHelp . }}` + "`" + `,
+		Long:  {{ backquote (print "Update an existing " .Singular " by ID. Reads the XML body from --from-file, --set or stdin.\n\nThe Classic API applies a partial update: fields the body omits keep their\ncurrent values, so a body carrying one element changes only that element." (bodyHelp .)) }},
 		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "PUT" }}{{ gatewayPrivAnn $ "PUT" }}},
-		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
+		Example: {{ backquote (classicExample . "update") }},
 {{ if .HasBodySchema }}		Args:  classicScaffoldArgs(&flagScaffold, {{ if hasLookup .Lookups "name" }}cobra.MaximumNArgs(1){{ else }}cobra.ExactArgs(1){{ end }}),
 {{ else if hasLookup .Lookups "name" }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
@@ -1068,7 +1095,7 @@ current values, so a body carrying one element changes only that element.{{ body
 {{ end }}{{ if hasLookup .Lookups "name" }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
 {{ end }}
 {{ if .FileFields }}
-{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", {{ goStr .Desc }})
 {{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
 	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
 {{ end }}	return cmd
@@ -1088,7 +1115,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasDeleteByName . }}		Use:   "delete [<id>]",
 {{ else }}		Use:   "delete <id>",
 {{ end }}		Short: "Delete a {{ .Singular }}",
-		Example: ` + "`" + `{{ classicExample . "delete" }}` + "`" + `,
+		Example: {{ backquote (classicExample . "delete") }},
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"{{ gatewayAnn $ "DELETE" }}{{ gatewayPrivAnn $ "DELETE" }}},
 {{ if hasDeleteByName . }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
@@ -1369,12 +1396,8 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "apply",
 		Short: "Create or replace a {{ .Singular }} by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "list" "POST" "PUT" }}{{ gatewayPrivAnn $ "list" "POST" "PUT" }}},
-		Long: ` + "`" + `Create or replace a {{ .Singular }}. Reads XML from --from-file, --set or stdin.
-
-The name field in the input XML is used to check if the resource already
-exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.{{ bodyHelp . }}` + "`" + `,
-		Example: ` + "`" + `{{ classicExample . "apply" }}` + "`" + `,
+		Long: {{ backquote (print "Create or replace a " .Singular ". Reads XML from --from-file, --set or stdin.\n\nThe name field in the input XML is used to check if the resource already\nexists. If it does, the resource is replaced (with confirmation).\nIf not, a new resource is created." (bodyHelp .)) }},
+		Example: {{ backquote (classicExample . "apply") }},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 {{ if .HasBodySchema }}			if flagScaffold {
 				return printClassicScaffold(bodySpec{{ .GoName }})
@@ -1564,7 +1587,7 @@ If not, a new resource is created.{{ bodyHelp . }}` + "`" + `,
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{ if hasFetchMergePut . }}	cmd.Flags().StringVar(&flagName, "name", "", "Name of the existing {{ .Singular }} to update (required when body is empty)")
 {{ end }}{{ if .FileFields }}
-{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", {{ goStr .Desc }})
 {{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
 	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
 {{ if not (hasFetchMergePut .) }}	cmd.Flags().StringVar(&flagName, "name", "", "Profile name (overrides filename-based default when using --custom-payload-file)")

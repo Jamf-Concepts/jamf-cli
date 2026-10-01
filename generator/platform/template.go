@@ -59,8 +59,8 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "{{.Name}}",
-		Short: "Manage {{.Name}} ({{.APILabel}})",
+		Use:   {{goStr .Name}},
+		Short: {{goStr (print "Manage " .Name " (" .APILabel ")")}},
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
@@ -101,8 +101,8 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- end }}
 	cmd := &cobra.Command{
-		Use:   "{{.Use}}",
-		Short: "{{.Short}}",
+		Use:   {{goStr .Use}},
+		Short: {{goStr .Short}},
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
@@ -162,28 +162,28 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- $op := . }}
 {{- range $i, $p := .PathParams }}
 {{- if $op.SupportsNameLookup }}
-			path = strings.Replace(path, "{{"{"}}{{$p}}{{"}"}}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, {{goStr (print "{" $p "}")}}, url.PathEscape(resolvedID), 1)
 {{- else }}
-			path = strings.Replace(path, "{{"{"}}{{$p}}{{"}"}}", url.PathEscape(args[{{$i}}]), 1)
+			path = strings.Replace(path, {{goStr (print "{" $p "}")}}, url.PathEscape(args[{{$i}}]), 1)
 {{- end }}
 {{- end }}
 			q := url.Values{}
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
 			if {{.Var}} {
-				q.Set("{{.Name}}", "true")
+				q.Set({{goStr .Name}}, "true")
 			}
 {{- else if eq .GoType "int" }}
-			if cmd.Flags().Changed("{{.FlagName}}") {
-				q.Set("{{.Name}}", strconv.Itoa({{.Var}}))
+			if cmd.Flags().Changed({{goStr .FlagName}}) {
+				q.Set({{goStr .Name}}, strconv.Itoa({{.Var}}))
 			}
 {{- else if eq .GoType "[]string" }}
 			for _, v := range {{.Var}} {
-				q.Add("{{.Name}}", v)
+				q.Add({{goStr .Name}}, v)
 			}
 {{- else }}
 			if {{.Var}} != "" {
-				q.Set("{{.Name}}", {{.Var}})
+				q.Set({{goStr .Name}}, {{.Var}})
 			}
 {{- end }}
 {{- end }}
@@ -229,10 +229,10 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 					endpoint += "?" + encoded
 				}
 				var pageResult struct {
-					Results []json.RawMessage ` + "`json:\"{{.ListArrayKey}}\"`" + `
+					Results []json.RawMessage {{goStructTag .ListArrayKey}}
 				}
 				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), {{methodConstant .Method}}, endpoint, body, {{statusConstant .SuccessCode}}, &pageResult); err != nil {
-					return fmt.Errorf("{{.Name}}: %w", err)
+					return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 				}
 				aggregated = append(aggregated, pageResult.Results...)
 				// An EMPTY page ends the walk, not a short one. A short page is
@@ -247,7 +247,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 					break
 				}
 				if page+1 >= maxPages {
-					return fmt.Errorf("{{.Name}}: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
+					return fmt.Errorf({{goStr (print .Name ": exceeded %d pages without reaching the end; the server may not be honoring the page parameter")}}, maxPages)
 				}
 			}
 			b, err := json.MarshalIndent(aggregated, "", "  ")
@@ -295,11 +295,11 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- if .UsesMergePatch }}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/merge-patch+json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
-				return fmt.Errorf("{{.Name}}: %w", err)
+				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}
 {{- else if and .HasBody (or (eq .Method "POST") (eq .Method "PUT")) }}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
-				return fmt.Errorf("{{.Name}}: %w", err)
+				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}
 {{- else if .DocumentedStatuses }}
 			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.PlatformSDKClient, {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, []platform.DocumentedStatus{
@@ -307,11 +307,11 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Code: {{.Code}}, ErrorCode: {{printf "%q" .ErrorCode}}, Empty: {{.Empty}}},
 			{{- end }}
 			}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
-				return fmt.Errorf("{{.Name}}: %w", err)
+				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}
 {{- else }}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
-				return fmt.Errorf("{{.Name}}: %w", err)
+				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}
 {{- end }}
 {{- if .HasResult }}
@@ -320,7 +320,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 {{- if .ListArrayKey }}
 			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["{{.ListArrayKey}}"].([]any); ok {
+				if arr, ok := obj[{{goStr .ListArrayKey}}].([]any); ok {
 					result = arr
 				}
 			}
@@ -364,16 +364,16 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
-	cmd.Flags().BoolVar(&{{.Var}}, "{{.FlagName}}", false, {{printf "%q" .Description}})
+	cmd.Flags().BoolVar(&{{.Var}}, {{goStr .FlagName}}, false, {{printf "%q" .Description}})
 {{- else if eq .GoType "int" }}
-	cmd.Flags().IntVar(&{{.Var}}, "{{.FlagName}}", 0, {{printf "%q" .Description}})
+	cmd.Flags().IntVar(&{{.Var}}, {{goStr .FlagName}}, 0, {{printf "%q" .Description}})
 {{- else if eq .GoType "[]string" }}
-	cmd.Flags().StringArrayVar(&{{.Var}}, "{{.FlagName}}", nil, {{printf "%q" .Description}})
+	cmd.Flags().StringArrayVar(&{{.Var}}, {{goStr .FlagName}}, nil, {{printf "%q" .Description}})
 {{- else }}
-	cmd.Flags().StringVar(&{{.Var}}, "{{.FlagName}}", "", {{printf "%q" .Description}})
+	cmd.Flags().StringVar(&{{.Var}}, {{goStr .FlagName}}, "", {{printf "%q" .Description}})
 {{- end }}
 {{- if .Required }}
-	_ = cmd.MarkFlagRequired("{{.FlagName}}")
+	_ = cmd.MarkFlagRequired({{goStr .FlagName}})
 {{- end }}
 {{- end }}
 	return cmd
@@ -394,7 +394,7 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or update {{ article .NameSingular }} {{.NameSingular}} by {{.NameField}}",
+		Short: {{goStr (print "Create or update " (article .NameSingular) " " .NameSingular " by " .NameField)}},
 		Long: {{ applyLong . }},
 		// No Args validator: the leaf documents no positional, so the root
 		// walker installs refuseStrayPositionals (and the completion clamp that
@@ -444,16 +444,16 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 			if id == "" {
 				if cliCtx.DryRun {
-					fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would create {{.NameSingular}} %q\n", name)
+					fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "[dry-run] Would create " .NameSingular " %q\n")}}, name)
 					return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, {{printf "%q" .CreatePath}}, body)
 				}
 {{- if .CreateHasResult }}
 				var result any
 {{- end }}
 				if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, {{printf "%q" .CreatePath}}, body, "application/json", {{statusConstant .CreateCode}}, {{if .CreateHasResult}}&result{{else}}nil{{end}}); err != nil {
-					return fmt.Errorf("apply: creating {{.NameSingular}} %q: %w", name, err)
+					return fmt.Errorf({{goStr (print "apply: creating " .NameSingular " %q: %w")}}, name, err)
 				}
-				fmt.Fprintf(cmd.ErrOrStderr(), "Created {{.NameSingular}} %q\n", name)
+				fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "Created " .NameSingular " %q\n")}}, name)
 {{- if .CreateHasResult }}
 				if result == nil {
 					return nil
@@ -468,9 +468,9 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 			}
 
-			updatePath := strings.Replace({{printf "%q" .UpdatePath}}, "{{"{"}}{{.UpdateParam}}{{"}"}}", url.PathEscape(id), 1)
+			updatePath := strings.Replace({{printf "%q" .UpdatePath}}, {{goStr (print "{" .UpdateParam "}")}}, url.PathEscape(id), 1)
 			if cliCtx.DryRun {
-				fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would update {{.NameSingular}} %q (id: %s)\n", name, id)
+				fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "[dry-run] Would update " .NameSingular " %q (id: %s)\n")}}, name, id)
 				return platform.ReportDryRun(cmd.ErrOrStderr(), {{methodConstant .UpdateMethod}}, updatePath, body)
 			}
 			// Confirmed because this overwrites something that already exists,
@@ -490,9 +490,9 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			var result any
 {{- end }}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .UpdateMethod}}, updatePath, body, {{if .UpdateMergePatch}}"application/merge-patch+json"{{else}}"application/json"{{end}}, {{statusConstant .UpdateCode}}, {{if .UpdateHasResult}}&result{{else}}nil{{end}}); err != nil {
-				return fmt.Errorf("apply: updating {{.NameSingular}} %q (id: %s): %w", name, id, err)
+				return fmt.Errorf({{goStr (print "apply: updating " .NameSingular " %q (id: %s): %w")}}, name, id, err)
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "Updated {{.NameSingular}} %q (id: %s)\n", name, id)
+			fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "Updated " .NameSingular " %q (id: %s)\n")}}, name, id)
 {{- if .UpdateHasResult }}
 			if result == nil {
 				return nil
@@ -509,7 +509,7 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the desired state (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation prompt when the {{.NameSingular}} already exists")
+	cmd.Flags().BoolVar(&yes, "yes", false, {{goStr (print "Skip the confirmation prompt when the " .NameSingular " already exists")}})
 {{- if .HasScaffold }}
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 {{- end }}
