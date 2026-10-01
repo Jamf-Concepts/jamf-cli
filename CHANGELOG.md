@@ -38,10 +38,19 @@ child process checks again before it runs. These now fail over MCP:
 - The commands that print an access token: `auth token` under `platform`,
   `pro` and `protect`, and `pro api-authentication token`, `oauth-token` and
   `keep-alive`.
+- The commands that mint a credential and print it:
+  `pro api-integrations client-credentials` (a new client secret) and
+  `protect api-clients apply` (a new API client's password).
+- `protect action-configs export`, whose document carries each report
+  client's header values, such as a SIEM or webhook bearer token. A redacted
+  copy would overwrite the real credential when applied.
 
 `config show` still runs over MCP, with each token, client ID and client
 secret shown as `<redacted>`. `config list --status` checks only the server's
-profile.
+profile. These Protect commands also run over MCP with the credential shown as
+`<redacted>`: `action-configs get` and `apply` (each report client's header
+values), `data-forwarding get` and `update` (the Sentinel shared key) and
+`api-clients get` (the password). Outside MCP their output is unchanged.
 
 **Migration:** if an agent sends file bodies through `run_command` (for
 example `pro scripts create --script-file …`), start the server with

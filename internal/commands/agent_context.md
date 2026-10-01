@@ -110,10 +110,15 @@ file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
 `--dir` and the like; `-o/--output` as a format is fine); `multi`, `mcp`,
 `completion`, the config write subcommands, `config validate`, `doctor`, the
 commands that print an access token (`auth token` under `platform`, `pro` and
-`protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`), every
-`setup`, both `backup` commands and jcds `sync`; and `pro diff` against
-anything but the pinned profile. `config show` runs with every credential field
-shown as `<redacted>`. An administrator who
+`protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`), the
+commands that mint and print a credential (`pro api-integrations
+client-credentials`, `protect api-clients apply`), `protect action-configs
+export`, every `setup`, both `backup` commands and jcds `sync`; and `pro diff`
+against anything but the pinned profile. `config show` runs with every
+credential field shown as `<redacted>`, and so do the report-client header
+values of `protect action-configs get` and `apply`, the Sentinel shared key of
+`protect data-forwarding get` and `update`, and the password of `protect
+api-clients get`. An administrator who
 starts the server with `--input-dir <dir>` allows the read-side flags, and a
 `pro diff` side that is a directory, for existing paths inside that directory;
 `run_command`'s description names it.

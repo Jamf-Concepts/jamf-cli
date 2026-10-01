@@ -45,9 +45,18 @@ func newProtectDataForwardingGetCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printDataForwarding(cliCtx.Output, item)
 		},
 	}
+}
+
+// printDataForwarding prints the forwarding settings, with the Sentinel shared
+// key shown as "<redacted>" in a child of `mcp serve`.
+func printDataForwarding(out registry.OutputFormatter, r jamfprotect.DataForwardingResult) error {
+	if os.Getenv(mcpChildEnvVar) == "1" {
+		r = redactDataForwarding(r)
+	}
+	return protect.PrintOne(out, r)
 }
 
 func newProtectDataForwardingUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -70,7 +79,7 @@ func newProtectDataForwardingUpdateCmd(cliCtx *registry.CLIContext) *cobra.Comma
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printDataForwarding(cliCtx.Output, item)
 		},
 	}
 

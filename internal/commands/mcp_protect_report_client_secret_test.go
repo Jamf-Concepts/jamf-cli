@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
 const (
@@ -125,7 +127,7 @@ func TestMCP_ProtectThirdPartySecretsDoNotReachTheModel(t *testing.T) {
 			if strings.Contains(out, tc.secret) {
 				t.Errorf("%q printed a credential to the model in an MCP child:\n%s", args, out)
 			}
-			if !strings.Contains(out, protectRedacted) {
+			if !strings.Contains(out, protectRedacted) && !strings.Contains(out, `\u003credacted\u003e`) {
 				t.Errorf("%q should mark the withheld value as %s, so the model knows one is set:\n%s", args, protectRedacted, out)
 			}
 		})
@@ -178,5 +180,22 @@ func TestMCP_RefusesCommandsWhoseOutputIsACredential(t *testing.T) {
 		if !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("refusal of %q should name the %s it withholds: %v", tc.args, tc.want, err)
 		}
+	}
+}
+
+func TestRedactReportClientHeaders_LeavesTheFetchedConfigIntact(t *testing.T) {
+	original := jamfprotect.ActionConfig{Clients: []jamfprotect.ReportClient{
+		{Params: jamfprotect.ReportClientParams{Headers: []jamfprotect.ReportClientHeader{{Header: "Authorization", Value: fakeReportClientBearer}, {Header: "X-Empty"}}}},
+		{Type: "JamfCloud"},
+	}}
+	got := redactReportClientHeaders(original)
+	if v := original.Clients[0].Params.Headers[0].Value; v != fakeReportClientBearer {
+		t.Errorf("redaction wrote through to the caller's config: %q", v)
+	}
+	if h := got.Clients[0].Params.Headers; h[0].Value != protectRedacted || h[0].Header != "Authorization" || h[1].Value != "" {
+		t.Errorf("want the header name kept, a set value redacted and an unset one left empty: %+v", h)
+	}
+	if got.Clients[1].Params.Headers != nil {
+		t.Errorf("a client with no headers should still print null, not []: %+v", got.Clients[1].Params.Headers)
 	}
 }

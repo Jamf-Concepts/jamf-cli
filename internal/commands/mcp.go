@@ -103,6 +103,10 @@ spelling. It refuses:
   - 'auth token' under 'platform', 'pro' and 'protect', and 'pro
     api-authentication token', 'oauth-token' and 'keep-alive', which print a
     live access token
+  - 'pro api-integrations client-credentials' and 'protect api-clients
+    apply', which mint a new client secret or password and print it
+  - 'protect action-configs export', whose document carries each report
+    client's header values, the SIEM or webhook credential, verbatim
   - any flag naming a profile, URL, token, tenant, environment or output file
   - any flag whose value is a local path: --from-file, --file, --script-file,
     --mobileconfig-file, --appconfig-file, --custom-payload-file, --body-file,
@@ -111,6 +115,10 @@ spelling. It refuses:
     as --input-dir allows below
   - 'pro diff' with a --source or --target that is neither this server's
     profile nor a directory inside --input-dir
+Some allowed commands print a third-party credential, shown as <redacted>
+here: the report-client header values of 'protect action-configs get' and
+'apply', the Sentinel shared key of 'protect data-forwarding get' and 'update',
+and the password of 'protect api-clients get'.
 Some allowed commands write a file into the directory this server was started
 in, named by Jamf or by the command's own argument: 'protect downloads' and
 'pro jcds download' without -O, and 'protect plans config-profile'. Start the
@@ -196,11 +204,16 @@ config key for it.`,
 					"the config write subcommands, 'config validate', 'doctor', " +
 					"every command that prints an access token ('auth token', " +
 					"'pro api-authentication token', 'oauth-token', 'keep-alive'), " +
+					"the commands that mint and print a credential ('pro api-integrations " +
+					"client-credentials', 'protect api-clients apply'), " +
+					"'protect action-configs export', " +
 					"every 'setup', the backup commands and jcds sync; and " +
 					"'pro diff' against anything but this server's profile or a directory the " +
 					"input directory allows. " + inputDirToolNote(inputDir) +
 					" Use generate_report rather than 'dashboard': this tool returns " +
 					"stdout as text and the dashboard writes a 320-800 KB HTML document there. " +
+					"Report-client header values, the Sentinel shared key and Protect API " +
+					"client passwords print as <redacted>. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in runCommandInput) (*mcp.CallToolResult, any, error) {
@@ -536,6 +549,9 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli pro api-authentication token", refusedPrintsToken},
 	{"jamf-cli pro api-authentication oauth-token", refusedPrintsToken},
 	{"jamf-cli pro api-authentication keep-alive", refusedPrintsToken},
+	{"jamf-cli pro api-integrations client-credentials", refusedMintsClientSecret},
+	{"jamf-cli protect api-clients apply", refusedMintsProtectPassword},
+	{"jamf-cli protect action-configs export", refusedExportsHeaders},
 	{"jamf-cli pro setup", refusedPicksTarget},
 	{"jamf-cli platform setup", refusedPicksTarget},
 	{"jamf-cli protect setup", refusedPicksTarget},
@@ -552,9 +568,12 @@ type refusedCommand struct {
 }
 
 const (
-	refusedPicksTarget      = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
-	refusedReadsCredentials = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
-	refusedPrintsToken      = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
+	refusedPicksTarget          = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
+	refusedReadsCredentials     = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
+	refusedPrintsToken          = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
+	refusedMintsClientSecret    = "it mints a new client secret for the API integration and prints it, a credential that works outside this server until it is rotated"
+	refusedMintsProtectPassword = "creating an API client mints a new password and prints it, a credential that works outside this server until the client is deleted"
+	refusedExportsHeaders       = "its document carries each report client's header values verbatim (the SIEM or webhook bearer token), and a redacted copy would overwrite the real credential when applied; 'protect action-configs get' shows the configuration with them redacted"
 )
 
 // isCompletionRequest reports whether name is cobra's hidden completion

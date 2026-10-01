@@ -68,7 +68,7 @@ func newProtectActionConfigsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printActionConfig(cliCtx.Output, item)
 		},
 	}
 }
@@ -110,7 +110,7 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created action configuration %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printActionConfig(cliCtx.Output, &result)
 			}
 
 			// Found — confirm before replacing
@@ -127,7 +127,7 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated action configuration %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printActionConfig(cliCtx.Output, &result)
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -192,6 +192,37 @@ func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			return printExport(export)
 		},
 	}
+}
+
+// printActionConfig prints an action configuration. In a child of `mcp serve`
+// each report client's header values are shown as "<redacted>": they hold the
+// bearer token or API key the tenant forwards alerts to a SIEM or webhook with.
+func printActionConfig(out registry.OutputFormatter, a *jamfprotect.ActionConfig) error {
+	if a != nil && os.Getenv(mcpChildEnvVar) == "1" {
+		a = redactReportClientHeaders(*a)
+	}
+	return protect.PrintOne(out, a)
+}
+
+func redactReportClientHeaders(a jamfprotect.ActionConfig) *jamfprotect.ActionConfig {
+	if a.Clients != nil {
+		clients := make([]jamfprotect.ReportClient, len(a.Clients))
+		for i, c := range a.Clients {
+			if c.Params.Headers != nil {
+				headers := make([]jamfprotect.ReportClientHeader, len(c.Params.Headers))
+				for j, h := range c.Params.Headers {
+					if h.Value != "" {
+						h.Value = protectRedacted
+					}
+					headers[j] = h
+				}
+				c.Params.Headers = headers
+			}
+			clients[i] = c
+		}
+		a.Clients = clients
+	}
+	return &a
 }
 
 // actionConfigToInput converts an ActionConfig response to an ActionConfigInput, stripping server-only fields.
