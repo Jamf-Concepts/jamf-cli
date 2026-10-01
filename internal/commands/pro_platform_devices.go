@@ -5,15 +5,19 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/devicegroups"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/devices"
@@ -55,20 +59,30 @@ func newPlatformDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 // resolveDeviceIDDirect resolves a device identifier (UUID or serial number)
-// via the SDK directly. UUIDs match the 8-4-4-4-12 hex format and pass
-// through; anything else is resolved via a filtered list query.
-func resolveDeviceIDDirect(ctx context.Context, c *jamfplatform.Client, identifier string) (string, error) {
+// to one device ID and a label naming that device. A UUID passes through as
+// its own label; anything else is a serial number, which must equal exactly
+// one listed device's serial, since a `*` in it is a wildcard to the server.
+func resolveDeviceIDDirect(ctx context.Context, c *jamfplatform.Client, identifier string) (string, string, error) {
 	if uuidPattern.MatchString(identifier) {
-		return identifier, nil
+		return identifier, identifier, nil
 	}
-	list, err := devices.New(c).ListDevices(ctx, nil, fmt.Sprintf("serialNumber==%q", identifier))
+	list, err := devices.New(c).ListDevices(ctx, nil, fmt.Sprintf(`serialNumber=="%s"`, resolve.EscapeRSQL(identifier)))
 	if err != nil {
-		return "", fmt.Errorf("listing devices: %w", err)
+		return "", "", fmt.Errorf("listing devices: %w", err)
 	}
-	if len(list) == 0 {
-		return "", fmt.Errorf("device with serial %q not found: %w", identifier, platform.ErrNotFound)
+	d, candidates, err := pickone.One(list, identifier,
+		pickone.Fold(func(d devices.DeviceListReadRepresentationV1) string { return d.SerialNumber }))
+	switch {
+	case errors.Is(err, pickone.ErrNone):
+		return "", "", fmt.Errorf("device with serial %q not found: %w", identifier, platform.ErrNotFound)
+	case errors.Is(err, pickone.ErrAmbiguous):
+		ids := make([]string, len(candidates))
+		for i, cand := range candidates {
+			ids[i] = cand.ID
+		}
+		return "", "", fmt.Errorf("%d devices have serial %q (ids %s); pass the device ID instead", len(candidates), identifier, strings.Join(ids, ", "))
 	}
-	return list[0].ID, nil
+	return d.ID, fmt.Sprintf("%s (serial %s, id %s)", d.Name, d.SerialNumber, d.ID), nil
 }
 
 // flattenDeviceList produces a table-friendly row for a device list entry.
@@ -99,7 +113,7 @@ func newPlatformDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
+			id, _, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -127,7 +141,7 @@ func newPlatformDevicesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
+			id, _, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -179,11 +193,11 @@ func newPlatformDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
+			id, label, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("device", args[0], yes)
+			proceed, err := confirmDelete("device", label, yes)
 			if err != nil {
 				return err
 			}
@@ -193,7 +207,7 @@ func newPlatformDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := devices.New(cliCtx.PlatformSDKClient).DeleteDevice(ctx, id); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Deleted device %s\n", args[0])
+			fmt.Fprintf(os.Stderr, "Deleted device %s\n", label)
 			return nil
 		},
 	}
@@ -211,7 +225,7 @@ func newPlatformDevicesGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
+			id, _, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
