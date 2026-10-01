@@ -19,6 +19,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
@@ -675,6 +676,9 @@ func runDiff(ctx context.Context, cliCtx *registry.CLIContext, opts diffOptions)
 	}
 
 	results := compareSnapshots(srcSnapshot, tgtSnapshot)
+	if registry.InMCPChild() {
+		redactDiffCredentials(results, classicCredentialLeavesByFilter())
+	}
 
 	if len(results) == 0 {
 		fmt.Fprintln(os.Stderr, "No differences found.")
@@ -698,4 +702,80 @@ func runDiff(ctx context.Context, cliCtx *registry.CLIContext, opts diffOptions)
 	}
 
 	return printRows(cliCtx, rows)
+}
+
+// classicCredentialLeavesByFilter maps each diff resource filter to the element
+// names its Classic resources carry a credential in.
+func classicCredentialLeavesByFilter() map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for _, r := range BackupResources {
+		if !generated.BackupEndpoints[r.Key].IsClassic {
+			continue
+		}
+		for leaf := range generated.ClassicCredentialLeaves(r.Key) {
+			if out[r.FilterName] == nil {
+				out[r.FilterName] = map[string]bool{}
+			}
+			out[r.FilterName][leaf] = true
+		}
+	}
+	return out
+}
+
+// redactDiffCredentials masks, in place, every old and new value that is or
+// holds a credential field of its resource. It runs after the comparison, so a
+// changed credential is still reported as modified.
+func redactDiffCredentials(results []diffResult, leavesByFilter map[string]map[string]bool) {
+	for i := range results {
+		r := &results[i]
+		leaves := leavesByFilter[r.Resource]
+		if len(leaves) == 0 || r.Field == "" {
+			continue
+		}
+		r.OldValue = redactDiffValue(r.Field, r.OldValue, leaves)
+		r.NewValue = redactDiffValue(r.Field, r.NewValue, leaves)
+	}
+}
+
+// redactDiffValue masks v when field is itself a credential, or masks each
+// credential inside v when v is the JSON formatFieldValue renders a nested
+// field as.
+func redactDiffValue(field, v string, leaves map[string]bool) string {
+	if v == "" || v == "<nil>" {
+		return v
+	}
+	if leaves[field] {
+		return protectRedacted
+	}
+	var decoded any
+	if json.Unmarshal([]byte(v), &decoded) != nil || !redactCredentialKeys(decoded, leaves) {
+		return v
+	}
+	b, err := json.Marshal(decoded)
+	if err != nil {
+		return protectRedacted
+	}
+	return string(b)
+}
+
+// redactCredentialKeys replaces each non-empty string under a key in leaves,
+// at any depth, and reports whether it replaced one.
+func redactCredentialKeys(v any, leaves map[string]bool) bool {
+	changed := false
+	switch t := v.(type) {
+	case map[string]any:
+		for k, child := range t {
+			if s, ok := child.(string); ok && s != "" && leaves[k] {
+				t[k] = protectRedacted
+				changed = true
+				continue
+			}
+			changed = redactCredentialKeys(child, leaves) || changed
+		}
+	case []any:
+		for _, child := range t {
+			changed = redactCredentialKeys(child, leaves) || changed
+		}
+	}
+	return changed
 }

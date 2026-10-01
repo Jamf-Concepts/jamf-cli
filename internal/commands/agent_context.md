@@ -123,8 +123,8 @@ but the pinned profile. `config show` runs with every credential field shown as
 `<redacted>`, and so do the report-client header values and URL userinfo and
 query of `protect action-configs get` and `apply`, the Sentinel shared key of
 `protect data-forwarding get` and `update`, the password of `protect api-clients
-get`, and every Classic `get` and `list` field that Classic `--set` refuses as a
-credential. Secrets of the pinned tenant's devices (the LAPS password, the
+get`, and every Classic field that Classic `--set` refuses as a credential, in
+`get`, `list` and the old and new values `pro diff` reports. Secrets of the pinned tenant's devices (the LAPS password, the
 recovery lock password, the FileVault personal recovery key) and the JCDS upload
 credentials are shown. A relative read path resolves against the server's start
 directory, so pass an absolute one. An administrator who

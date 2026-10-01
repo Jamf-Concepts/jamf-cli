@@ -85,6 +85,84 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicWebhooksCmd(ctx))
 }
 
+// classicBodySpecsByCommand maps each Classic command group to its body spec.
+var classicBodySpecsByCommand = map[string]classicBodySpec{
+	"classic-account-groups":                  bodySpecClassicAccountGroups,
+	"classic-account-users":                   bodySpecClassicAccountUsers,
+	"classic-accounts":                        bodySpecClassicAccounts,
+	"classic-advanced-computer-searches":      bodySpecClassicAdvancedComputerSearches,
+	"classic-advanced-mobile-device-searches": bodySpecClassicAdvancedMobileDeviceSearches,
+	"classic-allowed-file-extensions":         bodySpecClassicAllowedFileExtensions,
+	"classic-classes":                         bodySpecClassicClasses,
+	"classic-computer-apps":                   bodySpecClassicComputerApps,
+	"classic-computer-commands":               bodySpecClassicComputerCommands,
+	"classic-computer-configs":                bodySpecClassicComputerConfigs,
+	"classic-computer-ext-attrs":              bodySpecClassicComputerExtAttrs,
+	"classic-computer-groups":                 bodySpecClassicComputerGroups,
+	"classic-computer-history":                bodySpecClassicComputerHistory,
+	"classic-computer-invitations":            bodySpecClassicComputerInvitations,
+	"classic-directory-bindings":              bodySpecClassicDirectoryBindings,
+	"classic-disk-encryption-configs":         bodySpecClassicDiskEncryptionConfigs,
+	"classic-distribution-points":             bodySpecClassicDistributionPoints,
+	"classic-dock-items":                      bodySpecClassicDockItems,
+	"classic-ebooks":                          bodySpecClassicEbooks,
+	"classic-gsx-connection":                  bodySpecClassicGsxConnection,
+	"classic-ibeacons":                        bodySpecClassicIbeacons,
+	"classic-jwt-configs":                     bodySpecClassicJwtConfigs,
+	"classic-ldap-servers":                    bodySpecClassicLdapServers,
+	"classic-licensed-software":               bodySpecClassicLicensedSoftware,
+	"classic-mac-apps":                        bodySpecClassicMacApps,
+	"classic-macos-config-profiles":           bodySpecClassicMacosConfigProfiles,
+	"classic-mobile-apps":                     bodySpecClassicMobileApps,
+	"classic-mobile-commands":                 bodySpecClassicMobileCommands,
+	"classic-mobile-config-profiles":          bodySpecClassicMobileConfigProfiles,
+	"classic-mobile-device-groups":            bodySpecClassicMobileDeviceGroups,
+	"classic-mobile-devices":                  bodySpecClassicMobileDevices,
+	"classic-mobile-history":                  bodySpecClassicMobileHistory,
+	"classic-mobile-invitations":              bodySpecClassicMobileInvitations,
+	"classic-mobile-provisioning-profiles":    bodySpecClassicMobileProvisioningProfiles,
+	"classic-network-segments":                bodySpecClassicNetworkSegments,
+	"classic-packages":                        bodySpecClassicPackages,
+	"classic-patch-available-titles":          bodySpecClassicPatchAvailableTitles,
+	"classic-patch-external-sources":          bodySpecClassicPatchExternalSources,
+	"classic-patch-internal-sources":          bodySpecClassicPatchInternalSources,
+	"classic-patch-policies":                  bodySpecClassicPatchPolicies,
+	"classic-patch-reports":                   bodySpecClassicPatchReports,
+	"classic-patch-titles":                    bodySpecClassicPatchTitles,
+	"classic-policies":                        bodySpecClassicPolicies,
+	"classic-printers":                        bodySpecClassicPrinters,
+	"classic-removable-mac-addresses":         bodySpecClassicRemovableMacAddresses,
+	"classic-restricted-software":             bodySpecClassicRestrictedSoftware,
+	"classic-smtp-server":                     bodySpecClassicSmtpServer,
+	"classic-software-update-servers":         bodySpecClassicSoftwareUpdateServers,
+	"classic-user-ext-attrs":                  bodySpecClassicUserExtAttrs,
+	"classic-user-groups":                     bodySpecClassicUserGroups,
+	"classic-vpp-accounts":                    bodySpecClassicVppAccounts,
+	"classic-vpp-assignments":                 bodySpecClassicVppAssignments,
+	"classic-vpp-invitations":                 bodySpecClassicVppInvitations,
+	"classic-webhooks":                        bodySpecClassicWebhooks,
+}
+
+// ClassicCredentialLeaves returns the element names that carry a credential in
+// the Classic resource whose command group is cliName, or nil for none.
+func ClassicCredentialLeaves(cliName string) map[string]bool {
+	return classicCredentialLeaves(classicBodySpecsByCommand[cliName])
+}
+
+// classicCredentialLeaves is the last segment of each credential path in spec.
+// Within one resource no such name is also worn by a field that is not a
+// credential, so an element is matched by name alone at any depth.
+func classicCredentialLeaves(spec classicBodySpec) map[string]bool {
+	if len(spec.Credentials) == 0 {
+		return nil
+	}
+	leaves := make(map[string]bool, len(spec.Credentials))
+	for path := range spec.Credentials {
+		leaves[strings.TrimSuffix(path[strings.LastIndex(path, ".")+1:], "[]")] = true
+	}
+	return leaves
+}
+
 // readClassicBody reads an XML request body from --from-file, or from stdin when
 // the flag is absent. Unlike readApplyInput it tolerates an absent body and
 // returns nil, leaving the caller to decide whether that is an error — classic
@@ -120,15 +198,12 @@ const classicRedactedText = "&lt;redacted&gt;"
 // prints through it, before choosing a format, so -o raw is not the wire
 // bytes there. A body it cannot parse as XML is refused rather than printed.
 func redactClassicReadInMCPChild(body []byte, spec classicBodySpec) ([]byte, error) {
-	if len(spec.Credentials) == 0 || !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+	leaves := classicCredentialLeaves(spec)
+	if len(leaves) == 0 || !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
 		return body, nil
 	}
 	if !xmlconv.IsXML(body) {
 		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its credential fields cannot be redacted and it is not printed over MCP")
-	}
-	leaves := map[string]bool{}
-	for path := range spec.Credentials {
-		leaves[strings.TrimSuffix(path[strings.LastIndex(path, ".")+1:], "[]")] = true
 	}
 	type span struct{ start, end int64 }
 	var spans []span

@@ -1622,6 +1622,33 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 {{- end }}
 }
 
+// classicBodySpecsByCommand maps each Classic command group to its body spec.
+var classicBodySpecsByCommand = map[string]classicBodySpec{
+{{- range . }}
+	"{{ .CLIName }}": {{ bodySpecVar . }},
+{{- end }}
+}
+
+// ClassicCredentialLeaves returns the element names that carry a credential in
+// the Classic resource whose command group is cliName, or nil for none.
+func ClassicCredentialLeaves(cliName string) map[string]bool {
+	return classicCredentialLeaves(classicBodySpecsByCommand[cliName])
+}
+
+// classicCredentialLeaves is the last segment of each credential path in spec.
+// Within one resource no such name is also worn by a field that is not a
+// credential, so an element is matched by name alone at any depth.
+func classicCredentialLeaves(spec classicBodySpec) map[string]bool {
+	if len(spec.Credentials) == 0 {
+		return nil
+	}
+	leaves := make(map[string]bool, len(spec.Credentials))
+	for path := range spec.Credentials {
+		leaves[strings.TrimSuffix(path[strings.LastIndex(path, ".")+1:], "[]")] = true
+	}
+	return leaves
+}
+
 // readClassicBody reads an XML request body from --from-file, or from stdin when
 // the flag is absent. Unlike readApplyInput it tolerates an absent body and
 // returns nil, leaving the caller to decide whether that is an error — classic
@@ -1657,15 +1684,12 @@ const classicRedactedText = "&lt;redacted&gt;"
 // prints through it, before choosing a format, so -o raw is not the wire
 // bytes there. A body it cannot parse as XML is refused rather than printed.
 func redactClassicReadInMCPChild(body []byte, spec classicBodySpec) ([]byte, error) {
-	if len(spec.Credentials) == 0 || !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+	leaves := classicCredentialLeaves(spec)
+	if len(leaves) == 0 || !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
 		return body, nil
 	}
 	if !xmlconv.IsXML(body) {
 		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its credential fields cannot be redacted and it is not printed over MCP")
-	}
-	leaves := map[string]bool{}
-	for path := range spec.Credentials {
-		leaves[strings.TrimSuffix(path[strings.LastIndex(path, ".")+1:], "[]")] = true
 	}
 	type span struct{ start, end int64 }
 	var spans []span

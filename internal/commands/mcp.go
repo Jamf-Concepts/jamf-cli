@@ -134,7 +134,8 @@ api-clients get', and every Classic 'get' and 'list' field the Classic --set
 refuses as a credential (an SMTP, LDAP, webhook, directory binding or
 distribution point password, the VPP sToken, the JWT signing key, the
 institutional FileVault keystore). So a Classic '-o raw' is not the wire bytes
-here.
+here, and 'pro diff' shows those fields' old and new values as <redacted> while
+still reporting the change.
 Secrets of the pinned tenant's own devices are shown: the LAPS password, the
 recovery lock password, the FileVault personal recovery key, and the bootstrap
 token, unlock token and AirPlay password in device inventory. So are the JCDS
@@ -243,7 +244,8 @@ value is an error; there is no config key for it.`,
 					"stdout as text and the dashboard writes a 320-800 KB HTML document there. " +
 					"Report-client header values and URL userinfo and query, the Sentinel " +
 					"shared key, Protect API client passwords and Classic credential fields " +
-					"(passwords, the VPP sToken, the JWT signing key) print as <redacted>; " +
+					"(passwords, the VPP sToken, the JWT signing key), in 'get', 'list' and " +
+					"'pro diff', print as <redacted>; " +
 					"device secrets such as the LAPS password are shown. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
