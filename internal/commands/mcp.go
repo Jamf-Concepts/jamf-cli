@@ -134,14 +134,21 @@ api-clients get', the CloudFront private key and CDN password of 'pro
 cloud-distribution-point list', and every Classic 'get' and 'list' field the
 Classic --set refuses as a credential (an SMTP, LDAP, webhook, directory
 binding or distribution point password, the VPP sToken, the JWT signing key,
-the institutional FileVault keystore). So a Classic '-o raw' is not the wire bytes
-here, and 'pro diff' shows those fields' old and new values as <redacted> while
-still reporting the change.
+the institutional FileVault keystore). Each secret inside a configuration
+profile's payloads in 'classic-macos-config-profiles' and
+'classic-mobile-config-profiles' is redacted too: a Wi-Fi, EAP, VPN or account
+password, a VPN shared secret, a SCEP challenge, and an identity certificate
+with its password. A payload that does not decode is redacted whole. So a
+Classic '-o raw' is not the wire bytes here, and 'pro diff' shows those
+fields' old and new values as <redacted> while still reporting the change.
 Secrets of the pinned tenant's own devices are shown: the LAPS password, the
 recovery lock password, the FileVault personal recovery key, and the bootstrap
 token, unlock token and AirPlay password in device inventory. So are the JCDS
 upload credentials of 'pro jamf-cloud-distribution-service renew-credentials'
-and 'pro jamf-cloud-distribution-service-files create'.
+and 'pro jamf-cloud-distribution-service-files create'. Blueprint configuration
+is shown as the Platform API answers it, a secret a component carries
+included, in the 'pro blueprints' and 'school blueprints' reads and in 'pro
+diff' on blueprints.
 Some allowed commands write a file into the directory this server was started
 in, named by Jamf or by the command's own argument: the other 'protect
 downloads' and 'pro jcds download' without -O, and 'protect plans
@@ -246,9 +253,11 @@ value is an error; there is no config key for it.`,
 					"Report-client header values and URL userinfo and query, the Sentinel " +
 					"shared key, Protect API client passwords, the CloudFront private key of " +
 					"'pro cloud-distribution-point list' and Classic credential fields " +
-					"(passwords, the VPP sToken, the JWT signing key), in 'get', 'list' and " +
+					"(passwords, the VPP sToken, the JWT signing key), and the secrets inside " +
+					"Classic configuration profile payloads (Wi-Fi, VPN and identity passwords, " +
+					"shared secrets, SCEP challenges, PKCS#12 certificates), in 'get', 'list' and " +
 					"'pro diff', print as <redacted>; " +
-					"device secrets such as the LAPS password are shown. " +
+					"device secrets such as the LAPS password, and blueprint configuration, are shown. " +
 					"Output is truncated past 256 KB. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in runCommandInput) (*mcp.CallToolResult, any, error) {
@@ -580,6 +589,17 @@ var blockedChildFlagPrefixes = []string{
 // jamf-cloud-distribution-service renew-credentials` and
 // `pro jamf-cloud-distribution-service-files create`, whose upload credentials
 // reach only the pinned tenant's JCDS bucket.
+//
+// A command that prints such a credential inside a larger record runs with it
+// redacted instead, in every output format: the Classic credential fields
+// (redactClassicReadInMCPChild), the secrets in a Classic configuration
+// profile's payloads plist (redactClassicProfilePayloadsInMCPChild, through
+// profileconvert.RedactPayloadSecrets), the cloud distribution point's keys
+// (cdnKeyRedactingClient), and the same fields in `pro diff`. Blueprint
+// configuration is not redacted: the Platform SDK decodes each response
+// inside its transport, so there is no per-response hook, and a component's
+// secret keys vary by declaration type. It is named as shown in the help and
+// the tool description instead.
 // TestMCPSecretNamingLeaves_AreClassified holds every leaf whose help names a
 // credential to one side of this line.
 var mcpRefusedCommands = []refusedCommand{

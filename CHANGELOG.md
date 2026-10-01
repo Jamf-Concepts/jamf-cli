@@ -66,10 +66,17 @@ over MCP with the CloudFront private key and the CDN password shown as
 field that Classic `--set` refuses as a credential as `<redacted>`, in every
 output format, so `-o raw` is not the wire bytes over MCP, and `pro diff`
 shows those fields' old and new values as `<redacted>` while still reporting
-the change. Outside MCP their output is unchanged. Secrets of the pinned tenant's devices (the LAPS
-password, the recovery lock password, the FileVault personal recovery key)
-and the JCDS upload credentials of `pro jamf-cloud-distribution-service
-renew-credentials` and `pro jamf-cloud-distribution-service-files create` are
+the change. `get` and `list` on `classic-macos-config-profiles` and
+`classic-mobile-config-profiles`, and `pro diff` on `profiles`, also print
+each secret inside a profile's payloads as `<redacted>`: a Wi-Fi, EAP, VPN or
+account password, a VPN shared secret, a SCEP challenge, and an identity
+certificate with its password. The payload is re-encoded, so the record is
+still a profile document, and a payload that does not decode is redacted
+whole. Outside MCP their output is unchanged. Secrets of the pinned tenant's devices (the LAPS
+password, the recovery lock password, the FileVault personal recovery key),
+the JCDS upload credentials of `pro jamf-cloud-distribution-service
+renew-credentials` and `pro jamf-cloud-distribution-service-files create`,
+and blueprint configuration, a secret a component carries included, are
 still shown.
 
 `mcp serve --input-dir ""` (for example `--input-dir "$DIR"` with `DIR`
