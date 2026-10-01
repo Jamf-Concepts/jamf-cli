@@ -95,7 +95,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path = strings.Replace(path, "{{"{customerId}"}}", url.PathEscape(customerID), 1)
 {{- end }}
 {{- if .HasBody }}
-			body, err := security.ReadBody(bodyFile, setFlags)
+			body, err := security.ReadBody(bodyFile, setFlags{{ range .CredentialPaths }}, {{ goStr . }}{{ end }})
 			if err != nil {
 				return err
 			}
