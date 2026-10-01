@@ -6,12 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // ─── XML round-trip ────────────────────────────────────────────────────────────
@@ -501,12 +503,32 @@ func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
 // ─── namedItemFromIdentifier ─────────────────────────────────────────────────
 
 func TestNamedItemFromIdentifier_UDID(t *testing.T) {
-	item := namedItemFromIdentifier("270aae10800b6e61a2ee2bbc285eb967050b5984")
-	if item.UDID != "270aae10800b6e61a2ee2bbc285eb967050b5984" {
-		t.Errorf("UDID = %q", item.UDID)
+	for _, udid := range []string{
+		"270aae10800b6e61a2ee2bbc285eb967050b5984", // older iOS device
+		"00008030-001A2D3E0C38802E",                // iOS device from 2018 on
+		"96050be1-e53b-454d-9752-2306c709f192",     // Mac (UUID)
+		"96050BE1-E53B-454D-9752-2306C709F192",
+	} {
+		item := namedItemFromIdentifier(udid)
+		if item.UDID != udid {
+			t.Errorf("%s: UDID = %q", udid, item.UDID)
+		}
+		if item.Name != "" || item.ID != "" {
+			t.Errorf("%s: unexpected fields set: name=%q id=%q", udid, item.Name, item.ID)
+		}
 	}
-	if item.Name != "" || item.ID != "" {
-		t.Errorf("unexpected fields set: name=%q id=%q", item.Name, item.ID)
+}
+
+func TestNamedItemFromIdentifier_NearUDIDIsAName(t *testing.T) {
+	for _, name := range []string{
+		"96050be1-e53b-454d-9752-2306c709f19",  // UUID one short
+		"96050be1e53b454d97522306c709f192",     // UUID without hyphens
+		"00008030-001A2D3E0C38802",             // 8-16 one short
+		"Lab-Mac-96050be1-e53b-454d-9752-2306", // hyphenated name
+	} {
+		if item := namedItemFromIdentifier(name); item.Name != name {
+			t.Errorf("%s: want Name, got %+v", name, item)
+		}
 	}
 }
 
@@ -1234,5 +1256,123 @@ func TestMarshalScopeBody_FieldOrderIsSchemaOrder(t *testing.T) {
 	}
 	if !strings.HasPrefix(got, xml.Header) {
 		t.Errorf("body should open with the XML declaration:\n%s", got)
+	}
+}
+
+// A UDID-identified member must reach the wire as <udid> alone. Wire-checked
+// 2026-10-01 on all five computer-scoped resources, target and exclusion:
+// <name></name><udid>…</udid> answers 409 "Unable to match computer" because
+// the empty name is matched first, while <udid>…</udid> alone resolves.
+func TestMarshalScopeBody_UDIDMemberCarriesNoEmptyName(t *testing.T) {
+	s := &ScopeXML{}
+	const udid = "96050be1-e53b-454d-9752-2306c709f192"
+	if !AddToScope(s, "target", "computer", udid) {
+		t.Fatal("AddToScope returned false")
+	}
+	if !AddToScope(s, "exclusion", "computer", strings.ToUpper(udid)) {
+		t.Fatal("AddToScope (exclusion) returned false")
+	}
+	body, err := marshalScopeBody("mac_application", s)
+	if err != nil {
+		t.Fatalf("marshalScopeBody: %v", err)
+	}
+	got := string(body)
+	if strings.Count(got, "<udid>") != 2 {
+		t.Errorf("want two <udid> elements:\n%s", got)
+	}
+	if strings.Contains(got, "<name></name>") || strings.Contains(got, "<name/>") {
+		t.Errorf("a UDID-identified member must not carry an empty <name>:\n%s", got)
+	}
+}
+
+// ─── resolveDeviceTarget ─────────────────────────────────────────────────────
+
+func stubResolveDevice(t *testing.T, fn func(flag, value string) (*resolve.DeviceIdentifiers, error)) {
+	t.Helper()
+	orig := resolveDevice
+	resolveDevice = func(_ context.Context, _ registry.HTTPClient, flag, value string) (*resolve.DeviceIdentifiers, error) {
+		return fn(flag, value)
+	}
+	t.Cleanup(func() { resolveDevice = orig })
+}
+
+func TestResolveDeviceTarget_SendsOnlyTheResolvedID(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5", UDID: "96050be1-e53b-454d-9752-2306c709f192", SerialNumber: "FWWT058JG5"}, nil
+	})
+	target, err := resolveDeviceTarget(context.Background(), nil, ScopeTarget{FlagName: "computer", Name: "FWWT058JG5"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.Name != "107" || target.Input != "FWWT058JG5" {
+		t.Fatalf("got %+v", target)
+	}
+
+	s := &ScopeXML{}
+	if !AddToScope(s, "exclusion", target.FlagName, target.Name) {
+		t.Fatal("AddToScope returned false")
+	}
+	body, err := marshalScopeBody("policy", s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "<computer>\n") || strings.Contains(string(body), "<name>") || strings.Contains(string(body), "<udid>") {
+		t.Errorf("want <id> alone:\n%s", body)
+	}
+	if !strings.Contains(string(body), "<id>107</id>") {
+		t.Errorf("missing <id>107</id>:\n%s", body)
+	}
+	if got := target.display(); got != `"FWWT058JG5" (id 107, ARMADA-058JG5)` {
+		t.Errorf("display = %s", got)
+	}
+}
+
+// A serial number is not in the scope GET, so remove could only find the
+// member through its resolved ID.
+func TestResolveDeviceTarget_RemoveBySerialFindsTheMember(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "64", Name: "ARMADA-66B185"}, nil
+	})
+	s := &ScopeXML{}
+	s.MobileDevices.Items = []NamedItem{{ID: "64", Name: "ARMADA-66B185", UDID: "5f3644dc"}}
+	target, err := resolveDeviceTarget(context.Background(), nil, ScopeTarget{FlagName: "mobile-device", Name: "GMJR66B185"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !RemoveFromScope(s, "target", target.FlagName, target.Name) {
+		t.Fatal("member not removed")
+	}
+}
+
+func TestResolveDeviceTarget_RemoveFallsBackOnlyWhenNothingMatches(t *testing.T) {
+	stubResolveDevice(t, func(_, value string) (*resolve.DeviceIdentifiers, error) {
+		return nil, &resolve.NoDeviceMatchError{Label: "computer", Value: value}
+	})
+	in := ScopeTarget{FlagName: "computer", Name: "gone-mac"}
+	if _, err := resolveDeviceTarget(context.Background(), nil, in, false); err == nil {
+		t.Error("add must refuse a value that names no device")
+	}
+	target, err := resolveDeviceTarget(context.Background(), nil, in, true)
+	if err != nil || target.Name != "gone-mac" || target.Device != nil {
+		t.Errorf("remove should fall back to the literal value: %+v, %v", target, err)
+	}
+
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return nil, errors.New("HTTP 403")
+	})
+	if _, err := resolveDeviceTarget(context.Background(), nil, in, true); err == nil {
+		t.Error("a failed lookup must not fall back on remove")
+	}
+}
+
+func TestResolveDeviceTarget_NonDeviceFlagIsUntouched(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		t.Fatal("resolver called for a non-device flag")
+		return nil, nil
+	})
+	in := ScopeTarget{FlagName: "computer-group", Name: "Lab Macs"}
+	got, err := resolveDeviceTarget(context.Background(), nil, in, false)
+	if err != nil || got != in {
+		t.Errorf("got %+v, %v", got, err)
 	}
 }

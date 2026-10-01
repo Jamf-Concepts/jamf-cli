@@ -8,7 +8,10 @@ package scope
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"strings"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // Resource identifies a Classic API resource that supports scope operations.
@@ -27,9 +30,30 @@ type Resource struct {
 }
 
 // ScopeTarget holds a resolved flag name and value from a scope add/remove command.
+//
+// For --computer and --mobile-device, Name is the device's numeric ID once
+// resolveDeviceTarget has run, and Input keeps what the caller typed for
+// messages.
 type ScopeTarget struct {
 	FlagName string
 	Name     string
+	Input    string
+	Device   *resolve.DeviceIdentifiers
+}
+
+// display renders the target for a message: the caller's own words, plus the
+// record they resolved to when that is not obvious from them.
+func (t ScopeTarget) display() string {
+	if t.Device == nil {
+		return fmt.Sprintf("%q", t.Name)
+	}
+	switch {
+	case t.Input == t.Device.ID:
+		return fmt.Sprintf("%q (%s)", t.Input, t.Device.Name)
+	case strings.EqualFold(t.Input, t.Device.Name):
+		return fmt.Sprintf("%q (id %s)", t.Input, t.Device.ID)
+	}
+	return fmt.Sprintf("%q (id %s, %s)", t.Input, t.Device.ID, t.Device.Name)
 }
 
 // ─── XML types ─────────────────────────────────────────────────────────────────
@@ -42,9 +66,15 @@ type ScopeTarget struct {
 // ID is a string to accommodate both integer IDs (most resources) and UUID
 // IDs (e.g. ebook scope user groups) returned by the Classic API.
 // UDID is populated for individual mobile devices and computers.
+//
+// Name is omitempty in XML because the Classic API's computer matcher reads an
+// empty <name> before a <udid>: a computer sent as <name></name><udid>…</udid>
+// answers 409 "Unable to match computer" where <udid> alone resolves, on every
+// computer-scoped resource. The mobile-device matcher tolerates the empty name,
+// and an <id> wins over it on both. Wire-checked 2026-10-01.
 type NamedItem struct {
 	ID   string `xml:"id,omitempty" json:"id,omitempty"`
-	Name string `xml:"name" json:"name"`
+	Name string `xml:"name,omitempty" json:"name"`
 	UDID string `xml:"udid,omitempty" json:"udid,omitempty"`
 }
 

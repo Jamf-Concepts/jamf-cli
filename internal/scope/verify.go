@@ -43,7 +43,7 @@ func VerifyScopeWrite(ctx context.Context, client registry.HTTPClient, res Resou
 	// it should be there is usually an identifier that named no record, which
 	// is a different diagnosis from a category the server refused to keep.
 	if items := readScopeItems(got, touchedSection, touched.FlagName); itemPresent(items, touched.Name) != expectPresent {
-		return silentDropError(res.SingularKey, touchedSection, touched.FlagName, touched.Name, expectPresent)
+		return silentDropError(res.SingularKey, touchedSection, touched.FlagName, touched.display(), expectPresent)
 	}
 
 	drops := DiffScope(sent, got, touchedSection, touched)

@@ -19,14 +19,17 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// udidRe matches a 40-character hex string — the format of Apple device UDIDs.
-var udidRe = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+// udidRe matches the three shapes an Apple device UDID takes: 40 hex characters
+// (older iOS devices), 8-16 hex (iOS devices from 2018 on) and a UUID (every
+// Mac). Matching only the first sent a Mac's UDID as <name>, which the Classic
+// API answers with 409 "Unable to match computer".
+var udidRe = regexp.MustCompile(`^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{8}-[0-9a-fA-F]{16}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`)
 
 // numericRe matches a plain integer string (Jamf Pro Classic API numeric ID).
 var numericRe = regexp.MustCompile(`^[0-9]+$`)
 
 // namedItemFromIdentifier builds a NamedItem with the correct field populated
-// based on what the caller passed: a 40-char hex UDID, a numeric ID, or a name.
+// based on what the caller passed: a UDID, a numeric ID, or a name.
 // Used for individual device scope targets where the API accepts any of the three.
 func namedItemFromIdentifier(value string) NamedItem {
 	switch {
@@ -317,10 +320,10 @@ func marshalScopeBody(singularKey string, s *ScopeXML) ([]byte, error) {
 
 func silentDropError(singularKey, section, flagName, itemName string, expectedPresent bool) error {
 	if expectedPresent {
-		return fmt.Errorf("the server accepted the write but %s %q is not in the %s scope of this %s; the likeliest cause is that the identifier names no existing record",
+		return fmt.Errorf("the server accepted the write but %s %s is not in the %s scope of this %s; the likeliest cause is that the identifier names no existing record",
 			flagName, itemName, section, singularKey)
 	}
-	return fmt.Errorf("the server accepted the write but %s %q is still in the %s scope of this %s",
+	return fmt.Errorf("the server accepted the write but %s %s is still in the %s scope of this %s",
 		flagName, itemName, section, singularKey)
 }
 

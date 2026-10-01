@@ -460,6 +460,14 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		if d.Name == "" {
 			d.Name = jsonString(general, "displayName")
 		}
+		if d.UDID == "" {
+			d.UDID = jsonString(general, "udid")
+		}
+	}
+	// /detail nests the serial under "hardware", populated only with
+	// section=HARDWARE.
+	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
+		d.SerialNumber = jsonString(hardware, "serialNumber")
 	}
 	if d.Name == "" {
 		d.Name = jsonString(obj, "displayName")
