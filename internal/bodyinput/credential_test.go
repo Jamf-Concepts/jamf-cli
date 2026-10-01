@@ -1,0 +1,85 @@
+// Copyright 2026, Jamf Software LLC
+
+package bodyinput
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestRefuseCredentialSets(t *testing.T) {
+	paths := []string{"deviceSyncAuth.clientSecret", "users[].password", "token"}
+	for _, tc := range []struct {
+		name string
+		sets []string
+		hit  string
+	}{
+		{"dotted key", []string{"vendor=JAMF_PRO", "deviceSyncAuth.clientSecret=x"}, "deviceSyncAuth.clientSecret"},
+		{"object value", []string{`deviceSyncAuth={"clientId":"id","clientSecret":"x"}`}, "deviceSyncAuth.clientSecret"},
+		{"array of objects", []string{`users=[{"name":"a"},{"password":"x"}]`}, "users[].password"},
+		{"case-insensitive key", []string{"TOKEN=x"}, "TOKEN"},
+		{"numeric-looking secret", []string{"token=1234"}, "token"},
+		{"empty value still names the field", []string{"token="}, "token"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := RefuseCredentialSets(tc.sets, paths)
+			if err == nil {
+				t.Fatalf("RefuseCredentialSets(%q) = nil, want a refusal", tc.sets)
+			}
+			for _, want := range []string{tc.hit + " is a credential", "--from-file", "stdin"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not mention %q", err, want)
+				}
+			}
+		})
+	}
+
+	for _, sets := range [][]string{
+		{"deviceSyncAuth.clientId=id", "vendor=JAMF_PRO"},
+		{`deviceSyncAuth={"clientId":"id"}`},
+		{`users=[{"name":"a"}]`},
+		{"note={not json"},
+	} {
+		if err := RefuseCredentialSets(sets, paths); err != nil {
+			t.Errorf("RefuseCredentialSets(%q) = %v, want nil", sets, err)
+		}
+	}
+	if err := RefuseCredentialSets([]string{"token=x"}, nil); err != nil {
+		t.Errorf("an operation with no credential paths refuses nothing, got %v", err)
+	}
+}
+
+// TestRefuseCredentialSetsLookPastLeadingWhitespace refuses a container value
+// whatever JSON whitespace precedes it, since the decoder skips it too.
+func TestRefuseCredentialSetsLookPastLeadingWhitespace(t *testing.T) {
+	paths := []string{"deviceSyncAuth.clientSecret", "users[].password"}
+	for _, lead := range []string{" ", "\t", "\n", "\r\n"} {
+		for _, set := range []string{
+			"deviceSyncAuth=" + lead + `{"clientSecret":"x"}`,
+			"users=" + lead + `[{"password":"x"}]`,
+		} {
+			if err := RefuseCredentialSets([]string{set}, paths); err == nil || !strings.Contains(err.Error(), "is a credential") {
+				t.Errorf("RefuseCredentialSets(%q) = %v, want a refusal", set, err)
+			}
+		}
+	}
+}
+
+// TestRefuseCredentialSetsMatchesEverySpellingOfAPath refuses a key the
+// builder would send under another spelling of a credential path, and a key
+// the path match cannot safely read at all.
+func TestRefuseCredentialSetsMatchesEverySpellingOfAPath(t *testing.T) {
+	paths := []string{"password", "basicAuthCredentials.password", "lapsUserPasswordList[].password"}
+	for _, set := range []string{
+		"pass-word=h", "pass_word=h", "basic_auth_credentials.password=h",
+		" password=h", ".password=h", "basicAuthCredentials..password=h", "password[0]=h",
+		`lapsUserPasswordList=[[{"password":"h"}]]`, `basic_auth_credentials={"pass_word":"h"}`,
+	} {
+		if err := RefuseCredentialSets([]string{set}, paths); err == nil {
+			t.Errorf("RefuseCredentialSets(%q) = nil, want a refusal", set)
+		}
+	}
+	if err := RefuseCredentialSets([]string{"basicAuthCredentials.username=u"}, paths); err != nil {
+		t.Errorf("a non-secret sibling was refused: %v", err)
+	}
+}

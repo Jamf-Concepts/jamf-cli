@@ -659,7 +659,7 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
 		Short: "Update AD CS Settings configuration",
-		Long:  "Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  adcsUrl                                      string\n  apiClientId                                  string\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  displayName                                  string\n  fqdn                                         string\n  outbound                                     boolean\n  revocationEnabled                            boolean\n  serverCert.filename                          string\n  serverCert.password                          string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  clientCert                                   object\n  clientCert.data                              array\n  serverCert                                   object\n  serverCert.data                              array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  adcsUrl                                      string\n  apiClientId                                  string\n  caName                                       string\n  clientCert.filename                          string\n  displayName                                  string\n  fqdn                                         string\n  outbound                                     boolean\n  revocationEnabled                            boolean\n  serverCert.filename                          string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  clientCert                                   object\n  clientCert.data                              array\n  serverCert                                   object\n  serverCert.data                              array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: clientCert.data, clientCert.password, serverCert.password. Send them in a JSON body with --from-file or on stdin.",
 		Example: `  # Update a field by ID
   jamf-cli pro adcs-settings patch 1 --set general.managed=true
 
@@ -726,7 +726,7 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet, map[string]string{"adcsUrl": "string", "apiClientId": "string", "caName": "string", "clientCert": "object", "clientCert.data": "array", "clientCert.filename": "string", "clientCert.password": "string", "displayName": "string", "fqdn": "string", "outbound": "boolean", "revocationEnabled": "boolean", "serverCert": "object", "serverCert.data": "array", "serverCert.filename": "string", "serverCert.password": "string"})
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"adcsUrl": "string", "apiClientId": "string", "caName": "string", "clientCert": "object", "clientCert.data": "array", "clientCert.filename": "string", "clientCert.password": "string", "displayName": "string", "fqdn": "string", "outbound": "boolean", "revocationEnabled": "boolean", "serverCert": "object", "serverCert.data": "array", "serverCert.filename": "string", "serverCert.password": "string"}, "clientCert.data", "clientCert.password", "serverCert.password")
 				if err != nil {
 					return err
 				}
@@ -765,7 +765,7 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"adcsUrl=", "apiClientId=", "caName=", "clientCert.filename=", "clientCert.password=", "displayName=", "fqdn=", "outbound=", "revocationEnabled=", "serverCert.filename=", "serverCert.password=",
+			"adcsUrl=", "apiClientId=", "caName=", "clientCert.filename=", "displayName=", "fqdn=", "outbound=", "revocationEnabled=", "serverCert.filename=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd
