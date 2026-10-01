@@ -40,6 +40,19 @@ resource with a write-only secret now always blanks that secret, and its
 warning says so. Pro `--help` and shell completion no longer list credential
 fields; the help names them and says where they go.
 
+### Behaviour — `--url` and a profile's `url` no longer redirect the Security Cloud Radar login
+
+`security` commands that use the Risk, Device Lifecycle or SSE credentials
+took the Radar API host from `--url`, then `JAMFSECURITY_URL`, then the
+profile's `url`. That field holds the Jamf Pro instance or, after
+`platform setup`, the platform gateway, so the login sent the Radar client ID
+and secret as Basic auth to that host. The Radar host is now
+`api.wandera.com` unless `JAMFSECURITY_URL` is set.
+
+Migration: a script that pointed the Radar client elsewhere with `--url` or a
+profile `url` sets `JAMFSECURITY_URL` instead. `--url` still selects the
+gateway for the gateway-served commands (`dns-*`, `ztna-*`, and the rest).
+
 ### Behaviour — the MCP `list_commands` tool browses and searches the catalog
 
 `list_commands` returned the whole catalog in one result. That result was
