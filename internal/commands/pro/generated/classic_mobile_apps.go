@@ -594,34 +594,34 @@ its default silently — so --set refuses one rather than letting it through.`,
 			var existingBody []byte
 
 			if flagName != "" {
-
-				id, body, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "mobiledeviceapplications", flagName)
-				if ferr != nil || id == "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
 					return fmt.Errorf("no mobile_device_application found with name %q", flagName)
 				}
 				resolvedID = id
-				existingBody = body
-
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-
-				path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(resolvedID))
-				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
-				if ferr != nil {
-					return fmt.Errorf("fetching existing mobile_device_application: %w", ferr)
-				}
-				var readErr error
-				existingBody, readErr = io.ReadAll(respX.Body)
-				_ = respX.Body.Close()
-				if readErr != nil {
-					return fmt.Errorf("reading existing mobile_device_application: %w", readErr)
-				}
-				if respX.StatusCode >= 400 {
-					return fmt.Errorf("fetching existing mobile_device_application: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
-				}
-
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
+			getPath := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(resolvedID))
+			respX, ferr := ctx.Client.Do(reqCtx, "GET", getPath, nil)
+			if ferr != nil {
+				return fmt.Errorf("fetching existing mobile_device_application: %w", ferr)
+			}
+			var readErr error
+			existingBody, readErr = io.ReadAll(respX.Body)
+			_ = respX.Body.Close()
+			if readErr != nil {
+				return fmt.Errorf("reading existing mobile_device_application: %w", readErr)
+			}
+			if respX.StatusCode >= 400 {
+				return fmt.Errorf("fetching existing mobile_device_application: GET %s returned %d: %s", getPath, respX.StatusCode, string(existingBody))
 			}
 
 			// Fetch-merge-put: start from the existing record, overlay file field.
@@ -707,7 +707,7 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -784,7 +784,7 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

@@ -517,34 +517,34 @@ Optional sections: general, scope, self_service, vpp`,
 			var existingBody []byte
 
 			if flagName != "" {
-
-				id, body, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "macapplications", flagName)
-				if ferr != nil || id == "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
 					return fmt.Errorf("no mac_application found with name %q", flagName)
 				}
 				resolvedID = id
-				existingBody = body
-
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-
-				path := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(resolvedID))
-				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
-				if ferr != nil {
-					return fmt.Errorf("fetching existing mac_application: %w", ferr)
-				}
-				var readErr error
-				existingBody, readErr = io.ReadAll(respX.Body)
-				_ = respX.Body.Close()
-				if readErr != nil {
-					return fmt.Errorf("reading existing mac_application: %w", readErr)
-				}
-				if respX.StatusCode >= 400 {
-					return fmt.Errorf("fetching existing mac_application: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
-				}
-
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
+			getPath := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(resolvedID))
+			respX, ferr := ctx.Client.Do(reqCtx, "GET", getPath, nil)
+			if ferr != nil {
+				return fmt.Errorf("fetching existing mac_application: %w", ferr)
+			}
+			var readErr error
+			existingBody, readErr = io.ReadAll(respX.Body)
+			_ = respX.Body.Close()
+			if readErr != nil {
+				return fmt.Errorf("reading existing mac_application: %w", readErr)
+			}
+			if respX.StatusCode >= 400 {
+				return fmt.Errorf("fetching existing mac_application: GET %s returned %d: %s", getPath, respX.StatusCode, string(existingBody))
 			}
 
 			// Fetch-merge-put: start from the existing record, overlay file field.
@@ -630,7 +630,7 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -707,7 +707,7 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

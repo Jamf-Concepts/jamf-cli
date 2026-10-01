@@ -338,7 +338,15 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedcomputersearches", "advancedcomputersearches", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no advanced_computer_search found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -411,7 +419,7 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedcomputersearches", "advancedcomputersearches", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedcomputersearches", "advancedcomputersearches", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -488,7 +496,7 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedcomputersearches", "advancedcomputersearches", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedcomputersearches", "advancedcomputersearches", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

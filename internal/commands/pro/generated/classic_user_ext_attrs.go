@@ -308,7 +308,15 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/userextensionattributes/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "userextensionattributes", "userextensionattributes", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no user_extension_attribute found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/userextensionattributes/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/userextensionattributes/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -381,7 +389,7 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "userextensionattributes", "userextensionattributes", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "userextensionattributes", "userextensionattributes", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -458,7 +466,7 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "userextensionattributes", "userextensionattributes", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "userextensionattributes", "userextensionattributes", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

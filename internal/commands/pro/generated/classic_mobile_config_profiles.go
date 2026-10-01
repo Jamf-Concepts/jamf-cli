@@ -551,20 +551,22 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			var existingPayload []byte
 
 			if flagName != "" {
-
-				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", flagName)
-				if resolvedID == "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
 					return fmt.Errorf("no configuration_profile found with name %q", flagName)
 				}
-
+				resolvedID = id
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-
-				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", resolvedID)
-
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
+
+			existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", resolvedID)
 
 			var injErr error
 			bodyBytes, injErr = injectClassicFileFields(bodyBytes, "configuration_profile", []classicFileFieldSpec{
@@ -650,7 +652,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -727,7 +729,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

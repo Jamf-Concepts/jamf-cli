@@ -839,7 +839,15 @@ Credential fields (--from-file only, never --set): account_maintenance.accounts[
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/policies/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "policies", "policies", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no policy found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -912,7 +920,7 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "policies", "policies", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "policies", "policies", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -989,7 +997,7 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "policies", "policies", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "policies", "policies", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

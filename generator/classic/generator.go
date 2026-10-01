@@ -934,66 +934,44 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}{{ if hasFetchMergePut . }}			var existingBody []byte
 {{ end }}{{ if hasLookup .Lookups "name" }}
 			if flagName != "" {
-{{ if hasFetchMergePut . }}
-				id, body, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "{{ .Path }}", flagName)
-				if ferr != nil || id == "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
 					return fmt.Errorf("no {{ .Singular }} found with name %q", flagName)
 				}
 				resolvedID = id
-				existingBody = body
-{{ else }}
-				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "{{ .Path }}", flagName)
-				if resolvedID == "" {
-					return fmt.Errorf("no {{ .Singular }} found with name %q", flagName)
-				}
-{{ end }}
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-{{ if hasFetchMergePut . }}
-				path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
-				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
-				if ferr != nil {
-					return fmt.Errorf("fetching existing {{ .Singular }}: %w", ferr)
-				}
-				var readErr error
-				existingBody, readErr = io.ReadAll(respX.Body)
-				_ = respX.Body.Close()
-				if readErr != nil {
-					return fmt.Errorf("reading existing {{ .Singular }}: %w", readErr)
-				}
-				if respX.StatusCode >= 400 {
-					return fmt.Errorf("fetching existing {{ .Singular }}: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
-				}
-{{ else }}
-				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
-{{ end }}
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
 {{ else }}
 			if len(args) > 0 {
 				resolvedID = args[0]
-{{ if hasFetchMergePut . }}
-				path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
-				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
-				if ferr != nil {
-					return fmt.Errorf("fetching existing {{ .Singular }}: %w", ferr)
-				}
-				var readErr error
-				existingBody, readErr = io.ReadAll(respX.Body)
-				_ = respX.Body.Close()
-				if readErr != nil {
-					return fmt.Errorf("reading existing {{ .Singular }}: %w", readErr)
-				}
-				if respX.StatusCode >= 400 {
-					return fmt.Errorf("fetching existing {{ .Singular }}: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
-				}
-{{ else }}
-				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
-{{ end }}
 			} else {
 				return fmt.Errorf("provide an <id> argument")
 			}
+{{ end }}
+{{ if hasFetchMergePut . }}
+			getPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
+			respX, ferr := ctx.Client.Do(reqCtx, "GET", getPath, nil)
+			if ferr != nil {
+				return fmt.Errorf("fetching existing {{ .Singular }}: %w", ferr)
+			}
+			var readErr error
+			existingBody, readErr = io.ReadAll(respX.Body)
+			_ = respX.Body.Close()
+			if readErr != nil {
+				return fmt.Errorf("reading existing {{ .Singular }}: %w", readErr)
+			}
+			if respX.StatusCode >= 400 {
+				return fmt.Errorf("fetching existing {{ .Singular }}: GET %s returned %d: %s", getPath, respX.StatusCode, string(existingBody))
+			}
+{{ else }}
+			existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
 {{ end }}
 
 {{ if hasFetchMergePut . }}
@@ -1061,7 +1039,15 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasLookup .Lookups "name" }}
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/{{ .Path }}/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no {{ .Singular }} found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 			} else {
@@ -1144,7 +1130,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 							resolvedID = id
 						}
 {{ end }}{{ end }}					if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -1285,7 +1271,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -2139,7 +2125,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		}
 	}
 
-	// Filter by case-insensitive name match (consistent with classicFindIDByName).
+	// Filter by case-insensitive name match.
 	type classicMatch struct {
 		id string
 	}
@@ -2234,48 +2220,6 @@ func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, b
 }
 {{ end }}
 {{ if anyIsConfigProfile . }}
-// fetchClassicProfileByName fetches a Classic config profile by name and returns
-// its numeric ID and existing payload plist in a single API call. Returns ("", nil)
-// when not found; callers should proceed without UUID injection if payload is nil.
-//
-// Errors (including non-404 server errors) are silently swallowed — UUID
-// preservation is best-effort and must never block an update.
-func fetchClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, payloadPlist []byte) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, registry.EscapeClassicPathSegment(name))
-	resp, err := client.Do(ctx, "GET", path, nil)
-	if err != nil {
-		return "", nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil
-	}
-
-	if !xmlconv.IsXML(body) {
-		return "", nil
-	}
-
-	m, err := xmlconv.ToMap(body)
-	if err != nil {
-		return "", nil
-	}
-
-	for _, rootVal := range m {
-		if root, ok := rootVal.(map[string]any); ok {
-			if general, ok := root["general"].(map[string]any); ok {
-				id = extractIDString(general, "id")
-				if payloads, ok := general["payloads"].(string); ok {
-					payloadPlist = []byte(payloads)
-				}
-				return id, payloadPlist
-			}
-		}
-	}
-	return "", nil
-}
-
 // fetchClassicProfilePayloadPlist fetches the payload plist for an existing
 // Classic config profile via the /subset/General endpoint. Returns nil when
 // the payload cannot be fetched; callers should proceed without UUID injection.
@@ -3074,9 +3018,14 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		if err != nil {
 			return nil, err
 		}
-		groupID = classicFindIDByName(body, nameOrID)
-		if groupID == "" {
+		matches := classicFindIDsByName(body, nameOrID)
+		switch len(matches) {
+		case 0:
 			return nil, fmt.Errorf("group %q not found", nameOrID)
+		case 1:
+			groupID = matches[0]
+		default:
+			return nil, fmt.Errorf("multiple groups found with name %q (IDs: %s); pass the group's ID instead", nameOrID, strings.Join(matches, ", "))
 		}
 	}
 
@@ -3121,12 +3070,24 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 	return ids, nil
 }
 
-// classicFindIDByName parses a Classic API XML list response and returns the
-// <id> of the first item whose <name> matches (case-insensitive).
+// classicFindIDByName returns the id classicFindIDsByName resolves name to,
+// or "" when nothing matches or the name is ambiguous.
 func classicFindIDByName(body []byte, name string) string {
+	if ids := classicFindIDsByName(body, name); len(ids) == 1 {
+		return ids[0]
+	}
+	return ""
+}
+
+// classicFindIDsByName parses a Classic API XML list response and returns the
+// <id> of every item whose <name> matches case-insensitively, unless exactly
+// one of them matches case-sensitively, in which case only that id. More than
+// one id means the name is ambiguous.
+func classicFindIDsByName(body []byte, name string) []string {
 	dec := xml.NewDecoder(bytes.NewReader(body))
 	var stack []string
 	var curID, curName string
+	var folded, exact []string
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -3141,8 +3102,11 @@ func classicFindIDByName(body []byte, name string) string {
 			}
 		case xml.EndElement:
 			n := len(stack)
-			if n == 2 && strings.EqualFold(curName, name) && curID != "" {
-				return curID
+			if n == 2 && curID != "" && strings.EqualFold(curName, name) {
+				folded = append(folded, curID)
+				if curName == name {
+					exact = append(exact, curID)
+				}
 			}
 			if n > 0 {
 				stack = stack[:n-1]
@@ -3160,7 +3124,10 @@ func classicFindIDByName(body []byte, name string) string {
 			}
 		}
 	}
-	return ""
+	if len(exact) == 1 {
+		return exact
+	}
+	return folded
 }
 {{ end }}
 {{ if anyHasSubsets . }}

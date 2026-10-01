@@ -584,7 +584,15 @@ Optional sections: applications, certificates, configuration_profiles,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no mobile_device found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -679,7 +687,7 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -820,7 +828,7 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

@@ -282,7 +282,15 @@ Optional sections: id, port, set_system_wide`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/softwareupdateservers/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "softwareupdateservers", "softwareupdateservers", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no software_update_server found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/softwareupdateservers/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/softwareupdateservers/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -355,7 +363,7 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "softwareupdateservers", "softwareupdateservers", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "softwareupdateservers", "softwareupdateservers", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -432,7 +440,7 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "softwareupdateservers", "softwareupdateservers", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "softwareupdateservers", "softwareupdateservers", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

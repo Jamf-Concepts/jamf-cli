@@ -306,7 +306,15 @@ Optional sections: CUPS_name, category, id, info, location, make_default, model,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/printers/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "printers", "printers", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no printer found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/printers/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/printers/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -379,7 +387,7 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "printers", "printers", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "printers", "printers", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -456,7 +464,7 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "printers", "printers", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "printers", "printers", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}

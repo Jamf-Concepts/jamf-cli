@@ -11,6 +11,22 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — Classic `update --name` and `--group` refuse an ambiguous name
+
+Jamf Pro allows two records to share a name. `update --name` on a Classic
+resource asked the server's `/name/` endpoint, which answers with one record
+of its own choosing, and wrote to it. Now `update --name` resolves the name
+from the collection, the same way `delete --name` and `apply` already do.
+When two records share the name, the command asks which one to update. With
+`--no-input`, it fails, names the colliding IDs, and writes nothing.
+
+`--group` on `pro classic-mobile-devices delete` and on `pro
+computer-inventory delete`, `erase`, `remove-mdm-profile` and
+`attachments-delete` acted on the first group whose name matched without
+regard to case. Now a group whose name matches with the same case wins if it
+is the only one. Otherwise more than one match fails, names the colliding
+group IDs, and acts on no device. Pass the group's ID to choose one.
+
 ### Behaviour — the MCP `list_commands` tool browses and searches the catalog
 
 `list_commands` returned the whole catalog in one result. That result was

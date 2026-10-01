@@ -581,7 +581,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		}
 	}
 
-	// Filter by case-insensitive name match (consistent with classicFindIDByName).
+	// Filter by case-insensitive name match.
 	type classicMatch struct {
 		id string
 	}
@@ -672,48 +672,6 @@ func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, b
 		return result.IDDirect, nil
 	}
 	return result.IDGeneral, nil
-}
-
-// fetchClassicProfileByName fetches a Classic config profile by name and returns
-// its numeric ID and existing payload plist in a single API call. Returns ("", nil)
-// when not found; callers should proceed without UUID injection if payload is nil.
-//
-// Errors (including non-404 server errors) are silently swallowed — UUID
-// preservation is best-effort and must never block an update.
-func fetchClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, payloadPlist []byte) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, registry.EscapeClassicPathSegment(name))
-	resp, err := client.Do(ctx, "GET", path, nil)
-	if err != nil {
-		return "", nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil
-	}
-
-	if !xmlconv.IsXML(body) {
-		return "", nil
-	}
-
-	m, err := xmlconv.ToMap(body)
-	if err != nil {
-		return "", nil
-	}
-
-	for _, rootVal := range m {
-		if root, ok := rootVal.(map[string]any); ok {
-			if general, ok := root["general"].(map[string]any); ok {
-				id = extractIDString(general, "id")
-				if payloads, ok := general["payloads"].(string); ok {
-					payloadPlist = []byte(payloads)
-				}
-				return id, payloadPlist
-			}
-		}
-	}
-	return "", nil
 }
 
 // fetchClassicProfilePayloadPlist fetches the payload plist for an existing
@@ -1510,9 +1468,14 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		if err != nil {
 			return nil, err
 		}
-		groupID = classicFindIDByName(body, nameOrID)
-		if groupID == "" {
+		matches := classicFindIDsByName(body, nameOrID)
+		switch len(matches) {
+		case 0:
 			return nil, fmt.Errorf("group %q not found", nameOrID)
+		case 1:
+			groupID = matches[0]
+		default:
+			return nil, fmt.Errorf("multiple groups found with name %q (IDs: %s); pass the group's ID instead", nameOrID, strings.Join(matches, ", "))
 		}
 	}
 
@@ -1557,12 +1520,24 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 	return ids, nil
 }
 
-// classicFindIDByName parses a Classic API XML list response and returns the
-// <id> of the first item whose <name> matches (case-insensitive).
+// classicFindIDByName returns the id classicFindIDsByName resolves name to,
+// or "" when nothing matches or the name is ambiguous.
 func classicFindIDByName(body []byte, name string) string {
+	if ids := classicFindIDsByName(body, name); len(ids) == 1 {
+		return ids[0]
+	}
+	return ""
+}
+
+// classicFindIDsByName parses a Classic API XML list response and returns the
+// <id> of every item whose <name> matches case-insensitively, unless exactly
+// one of them matches case-sensitively, in which case only that id. More than
+// one id means the name is ambiguous.
+func classicFindIDsByName(body []byte, name string) []string {
 	dec := xml.NewDecoder(bytes.NewReader(body))
 	var stack []string
 	var curID, curName string
+	var folded, exact []string
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -1577,8 +1552,11 @@ func classicFindIDByName(body []byte, name string) string {
 			}
 		case xml.EndElement:
 			n := len(stack)
-			if n == 2 && strings.EqualFold(curName, name) && curID != "" {
-				return curID
+			if n == 2 && curID != "" && strings.EqualFold(curName, name) {
+				folded = append(folded, curID)
+				if curName == name {
+					exact = append(exact, curID)
+				}
 			}
 			if n > 0 {
 				stack = stack[:n-1]
@@ -1596,7 +1574,10 @@ func classicFindIDByName(body []byte, name string) string {
 			}
 		}
 	}
-	return ""
+	if len(exact) == 1 {
+		return exact
+	}
+	return folded
 }
 
 // resolveClassicRecordID fetches a Classic record by a non-id lookup path (no
