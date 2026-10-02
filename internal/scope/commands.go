@@ -3,6 +3,8 @@
 package scope
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // NewScopeCmd creates the "scope" subcommand group with get, add, and remove
@@ -104,6 +107,9 @@ func newScopeAddCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 			if err := ValidateScopeCombination(res.SingularKey, section, target.FlagName); err != nil {
 				return err
 			}
+			if target, err = resolveDeviceTarget(cmd.Context(), ctx.Client, target, false); err != nil {
+				return err
+			}
 
 			id, s, err := FetchScope(cmd.Context(), ctx.Client, res, ref)
 			if err != nil {
@@ -114,9 +120,9 @@ func newScopeAddCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 				return err
 			}
 
-			if !AddToScope(s, section, target.FlagName, target.Name) {
-				fmt.Fprintf(os.Stderr, "%s %q already in %s scope of %s\n",
-					target.FlagName, target.Name, section, ref)
+			if !AddTargetToScope(s, section, target) {
+				fmt.Fprintf(os.Stderr, "%s %s already in %s scope of %s\n",
+					target.FlagName, target.display(), section, ref)
 				return nil
 			}
 
@@ -132,8 +138,8 @@ func newScopeAddCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(os.Stderr, "Added %s %q to %s scope of %s\n",
-				target.FlagName, target.Name, section, ref)
+			fmt.Fprintf(os.Stderr, "Added %s %s to %s scope of %s\n",
+				target.FlagName, target.display(), section, ref)
 			return OutputScope(ctx.Output, s, outputFormat(cmd))
 		},
 	}
@@ -164,15 +170,18 @@ func newScopeRemoveCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 			if err := ValidateScopeCombination(res.SingularKey, section, target.FlagName); err != nil {
 				return err
 			}
+			if target, err = resolveDeviceTarget(cmd.Context(), ctx.Client, target, true); err != nil {
+				return err
+			}
 
 			id, s, err := FetchScope(cmd.Context(), ctx.Client, res, ref)
 			if err != nil {
 				return err
 			}
 
-			if !RemoveFromScope(s, section, target.FlagName, target.Name) {
-				fmt.Fprintf(os.Stderr, "%s %q not found in %s scope of %s\n",
-					target.FlagName, target.Name, section, ref)
+			if !RemoveTargetFromScope(s, section, target) {
+				fmt.Fprintf(os.Stderr, "%s %s not found in %s scope of %s\n",
+					target.FlagName, target.display(), section, ref)
 				return nil
 			}
 
@@ -184,8 +193,8 @@ func newScopeRemoveCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(os.Stderr, "Removed %s %q from %s scope of %s\n",
-				target.FlagName, target.Name, section, ref)
+			fmt.Fprintf(os.Stderr, "Removed %s %s from %s scope of %s\n",
+				target.FlagName, target.display(), section, ref)
 			return OutputScope(ctx.Output, s, outputFormat(cmd))
 		},
 	}
@@ -193,6 +202,50 @@ func newScopeRemoveCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 	addNameFlag(cmd, res, &flagName)
 	AddScopeFlags(cmd, res, &section)
 	return cmd
+}
+
+// resolveDevice is swapped by tests.
+var resolveDevice = func(ctx context.Context, client registry.HTTPClient, flagName, value string) (*resolve.DeviceIdentifiers, error) {
+	if flagName == flagComputer {
+		return resolve.ResolveComputerIdentifier(ctx, client, value)
+	}
+	return resolve.ResolveMobileDeviceIdentifier(ctx, client, value)
+}
+
+// resolveDeviceTarget turns a --computer or --mobile-device value — an ID,
+// name, UDID or serial number — into the device's numeric ID, which is then
+// the only identifier sent.
+//
+// <id> alone is the one form both Classic matchers resolve unconditionally.
+// Wire-checked 2026-10-01 on a policy and a mobile profile, targets and
+// exclusions: each of <id>, <name>, <udid> and <serial_number> resolves on its
+// own, but the computer matcher reads them in order and refuses at the first
+// one present that does not match — an empty <name> before a good <udid>, or a
+// stale <id> before a good <name>, answers 409 "Unable to match computer". A
+// name is also not unique, and the server's own name match picks one duplicate
+// silently, which the resolver refuses instead. Resolving first also makes
+// add's duplicate check, remove's lookup and the verification read compare
+// IDs, where a serial number could not be compared at all: the scope GET
+// carries no serial.
+//
+// remove falls back to the literal value when the device no longer resolves,
+// so a member whose inventory record is gone can still be taken out by the ID
+// or name the scope lists it under.
+func resolveDeviceTarget(ctx context.Context, client registry.HTTPClient, target ScopeTarget, forRemove bool) (ScopeTarget, error) {
+	if !isDeviceFlag(target.FlagName) {
+		return target, nil
+	}
+	target.Input = target.Name
+	d, err := resolveDevice(ctx, client, target.FlagName, target.Name)
+	if err != nil {
+		if forRemove && errors.Is(err, resolve.ErrNoDeviceMatch) {
+			return target, nil
+		}
+		return target, fmt.Errorf("--%s: %w", target.FlagName, err)
+	}
+	target.Device = d
+	target.Name = d.ID
+	return target, nil
 }
 
 // verifyWritten re-reads the scope and confirms the write landed, unless this
@@ -215,7 +268,8 @@ func verifyWritten(cmd *cobra.Command, ctx *registry.CLIContext, res Resource, i
 // and categories THIS resource accepts rather than the union across all eight.
 func mutateLong(res Resource, verb string) string {
 	sections := SectionsFor(res.SingularKey)
-	return fmt.Sprintf(`%s the scope of %s.
+	flags := ScopeFlagsFor(res.SingularKey)
+	long := fmt.Sprintf(`%s the scope of %s.
 
 Sections (--section): %s. Default: %s.
 Categories: %s.
@@ -223,7 +277,23 @@ Categories: %s.
 Only the <scope> element is sent, so nothing else about the object is
 rewritten. The scope itself is replaced whole, which is why the current scope
 is read first.`,
-		verb, describe(res), humanList(sections), sections[0], flagList(ScopeFlagsFor(res.SingularKey)))
+		verb, describe(res), humanList(sections), sections[0], flagList(flags))
+
+	var devices []string
+	for _, f := range flags {
+		if isDeviceFlag(f) {
+			devices = append(devices, "--"+f)
+		}
+	}
+	if len(devices) == 0 {
+		return long
+	}
+	return long + fmt.Sprintf(`
+
+A device (%s) can be given by ID, name, UDID or serial
+number. It is resolved against inventory to its ID before anything is written,
+so the API client also needs Read Computers or Read Mobile Devices. A name
+shared by more than one device is refused; pass the ID instead.`, humanList(devices))
 }
 
 // scopeExample renders examples using categories the resource really has, so
@@ -361,12 +431,12 @@ func scopeFlagHelp(singularKey, flag string) string {
 
 // scopeFlagNoun describes what each flag's value identifies. The device and
 // directory entries carry the detail a caller cannot guess: which flags accept
-// an ID or UDID as well as a name, and which two are free text resolved
+// an ID, UDID or serial number as well as a name, and which two are free text resolved
 // against the directory rather than Jamf Pro object names.
 var scopeFlagNoun = map[string]string{
-	flagComputer:          "individual computer (id, name, or UDID)",
+	flagComputer:          "individual computer (id, name, UDID or serial number)",
 	flagComputerGroup:     "computer group name",
-	flagMobileDevice:      "individual mobile device (id, name, or UDID)",
+	flagMobileDevice:      "individual mobile device (id, name, UDID or serial number)",
 	flagMobileDeviceGroup: "mobile device group name",
 	flagBuilding:          "building name",
 	flagDepartment:        "department name",
