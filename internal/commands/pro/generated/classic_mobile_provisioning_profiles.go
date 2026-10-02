@@ -304,7 +304,15 @@ Optional sections: general`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no mobile_device_provisioning_profile found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -377,7 +385,7 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *registry.CLIContext) *co
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -454,7 +462,7 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *registry.CLIContext) *co
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -568,7 +576,7 @@ Optional sections: general`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

@@ -398,7 +398,15 @@ Credential fields (--from-file only, never --set): password, password_sha256`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/directorybindings/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no directory_binding found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/directorybindings/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/directorybindings/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -471,7 +479,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -548,7 +556,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -668,7 +676,7 @@ Credential fields (--from-file only, never --set): password, password_sha256`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

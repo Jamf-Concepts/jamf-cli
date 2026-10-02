@@ -569,7 +569,15 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/ebooks/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ebooks", "ebooks", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no ebook found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/ebooks/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/ebooks/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -642,7 +650,7 @@ func newClassicEbooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ebooks", "ebooks", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ebooks", "ebooks", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -719,7 +727,7 @@ func newClassicEbooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ebooks", "ebooks", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ebooks", "ebooks", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -843,7 +851,7 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ebooks", "ebooks", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ebooks", "ebooks", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

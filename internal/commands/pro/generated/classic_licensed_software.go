@@ -393,7 +393,15 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/licensedsoftware/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "licensedsoftware", "licensedsoftware", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no licensed_software found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/licensedsoftware/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/licensedsoftware/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -466,7 +474,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "licensedsoftware", "licensedsoftware", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "licensedsoftware", "licensedsoftware", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -543,7 +551,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "licensedsoftware", "licensedsoftware", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "licensedsoftware", "licensedsoftware", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -670,7 +678,7 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "licensedsoftware", "licensedsoftware", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "licensedsoftware", "licensedsoftware", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

@@ -327,7 +327,15 @@ Credential fields (--from-file only, never --set): institutional_recovery_key.da
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/diskencryptionconfigurations/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no disk_encryption_configuration found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/diskencryptionconfigurations/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/diskencryptionconfigurations/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -400,7 +408,7 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -477,7 +485,7 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -602,7 +610,7 @@ Credential fields (--from-file only, never --set): institutional_recovery_key.da
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

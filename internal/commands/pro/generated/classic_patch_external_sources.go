@@ -294,7 +294,15 @@ Optional sections: certificate_validation_enabled, enabled, host_name, id, port,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/patchexternalsources/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no patch_external_source found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/patchexternalsources/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/patchexternalsources/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -367,7 +375,7 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -444,7 +452,7 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -561,7 +569,7 @@ Optional sections: certificate_validation_enabled, enabled, host_name, id, port,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

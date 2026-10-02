@@ -399,7 +399,15 @@ Credential fields (--from-file only, never --set): apple_tvs[].airplay_password`
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/classes/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "classes", "classes", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no class found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/classes/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/classes/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -472,7 +480,7 @@ func newClassicClassesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "classes", "classes", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "classes", "classes", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -549,7 +557,7 @@ func newClassicClassesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "classes", "classes", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "classes", "classes", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -679,7 +687,7 @@ Credential fields (--from-file only, never --set): apple_tvs[].airplay_password`
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "classes", "classes", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "classes", "classes", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

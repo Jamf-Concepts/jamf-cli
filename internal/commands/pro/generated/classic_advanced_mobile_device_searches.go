@@ -344,7 +344,15 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/advancedmobiledevicesearches/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no advanced_mobile_device_search found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/advancedmobiledevicesearches/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/advancedmobiledevicesearches/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -417,7 +425,7 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -494,7 +502,7 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -620,7 +628,7 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

@@ -304,7 +304,15 @@ Optional sections: building, department, distribution_point, distribution_server
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/networksegments/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no network_segment found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/networksegments/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/networksegments/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -377,7 +385,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -454,7 +462,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -571,7 +579,7 @@ Optional sections: building, department, distribution_point, distribution_server
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "networksegments", "networksegments", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

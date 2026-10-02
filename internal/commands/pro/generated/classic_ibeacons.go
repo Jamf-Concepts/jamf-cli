@@ -288,7 +288,15 @@ Optional sections: id, major, minor`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/ibeacons/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no ibeacon found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/ibeacons/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/ibeacons/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -361,7 +369,7 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -438,7 +446,7 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -554,7 +562,7 @@ Optional sections: id, major, minor`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

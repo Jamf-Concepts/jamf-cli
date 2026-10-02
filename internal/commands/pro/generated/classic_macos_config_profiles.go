@@ -607,20 +607,22 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			var existingPayload []byte
 
 			if flagName != "" {
-
-				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "osxconfigurationprofiles", flagName)
-				if resolvedID == "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
 					return fmt.Errorf("no os_x_configuration_profile found with name %q", flagName)
 				}
-
+				resolvedID = id
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-
-				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", resolvedID)
-
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
+
+			existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", resolvedID)
 
 			var injErr error
 			if len(flagCustomPayloadFiles) > 0 {
@@ -719,7 +721,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -796,7 +798,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -960,7 +962,7 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", name, "apply", noInput)
 			if err != nil {
 				return err
 			}
