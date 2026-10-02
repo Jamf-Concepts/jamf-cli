@@ -142,6 +142,10 @@ const (
 	plistGT    = `(?:>|&(?:amp;)*gt;|\\u003e)`
 	plistSlash = `\\?/`
 	plistGap   = `(?:\s|\\[nrt]|&#(?:x[0-9a-fA-F]+|[0-9]+);)*`
+
+	// A leaf's text, which may hold CDATA sections: a password containing & or
+	// < is written that way, and a section opens with the < a plain run stops at.
+	xmlLeafText = `(?:[^<]|(?s:<!\[CDATA\[.*?\]\]>))*`
 )
 
 var (
@@ -151,12 +155,12 @@ var (
 
 	jsonScalarRe = regexp.MustCompile(`("` + namePattern + `"\s*:\s*)(?:` + jsonString + `|` + jsonNumber + `|` + jsonStringArray + `)`)
 
-	// The text run is [^<]* and the closing tag is matched generically rather
-	// than by backreference, which RE2 does not have. That is exact for a leaf
-	// element, which is what every credential field in the Classic schemas is.
-	xmlElementRe = regexp.MustCompile(`<(?P<name>` + namePattern + `)(\s[^>]*)?>[^<]*</[^>]*>`)
+	// The closing tag is matched generically rather than by backreference,
+	// which RE2 does not have. That is exact for a leaf element, which is what
+	// every credential field in the Classic schemas is.
+	xmlElementRe = regexp.MustCompile(`<(?P<name>` + namePattern + `)(\s[^>]*)?>` + xmlLeafText + `</[^>]*>`)
 
-	xmlLeafTextRe = regexp.MustCompile(`(<[a-zA-Z_][^<>/]*>)[^<]*(</)`)
+	xmlLeafTextRe = regexp.MustCompile(`(<[a-zA-Z_][^<>/]*>)` + xmlLeafText + `(</)`)
 
 	// A plist names a value in a <key> and holds it in the <string> after it,
 	// so neither element's own name says anything.

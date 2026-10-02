@@ -221,3 +221,26 @@ func TestBody_PlistPairSeparatedByCharacterReferences(t *testing.T) {
 		redactCase(t, in, []string{"SENT-decimal-ref", "SENT-hex-ref", "SENT-escaped-ref"}, nil)
 	}
 }
+
+// TestBody_CDATAAndWhitespaceInsideACredentialElement pins the shape a Classic
+// body uses for a password holding & or <: the value sits in a CDATA section,
+// whose opening < the plain text run cannot cross.
+func TestBody_CDATAAndWhitespaceInsideACredentialElement(t *testing.T) {
+	for _, tc := range []struct{ name, in, want string }{
+		{"cdata", `<password><![CDATA[x]]></password>`, `<password>[REDACTED]</password>`},
+		{"cdata with metacharacters", `<smtp_server><password><![CDATA[p&ss<1]]></password></smtp_server>`,
+			`<smtp_server><password>[REDACTED]</password></smtp_server>`},
+		{"cdata across lines", "<password>\n  <![CDATA[line1\nline2]]>\n</password>", `<password>[REDACTED]</password>`},
+		{"whitespace around plain text", "<password>\n  SENT-ws\n</password >", `<password>[REDACTED]</password>`},
+		{"cdata beside a kept sibling", `<smtp_server><name><![CDATA[Mail & Co]]></name><password><![CDATA[SENT-1]]></password></smtp_server>`,
+			`<smtp_server><name><![CDATA[Mail & Co]]></name><password>[REDACTED]</password></smtp_server>`},
+		{"cdata inside a credential container", `<institutional_recovery_key><key><![CDATA[SENT-irk]]></key><certificate_type>PKCS12</certificate_type></institutional_recovery_key>`,
+			`<institutional_recovery_key><key>[REDACTED]</key><certificate_type>[REDACTED]</certificate_type></institutional_recovery_key>`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := string(Body([]byte(tc.in))); got != tc.want {
+				t.Errorf("Body(%q)\n got %q\nwant %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
