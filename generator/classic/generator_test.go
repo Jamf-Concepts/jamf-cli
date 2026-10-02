@@ -804,8 +804,8 @@ func TestGenerateRegistry_WithApplyHelpers(t *testing.T) {
 	checks := []string{
 		"extractClassicName",
 		"resolveClassicNameToIDForApply",
-		"xmlconv.ToMap",
-		"xmlconv.ExtractListItems",
+		"classicFoldedNameMatches",
+		"classicNarrowToExactName",
 		`"general"`,       // checks under general sub-element
 		`"name"`,          // name field extraction
 		"extractIDString", // shared helper from modern registry

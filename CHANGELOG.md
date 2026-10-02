@@ -37,6 +37,38 @@ device still removes a member listed under that ID or name.
 **Migration.** Pass the numeric ID for a device whose name is not unique, and
 grant the API client Read Computers / Read Mobile Devices.
 
+### Behaviour — Classic `update --name`, `apply` and `--group` refuse an ambiguous name
+
+Jamf Pro allows two records to share a name. `update --name` on each of the 33
+Classic resources that take it asked the server's `/name/` endpoint, which
+answers with one record of its own choosing, and wrote to it. Now `update
+--name` resolves the name from the collection, the same way `delete --name`
+and `apply` already do, and writes by ID. When two records share the name,
+the command asks which one to update. With `--no-input`, or when stdin is not
+a terminal, it fails, names the colliding IDs, and writes nothing. The same
+refusal now applies to `delete --name`, `apply` and `pro blueprints
+import-profile` when stdin is not a terminal, where they used to read the
+choice from a pipe. The refusal exits 2 and its hint says to pass one of the
+IDs as `<id>`. A name that reads as a number or a boolean, such as `2024`,
+`true` or `1.50`, is now matched as text, so `update --name`, `delete --name`
+and `apply` find that record, and two records that both have that name are
+refused as a collision.
+
+`pro classic-mac-apps apply` and `pro classic-mobile-apps apply` resolved the
+name to an ID and then fetched the record to merge by name again, so they
+could merge one app's settings into another. They now fetch by the resolved
+ID.
+
+`--group` on `pro classic-mobile-devices delete`, `pro computer-inventory
+delete` and `pro computer-inventory attachments-delete` acted on the first
+group whose name matched without regard to case. Now a group whose name
+matches with the same case wins if it is the only one. Otherwise more than one
+match fails, names the colliding group IDs, and acts on no device. Pass the
+group's ID to choose one. A group list larger than 4 MiB is refused rather
+than searched in part. The device-action `--group` commands, such as `pro
+computer-inventory erase`, use a different resolver, which a separate change
+covers.
+
 ### Breaking — MCP `run_command` refuses local paths and credential output unless the operator allows them
 
 `run_command` used to compare the model's raw argument list against a short

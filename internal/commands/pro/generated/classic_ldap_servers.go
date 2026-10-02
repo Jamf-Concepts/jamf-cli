@@ -452,7 +452,15 @@ Credential fields (--from-file only, never --set): connection.account.password, 
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/ldapservers/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ldapservers", "ldapservers", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no ldap_server found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/ldapservers/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/ldapservers/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -525,7 +533,7 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ldapservers", "ldapservers", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ldapservers", "ldapservers", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -602,7 +610,7 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ldapservers", "ldapservers", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ldapservers", "ldapservers", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -733,7 +741,7 @@ Credential fields (--from-file only, never --set): connection.account.password, 
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ldapservers", "ldapservers", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ldapservers", "ldapservers", name, "apply", noInput)
 			if err != nil {
 				return err
 			}
