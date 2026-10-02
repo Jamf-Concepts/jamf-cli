@@ -213,11 +213,10 @@ func TestAScopeFlagSettlesTheLevelOnBothPaths(t *testing.T) {
 			t.Setenv("JAMF_CLIENT_ID", "cid")
 			t.Setenv("JAMF_CLIENT_SECRET", "csecret")
 			t.Setenv("JAMF_TOKEN", "")
+			isolateAuthGlobals(t)
 			setScopeFlags(t, tc.flagT, tc.flagE)
 
 			// The `pro`/`platform` path: resolveAuth, which backfills.
-			restore := swapServerURL(t)
-			defer restore()
 			_, provider, err := resolveAuth(&config.Config{})
 			if err != nil {
 				t.Fatalf("resolveAuth refused a flag-plus-env combination that the "+
@@ -269,10 +268,9 @@ func TestBothLevelsTogetherIsStillRefusedOnBothPaths(t *testing.T) {
 			t.Setenv("JAMF_CLIENT_ID", "cid")
 			t.Setenv("JAMF_CLIENT_SECRET", "csecret")
 			t.Setenv("JAMF_TOKEN", "")
+			isolateAuthGlobals(t)
 			setScopeFlags(t, tc.flagT, tc.flagE)
 
-			restore := swapServerURL(t)
-			defer restore()
 			if _, _, err := resolveAuth(&config.Config{}); err == nil {
 				t.Error("resolveAuth accepted two scope levels supplied together")
 			}
@@ -288,13 +286,19 @@ func TestBothLevelsTogetherIsStillRefusedOnBothPaths(t *testing.T) {
 	}
 }
 
-// swapServerURL clears and restores the package-level serverURL, which
-// resolveAuth both reads and writes back.
-func swapServerURL(t *testing.T) func() {
+// isolateAuthGlobals clears every package variable resolveAuth folds the
+// environment into and restores it at cleanup, so a credential one test exports
+// cannot reach a later test that builds a client from those variables.
+func isolateAuthGlobals(t *testing.T) {
 	t.Helper()
-	prev := serverURL
-	serverURL = ""
-	return func() { serverURL = prev }
+	prevProfile, prevURL, prevToken, prevTokenFile := profile, serverURL, token, tokenFile
+	prevID, prevSecret, prevT, prevE := clientID, clientSecret, tenantID, environmentID
+	t.Cleanup(func() {
+		profile, serverURL, token, tokenFile = prevProfile, prevURL, prevToken, prevTokenFile
+		clientID, clientSecret, tenantID, environmentID = prevID, prevSecret, prevT, prevE
+	})
+	profile, serverURL, token, tokenFile = "", "", "", ""
+	clientID, clientSecret, tenantID, environmentID = "", "", "", ""
 }
 
 // providerScope reads the scope a platform provider was built with.
