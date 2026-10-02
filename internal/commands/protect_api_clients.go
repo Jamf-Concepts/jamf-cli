@@ -88,6 +88,11 @@ func newProtectApiClientsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if os.Getenv(mcpChildEnvVar) == "1" && item.Password != "" {
+				redacted := *item
+				redacted.Password = protectRedacted
+				item = &redacted
+			}
 			return printResult(cliCtx.Output, item, flattenApiClient(*item))
 		},
 	}

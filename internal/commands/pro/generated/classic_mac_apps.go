@@ -305,8 +305,11 @@ func newClassicMacAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicMacApps); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -374,8 +377,11 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicMacApps); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -517,34 +523,25 @@ Optional sections: general, scope, self_service, vpp`,
 			var existingBody []byte
 
 			if flagName != "" {
-
-				id, body, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "macapplications", flagName)
-				if ferr != nil || id == "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
 					return fmt.Errorf("no mac_application found with name %q", flagName)
 				}
 				resolvedID = id
-				existingBody = body
-
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-
-				path := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(resolvedID))
-				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
-				if ferr != nil {
-					return fmt.Errorf("fetching existing mac_application: %w", ferr)
-				}
-				var readErr error
-				existingBody, readErr = io.ReadAll(respX.Body)
-				_ = respX.Body.Close()
-				if readErr != nil {
-					return fmt.Errorf("reading existing mac_application: %w", readErr)
-				}
-				if respX.StatusCode >= 400 {
-					return fmt.Errorf("fetching existing mac_application: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
-				}
-
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
+			var ferr error
+			existingBody, ferr = fetchClassicFullXMLByID(reqCtx, ctx.Client, "macapplications", "id", resolvedID)
+			if ferr != nil {
+				return fmt.Errorf("fetching existing mac_application: %w", ferr)
 			}
 
 			// Fetch-merge-put: start from the existing record, overlay file field.
@@ -630,7 +627,7 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -707,7 +704,7 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -841,7 +838,7 @@ Optional sections: general, scope, self_service, vpp`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", name, "apply", noInput)
 			if err != nil {
 				return err
 			}
@@ -873,9 +870,12 @@ Optional sections: general, scope, self_service, vpp`,
 			// Fetch the existing full record and overlay the file field(s) — the
 			// user's input (if any) is ignored beyond name resolution; AppConfig
 			// injection preserves every other field on the record.
-			_, fullBody, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "macapplications", name)
-			if ferr != nil || len(fullBody) == 0 {
+			fullBody, ferr := fetchClassicFullXMLByID(reqCtx, ctx.Client, "macapplications", "id", id)
+			if ferr != nil {
 				return fmt.Errorf("fetching existing mac_application for merge-put: %w", ferr)
+			}
+			if len(fullBody) == 0 {
+				return fmt.Errorf("could not fetch existing mac_application for merge-put: the server returned an empty body for id %s", id)
 			}
 			data = fullBody
 			data, err = injectClassicFileFields(data, "mac_application", []classicFileFieldSpec{

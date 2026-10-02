@@ -91,8 +91,11 @@ func newClassicDockItemsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicDockItems); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -160,8 +163,11 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicDockItems); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -297,7 +303,15 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/dockitems/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "dockitems", "dockitems", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no dock_item found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -370,7 +384,7 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "dockitems", "dockitems", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "dockitems", "dockitems", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -447,7 +461,7 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "dockitems", "dockitems", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "dockitems", "dockitems", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -569,7 +583,7 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "dockitems", "dockitems", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "dockitems", "dockitems", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

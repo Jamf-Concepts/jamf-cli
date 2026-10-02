@@ -111,8 +111,11 @@ func newClassicComputerInvitationsListCmd(ctx *registry.CLIContext) *cobra.Comma
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicComputerInvitations); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -183,8 +186,11 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicComputerInvitations); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -319,7 +325,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -396,7 +402,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
