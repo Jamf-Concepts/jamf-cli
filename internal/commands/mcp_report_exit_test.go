@@ -231,7 +231,7 @@ func TestBlockedChildFlags_CoverEveryCredentialSelectingFlagInTheTree(t *testing
 	// the test below — which is what keeps the exemption list from becoming the
 	// place a real hole hides.
 	exempt := map[string]string{
-		"unlock-token":          "a device's own MDM unlock token, sent in the request body; it names no instance",
+		"unlock-token-file":     "a path to a device's own MDM unlock token, sent in the request body; it names no instance",
 		"esim-server-url":       "the carrier's eSIM server, sent to the device; it names no Jamf instance",
 		"no-keychain-client-id": "a payload-exclusion boolean on a config-profile download, not a credential",
 		"no-token":              "a payload-exclusion boolean on a config-profile download, not a credential",
