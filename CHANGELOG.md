@@ -70,6 +70,128 @@ the `-v` request line. A JCDS download that fails before a response no longer
 prints the pre-signed URL's query, which is its credential. A script that read a
 credential back out of any of these gets `[REDACTED]`.
 
+### Behaviour — Classic `update --name`, `apply` and `--group` refuse an ambiguous name
+
+Jamf Pro allows two records to share a name. `update --name` on each of the 33
+Classic resources that take it asked the server's `/name/` endpoint, which
+answers with one record of its own choosing, and wrote to it. Now `update
+--name` resolves the name from the collection, the same way `delete --name`
+and `apply` already do, and writes by ID. When two records share the name,
+the command asks which one to update. With `--no-input`, or when stdin is not
+a terminal, it fails, names the colliding IDs, and writes nothing. The same
+refusal now applies to `delete --name`, `apply` and `pro blueprints
+import-profile` when stdin is not a terminal, where they used to read the
+choice from a pipe. The refusal exits 2 and its hint says to pass one of the
+IDs as `<id>`. A name that reads as a number or a boolean, such as `2024`,
+`true` or `1.50`, is now matched as text, so `update --name`, `delete --name`
+and `apply` find that record, and two records that both have that name are
+refused as a collision.
+
+`pro classic-mac-apps apply` and `pro classic-mobile-apps apply` resolved the
+name to an ID and then fetched the record to merge by name again, so they
+could merge one app's settings into another. They now fetch by the resolved
+ID.
+
+`--group` on `pro classic-mobile-devices delete`, `pro computer-inventory
+delete` and `pro computer-inventory attachments-delete` acted on the first
+group whose name matched without regard to case. Now a group whose name
+matches with the same case wins if it is the only one. Otherwise more than one
+match fails, names the colliding group IDs, and acts on no device. Pass the
+group's ID to choose one. A group list larger than 4 MiB is refused rather
+than searched in part. The device-action `--group` commands, such as `pro
+computer-inventory erase`, use a different resolver, which a separate change
+covers.
+
+### Breaking — MCP `run_command` refuses local paths and credential output unless the operator allows them
+
+`run_command` used to compare the model's raw argument list against a short
+deny-list. A command alias (`cfg`), a leading flag (`--no-color multi`) or a
+flag inside the path (`pro -q backup`) got past it. Flags that name a local
+file were not on the list, so the model could read, write or delete files on
+the machine running `mcp serve`, and `pro diff --target <profile>` used
+another profile's credentials.
+
+The server now judges the command and the flags that cobra resolves, and the
+child process checks again before it runs. These now fail over MCP:
+
+- A flag whose value is a local file to read (`--from-file`, `--file`,
+  `--script-file`, `--input` and the like), unless the path is inside the
+  directory the operator passes to `mcp serve --input-dir <dir>`.
+  `--password-file` is always refused.
+- A flag whose value is a local path to write (`--save-to`, a command's own
+  `--output`, `--report-dir`, `--dir` on `sync`). The `-o/--output` format
+  flag is not affected.
+- `pro diff` with a side that is neither the server's profile nor a directory
+  inside `--input-dir`.
+- Body logging: `-vvv`, or any `--verbose` level of 3 or more however it is
+  spelled. It logs each response body to stderr before any redaction, and
+  `run_command` returns stderr. Use `-vv` or less. In every mode, not only over MCP,
+  the `-vv` header log now shows `Cookie` and `Set-Cookie` values as
+  `[redacted]`, as it already did for `Authorization`.
+- `multi`, `mcp`, `completion`, the `config` write subcommands,
+  `config validate`, `doctor`, every `setup`, both `backup` commands and
+  `jcds sync`.
+- The commands that print an access token: `auth token` under `platform`,
+  `pro` and `protect`, and `pro api-authentication token`, `oauth-token` and
+  `keep-alive`.
+- `pro sso-oauth-session-tokens`, which prints the session's access and ID
+  tokens.
+- The commands that mint a credential and print it:
+  `pro api-integrations client-credentials` (a new client secret) and
+  `protect api-clients apply` (a new API client's password).
+- `pro cloud-distribution-point create` and `patch`, whose response
+  carries the CloudFront private key that signs download URLs.
+- The commands that set a Jamf Pro login password to a value the model
+  chose: `pro jamf-pro-user-account-settings change-password` and
+  `pro accounts create`, `update` and `apply`.
+- `protect downloads csr` and `websocket-auth`, which write the tenant's
+  `.p12` key material into the server's working directory.
+- `protect action-configs export`, whose document carries each report
+  client's header values, such as a SIEM or webhook bearer token. A redacted
+  copy would overwrite the real credential when applied.
+
+`config show` still runs over MCP, with each token, client ID and client
+secret shown as `<redacted>`. `config list --status` checks only the server's
+profile. These Protect commands also run over MCP with the credential shown as
+`<redacted>`: `action-configs get` and `apply` (each report client's header
+values, and the userinfo and query of each report-client URL),
+`data-forwarding get` and `update` (the Sentinel shared key) and
+`api-clients get` (the password). `pro cloud-distribution-point list` runs
+over MCP with the CloudFront private key and the CDN password shown as
+`<redacted>` in every output format. Every Classic `get` and `list` prints each
+field that Classic `--set` refuses as a credential as `<redacted>`, in every
+output format, so `-o raw` is not the wire bytes over MCP, and `pro diff`
+shows those fields' old and new values as `<redacted>` while still reporting
+the change. `get` and `list` on `classic-macos-config-profiles` and
+`classic-mobile-config-profiles`, `pro diff` on `profiles` and `pro blueprints
+components configuration-profile --id/--name` also redact profile payloads by
+key name: the value of a key named `Challenge`, or ending in any case in
+`password`, `secret`, `token`, `authkey`, `apikey`, `accesskey`, `privatekey`,
+`secretkey`, `passcode` or `credential`, prints as `<redacted>`, and so does a
+PKCS#12 certificate. Every other payload value is shown, a custom payload's
+included. The payload is re-encoded, so the record is still a profile
+document. A payload that does not decode is redacted whole, and the blueprint
+converter refuses it. Outside MCP their output is unchanged. Secrets of the pinned tenant's devices (the LAPS
+password, the recovery lock password, the FileVault personal recovery key),
+the JCDS upload credentials of `pro jamf-cloud-distribution-service
+renew-credentials` and `pro jamf-cloud-distribution-service-files create`,
+and blueprint configuration, a secret a component carries included, are
+still shown.
+
+`mcp serve --input-dir ""` (for example `--input-dir "$DIR"` with `DIR`
+unset) is now an error instead of starting with no input directory.
+
+**Migration:** if an agent sends file bodies through `run_command` (for
+example `pro scripts create --script-file …`), start the server with
+`mcp serve --input-dir <dir>` and keep those files in that directory.
+
+### Behaviour — `protect plans config-profile` refuses a plan name that is not a file name
+
+Without `-O`, the command saves `<plan name>.mobileconfig` in the working
+directory. It now refuses a plan name that contains `/` or `\`, or is empty,
+`.` or `..`, because that name would put the file somewhere else. Pass
+`-O <path>` for such a plan. Every other name is saved as before.
+
 ### Breaking — `--set` refuses credential fields in Pro, Platform and Security Cloud
 
 A `--set` value is on the command line, so it lands in shell history, in `ps`
@@ -1042,7 +1164,6 @@ in hand.
   reads nothing, because the payload goes to the file it asked for. A job that passes
   `--select` or `--compact` and parses whole rows now receives narrowed rows.
 
-  `
   `--select` and `--compact` narrow rows. They do not remove them, so a projection that
   matches no field in a row leaves that row present and empty. The 200+ generated commands
   have always behaved that way. The details:
@@ -1064,4 +1185,254 @@ in hand.
   was set. The shared formatter has no case for either format, so it renders a table. Use
   `-o json` for JSON. Without `--out-file` the output is byte-identical, and so is every
   other format. The six `pro report` multi-section reports already rendered `raw` and `xml`
-  as t
+  as tables. What changed for them is that `--out-file` now receives the output.
+- **A section banner is no longer written for a format a parser reads.** `json`, `yaml`,
+  `ndjson`, `csv` and `plain` get no `── Section ──` lines. `xml` and `raw` keep theirs,
+  because they render as tables. A multi-section report still emits one block per section
+  under `csv`, `ndjson` and `plain`, now with nothing between the blocks. Use `-o json` or
+  `-o yaml` for a single parseable file. All seven `pro report` commands with more than one
+  section say so in their `--help`, from one shared string, and so does `multi`, whose
+  aggregation renders one section per merged key.
+- **`pro report patch-status --scan-failures -o json` now writes one array of labelled
+  sections.** It wrote three separate documents into the same file, which `jq` rejects at
+  the second one. Each section carries a `fetch_error` field. An empty section and a
+  section whose fetch failed used to be byte-identical, so a scheduled job read "no
+  failures" from a check that never ran. An empty section is `[]`, never `null`.
+- **`--field` naming a field no row carries now reports that on stderr.** `--quiet` and
+  `--no-hints` do not silence it. A `--field` miss produces no output at all, so nothing
+  else distinguishes a wrong field name from an empty result.
+- **`--field` now extracts on `pro group-tools export` and on a `multi` aggregation.** Both
+  render through their own `--format` argument rather than the global `-o`, so the flag was
+  parsed, listed in Global Flags and discarded. A `multi` aggregation applies it per
+  section, the way a `pro report` section does.
+
+- **A command that documents no positional argument now refuses one**, with exit 2
+  (`usage`). 736 leaf commands used to accept any positional and discard it in silence, so
+  `pro categories list junkarg` ran the list and `pro backup /tmp/out` ran a whole backup
+  and ignored the directory that `--output` takes. A wrapper or a CI job that passes a
+  stray token now fails where it used to succeed. Remove the argument, or move it to the
+  flag that takes it; the refusal names the command and the value, `--help` lists every
+  flag, and any required flag that is also unset is named too — so
+  `pro diff staging production` still reports `--source` and `--target` rather than
+  replacing that answer with the positional complaint. That clause is conditional: a
+  refusal that can suggest a subcommand instead names no flag, so
+  `pro backup list-resourcez` suggests `list-resources` and stays silent about `--output`,
+  which there is the root format flag rather than a directory. The value is replaced with
+  `<redacted>` when the command registers a credential flag (`--new-password`, `--pin`,
+  `--unlock-token`) or when the positional is itself a `key=value` pair whose key names a
+  credential, such as a dropped `--set account.password=…`, because this message reaches
+  stdout as JSON when output is piped and from there a CI log. The key is read
+  case-insensitively and split on both separators and camelCase boundaries, so `TOKEN=`,
+  `CLIENT_SECRET=`, `CLIENTSECRET=` and `clientsecret=` all redact. A positional redacts too when a
+  supplied `--set` element itself carries no `=`, which is the signature
+  `--set <key> <value>` leaves behind when the `=` is lost: cobra takes the key as the
+  flag's element and the credential becomes the positional. The test is on the flag set
+  rather than on the value, so a secret containing `=` — base64 padding, or the character
+  itself — is still covered, while a mistyped filename beside a well-formed pair still
+  names itself. A command that documents a
+  placeholder is unchanged for an ordinary invocation. Under `--scaffold` it is now bounded
+  too: 43 classic and platform leaves used to accept and discard any number of extra
+  positionals with that flag set, and now enforce the declared ceiling, so
+  `<resource> update <id> extra --scaffold` is refused where it exited 0 before. `multi`
+  still forwards every positional to its inner command, and 22 singleton `delete` and
+  `history` commands had their `--help` examples corrected, because those examples showed
+  an id the command never accepted. A further 17 `--help` example lines on 12 resources are
+  corrected for the same reason on the other half of the line: a `create`, `update` or
+  `patch` example opened with a `get` the resource does not ship, or one with a different
+  arity, so half of a documented pipe could not run.
+- **An error raised before the output format is resolved now follows `default-output`.** The
+  `-o` default was `json`, so a flag-parse error and an argument refusal always rendered the
+  JSON envelope on stdout — even where the profile pinned another format, and even on a
+  terminal — while the same profile's `RunE` errors, raised after resolution, rendered plain
+  text. Two answers to one question. The default is now empty, meaning unresolved, and both
+  paths answer the same way. A profile pinning `default-output` to a non-json format
+  therefore gets plain text on stderr for those two error classes where it previously got
+  the envelope on stdout, **piped runs included**: a wrapper parsing that envelope must key
+  on the plain-text form, or pass `-o json` explicitly. With no `default-output` set a piped
+  run still gets the envelope, so an unconfigured CI job is unaffected.
+- **A cobra usage error now exits 2, not 1.** Four classes move: a missing required flag, a
+  flag group with no member set, a flag group with mutually exclusive members set together,
+  and the wrong number of positional arguments. An unknown flag and an unknown subcommand
+  already exited 2, so the two halves of one mistake answered differently. `pro backup
+  --nosuchflag` exited 2 and `pro backup` with no `--output` exited 1. Exit 1 is the generic
+  failure code, so a script could not tell a bad invocation from a failed request. The scope
+  is wide: 48 call sites declare a required flag, 118 declare a flag group, and 671 validate
+  an argument count. A wrapper that treats exit 1 as a bad invocation must key on 2 instead.
+- **`pro ddm-reports declaration get` and `pro ddm-reports device get` are removed.** Both
+  endpoints were deprecated upstream in favour of a sibling the CLI already shipped:
+  `declaration devices <id> --filter …` and `device declarations <id> --filter …`. The
+  successors declare `filter` required, so there is no unfiltered read left; use
+  `--filter 'active=in=(true,false)'` where you want everything.
+- **`pro comp erase` and `pro comp remove-mdm` send `/v4/computers-inventory/{id}/…`**,
+  where they were pinned to `/v1/computer-inventory/{id}/…`. Neither has a version fallback,
+  so an instance that does not serve v4 answers 404. Flags, targeting and confirmation are
+  unchanged.
+- **`jamf-cli config list` no longer has a `tenant-id` column** in `table`, `csv` and
+  `plain` output; it always has `environment-id` and `default` instead. `-o json` and
+  `-o yaml` are unchanged and still carry `tenant-id`. Parse the JSON, not the table.
+- **Building from source needs Go 1.27** (`go.mod` declares `go 1.27.0`, up from `1.26.6`).
+  The default `GOTOOLCHAIN=auto` fetches it; a pinned older toolchain fails. Binary releases
+  are unaffected.
+
+### Changed
+
+- **An empty list prints `[]`, not `null`.** Applies to Pro's `list --all` and to every
+  Platform and Security Cloud list. `jq` pipelines previously failed with "Cannot iterate
+  over null" on exactly the tenants where a collection was empty.
+- **`pro computers-inventory` sends `/v4` instead of `/v3`**, and `get` reads the v4 detail
+  endpoint. Generated subcommands retry the `/v1` path on a 404 and warn on stderr.
+- **Eight Classic patch-management commands are no longer refused on a gateway profile.**
+  `pro classic-patch-reports` (both subcommands), `pro classic-patch-titles` `list`, `get`,
+  `update`, `delete` and `apply`, and `pro classic-patch-policies list` were refused in
+  v1.28.0 because a published Classic API build had withdrawn `/patches`, `/patchreports`,
+  `/patchsoftwaretitles` and two `/patchpolicies` reads. Upstream restored all of them, on
+  the stated reasoning that patch management is where Classic API callers are most
+  concentrated. `pro classic-patch-titles` also gained `--scaffold` and `--set`, its body
+  schema having come back with the endpoints.
+  `/pro/v3/computers-inventory` was restored in the same build — 13 operations, deprecated
+  too close to the removal for callers to reach v4 — which changes the coverage manifest and
+  no command, since the CLI sends v4.
+- **`pro computer-inventory-collection-settings custom-path` sends v2, whose `scope` accepts
+  only `APP`.** v1 served `[APP, FONT, PLUGIN]`, so a `FONT` or `PLUGIN` path that worked
+  before now answers a 400. Nothing in `--help` says so — the Pro generator renders no
+  allowed-value lists.
+- **A 403 names the permission in the vocabulary of the API that answered** — capability
+  permissions with Jamf Account's own section and permission names for a gateway request,
+  Jamf Pro API-role privilege names for an instance request. `commands -o json` carries both
+  (`privileges`, `gatewayPrivileges`, `gatewayPermissions`) plus an `api` field naming the
+  serving API.
+- **`commands -o json`'s `gatewaySuccessor` reports a value**, where it was documented but
+  emitted on no row at all: six refused commands now name the replacement the runtime
+  refusal and the `--help` caveat already named. A script reading the catalog rather than
+  running `--help` was told only that a command was `unserved`.
+- **A CDN/WAF refusal is reported as one** rather than as `permission denied (HTTP 403)`
+  with an HTML page in the message and a hint about API roles. Known triggers: `file://`
+  anywhere in a request body, `.pkg` upload content, a burst of writes. A `.pkg` upload
+  through a gateway profile is currently refused; upload through an instance profile.
+- **`-n, --dry-run` is honoured on Platform and Security Cloud writes**, printing method,
+  resolved path and body to stderr. Hand-written platform writes with no per-command
+  preview are refused under `-n` rather than executed.
+- **`-v` labels retried requests** with the attempt number and the wait, so a slow call is
+  distinguishable from a retry sequence.
+
+### Added
+
+- **Classic writes gained `--scaffold` and `--set`**, plus required-field and enum lists in
+  `--help`: 114 of 117 `create`/`update`/`apply` commands, across 44 of the 54 Classic
+  resources. The three without them are `pro classic-computer-configs` `create`, `update`
+  and `apply`: the resource is dead, and a Jamf Pro instance 404s it too.
+  `--set` builds the whole body and is mutually exclusive with `--from-file`; it refuses an
+  unknown field, an out-of-enum value and a credential field, because the Classic API
+  answers `201` and silently drops or defaults the first two.
+- **`commands -o json` carries a `scopes` array** for every generated Platform command: the
+  Jamf Platform API scope levels its spec declares a credential must be created at
+  (`environment`, or `environment,tenant`). Nothing is refused on it — the specs are
+  currently stricter than the gateway, and a tenant credential still reaches
+  `pro platform-devices list` and `pro platform-device-groups list` despite both being
+  declared environment-only — so it is reported, appended to the gateway's own scope errors,
+  and used to assemble `platform setup`'s summary. Absent means the spec is silent, not that
+  any level works: the three Jamf Account APIs declare nothing and are organization-scoped.
+- **`--file` accepts YAML** on generated Platform and Security Cloud commands, matching
+  Pro's `--from-file`.
+- **`protect backup` and `protect restore`** capture and replay a whole Jamf Protect tenant.
+  Each object is written to its own file in the same portable, name-referenced form the
+  matching `export` produces; restore walks the tree in dependency order, resolving
+  references by name against the target, and never deletes. Both take `--resources` and
+  `--exclude`. Backup prunes documents an earlier run left that no longer match the tenant
+  (`--no-prune` keeps them), and refuses to prune a directory another tenant has written to.
+  Two files carry secrets verbatim and are written `0600` — `action-configs` and
+  `data-forwarding`, because an HTTP report client's bearer token cannot be redacted without
+  breaking restore. Note git records no non-exec permissions, so a clone of a backup repo
+  hands them back `0644`. A mixed result exits 7.
+- **`protect analytics overrides`** manages the tenant overlay on Jamf-managed analytics
+  (`tenantSeverity`, `tenantActions`) — `list`, `get`, `set`, `apply`, `export`, `clear`.
+  `analytics list` reports Jamf's baseline severity rather than the effective one, and
+  `analytics export` omits the overlay entirely, so this is the only route to the
+  customisation a tenant actually made.
+- **Jamf AI Governance:** `platform ai-policies`, `platform ai-tools`.
+- **Jamf Account:** `platform account-licenses`, `deal-registrations`,
+  `distributor-configuration`, `distributor-purchase-orders`, `distributor-quotes`,
+  `sso-connections`, `sso-domains`. Organization scope, and US-only — a non-US profile is
+  refused before sending.
+- **Platform audit:** `platform audit` (environment scope only). Not `pro audit`, which runs
+  health checks against a Jamf Pro instance.
+- **Jamf Security Cloud through the gateway:** `security dns-*`, `ztna-*`,
+  `content-categories`, `device-groups`, `uem-*`, `enrollment-activation-profiles`. Every
+  `security` command's `Short` says which API serves it — platform gateway or Radar — since
+  the two halves take different credentials.
+- **App Installers on the gateway.** The endpoints are published upstream now, so the
+  commands are generated from that spec rather than a reverse-engineered one and are no
+  longer refused on a gateway profile. New: `pro app-installers get`,
+  `app-installer-titles versions`, `app-installer-global-settings deployment-controls`,
+  `history` and `add-history-note`.
+- `pro ddm-reports declaration devices` and `device declarations` gained `--page`; only the
+  first page was reachable before.
+
+### Fixed
+
+- A YAML request body carrying a timestamp scalar or a non-string mapping key — both legal
+  YAML, neither expressible in JSON — was reported as malformed input.
+- `pro platform-device-groups` name lookups built a stale `/tenant/{id}/` path, which
+  collapsed to `/tenant//` under environment or organization scope.
+- `JAMF_ENVIRONMENT_ID` now overrides a tenant-scoped profile rather than colliding with it,
+  the way every other environment variable here overrides the profile.
+- **`platform setup` no longer checks any product's access or permissions.** It used to
+  read `content-categories` and report a Jamf Security Cloud entitlement verdict, which
+  asked the wrong question: a capability permission is granted per operation when the
+  integration is created, so one read says nothing about the other 28 resources, and a
+  gateway 403 already names the permission it wanted in the wording Jamf Account's picker
+  uses. The verdict was also wrong in the ordinary case. Wire-checked in one organization, a
+  **tenant** credential answered `BAD_PERMISSIONS` there while an **environment** credential
+  in the same organization answered 200 — so the summary told a demonstrably entitled
+  organization it had no entitlement, and subtracted all sixteen Security Cloud resources
+  from what the profile reaches. That credential's summary now reports 16 of the 29
+  reachable, and closes by saying where a permissions answer comes from.
+
+  Setup still validates the **scope ID**, because the token exchange sends no scope header:
+  credentials that authenticate say nothing about the ID just typed, so a mis-pasted one
+  saved cleanly and then refused every command. The gateway resolves the scope at the edge,
+  before routing and before capability, so this is not a product check either — only
+  `404 ENVIRONMENT_NOT_FOUND` and `403 OWNERSHIP_FORBIDDEN` reject an ID, and everything
+  else, `BAD_PERMISSIONS` included, leaves it unjudged.
+- **An unknown platform environment ID produced a bare 404 with no explanation.**
+  `ENVIRONMENT_NOT_FOUND` is a 404, so it reached neither the 403 privilege hint nor the
+  missing-scope note. A tenant ID pasted into `environment-id` is exactly this, and it is
+  now annotated with the two IDs it confuses and the profile field to check.
+- **`platform setup`'s closing summary said two things that were not true.** A tenant-scoped
+  profile was told it served "the Pro API and Platform API commands" when six Platform specs
+  declare environment scope only, and an organization-scoped profile was told AI Governance
+  was served, which answers `400 REQUEST_CONTEXT_NOT_PROVIDED` with no scope header. The
+  summary is now assembled from the commands' declared scope levels, so it cannot drift from
+  the specs they were generated from.
+- **`platform setup` called a refused environment ID a tenant ID.** The gateway's
+  `OWNERSHIP_FORBIDDEN` is reachable at either level, and the refusal was worded tenant-only
+  while the closing summary named the same value an environment ID — so setup told an
+  operator to use the prompt they had just used. Both now read from the level that was
+  supplied.
+- **A withheld scope level on a `school` profile reported missing credentials.**
+  `school blueprints` and `school ddm-reports` need a platform client, and the school
+  resolver requires a tenant ID before building one — so a level withheld by the rule above
+  left no client and the command answered "this command requires platform gateway auth",
+  with the profile, the client ID and the secret all present. It now names the profile, the
+  withheld level, and `JAMF_TENANT_ID` / `--tenant-id` — the one level that resolver can
+  build. This is the one path that sends no request, so the note the other two ladders get
+  from the gateway's 400 had nowhere to appear.
+- **`pro classic-macos-config-profiles --scaffold` named the wrong element inside
+  `scope.jss_user_groups`.** It rendered `<jss_user_group>` where the wire answers
+  `<user_group>` — an upstream typo in the Classic spec, confined to that one property while
+  the resource's own `scope.exclusions.jss_user_groups` and all seven sibling resources
+  carrying the same scope block declared it correctly. Corrected upstream and ingested with
+  SDK v0.22.1. Writes were unaffected either way: the Classic API accepts both spellings and
+  reads the scope back as `<user_group>`.
+- **`pro classic-mobile-config-profiles` writes gained `display_in` inside
+  `self_service.self_service_categories`, and it is the field that decides whether the
+  category is stored at all.** The Classic spec had this one resource `$ref` the shared
+  `category` schema (`{id, name, priority}`), where its five siblings declare the item
+  inline with `display_in`; corrected upstream and ingested with SDK v0.22.2. Wire law, on
+  Jamf Pro 11.31.1: a `<category>` carrying only `<id>`, or `<id>` plus `<name>`, is
+  **silently discarded with a 201**, and `display_in=false` is a deletion gesture rather
+  than a stored value. So `--scaffold` renders `<display_in>false</display_in>` — the
+  boolean placeholder — and that is the one value in the template that must be changed
+  rather than merely filled in. `display_in` is also **write-only on this resource alone**:
+  the GET echoes `<id>` and `<name>` only, so a scaffold round trip cannot recover it. Both
+  facts are carried in the field's description in `specs/classic/schemas.json`.

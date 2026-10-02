@@ -97,7 +97,7 @@ func newAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro adcs-settings create
 
   # Get a adcs-setting, modify it, and create a copy
-  jamf-cli pro adcs-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro adcs-settings create`,
+  jamf-cli pro adcs-settings get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro adcs-settings create`,
 		Annotations: map[string]string{"jamf:privileges": "Create AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

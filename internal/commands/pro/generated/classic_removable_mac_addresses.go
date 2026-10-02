@@ -82,8 +82,11 @@ func newClassicRemovableMacAddressesListCmd(ctx *registry.CLIContext) *cobra.Com
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicRemovableMacAddresses); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -151,8 +154,11 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicRemovableMacAddresses); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -272,7 +278,15 @@ Optional sections: id, name`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/removablemacaddresses/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no removable_mac_address found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -345,7 +359,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -422,7 +436,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -536,7 +550,7 @@ Optional sections: id, name`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

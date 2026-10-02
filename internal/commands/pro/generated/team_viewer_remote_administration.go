@@ -97,7 +97,7 @@ func newTeamViewerRemoteAdministrationCreateCmd(ctx *registry.CLIContext) *cobra
   echo '{"name":"Example"}' | jamf-cli pro team-viewer-remote-administration create
 
   # Get a team-viewer-remote-administration, modify it, and create a copy
-  jamf-cli pro team-viewer-remote-administration get 1 -o json | jq '.name = "Copy"' | jamf-cli pro team-viewer-remote-administration create`,
+  jamf-cli pro team-viewer-remote-administration get 1 -o json | jq '.displayName = "Copy"' | jamf-cli pro team-viewer-remote-administration create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

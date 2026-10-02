@@ -176,10 +176,20 @@ func TestClassicFindIDByName(t *testing.T) {
 		}
 	})
 
-	t.Run("first match returned when duplicates exist", func(t *testing.T) {
+	t.Run("duplicate names are refused naming the colliding ids", func(t *testing.T) {
+		const groupsPath = "/JSSResource/computergroups"
 		body := makeClassicListXML([][2]string{{"5", "Dupe"}, {"6", "Dupe"}})
-		if got := classicFindIDByName(body, "Dupe"); got != "5" {
-			t.Errorf("got %q, want %q", got, "5")
+		if got := classicFindIDByName(body, "Dupe"); got != "" {
+			t.Errorf("got %q, want empty for an ambiguous name", got)
+		}
+		client := &mockHTTPClient{responses: map[string]mockResponse{
+			groupsPath:           {body: body, status: 200},
+			groupsPath + "/id/5": {body: makeGroupXML("computers", "computer", []string{"50"}), status: 200},
+			groupsPath + "/id/6": {body: makeGroupXML("computers", "computer", []string{"60"}), status: 200},
+		}}
+		ids, err := fetchClassicGroupMemberIDs(context.Background(), client, groupsPath, "computers", "computer", "Dupe")
+		if err == nil || !strings.Contains(err.Error(), "IDs: 5, 6") {
+			t.Fatalf("got ids=%v err=%v, want a refusal naming ids 5 and 6", ids, err)
 		}
 	})
 

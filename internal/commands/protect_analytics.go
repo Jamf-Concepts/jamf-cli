@@ -271,6 +271,11 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 			if len(files) == 0 {
 				return fmt.Errorf("no YAML files found")
 			}
+			for _, f := range files {
+				if err := refuseMCPChildReadOutsideInputDir(f); err != nil {
+					return err
+				}
+			}
 
 			// Build name->UUID map for upsert detection
 			existing, err := cliCtx.ProtectClient.ListAnalytics(ctx)

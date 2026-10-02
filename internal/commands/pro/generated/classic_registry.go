@@ -24,6 +24,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"golang.org/x/term"
 	"howett.net/plist"
 )
 
@@ -85,6 +86,84 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicWebhooksCmd(ctx))
 }
 
+// classicBodySpecsByCommand maps each Classic command group to its body spec.
+var classicBodySpecsByCommand = map[string]classicBodySpec{
+	"classic-account-groups":                  bodySpecClassicAccountGroups,
+	"classic-account-users":                   bodySpecClassicAccountUsers,
+	"classic-accounts":                        bodySpecClassicAccounts,
+	"classic-advanced-computer-searches":      bodySpecClassicAdvancedComputerSearches,
+	"classic-advanced-mobile-device-searches": bodySpecClassicAdvancedMobileDeviceSearches,
+	"classic-allowed-file-extensions":         bodySpecClassicAllowedFileExtensions,
+	"classic-classes":                         bodySpecClassicClasses,
+	"classic-computer-apps":                   bodySpecClassicComputerApps,
+	"classic-computer-commands":               bodySpecClassicComputerCommands,
+	"classic-computer-configs":                bodySpecClassicComputerConfigs,
+	"classic-computer-ext-attrs":              bodySpecClassicComputerExtAttrs,
+	"classic-computer-groups":                 bodySpecClassicComputerGroups,
+	"classic-computer-history":                bodySpecClassicComputerHistory,
+	"classic-computer-invitations":            bodySpecClassicComputerInvitations,
+	"classic-directory-bindings":              bodySpecClassicDirectoryBindings,
+	"classic-disk-encryption-configs":         bodySpecClassicDiskEncryptionConfigs,
+	"classic-distribution-points":             bodySpecClassicDistributionPoints,
+	"classic-dock-items":                      bodySpecClassicDockItems,
+	"classic-ebooks":                          bodySpecClassicEbooks,
+	"classic-gsx-connection":                  bodySpecClassicGsxConnection,
+	"classic-ibeacons":                        bodySpecClassicIbeacons,
+	"classic-jwt-configs":                     bodySpecClassicJwtConfigs,
+	"classic-ldap-servers":                    bodySpecClassicLdapServers,
+	"classic-licensed-software":               bodySpecClassicLicensedSoftware,
+	"classic-mac-apps":                        bodySpecClassicMacApps,
+	"classic-macos-config-profiles":           bodySpecClassicMacosConfigProfiles,
+	"classic-mobile-apps":                     bodySpecClassicMobileApps,
+	"classic-mobile-commands":                 bodySpecClassicMobileCommands,
+	"classic-mobile-config-profiles":          bodySpecClassicMobileConfigProfiles,
+	"classic-mobile-device-groups":            bodySpecClassicMobileDeviceGroups,
+	"classic-mobile-devices":                  bodySpecClassicMobileDevices,
+	"classic-mobile-history":                  bodySpecClassicMobileHistory,
+	"classic-mobile-invitations":              bodySpecClassicMobileInvitations,
+	"classic-mobile-provisioning-profiles":    bodySpecClassicMobileProvisioningProfiles,
+	"classic-network-segments":                bodySpecClassicNetworkSegments,
+	"classic-packages":                        bodySpecClassicPackages,
+	"classic-patch-available-titles":          bodySpecClassicPatchAvailableTitles,
+	"classic-patch-external-sources":          bodySpecClassicPatchExternalSources,
+	"classic-patch-internal-sources":          bodySpecClassicPatchInternalSources,
+	"classic-patch-policies":                  bodySpecClassicPatchPolicies,
+	"classic-patch-reports":                   bodySpecClassicPatchReports,
+	"classic-patch-titles":                    bodySpecClassicPatchTitles,
+	"classic-policies":                        bodySpecClassicPolicies,
+	"classic-printers":                        bodySpecClassicPrinters,
+	"classic-removable-mac-addresses":         bodySpecClassicRemovableMacAddresses,
+	"classic-restricted-software":             bodySpecClassicRestrictedSoftware,
+	"classic-smtp-server":                     bodySpecClassicSmtpServer,
+	"classic-software-update-servers":         bodySpecClassicSoftwareUpdateServers,
+	"classic-user-ext-attrs":                  bodySpecClassicUserExtAttrs,
+	"classic-user-groups":                     bodySpecClassicUserGroups,
+	"classic-vpp-accounts":                    bodySpecClassicVppAccounts,
+	"classic-vpp-assignments":                 bodySpecClassicVppAssignments,
+	"classic-vpp-invitations":                 bodySpecClassicVppInvitations,
+	"classic-webhooks":                        bodySpecClassicWebhooks,
+}
+
+// ClassicCredentialLeaves returns the element names that carry a credential in
+// the Classic resource whose command group is cliName, or nil for none.
+func ClassicCredentialLeaves(cliName string) map[string]bool {
+	return classicCredentialLeaves(classicBodySpecsByCommand[cliName])
+}
+
+// classicCredentialLeaves is the last segment of each credential path in spec.
+// Within one resource no such name is also worn by a field that is not a
+// credential, so an element is matched by name alone at any depth.
+func classicCredentialLeaves(spec classicBodySpec) map[string]bool {
+	if len(spec.Credentials) == 0 {
+		return nil
+	}
+	leaves := make(map[string]bool, len(spec.Credentials))
+	for path := range spec.Credentials {
+		leaves[strings.TrimSuffix(path[strings.LastIndex(path, ".")+1:], "[]")] = true
+	}
+	return leaves
+}
+
 // readClassicBody reads an XML request body from --from-file, or from stdin when
 // the flag is absent. Unlike readApplyInput it tolerates an absent body and
 // returns nil, leaving the caller to decide whether that is an error — classic
@@ -108,6 +187,101 @@ func readClassicBody(fromFile string) ([]byte, error) {
 	}
 
 	return nil, nil
+}
+
+// classicRedactedText is "<redacted>" escaped as XML element text, so every
+// output format decodes it back to the marker.
+const classicRedactedText = "&lt;redacted&gt;"
+
+// redactClassicReadInMCPChild returns body with the text of every element
+// named after one of spec's credential fields replaced by the redaction
+// marker, when this process is a child of `mcp serve`. Every get and list
+// prints through it, before choosing a format, so -o raw is not the wire
+// bytes there. A body it cannot parse as XML is refused rather than printed.
+func redactClassicReadInMCPChild(body []byte, spec classicBodySpec) ([]byte, error) {
+	leaves := classicCredentialLeaves(spec)
+	if len(leaves) == 0 || !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+		return body, nil
+	}
+	if !xmlconv.IsXML(body) {
+		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its credential fields cannot be redacted and it is not printed over MCP")
+	}
+	type span struct{ start, end int64 }
+	var spans []span
+	var names []string
+	var starts []int64
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	for {
+		before := dec.InputOffset()
+		tok, err := dec.RawToken()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("parsing the Classic API response to redact its credential fields, so it is not printed over MCP: %w", err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			names = append(names, t.Name.Local)
+			starts = append(starts, dec.InputOffset())
+		case xml.EndElement:
+			n := len(names)
+			if n == 0 {
+				continue
+			}
+			if leaves[names[n-1]] && before > starts[n-1] {
+				spans = append(spans, span{starts[n-1], before})
+			}
+			names, starts = names[:n-1], starts[:n-1]
+		}
+	}
+	if len(spans) == 0 {
+		return body, nil
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+	var out bytes.Buffer
+	var cursor int64
+	for _, sp := range spans {
+		if sp.start < cursor {
+			continue
+		}
+		out.Write(body[cursor:sp.start])
+		out.WriteString(classicRedactedText)
+		cursor = sp.end
+	}
+	out.Write(body[cursor:])
+	return out.Bytes(), nil
+}
+
+// classicProfilePayloadCommands are the Classic command groups whose records
+// carry a configuration profile's plist in <payloads>.
+var classicProfilePayloadCommands = map[string]bool{
+	"classic-macos-config-profiles":  true,
+	"classic-mobile-config-profiles": true,
+}
+
+// ClassicCarriesProfilePayloads reports whether the Classic resource whose
+// command group is cliName carries a configuration profile in <payloads>.
+func ClassicCarriesProfilePayloads(cliName string) bool {
+	return classicProfilePayloadCommands[cliName]
+}
+
+// redactClassicProfilePayloadsInMCPChild returns body with each secret inside
+// a configuration profile's <payloads> plist replaced by the redaction marker,
+// when this process is a child of mcp serve. A payload that does not decode is
+// replaced whole, and a body that is not XML is refused rather than printed.
+func redactClassicProfilePayloadsInMCPChild(body []byte) ([]byte, error) {
+	if !registry.InMCPChild() || len(bytes.TrimSpace(body)) == 0 {
+		return body, nil
+	}
+	if !xmlconv.IsXML(body) {
+		return nil, fmt.Errorf("the Classic API answered with a body that is not XML, so its profile payloads cannot be redacted and it is not printed over MCP")
+	}
+	out, err := profileconvert.RedactClassicProfilePayloads(body)
+	if err != nil {
+		return nil, fmt.Errorf("parsing the Classic API response to redact its profile payloads, so it is not printed over MCP: %w", err)
+	}
+	return out, nil
 }
 
 // ── Schema-derived request bodies (--scaffold and --set) ──────────────────
@@ -492,42 +666,122 @@ func classicXMLText(s string) string {
 	return b.String()
 }
 
+type classicNameMatch struct {
+	id, name string
+}
+
+// classicFoldedNameMatches walks a Classic API XML list response and returns
+// every item whose <name> matches name case-insensitively. <name> is read as
+// text, never coerced, so a record named "2024" or "true" matches. Matches
+// found before a malformed token are returned alongside the error.
+func classicFoldedNameMatches(body []byte, name string) ([]classicNameMatch, error) {
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	var stack []string
+	var curID, curName string
+	var folded []classicNameMatch
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			return folded, nil
+		}
+		if err != nil {
+			return folded, err
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+			if len(stack) == 2 {
+				curID = ""
+				curName = ""
+			}
+		case xml.EndElement:
+			n := len(stack)
+			if n == 2 && curID != "" && strings.EqualFold(curName, name) {
+				folded = append(folded, classicNameMatch{id: curID, name: curName})
+			}
+			if n > 0 {
+				stack = stack[:n-1]
+			}
+		case xml.CharData:
+			n := len(stack)
+			if n == 3 {
+				val := strings.TrimSpace(string(t))
+				switch stack[n-1] {
+				case "id":
+					curID = val
+				case "name":
+					curName = val
+				}
+			}
+		}
+	}
+}
+
+// classicNarrowToExactName returns the one match whose name equals name with
+// the same case, when exactly one does, and otherwise every folded match.
+func classicNarrowToExactName(folded []classicNameMatch, name string) []classicNameMatch {
+	var exact []classicNameMatch
+	for _, m := range folded {
+		if m.name == name {
+			exact = append(exact, m)
+		}
+	}
+	if len(exact) == 1 {
+		return exact
+	}
+	return folded
+}
+
 // Classic apply/delete-by-name helpers. These share the generated package with
 // registry.go and depend on readApplyInput and extractIDString defined there.
 
-// extractClassicName extracts the resource name from XML input.
-// It tries direct-child "name" first, then checks under common sub-elements
-// like "general". The singularKey is the XML wrapper element (e.g., "policy").
+// extractClassicName extracts the resource name from XML input as text, so a
+// name that reads as a number or boolean ("2024", "true") is kept verbatim.
+// It tries a direct-child <name> first, then one under <general>. The
+// singularKey is the XML wrapper element (e.g., "policy"); a body that omits
+// the wrapper is read from its root.
 func extractClassicName(data []byte, singularKey string) (string, error) {
-	m, err := xmlconv.ToMap(data)
-	if err != nil {
-		return "", fmt.Errorf("parsing XML: %w", err)
-	}
-
-	// Unwrap the root element if it matches the singular key
-	inner, ok := m[singularKey]
-	if !ok {
-		// Try without wrapper (user may omit it)
-		inner = m
-	}
-
-	obj, ok := inner.(map[string]any)
-	if !ok {
-		return "", fmt.Errorf("unexpected XML structure")
-	}
-
-	// Direct name field
-	if name, ok := obj["name"].(string); ok && name != "" {
-		return name, nil
-	}
-
-	// Check under "general" sub-element (policies, profiles, etc.)
-	if general, ok := obj["general"].(map[string]any); ok {
-		if name, ok := general["name"].(string); ok && name != "" {
-			return name, nil
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	var stack []string
+	var text strings.Builder
+	var direct, general string
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("parsing XML: %w", err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+			text.Reset()
+		case xml.CharData:
+			text.Write(t)
+		case xml.EndElement:
+			path := stack
+			if len(path) > 0 && path[0] == singularKey {
+				path = path[1:]
+			}
+			if len(path) > 0 && path[len(path)-1] == "name" {
+				switch {
+				case len(path) == 1 && direct == "":
+					direct = strings.TrimSpace(text.String())
+				case len(path) == 2 && path[0] == "general" && general == "":
+					general = strings.TrimSpace(text.String())
+				}
+			}
+			text.Reset()
+			stack = stack[:len(stack)-1]
 		}
 	}
-
+	if direct != "" {
+		return direct, nil
+	}
+	if general != "" {
+		return general, nil
+	}
 	return "", fmt.Errorf("could not find 'name' field in XML input")
 }
 
@@ -546,13 +800,16 @@ func (e *ClassicNameCollisionError) Error() string {
 	return fmt.Sprintf("multiple resources found with name %q (IDs: %s)", e.Name, strings.Join(e.IDs, ", "))
 }
 
+var classicStdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
 // resolveClassicNameToIDForApply looks up a classic resource by name using
 // the list endpoint. Returns all matching IDs for collision detection.
 // Returns ("", nil) when no resource is found (caller should create).
 // Returns (id, nil) when exactly one match is found.
-// Returns ("", error) when multiple matches or lookup fails. verb names the
-// action the interactive prompt and no-input error offer as the remedy
-// ("update" for the generated apply/update/delete paths).
+// Returns ("", error) when multiple matches or lookup fails; a refused
+// collision is a Usage *exitcode.Error wrapping *ClassicNameCollisionError.
+// verb names the command the interactive prompt and the refusal's hint offer
+// as the remedy ("update", "delete", or "apply").
 func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name, verb string, noInput bool) (string, error) {
 	resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
 	if err != nil {
@@ -565,35 +822,32 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return "", fmt.Errorf("reading list response: %w", err)
 	}
 
-	var items []map[string]any
+	var folded []classicNameMatch
 	if xmlconv.IsXML(body) {
-		items, err = xmlconv.ExtractListItems(body)
+		folded, err = classicFoldedNameMatches(body, name)
 		if err != nil {
 			return "", fmt.Errorf("parsing XML list: %w", err)
 		}
 	} else {
-		// JSON fallback
 		var wrapper map[string]json.RawMessage
 		if err := json.Unmarshal(body, &wrapper); err == nil {
 			if inner, ok := wrapper[wrapperKey]; ok {
-				_ = json.Unmarshal(inner, &items)
+				var items []struct {
+					ID   json.Number `json:"id"`
+					Name string      `json:"name"`
+				}
+				if err := json.Unmarshal(inner, &items); err != nil {
+					return "", fmt.Errorf("parsing JSON list: %w", err)
+				}
+				for _, item := range items {
+					if item.ID != "" && strings.EqualFold(item.Name, name) {
+						folded = append(folded, classicNameMatch{id: item.ID.String(), name: item.Name})
+					}
+				}
 			}
 		}
 	}
-
-	// Filter by case-insensitive name match (consistent with classicFindIDByName).
-	type classicMatch struct {
-		id string
-	}
-	var matches []classicMatch
-	for _, item := range items {
-		itemName, _ := item["name"].(string)
-		if strings.EqualFold(itemName, name) {
-			if id := extractIDString(item, "id"); id != "" {
-				matches = append(matches, classicMatch{id: id})
-			}
-		}
-	}
+	matches := classicNarrowToExactName(folded, name)
 
 	if len(matches) == 0 {
 		return "", nil
@@ -602,20 +856,25 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return matches[0].id, nil
 	}
 
-	// Collision: multiple resources with the same name
-	if noInput {
+	// Collision: multiple resources with the same name. Only prompt when a
+	// human can answer: a non-terminal stdin would feed the pick from a pipe.
+	if noInput || !classicStdinIsTerminal() {
 		ids := make([]string, len(matches))
 		for i, m := range matches {
 			ids[i] = m.id
 		}
 		collision := &ClassicNameCollisionError{Name: name, IDs: ids}
-		return "", fmt.Errorf("%w; resolve duplicates or use %s with a specific ID", collision, verb)
+		hint := fmt.Sprintf("run %s again with one of these IDs as <id> in place of --name", verb)
+		if verb == "apply" {
+			hint = "rename one of the records so the name is unique, or run update with one of these IDs as <id>"
+		}
+		return "", exitcode.Wrap(exitcode.Usage, collision).WithHint(hint)
 	}
 
 	// Interactive: prompt user to pick
 	fmt.Fprintf(os.Stderr, "Multiple resources found with name %q:\n", name)
 	for i, m := range matches {
-		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, m.id)
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s  Name: %s\n", i+1, m.id, m.name)
 	}
 	fmt.Fprintf(os.Stderr, "Enter number to %s (or 0 to cancel): ", verb)
 	var choice int
@@ -629,8 +888,8 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 // name-to-ID lookup the generated apply/update paths use: case-insensitive
 // match, and on duplicate names either an interactive pick or (with noInput)
 // an error listing the colliding IDs. Returns ("", nil) when nothing matches.
-// verb is used only for the interactive prompt and the no-input error's
-// generic remedy sentence ("Enter number to %s"/"use %s with a specific ID");
+// verb is used only for the interactive prompt and the refusal's hint
+// ("Enter number to %s"/"run %s again with one of these IDs as <id>");
 // callers whose command doesn't fit that phrasing (e.g. a command that looks
 // up rather than replaces) should pass a verb that fits, or errors.As for
 // *ClassicNameCollisionError to phrase their own remedy entirely.
@@ -672,48 +931,6 @@ func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, b
 		return result.IDDirect, nil
 	}
 	return result.IDGeneral, nil
-}
-
-// fetchClassicProfileByName fetches a Classic config profile by name and returns
-// its numeric ID and existing payload plist in a single API call. Returns ("", nil)
-// when not found; callers should proceed without UUID injection if payload is nil.
-//
-// Errors (including non-404 server errors) are silently swallowed — UUID
-// preservation is best-effort and must never block an update.
-func fetchClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, payloadPlist []byte) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, registry.EscapeClassicPathSegment(name))
-	resp, err := client.Do(ctx, "GET", path, nil)
-	if err != nil {
-		return "", nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil
-	}
-
-	if !xmlconv.IsXML(body) {
-		return "", nil
-	}
-
-	m, err := xmlconv.ToMap(body)
-	if err != nil {
-		return "", nil
-	}
-
-	for _, rootVal := range m {
-		if root, ok := rootVal.(map[string]any); ok {
-			if general, ok := root["general"].(map[string]any); ok {
-				id = extractIDString(general, "id")
-				if payloads, ok := general["payloads"].(string); ok {
-					payloadPlist = []byte(payloads)
-				}
-				return id, payloadPlist
-			}
-		}
-	}
-	return "", nil
 }
 
 // fetchClassicProfilePayloadPlist fetches the payload plist for an existing
@@ -1392,36 +1609,24 @@ func setClassicGeneralName(body []byte, rootName, name string) []byte {
 	return []byte(s[:gOpen+len("<general>")] + nameEl + inner + s[gClose:])
 }
 
-// fetchClassicFullXMLByName fetches a Classic resource's full XML body by name,
-// returning the bytes and its ID. Used by apply for resources that need
-// fetch-merge-put semantics (e.g. mac/mobile app AppConfig). Returns an error
-// if the API responds with a non-2xx status so the caller doesn't PUT back an
-// HTML error page as the "existing record".
-func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, body []byte, err error) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, registry.EscapeClassicPathSegment(name))
+// fetchClassicFullXMLByID fetches a Classic resource's full XML body by id.
+// A non-2xx status is an error so the caller never PUTs an HTML error page
+// back as the existing record.
+func fetchClassicFullXMLByID(ctx context.Context, client registry.HTTPClient, apiPath, idPath, id string) ([]byte, error) {
+	path := fmt.Sprintf("/JSSResource/%s/%s/%s", apiPath, idPath, url.PathEscape(id))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err = io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", nil, fmt.Errorf("reading GET %s: %w", path, err)
+		return nil, fmt.Errorf("reading GET %s: %w", path, err)
 	}
 	if resp.StatusCode >= 400 {
-		return "", nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, string(body))
 	}
-	m, mapErr := xmlconv.ToMap(body)
-	if mapErr == nil {
-		for _, rootVal := range m {
-			if root, ok := rootVal.(map[string]any); ok {
-				if general, ok := root["general"].(map[string]any); ok {
-					id = extractIDString(general, "id")
-				}
-			}
-		}
-	}
-	return id, body, nil
+	return body, nil
 }
 
 // sliceClassicListSubsetXML returns the <subset>...</subset> subtree from a
@@ -1506,13 +1711,18 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 			return nil, fmt.Errorf("listing groups: %w", err)
 		}
 		defer func() { _ = resp.Body.Close() }()
-		body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		body, err := readClassicGroupBody(resp.Body, groupsPath)
 		if err != nil {
 			return nil, err
 		}
-		groupID = classicFindIDByName(body, nameOrID)
-		if groupID == "" {
+		matches := classicFindIDsByName(body, nameOrID)
+		switch len(matches) {
+		case 0:
 			return nil, fmt.Errorf("group %q not found", nameOrID)
+		case 1:
+			groupID = matches[0]
+		default:
+			return nil, fmt.Errorf("multiple groups found with name %q (IDs: %s); pass the group's ID instead", nameOrID, strings.Join(matches, ", "))
 		}
 	}
 
@@ -1521,7 +1731,7 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		return nil, fmt.Errorf("fetching group %s: %w", groupID, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	body, err := readClassicGroupBody(resp.Body, groupsPath+"/id/"+groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -1557,46 +1767,41 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 	return ids, nil
 }
 
-// classicFindIDByName parses a Classic API XML list response and returns the
-// <id> of the first item whose <name> matches (case-insensitive).
+const classicGroupBodyLimit = 4 << 20
+
+// readClassicGroupBody reads a group response, refusing one larger than
+// classicGroupBodyLimit rather than matching against a truncated document.
+func readClassicGroupBody(r io.Reader, path string) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(r, classicGroupBodyLimit+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > classicGroupBodyLimit {
+		return nil, fmt.Errorf("GET %s: response exceeds %d MiB", path, classicGroupBodyLimit>>20)
+	}
+	return body, nil
+}
+
+// classicFindIDByName returns the id classicFindIDsByName resolves name to,
+// or "" when nothing matches or the name is ambiguous.
 func classicFindIDByName(body []byte, name string) string {
-	dec := xml.NewDecoder(bytes.NewReader(body))
-	var stack []string
-	var curID, curName string
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			break
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			stack = append(stack, t.Name.Local)
-			if len(stack) == 2 {
-				curID = ""
-				curName = ""
-			}
-		case xml.EndElement:
-			n := len(stack)
-			if n == 2 && strings.EqualFold(curName, name) && curID != "" {
-				return curID
-			}
-			if n > 0 {
-				stack = stack[:n-1]
-			}
-		case xml.CharData:
-			n := len(stack)
-			if n == 3 {
-				val := strings.TrimSpace(string(t))
-				switch stack[n-1] {
-				case "id":
-					curID = val
-				case "name":
-					curName = val
-				}
-			}
-		}
+	if ids := classicFindIDsByName(body, name); len(ids) == 1 {
+		return ids[0]
 	}
 	return ""
+}
+
+// classicFindIDsByName parses a Classic API XML list response and returns the
+// <id> of every item whose <name> matches case-insensitively, unless exactly
+// one of them matches case-sensitively, in which case only that id. More than
+// one id means the name is ambiguous.
+func classicFindIDsByName(body []byte, name string) []string {
+	folded, _ := classicFoldedNameMatches(body, name)
+	var ids []string
+	for _, m := range classicNarrowToExactName(folded, name) {
+		ids = append(ids, m.id)
+	}
+	return ids
 }
 
 // resolveClassicRecordID fetches a Classic record by a non-id lookup path (no

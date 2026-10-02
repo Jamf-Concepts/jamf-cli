@@ -470,8 +470,10 @@ func RedactCredentialBody(data []byte) []byte { return redact.Body(data) }
 // (the Platform Gateway client wired through the SDK).
 func RedactBodyForLog(data []byte) []byte { return redact.Body(data) }
 
-// logHeaders prints HTTP headers to w in sorted order. When redactAuth is true,
-// the Authorization header value is replaced with "[redacted]".
+// logHeaders prints HTTP headers to w in sorted order. A Cookie or Set-Cookie
+// value is always replaced with "[redacted]", since a session cookie
+// authenticates the same as the token, and so is Authorization when redactAuth
+// is true.
 func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
 	keys := make([]string, 0, len(h))
 	for k := range h {
@@ -480,7 +482,7 @@ func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		v := strings.Join(h[k], ", ")
-		if redactAuth && strings.EqualFold(k, "Authorization") {
+		if redactAuth && strings.EqualFold(k, "Authorization") || strings.EqualFold(k, "Cookie") || strings.EqualFold(k, "Set-Cookie") {
 			v = "[redacted]"
 		}
 		_, _ = fmt.Fprintf(w, "    %s: %s\n", k, v)
