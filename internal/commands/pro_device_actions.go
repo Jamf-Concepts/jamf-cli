@@ -4,8 +4,10 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -232,7 +235,7 @@ func newComputerEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "erase",
 		Short:       "Erase a computer",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", secretPositionalAnnotation: "true"},
 		Long: `Erase a computer by serial number, name, or ID, or target a group.
 
 This is a destructive operation that wipes the device. An optional request
@@ -464,7 +467,7 @@ func newMobileEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "erase",
 		Short:       "Erase a mobile device",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", secretPositionalAnnotation: "true"},
 		Long: `Erase a mobile device by serial number, name, or ID, or target a group.
 
 This is a destructive operation. An optional request body can configure
@@ -864,25 +867,44 @@ func newComputerSetRecoveryLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		dt                 deviceTarget
 		yes                bool
 		confirmDestructive bool
-		newPassword        string
+		passwordFile       string
+		clearPassword      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "set-recovery-lock",
 		Short: "Set or clear the Recovery Lock password on a computer",
 		Long: `Set the Recovery Lock password on an Apple Silicon or Apple T2 computer.
-Omit --new-password or pass an empty string to clear the existing password.
+
+The password is read from a file (--new-password-file) or prompted
+interactively. It is never accepted as a flag value. Pass --clear to remove the
+existing password; an empty file or an empty prompt is refused rather than
+read as a request to clear.
 
 This is a destructive operation: setting an unknown password can permanently
 lock a user out of their machine.`,
-		Example: `  # Set a recovery lock password
-  jamf-cli pro comp set-recovery-lock --serial C02X1234 --new-password "S3cur3P@ss" --yes
-
-  # Clear the recovery lock password
+		Example: `  # Interactive password prompt
   jamf-cli pro comp set-recovery-lock --serial C02X1234 --yes
 
+  # Password from a file (CI/CD)
+  jamf-cli pro comp set-recovery-lock --serial C02X1234 --new-password-file ./recovery.txt --yes
+
+  # Clear the recovery lock password
+  jamf-cli pro comp set-recovery-lock --serial C02X1234 --clear --yes
+
   # Bulk (requires both --yes and --confirm-destructive)
-  jamf-cli pro comp set-recovery-lock --group "Lab Macs" --new-password "S3cur3" --yes --confirm-destructive`,
+  jamf-cli pro comp set-recovery-lock --group "Lab Macs" --new-password-file ./recovery.txt --yes --confirm-destructive`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var newPassword string
+			if !clearPassword {
+				var err error
+				newPassword, err = readSecret("--new-password-file", passwordFile, "Enter new Recovery Lock password: ")
+				if err != nil {
+					return err
+				}
+				if newPassword == "" {
+					return fmt.Errorf("the Recovery Lock password is empty; pass --clear to remove it")
+				}
+			}
 			return runDeviceAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
 				actionName:  "set-recovery-lock",
 				deviceType:  "computer",
@@ -899,7 +921,9 @@ lock a user out of their machine.`,
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
-	cmd.Flags().StringVar(&newPassword, "new-password", "", "Recovery Lock password (omit to clear)")
+	cmd.Flags().StringVar(&passwordFile, "new-password-file", "", "file containing the new Recovery Lock password")
+	cmd.Flags().BoolVar(&clearPassword, "clear", false, "clear the existing Recovery Lock password")
+	cmd.MarkFlagsMutuallyExclusive("new-password-file", "clear")
 	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
@@ -1024,17 +1048,27 @@ func newMobileLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		confirmDestructive bool
 		message            string
 		phoneNumber        string
-		pin                string
+		pinFile            string
 	)
 	cmd := &cobra.Command{
 		Use:         "lock",
 		Short:       "Lock a mobile device",
 		Annotations: destructiveAnnotation("lock", true),
-		Long:        "Lock a supervised mobile device by serial number, name, or ID. This is a destructive operation.",
+		Long: `Lock a supervised mobile device by serial number, name, or ID. This is a destructive operation.
+
+An unlock PIN is read from a file (--pin-file), never from a flag value.`,
 		Example: `  jamf-cli pro md lock --serial F4GH5678 --yes
   jamf-cli pro md lock --serial F4GH5678 --message "Call IT" --phone-number "555-1234" --yes
+  jamf-cli pro md lock --serial F4GH5678 --pin-file ./pin.txt --yes
   jamf-cli pro md lock --group "Lost Devices" --yes --confirm-destructive`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var pin string
+			if pinFile != "" {
+				var err error
+				if pin, err = readSecretFile("--pin-file", pinFile); err != nil {
+					return err
+				}
+			}
 			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
 				actionName:  "lock",
 				deviceType:  "mobile device",
@@ -1060,7 +1094,7 @@ func newMobileLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	cmd.Flags().StringVar(&message, "message", "", "message to display on the locked screen")
 	cmd.Flags().StringVar(&phoneNumber, "phone-number", "", "phone number to display on the locked screen")
-	cmd.Flags().StringVar(&pin, "pin", "", "6-digit PIN required to unlock (supervised devices)")
+	cmd.Flags().StringVar(&pinFile, "pin-file", "", "file containing the 6-digit PIN required to unlock (supervised devices)")
 	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
@@ -1069,14 +1103,21 @@ func newMobileClearPasscodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		dt                 deviceTarget
 		yes                bool
 		confirmDestructive bool
-		unlockToken        string
+		unlockTokenFile    string
 	)
 	cmd := &cobra.Command{
-		Use:     "clear-passcode",
-		Short:   "Clear the passcode on a mobile device",
-		Long:    "Clear the passcode on a supervised mobile device by serial number, name, or ID.",
-		Example: `  jamf-cli pro md clear-passcode --serial F4GH5678 --unlock-token VU5MT0NLVE9LRU4= --yes`,
+		Use:   "clear-passcode",
+		Short: "Clear the passcode on a mobile device",
+		Long: `Clear the passcode on a supervised mobile device by serial number, name, or ID.
+
+The base64-encoded unlock token is read from the file --unlock-token-file
+names. It is never accepted as a flag value or from stdin.`,
+		Example: `  jamf-cli pro md clear-passcode --serial F4GH5678 --unlock-token-file ./unlock-token.txt --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			unlockToken, err := readSecretFile("--unlock-token-file", unlockTokenFile)
+			if err != nil {
+				return err
+			}
 			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
 				actionName:  "clear-passcode",
 				deviceType:  "mobile device",
@@ -1093,8 +1134,8 @@ func newMobileClearPasscodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
-	cmd.Flags().StringVar(&unlockToken, "unlock-token", "", "base64-encoded unlock token (required for supervised devices)")
-	_ = cmd.MarkFlagRequired("unlock-token")
+	cmd.Flags().StringVar(&unlockTokenFile, "unlock-token-file", "", "file containing the base64-encoded unlock token (required for supervised devices)")
+	_ = cmd.MarkFlagRequired("unlock-token-file")
 	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
@@ -1654,23 +1695,9 @@ It is never accepted as a flag value.`,
   # Password from file (CI/CD)
   jamf-cli pro comp set-auto-admin-password --serial C02X1234 --password-file /tmp/pw.txt --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var password string
-			if passwordFile != "" {
-				data, err := os.ReadFile(passwordFile)
-				if err != nil {
-					return fmt.Errorf("reading password file: %w", err)
-				}
-				password = strings.TrimRight(string(data), "\r\n")
-			} else if noInput {
-				return fmt.Errorf("--password-file is required when --no-input is set")
-			} else {
-				fmt.Fprint(os.Stderr, "Enter new admin password: ")
-				passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-				fmt.Fprintln(os.Stderr)
-				if err != nil {
-					return fmt.Errorf("reading password: %w", err)
-				}
-				password = string(passBytes)
+			password, err := readSecret("--password-file", passwordFile, "Enter new admin password: ")
+			if err != nil {
+				return err
 			}
 			if password == "" {
 				return fmt.Errorf("password must not be empty")
@@ -1699,4 +1726,50 @@ It is never accepted as a flag value.`,
 	cmd.Flags().StringVar(&userName, "user-name", "", "username of the admin account (default: MDM-created account)")
 	cmd.Flags().StringVar(&passwordFile, "password-file", "", "file containing the new password")
 	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
+}
+
+// readSecret reads a device secret from the file a --*-file flag names, or
+// prompts for it without echo when the flag is unset. It refuses under
+// --no-input rather than prompting, so an unattended run fails instead of
+// hanging.
+func readSecret(flag, path, prompt string) (string, error) {
+	if path != "" {
+		return readSecretFile(flag, path)
+	}
+	if noInput {
+		return "", fmt.Errorf("%s is required when --no-input is set", flag)
+	}
+	fmt.Fprint(os.Stderr, prompt)
+	b, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", fmt.Errorf("reading from the terminal: %w (pass %s instead)", err, flag)
+	}
+	return string(b), nil
+}
+
+// readSecretFile reads a secret from the file at path and drops the trailing
+// line ending an editor or echo leaves. "-" is refused rather than read as
+// stdin, which the credential policy rules out. Other whitespace is
+// kept, since it can be part of a password. An empty file is refused: for
+// set-recovery-lock an empty password means "clear", which only --clear asks for.
+func readSecretFile(flag, path string) (string, error) {
+	if path == "-" {
+		return "", exitcode.New(exitcode.Usage, flag+" does not read stdin; pass the path of a file holding the secret")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// The path is left out: a secret typed where its path belongs
+		// (--pin-file 123456) would otherwise land in the error envelope.
+		var pe *fs.PathError
+		if errors.As(err, &pe) {
+			err = pe.Err
+		}
+		return "", fmt.Errorf("reading %s: %w", flag, err)
+	}
+	secret := strings.TrimRight(string(data), "\r\n")
+	if secret == "" {
+		return "", fmt.Errorf("%s names an empty file", flag)
+	}
+	return secret, nil
 }

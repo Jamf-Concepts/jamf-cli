@@ -11,6 +11,66 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — device secrets are read from a file, not a flag value
+
+Three flags took a device secret as their value, where `ps`, shell history and
+a CI log could read it. Each is removed and replaced by a file flag on the same
+command, with no alias. The old name now fails with `unknown flag` and a hint
+naming the new one.
+
+| command | removed | use instead |
+|---|---|---|
+| `pro computer-inventory set-recovery-lock` | `--new-password <pw>` | `--new-password-file <path>`, or the no-echo prompt |
+| `pro computer-inventory set-recovery-lock` | omitting `--new-password` to clear | `--clear` |
+| `pro mobile-devices lock` | `--pin <pin>` | `--pin-file <path>` |
+| `pro mobile-devices clear-passcode` | `--unlock-token <token>` | `--unlock-token-file <path>` |
+
+Clearing a Recovery Lock is now something a caller asks for. With neither
+`--new-password-file` nor `--clear`, `set-recovery-lock` prompts on a terminal,
+and under `--no-input` it refuses. It used to clear the password, so a script
+that relied on "no flag means clear" has to pass `--clear`. An empty file or an
+empty prompt is refused too, rather than read as a clear. None of the file
+flags reads stdin: `-` is refused with exit 2. A trailing line ending in any of
+the files is dropped. An error reading one of the files names
+the flag and not the path, so a secret typed where its path belongs is not
+echoed.
+
+### Behaviour — `-vvv`, `--dry-run` and error messages redact more credentials
+
+The `-vvv` body log redacted passwords, secrets and the OAuth `access_token`,
+and missed every other credential a body carries: `token`, `pin`,
+`unlockToken`, `accessToken`, `serverToken`, `bootstrapToken`, `encodedToken`,
+`identityKeystore`, `gsxKeystore.keystoreBytes`, an XML `<token>`, a form
+`token=`, a FileVault institutional recovery key's `<key>` and `<data>`, and
+any secret in a configuration profile's plist. Now:
+
+- A field is redacted when its name, split on camelCase and `_ - .`, ends in
+  `token`, `pin`, `passcode`, `keystore`, `keystore bytes`, `keystore file`,
+  `authorization`, `authorization header`, `challenge`, `signature`,
+  `credential` or `credentials`, or when it holds one of the old credential
+  words anywhere. A field that only starts with one of these words is left
+  alone, so `tokenUrl`, `tokenEndpointAuthMethod`, `token_type`, `pinned`,
+  `keystoreFileName` and `authorizationEndpoint` still read in full.
+- Every value inside an `institutional_recovery_key` element or object is
+  redacted. The inventory status form,
+  `<institutional_recovery_key>Not Present</institutional_recovery_key>`, is
+  not.
+- A plist `<key>Password</key><string>…</string>` pair is redacted by its key,
+  raw, entity-escaped inside a Classic `<payloads>` element, or inside a JSON
+  string.
+- A string array under a credential name is redacted. A number is redacted only
+  under a `pin` or `passcode` name, so `passwordMinLength` stays readable. A
+  boolean never is.
+
+`--dry-run` printed request bodies with no redaction at all, on Jamf Pro and
+Classic writes, on Platform gateway writes (including the gateway-served
+Security Cloud commands) and on Security Cloud Radar writes. All three previews
+now go through the same redactor as `-vvv`. So do the response bodies quoted
+into an HTTP error message and the JSON error envelope, and the query string of
+the `-v` request line. A JCDS download that fails before a response no longer
+prints the pre-signed URL's query, which is its credential. A script that read a
+credential back out of any of these gets `[REDACTED]`.
+
 ### Behaviour — Classic `update --name`, `apply` and `--group` refuse an ambiguous name
 
 Jamf Pro allows two records to share a name. `update --name` on each of the 33

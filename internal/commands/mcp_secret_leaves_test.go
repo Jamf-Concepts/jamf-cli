@@ -45,6 +45,7 @@ var notACredentialPrinter = map[string]string{
 
 	"pro computer-inventory set-auto-admin-password": exemptSetsDeviceSecret,
 	"pro computer-inventory set-recovery-lock":       exemptSetsDeviceSecret,
+	"pro mobile-devices clear-passcode":              exemptSetsDeviceSecret,
 	"pro local-admin-password set-password":          exemptSetsDeviceSecret,
 	"pro mobile-devices clear-restrictions-password": exemptSetsDeviceSecret,
 	"pro mobile-devices patch":                       exemptSetsDeviceSecret,
