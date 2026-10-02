@@ -109,15 +109,6 @@ func TestSecretFileFlags_SendTheFileContent(t *testing.T) {
 				t.Errorf("%s = %q, want the file's content without its line ending", c.field, got)
 			}
 		})
-		t.Run(c.name+" stdin", func(t *testing.T) {
-			client, err := runSecretCmd(t, c.newCmd, ptr("Fake-Piped-2\n"), c.flag, "-")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := client.commandData[c.field]; got != "Fake-Piped-2" {
-				t.Errorf("%s = %q, want the piped content", c.field, got)
-			}
-		})
 	}
 }
 
@@ -126,10 +117,6 @@ func TestSecretFileFlags_RefuseAnEmptySource(t *testing.T) {
 		for _, content := range []string{"", "\n"} {
 			t.Run(c.name+" named file "+strings.ReplaceAll(content, "\n", `\n`), func(t *testing.T) {
 				client, err := runSecretCmd(t, c.newCmd, nil, c.flag, secretFile(t, content))
-				assertRefused(t, client, err, c.flag+" names an empty file")
-			})
-			t.Run(c.name+" empty pipe "+strings.ReplaceAll(content, "\n", `\n`), func(t *testing.T) {
-				client, err := runSecretCmd(t, c.newCmd, ptr(content), c.flag, "-")
 				assertRefused(t, client, err, c.flag+" names an empty file")
 			})
 		}

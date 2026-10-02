@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -1109,11 +1110,9 @@ func newMobileClearPasscodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Clear the passcode on a mobile device",
 		Long: `Clear the passcode on a supervised mobile device by serial number, name, or ID.
 
-The base64-encoded unlock token is read from a file (--unlock-token-file), or
-from stdin when the path is "-". It is never accepted as a flag value. Reading
-it from stdin leaves no terminal for the confirmation prompt, so pass --yes.`,
-		Example: `  jamf-cli pro md clear-passcode --serial F4GH5678 --unlock-token-file ./unlock-token.txt --yes
-  printf '%s' "$UNLOCK_TOKEN" | jamf-cli pro md clear-passcode --serial F4GH5678 --unlock-token-file - --yes`,
+The base64-encoded unlock token is read from the file --unlock-token-file
+names. It is never accepted as a flag value or from stdin.`,
+		Example: `  jamf-cli pro md clear-passcode --serial F4GH5678 --unlock-token-file ./unlock-token.txt --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			unlockToken, err := readSecretFile("--unlock-token-file", unlockTokenFile)
 			if err != nil {
@@ -1135,7 +1134,7 @@ it from stdin leaves no terminal for the confirmation prompt, so pass --yes.`,
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
-	cmd.Flags().StringVar(&unlockTokenFile, "unlock-token-file", "", `file containing the base64-encoded unlock token, or "-" for stdin (required for supervised devices)`)
+	cmd.Flags().StringVar(&unlockTokenFile, "unlock-token-file", "", "file containing the base64-encoded unlock token (required for supervised devices)")
 	_ = cmd.MarkFlagRequired("unlock-token-file")
 	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
@@ -1749,20 +1748,16 @@ func readSecret(flag, path, prompt string) (string, error) {
 	return string(b), nil
 }
 
-// readSecretFile reads a secret from path, or from stdin when path is "-", and
-// drops the trailing line ending an editor or echo leaves. Other whitespace is
+// readSecretFile reads a secret from the file at path and drops the trailing
+// line ending an editor or echo leaves. "-" is refused rather than read as
+// stdin, which the credential policy rules out. Other whitespace is
 // kept, since it can be part of a password. An empty file is refused: for
 // set-recovery-lock an empty password means "clear", which only --clear asks for.
 func readSecretFile(flag, path string) (string, error) {
-	var (
-		data []byte
-		err  error
-	)
 	if path == "-" {
-		data, err = io.ReadAll(os.Stdin)
-	} else {
-		data, err = os.ReadFile(path)
+		return "", exitcode.New(exitcode.Usage, flag+" does not read stdin; pass the path of a file holding the secret")
 	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		// The path is left out: a secret typed where its path belongs
 		// (--pin-file 123456) would otherwise land in the error envelope.

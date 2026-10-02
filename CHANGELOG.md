@@ -23,14 +23,15 @@ naming the new one.
 | `pro computer-inventory set-recovery-lock` | `--new-password <pw>` | `--new-password-file <path>`, or the no-echo prompt |
 | `pro computer-inventory set-recovery-lock` | omitting `--new-password` to clear | `--clear` |
 | `pro mobile-devices lock` | `--pin <pin>` | `--pin-file <path>` |
-| `pro mobile-devices clear-passcode` | `--unlock-token <token>` | `--unlock-token-file <path>`, or `-` for stdin |
+| `pro mobile-devices clear-passcode` | `--unlock-token <token>` | `--unlock-token-file <path>` |
 
 Clearing a Recovery Lock is now something a caller asks for. With neither
 `--new-password-file` nor `--clear`, `set-recovery-lock` prompts on a terminal,
 and under `--no-input` it refuses. It used to clear the password, so a script
 that relied on "no flag means clear" has to pass `--clear`. An empty file or an
-empty prompt is refused too, rather than read as a clear. A trailing line
-ending in any of the files is dropped. An error reading one of the files names
+empty prompt is refused too, rather than read as a clear. None of the file
+flags reads stdin: `-` is refused with exit 2. A trailing line ending in any of
+the files is dropped. An error reading one of the files names
 the flag and not the path, so a secret typed where its path belongs is not
 echoed.
 
