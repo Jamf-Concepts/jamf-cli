@@ -378,3 +378,18 @@ func TestRepro_FindPackageByFileName_RefusesATruncatedWildcardMatch(t *testing.T
 		t.Errorf("*.pkg matched 3 packages and the page held 2; lookup returned %q with no error", id)
 	}
 }
+
+// Jamf Pro refuses a second package whose fileName differs only in case
+// (400 DUPLICATE_FIELD), so a case variant must resolve to the stored package.
+func TestFindPackageByFileName_CaseVariantResolvesToTheStoredPackage(t *testing.T) {
+	client := &deviceResolveMockClient{handler: func(_, path string) (int, string, error) {
+		if strings.HasPrefix(path, "/v1/packages?") {
+			return 200, `{"totalCount":1,"results":[{"id":"12","fileName":"Foo.pkg"}]}`, nil
+		}
+		return 0, "", fmt.Errorf("unexpected path: %s", path)
+	}}
+	id, err := findPackageByFileName(context.Background(), client, "foo.pkg")
+	if err != nil || id != "12" {
+		t.Errorf("upload of foo.pkg beside stored Foo.pkg = %q, %v; want 12", id, err)
+	}
+}

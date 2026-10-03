@@ -233,7 +233,9 @@ func findPackageByFileName(ctx context.Context, client registry.HTTPClient, file
 		if !ok {
 			continue
 		}
-		if name, _ := rec["fileName"].(string); name == fileName {
+		// Jamf Pro matches and enforces fileName case-insensitively, so a case
+		// variant is the same package and can be replaced, not created beside it.
+		if name, _ := rec["fileName"].(string); strings.EqualFold(name, fileName) {
 			ids = append(ids, extractField(rec, "id"))
 		}
 	}
