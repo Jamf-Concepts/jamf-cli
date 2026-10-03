@@ -173,6 +173,13 @@ func (c *setupClient) generateClientCredentials(ctx context.Context, integration
 	return result.ClientID, result.ClientSecret, nil
 }
 
+// displayNameMatches reports whether a search result's displayName is the one
+// searched for. An unreported name is accepted; a different one means the
+// server's filter matched another record, which is not this one.
+func displayNameMatches(got, want string) bool {
+	return got == "" || strings.EqualFold(got, want)
+}
+
 // findAPIRoleByName searches for an API role by display name.
 // Returns ("", nil) if not found, (id, nil) if exactly one match.
 func (c *setupClient) findAPIRoleByName(ctx context.Context, displayName string) (string, error) {
@@ -190,7 +197,8 @@ func (c *setupClient) findAPIRoleByName(ctx context.Context, displayName string)
 	var result struct {
 		TotalCount int `json:"totalCount"`
 		Results    []struct {
-			ID string `json:"id"`
+			ID          string `json:"id"`
+			DisplayName string `json:"displayName"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -201,6 +209,9 @@ func (c *setupClient) findAPIRoleByName(ctx context.Context, displayName string)
 	case 0:
 		return "", nil
 	case 1:
+		if len(result.Results) == 0 || !displayNameMatches(result.Results[0].DisplayName, displayName) {
+			return "", nil
+		}
 		return result.Results[0].ID, nil
 	default:
 		return "", fmt.Errorf("multiple API roles named %q found (%d); remove duplicates before running setup", displayName, result.TotalCount)
@@ -244,7 +255,8 @@ func (c *setupClient) findAPIIntegrationByName(ctx context.Context, displayName 
 	var result struct {
 		TotalCount int `json:"totalCount"`
 		Results    []struct {
-			ID int `json:"id"`
+			ID          int    `json:"id"`
+			DisplayName string `json:"displayName"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -255,6 +267,9 @@ func (c *setupClient) findAPIIntegrationByName(ctx context.Context, displayName 
 	case 0:
 		return 0, nil
 	case 1:
+		if len(result.Results) == 0 || !displayNameMatches(result.Results[0].DisplayName, displayName) {
+			return 0, nil
+		}
 		return result.Results[0].ID, nil
 	default:
 		return 0, fmt.Errorf("multiple API integrations named %q found (%d); remove duplicates before running setup", displayName, result.TotalCount)

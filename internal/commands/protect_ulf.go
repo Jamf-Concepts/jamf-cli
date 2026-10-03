@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -138,7 +139,9 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveUnifiedLoggingFilterUUID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreateUnifiedLoggingFilter(ctx, input)
 				if err != nil {
 					return err
@@ -250,15 +253,11 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 				}
 			}
 
-			// Build name->UUID map for upsert detection
 			existing, err := cliCtx.ProtectClient.ListUnifiedLoggingFilters(ctx)
 			if err != nil {
 				return fmt.Errorf("listing existing filters: %w", err)
 			}
-			nameToUUID := make(map[string]string, len(existing))
-			for _, f := range existing {
-				nameToUUID[f.Name] = f.UUID
-			}
+			refs := protect.RefsOf(existing, func(f jamfprotect.UnifiedLoggingFilter) string { return f.Name }, func(f jamfprotect.UnifiedLoggingFilter) string { return f.UUID })
 
 			for _, f := range files {
 				data, err := os.ReadFile(f)
@@ -273,7 +272,11 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 
 				input := ulfYAMLToInput(uy)
 
-				if uuid, ok := nameToUUID[uy.Name]; ok {
+				uuid, err := protect.PickNamed(refs, uy.Name, "unified logging filter", "unified-logging-filters", "names")
+				if err != nil && !errors.Is(err, protect.ErrNotFound) {
+					return fmt.Errorf("importing %s: %w", f, err)
+				}
+				if err == nil {
 					if _, err := cliCtx.ProtectClient.UpdateUnifiedLoggingFilter(ctx, uuid, input); err != nil {
 						return fmt.Errorf("updating filter %q from %s: %w", uy.Name, f, err)
 					}
@@ -283,7 +286,7 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 					if err != nil {
 						return fmt.Errorf("creating filter %q from %s: %w", uy.Name, f, err)
 					}
-					nameToUUID[uy.Name] = created.UUID
+					refs = append(refs, protect.NamedRef{Name: uy.Name, ID: created.UUID})
 					fmt.Fprintf(os.Stderr, "Created unified logging filter %q\n", uy.Name)
 				}
 			}

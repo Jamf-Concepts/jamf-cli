@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -115,7 +116,9 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 			}
 			uuid, err := r.ResolveExceptionSetUUID(ctx, doc.Name)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreateExceptionSet(ctx, input)
 				if err != nil {
 					return err

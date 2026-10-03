@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -155,8 +156,11 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			existing, found := byName[input.Name]
-			if !found {
+			existing, err := byName.one(input.Name)
+			if err != nil && !errors.Is(err, protect.ErrNotFound) {
+				return err
+			}
+			if err != nil {
 				result, err := cliCtx.ProtectClient.CreateAnalytic(ctx, input)
 				if err != nil {
 					return err
@@ -277,15 +281,11 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 				}
 			}
 
-			// Build name->UUID map for upsert detection
 			existing, err := cliCtx.ProtectClient.ListAnalytics(ctx)
 			if err != nil {
 				return fmt.Errorf("listing existing analytics: %w", err)
 			}
-			nameToUUID := make(map[string]string, len(existing))
-			for _, a := range existing {
-				nameToUUID[a.Name] = a.UUID
-			}
+			refs := protect.RefsOf(existing, func(a jamfprotect.Analytic) string { return a.Name }, func(a jamfprotect.Analytic) string { return a.UUID })
 
 			for _, f := range files {
 				data, err := os.ReadFile(f)
@@ -300,7 +300,11 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 
 				input := analyticYAMLToInput(ay)
 
-				if uuid, ok := nameToUUID[ay.Name]; ok {
+				uuid, err := protect.PickNamed(refs, ay.Name, "analytic", "analytics", "names")
+				if err != nil && !errors.Is(err, protect.ErrNotFound) {
+					return fmt.Errorf("importing %s: %w", f, err)
+				}
+				if err == nil {
 					if _, err := cliCtx.ProtectClient.UpdateAnalytic(ctx, uuid, input); err != nil {
 						return fmt.Errorf("updating analytic %q from %s: %w", ay.Name, f, err)
 					}
@@ -310,7 +314,7 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 					if err != nil {
 						return fmt.Errorf("creating analytic %q from %s: %w", ay.Name, f, err)
 					}
-					nameToUUID[ay.Name] = created.UUID
+					refs = append(refs, protect.NamedRef{Name: ay.Name, ID: created.UUID})
 					fmt.Fprintf(os.Stderr, "Created analytic %q\n", ay.Name)
 				}
 			}

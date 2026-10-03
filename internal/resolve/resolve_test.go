@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // mockClient implements registry.HTTPClient for testing.
@@ -25,7 +28,7 @@ type mockResponse struct {
 	body   string
 }
 
-func (m *mockClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+func (m *mockClient) Do(ctx context.Context, method, path string, _ io.Reader) (*http.Response, error) {
 	key := method + " " + path
 	// Also match the unescaped form, so a test pattern can name an RSQL filter
 	// (`filter=id=in=(1,2)`) without percent-encoding it. Patterns that spell
@@ -48,16 +51,21 @@ func (m *mockClient) Do(_ context.Context, method, path string, _ io.Reader) (*h
 			bestResp = resp
 		}
 	}
-	if bestPattern != "" {
-		return &http.Response{
-			StatusCode: bestResp.status,
-			Body:       io.NopCloser(strings.NewReader(bestResp.body)),
-			Header:     make(http.Header),
-		}, nil
+	if bestPattern == "" {
+		bestResp = mockResponse{status: http.StatusNotFound, body: `{"httpStatus":404}`}
+	}
+	return statusResponse(ctx, method, path, bestResp.status, bestResp.body)
+}
+
+// statusResponse answers the way client.Do does: a status of 400 or above is
+// an error unless the caller allowed it with registry.WithAllowedStatuses.
+func statusResponse(ctx context.Context, method, path string, status int, body string) (*http.Response, error) {
+	if status >= 400 && !registry.StatusAllowed(ctx, status) {
+		return nil, client.StatusError(status, method, path, []byte(body))
 	}
 	return &http.Response{
-		StatusCode: http.StatusNotFound,
-		Body:       io.NopCloser(strings.NewReader(`{"httpStatus":404}`)),
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
 	}, nil
 }
@@ -93,10 +101,14 @@ const mobileV2Response = `{
 	"totalCount": 1,
 	"results": [{
 		"mobileDeviceId": "99",
-		"managementId": "mgmt-uuid-mobile",
-		"udid": "MOBILE-UDID",
-		"displayName": "Lab iPad",
-		"serialNumber": "F4GH5678"
+		"general": {
+			"displayName": "Lab iPad",
+			"udid": "MOBILE-UDID",
+			"managementId": "mgmt-uuid-mobile"
+		},
+		"hardware": {
+			"serialNumber": "F4GH5678"
+		}
 	}]
 }`
 
@@ -512,6 +524,7 @@ func TestResolveClassicComputerGroupID(t *testing.T) {
 
 	client := &mockClient{responses: map[string]mockResponse{
 		"GET /JSSResource/computergroups/name/Lab%20Macs": {200, groupXML},
+		"GET /JSSResource/computergroups":                 {200, `<computer_groups><size>1</size><computer_group><id>7</id><name>Lab Macs</name><is_smart>true</is_smart></computer_group></computer_groups>`},
 	}}
 
 	id, err := ResolveClassicComputerGroupID(context.Background(), client, "Lab Macs")
@@ -548,6 +561,7 @@ func TestResolveClassicMobileGroupID(t *testing.T) {
 
 	client := &mockClient{responses: map[string]mockResponse{
 		"GET /JSSResource/mobiledevicegroups/name/Lab%20iPads": {200, groupXML},
+		"GET /JSSResource/mobiledevicegroups":                  {200, `<mobile_device_groups><size>1</size><mobile_device_group><id>12</id><name>Lab iPads</name><is_smart>false</is_smart></mobile_device_group></mobile_device_groups>`},
 	}}
 
 	id, err := ResolveClassicMobileGroupID(context.Background(), client, "Lab iPads")

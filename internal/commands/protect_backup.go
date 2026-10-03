@@ -417,8 +417,12 @@ func protectResources() []protectResource {
 				// FAILED line — so a retry was unsafe to reason about.
 				var applied, failed int
 				for _, o := range doc.Overrides {
-					a, ok := byName[o.Analytic]
-					if !ok || !a.Jamf {
+					a, err := byName.one(o.Analytic)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "  skipped override for %q: %v\n", o.Analytic, err)
+						continue
+					}
+					if !a.Jamf {
 						fmt.Fprintf(os.Stderr, "  skipped override for %q: absent or not Jamf-managed\n", o.Analytic)
 						continue
 					}
@@ -695,9 +699,10 @@ func protectResources() []protectResource {
 				if err != nil {
 					return "", err
 				}
-				byLabel := make(map[string]jamfprotect.Insight, len(items))
+				refs := protect.RefsOf(items, func(i jamfprotect.Insight) string { return i.Label }, func(i jamfprotect.Insight) string { return i.UUID })
+				byUUID := make(map[string]jamfprotect.Insight, len(items))
 				for _, i := range items {
-					byLabel[i.Label] = i
+					byUUID[i.UUID] = i
 				}
 				want := make(map[string]bool, len(doc.Enabled)+len(doc.Disabled))
 				for _, l := range doc.Enabled {
@@ -719,11 +724,15 @@ func protectResources() []protectResource {
 				var changed int
 				for _, label := range labels {
 					enabled := want[label]
-					insight, ok := byLabel[label]
-					if !ok {
+					uuid, err := protect.PickNamed(refs, label, "insight", "insights", "labels")
+					if errors.Is(err, protect.ErrNotFound) {
 						fmt.Fprintf(os.Stderr, "  skipped insight %q: not present in this tenant\n", label)
 						continue
 					}
+					if err != nil {
+						return "", err
+					}
+					insight := byUUID[uuid]
 					// Only write the ones that differ. The catalogue runs to
 					// hundreds, and every call is a mutation on a live tenant.
 					if insight.Enabled == enabled {

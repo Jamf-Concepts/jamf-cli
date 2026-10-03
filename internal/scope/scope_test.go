@@ -1144,11 +1144,18 @@ func TestFetchScope_ByIDIsOneRequest(t *testing.T) {
 	}
 }
 
-// TestFetchScope_ByNameUsesTheNameEndpoint keeps a name lookup at one request
-// too, for every resource that has a /name/ endpoint: the response carries
-// <general><id>, which is the ID the subsequent PUT needs.
+// TestFetchScope_ByNameUsesTheNameEndpoint pins name resolution through the
+// collection listing for a resource that has a /name/ endpoint. /name/ answers
+// with one record when two share the name, so the write would land on the
+// server's pick; the listing resolves to exactly one id or refuses.
 func TestFetchScope_ByNameUsesTheNameEndpoint(t *testing.T) {
-	client := &mockPutClient{getBody: `<policy><general><id>9</id></general><scope/></policy>`}
+	client := &nameListClient{
+		list: `<policies><size>2</size>
+			<policy><id>9</id><name>My Policy</name></policy>
+			<policy><id>10</id><name>Other</name></policy>
+		</policies>`,
+		doc: `<policy><general><id>9</id></general><scope/></policy>`,
+	}
 	res := Resource{APIPath: "policies", SingularKey: "policy"}
 
 	id, _, err := FetchScope(context.Background(), client, res, Ref{Name: "My Policy"})
@@ -1156,13 +1163,29 @@ func TestFetchScope_ByNameUsesTheNameEndpoint(t *testing.T) {
 		t.Fatalf("FetchScope: %v", err)
 	}
 	if id != "9" {
-		t.Errorf("id = %q, want 9 (read from <general><id>)", id)
+		t.Errorf("id = %q, want 9", id)
+	}
+	want := []string{"GET /JSSResource/policies", "GET /JSSResource/policies/id/9"}
+	if strings.Join(client.requests, "\n") != strings.Join(want, "\n") {
+		t.Errorf("requests = %v, want %v", client.requests, want)
+	}
+
+	client.requests = nil
+	client.list = `<policies><size>2</size>
+		<policy><id>9</id><name>My Policy</name></policy>
+		<policy><id>10</id><name>My Policy</name></policy>
+	</policies>`
+	_, _, err = FetchScope(context.Background(), client, res, Ref{Name: "My Policy"})
+	if err == nil {
+		t.Fatal("two policies named \"My Policy\" should be refused, not resolved to one")
+	}
+	for _, want := range []string{"9", "10"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal should name id %s; got: %v", want, err)
+		}
 	}
 	if len(client.requests) != 1 {
-		t.Fatalf("requests = %v, want one GET", client.requests)
-	}
-	if !strings.Contains(client.requests[0], "/name/My%20Policy") {
-		t.Errorf("request = %q, want the /name/ endpoint with the name escaped", client.requests[0])
+		t.Errorf("requests = %v, want only the listing", client.requests)
 	}
 }
 

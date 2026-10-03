@@ -10,6 +10,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +21,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
@@ -32,19 +35,37 @@ type DeviceIdentifiers struct {
 	SerialNumber string // serial number for confirmation messages
 }
 
+// deviceQuery is a lookup by one identifier field: the RSQL field the server
+// filters on, the requested value, how it is described in errors, and how the
+// same value is read back off a returned record.
+type deviceQuery struct {
+	field string
+	value string
+	label string
+	of    func(*DeviceIdentifiers) string
+}
+
+func (q deviceQuery) filter() string { return fmt.Sprintf(`%s=="%s"`, q.field, EscapeRSQL(q.value)) }
+
+func (q deviceQuery) desc() string { return fmt.Sprintf("%s %q", q.label, q.value) }
+
+func bySerial(field, v string) deviceQuery {
+	return deviceQuery{field, v, "serial number", func(d *DeviceIdentifiers) string { return d.SerialNumber }}
+}
+
+func byName(field, v string) deviceQuery {
+	return deviceQuery{field, v, "name", func(d *DeviceIdentifiers) string { return d.Name }}
+}
+
 // ResolveComputer looks up a computer by serial, name, or ID using the
 // v4 computers-inventory API and returns all identifier forms.
 // Exactly one of serial, name, or id must be non-empty.
 func ResolveComputer(ctx context.Context, client registry.HTTPClient, serial, name, id string) (*DeviceIdentifiers, error) {
 	switch {
 	case serial != "":
-		return resolveComputerByFilter(ctx, client,
-			fmt.Sprintf(`hardware.serialNumber=="%s"`, EscapeRSQL(serial)),
-			fmt.Sprintf("serial number %q", serial))
+		return resolveComputerByFilter(ctx, client, bySerial("hardware.serialNumber", serial))
 	case name != "":
-		return resolveComputerByFilter(ctx, client,
-			fmt.Sprintf(`general.name=="%s"`, EscapeRSQL(name)),
-			fmt.Sprintf("name %q", name))
+		return resolveComputerByFilter(ctx, client, byName("general.name", name))
 	case id != "":
 		return resolveComputerByID(ctx, client, id)
 	default:
@@ -54,16 +75,18 @@ func ResolveComputer(ctx context.Context, client registry.HTTPClient, serial, na
 
 // ResolveComputerByManagementID looks up a computer by its MDM management ID (UUID).
 func ResolveComputerByManagementID(ctx context.Context, client registry.HTTPClient, managementID string) (*DeviceIdentifiers, error) {
-	return resolveComputerByFilter(ctx, client,
-		fmt.Sprintf(`general.managementId=="%s"`, EscapeRSQL(managementID)),
-		fmt.Sprintf("management ID %q", managementID))
+	return resolveComputerByFilter(ctx, client, deviceQuery{
+		field: "general.managementId", value: managementID, label: "management ID",
+		of: func(d *DeviceIdentifiers) string { return d.ManagementID },
+	})
 }
 
 // ResolveComputerByUDID looks up a computer by its UDID.
 func ResolveComputerByUDID(ctx context.Context, client registry.HTTPClient, udid string) (*DeviceIdentifiers, error) {
-	return resolveComputerByFilter(ctx, client,
-		fmt.Sprintf(`udid=="%s"`, EscapeRSQL(udid)),
-		fmt.Sprintf("UDID %q", udid))
+	return resolveComputerByFilter(ctx, client, deviceQuery{
+		field: "udid", value: udid, label: "UDID",
+		of: func(d *DeviceIdentifiers) string { return d.UDID },
+	})
 }
 
 // ResolveMobileDevice looks up a mobile device by serial, name, or ID using
@@ -71,13 +94,9 @@ func ResolveComputerByUDID(ctx context.Context, client registry.HTTPClient, udid
 func ResolveMobileDevice(ctx context.Context, client registry.HTTPClient, serial, name, id string) (*DeviceIdentifiers, error) {
 	switch {
 	case serial != "":
-		return resolveMobileByFilter(ctx, client,
-			fmt.Sprintf(`serialNumber=="%s"`, EscapeRSQL(serial)),
-			fmt.Sprintf("serial number %q", serial))
+		return resolveMobileByFilter(ctx, client, bySerial("serialNumber", serial))
 	case name != "":
-		return resolveMobileByFilter(ctx, client,
-			fmt.Sprintf(`displayName=="%s"`, EscapeRSQL(name)),
-			fmt.Sprintf("name %q", name))
+		return resolveMobileByFilter(ctx, client, byName("displayName", name))
 	case id != "":
 		return resolveMobileByID(ctx, client, id)
 	default:
@@ -91,15 +110,18 @@ func ResolveMobileDevice(ctx context.Context, client registry.HTTPClient, serial
 func ResolveComputerGroup(ctx context.Context, client registry.HTTPClient, groupName string) ([]*DeviceIdentifiers, error) {
 	// Try smart group first (modern API), fall back to static group.
 	memberIDs, err := fetchSmartComputerGroupMemberIDs(ctx, client, groupName)
-	if err != nil {
-		// Not found as smart group — try static group (Classic API, no modern
-		// membership endpoint exists for static computer groups).
+	if errors.Is(err, errGroupNotFound) {
+		// Static groups have no modern membership endpoint, so they are read
+		// through the Classic API.
 		staticIDs, staticErr := fetchClassicGroupMemberIDs(ctx, client,
 			"/JSSResource/computergroups", "computer_groups", "computers", groupName)
 		if staticErr != nil {
-			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%v)", groupName, err, staticErr)
+			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%w)", groupName, err, staticErr)
 		}
-		memberIDs = staticIDs
+		memberIDs, err = staticIDs, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	return batchResolveComputers(ctx, client, memberIDs)
 }
@@ -109,13 +131,16 @@ func ResolveMobileDeviceGroup(ctx context.Context, client registry.HTTPClient, g
 	// Try smart group first (modern API), fall back to Classic for static
 	// (no modern static mobile device group API exists yet).
 	memberIDs, err := fetchSmartMobileGroupMemberIDs(ctx, client, groupName)
-	if err != nil {
+	if errors.Is(err, errGroupNotFound) {
 		staticIDs, staticErr := fetchClassicGroupMemberIDs(ctx, client,
 			"/JSSResource/mobiledevicegroups", "mobile_device_groups", "mobile_devices", groupName)
 		if staticErr != nil {
-			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%v)", groupName, err, staticErr)
+			return nil, fmt.Errorf("group %q not found as smart group (%v) or static group (%w)", groupName, err, staticErr)
 		}
-		memberIDs = staticIDs
+		memberIDs, err = staticIDs, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	return batchResolveMobileDevices(ctx, client, memberIDs)
 }
@@ -173,9 +198,8 @@ var computerEntrySpec = fileEntrySpec{
 }
 
 var mobileEntrySpec = fileEntrySpec{
-	label: "mobile device",
-	// /v2/mobile-devices ignores RSQL filters; /detail honors them.
-	basePath:    "/v2/mobile-devices/detail",
+	label:       "mobile device",
+	basePath:    mobileDetailPath,
 	idField:     "mobileDeviceId",
 	serialField: "serialNumber",
 	parse:       parseMobileDevice,
@@ -331,22 +355,35 @@ func (s fileEntrySpec) fetchFiltered(ctx context.Context, client registry.HTTPCl
 
 // --- Computer resolution helpers ---
 
-func resolveComputerByFilter(ctx context.Context, client registry.HTTPClient, filter, desc string) (*DeviceIdentifiers, error) {
+func resolveComputerByFilter(ctx context.Context, client registry.HTTPClient, q deviceQuery) (*DeviceIdentifiers, error) {
 	// Use page-size=2 to detect ambiguity (multiple matches).
 	path := fmt.Sprintf("/v4/computers-inventory?section=GENERAL&section=HARDWARE&page-size=2&filter=%s",
-		url.QueryEscape(filter))
+		url.QueryEscape(q.filter()))
 
 	results, total, err := fetchInventoryPage(ctx, client, path)
 	if err != nil {
-		return nil, fmt.Errorf("looking up computer by %s: %w", desc, err)
+		return nil, fmt.Errorf("looking up computer by %s: %w", q.desc(), err)
 	}
 	if total == 0 || len(results) == 0 {
-		return nil, fmt.Errorf("no computer found with %s", desc)
+		return nil, fmt.Errorf("no computer found with %s", q.desc())
 	}
 	if total > 1 {
-		return nil, fmt.Errorf("multiple computers found with %s (%d matches); use --serial or --id to disambiguate", desc, total)
+		return nil, fmt.Errorf("multiple computers found with %s (%d matches); use --serial or --id to disambiguate", q.desc(), total)
 	}
-	return parseComputerInventory(results[0])
+	d, err := parseComputerInventory(results[0])
+	if err != nil {
+		return nil, err
+	}
+	return q.confirm(d, "computer")
+}
+
+// confirm accepts a returned record only when it carries the requested value,
+// since an unescaped `*` in the value makes the server's == a wildcard match.
+func (q deviceQuery) confirm(d *DeviceIdentifiers, noun string) (*DeviceIdentifiers, error) {
+	if !strings.EqualFold(q.of(d), q.value) {
+		return nil, fmt.Errorf("no %s found with %s (the server returned %s, whose %s is %q)", noun, q.desc(), d.ID, q.label, q.of(d))
+	}
+	return d, nil
 }
 
 func resolveComputerByID(ctx context.Context, client registry.HTTPClient, id string) (*DeviceIdentifiers, error) {
@@ -396,22 +433,29 @@ func parseComputerInventory(obj map[string]any) (*DeviceIdentifiers, error) {
 
 // --- Mobile device resolution helpers ---
 
-func resolveMobileByFilter(ctx context.Context, client registry.HTTPClient, filter, desc string) (*DeviceIdentifiers, error) {
-	// Use /v2/mobile-devices/detail because /v2/mobile-devices ignores RSQL filters.
-	path := fmt.Sprintf("/v2/mobile-devices/detail?page-size=2&filter=%s",
-		url.QueryEscape(filter))
+// mobileDetailPath is the one mobile list path that honors RSQL filters
+// (/v2/mobile-devices ignores them). It answers "hardware": null, and so no
+// serial number, unless HARDWARE is requested.
+const mobileDetailPath = "/v2/mobile-devices/detail?section=GENERAL&section=HARDWARE"
+
+func resolveMobileByFilter(ctx context.Context, client registry.HTTPClient, q deviceQuery) (*DeviceIdentifiers, error) {
+	path := fmt.Sprintf("%s&page-size=2&filter=%s", mobileDetailPath, url.QueryEscape(q.filter()))
 
 	results, total, err := fetchInventoryPage(ctx, client, path)
 	if err != nil {
-		return nil, fmt.Errorf("looking up mobile device by %s: %w", desc, err)
+		return nil, fmt.Errorf("looking up mobile device by %s: %w", q.desc(), err)
 	}
 	if total == 0 || len(results) == 0 {
-		return nil, fmt.Errorf("no mobile device found with %s", desc)
+		return nil, fmt.Errorf("no mobile device found with %s", q.desc())
 	}
 	if total > 1 {
-		return nil, fmt.Errorf("multiple mobile devices found with %s (%d matches); use --serial or --id to disambiguate", desc, total)
+		return nil, fmt.Errorf("multiple mobile devices found with %s (%d matches); use --serial or --id to disambiguate", q.desc(), total)
 	}
-	return parseMobileDevice(results[0])
+	d, err := parseMobileDevice(results[0])
+	if err != nil {
+		return nil, err
+	}
+	return q.confirm(d, "mobile device")
 }
 
 func resolveMobileByID(ctx context.Context, client registry.HTTPClient, id string) (*DeviceIdentifiers, error) {
@@ -448,14 +492,18 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		Name:         jsonString(obj, "name"),
 		SerialNumber: jsonString(obj, "serialNumber"),
 	}
-	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id"
-	// and nests managementId/displayName/osVersion inside "general".
+	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id",
+	// nests managementId/udid/displayName inside "general", and the serial
+	// number inside "hardware".
 	if d.ID == "" {
 		d.ID = jsonString(obj, "mobileDeviceId")
 	}
 	if general, ok := obj["general"].(map[string]any); ok {
 		if d.ManagementID == "" {
 			d.ManagementID = jsonString(general, "managementId")
+		}
+		if d.UDID == "" {
+			d.UDID = jsonString(general, "udid")
 		}
 		if d.Name == "" {
 			d.Name = jsonString(general, "displayName")
@@ -466,6 +514,9 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 	}
 	// /detail nests the serial under "hardware", populated only with
 	// section=HARDWARE.
+	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
+		d.SerialNumber = jsonString(hardware, "serialNumber")
+	}
 	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
 		d.SerialNumber = jsonString(hardware, "serialNumber")
 	}
@@ -554,66 +605,59 @@ func fetchSmartMobileGroupMemberIDs(ctx context.Context, client registry.HTTPCli
 	return ids, nil
 }
 
+// errGroupNotFound reports that a group lookup completed and found no group
+// of that name. Only this error lets a smart-group miss fall back to the
+// static-group lookup; an ambiguity or a failed request is returned as is.
+var errGroupNotFound = errors.New("group not found")
+
 // resolveGroupIDByName uses RSQL filtering on a group list endpoint to find
-// a group by name and return its ID.
+// a group by name and return its ID. A 404 from the search endpoint means it
+// does not exist on this server, which is read as not found.
 func resolveGroupIDByName(ctx context.Context, client registry.HTTPClient, listPath, nameField, groupName string) (string, error) {
 	filter := fmt.Sprintf(`%s=="%s"`, nameField, EscapeRSQL(groupName))
 	path := fmt.Sprintf("%s?page-size=2&filter=%s", listPath, url.QueryEscape(filter))
 
-	results, total, err := fetchInventoryPage(ctx, client, path)
+	results, total, err := fetchInventoryPage(registry.WithAllowedStatuses(ctx, http.StatusNotFound), client, path)
+	var status *httpStatusError
+	if errors.As(err, &status) && status.code == http.StatusNotFound {
+		return "", fmt.Errorf("group %q: %w (search answered HTTP 404)", groupName, errGroupNotFound)
+	}
 	if err != nil {
 		return "", fmt.Errorf("searching for group %q: %w", groupName, err)
 	}
 	if total == 0 || len(results) == 0 {
-		return "", fmt.Errorf("group %q not found", groupName)
+		return "", fmt.Errorf("group %q: %w", groupName, errGroupNotFound)
 	}
 	if total > 1 {
-		return "", fmt.Errorf("multiple groups found with name %q (%d matches)", groupName, total)
+		ids := make([]string, len(results))
+		for i, r := range results {
+			ids[i] = groupResultID(r)
+		}
+		return "", fmt.Errorf("multiple groups found with name %q (%d matches, ids %s); rename one so the name is unique", groupName, total, strings.Join(ids, ", "))
 	}
-	id := jsonString(results[0], "id")
-	if id == "" {
-		id = jsonString(results[0], "groupId")
+	if got := jsonString(results[0], nameField); !strings.EqualFold(got, groupName) {
+		return "", fmt.Errorf("group %q: %w (the search returned group %s, named %q)", groupName, errGroupNotFound, groupResultID(results[0]), got)
 	}
+	id := groupResultID(results[0])
 	if id == "" {
 		return "", fmt.Errorf("group %q found but missing id field", groupName)
 	}
 	return id, nil
 }
 
+func groupResultID(r map[string]any) string {
+	if id := jsonString(r, "id"); id != "" {
+		return id
+	}
+	return jsonString(r, "groupId")
+}
+
 // --- Classic API group fallback (static groups) ---
 
 func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient, listPath, listKey, membersKey, groupName string) ([]string, error) {
-	// List all groups to find the ID by name.
-	resp, err := client.Do(ctx, "GET", listPath, nil)
-	if err != nil {
-		return nil, fmt.Errorf("listing groups: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	groupID, err := pickClassicGroupID(ctx, client, listPath, listKey, "static group", groupName)
 	if err != nil {
 		return nil, err
-	}
-	listData, err := unmarshalClassic(body)
-	if err != nil {
-		return nil, fmt.Errorf("parsing group list: %w", err)
-	}
-
-	groups, _ := listData[listKey].([]any)
-	var groupID string
-	for _, g := range groups {
-		gm, ok := g.(map[string]any)
-		if !ok {
-			continue
-		}
-		name := jsonString(gm, "name")
-		if strings.EqualFold(name, groupName) {
-			groupID = jsonString(gm, "id")
-			break
-		}
-	}
-	if groupID == "" {
-		return nil, fmt.Errorf("group %q not found", groupName)
 	}
 
 	// Fetch group detail to get member IDs.
@@ -654,6 +698,97 @@ func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient,
 		}
 	}
 	return ids, nil
+}
+
+// pickClassicGroupID lists a Classic group collection and resolves groupName
+// to exactly one id: a unique exact match wins, then a unique case-insensitive
+// one, and a name more than one group shares is refused with every id.
+func pickClassicGroupID(ctx context.Context, client registry.HTTPClient, listPath, listKey, label, groupName string) (string, error) {
+	g, err := pickClassicGroup(ctx, client, listPath, listKey, label, groupName)
+	return g.ID, err
+}
+
+func pickClassicGroup(ctx context.Context, client registry.HTTPClient, listPath, listKey, label, groupName string) (ClassicGroup, error) {
+	resp, err := client.Do(ctx, "GET", listPath, nil)
+	if err != nil {
+		return ClassicGroup{}, fmt.Errorf("listing %ss: %w", label, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusNotFound {
+		return ClassicGroup{}, fmt.Errorf("%s %q not found (listing %ss answered HTTP 404)", label, groupName, label)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return ClassicGroup{}, fmt.Errorf("listing %ss: HTTP %d", label, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return ClassicGroup{}, err
+	}
+	groups, err := parseClassicGroupList(body, listKey)
+	if err != nil {
+		return ClassicGroup{}, fmt.Errorf("parsing %s list: %w", label, err)
+	}
+	group, candidates, err := pickone.One(groups, groupName,
+		pickone.Exact(func(g classicGroupRef) string { return g.Name }),
+		pickone.Fold(func(g classicGroupRef) string { return g.Name }))
+	switch {
+	case errors.Is(err, pickone.ErrNone):
+		return ClassicGroup{}, fmt.Errorf("%s %q not found", label, groupName)
+	case errors.Is(err, pickone.ErrAmbiguous):
+		ids := make([]string, len(candidates))
+		for i, c := range candidates {
+			ids[i] = fmt.Sprintf("%q (id %s)", c.Name, c.ID)
+		}
+		return ClassicGroup{}, fmt.Errorf("group %q matches %d %ss: %s; rename one or pass the exact name", groupName, len(candidates), label, strings.Join(ids, ", "))
+	}
+	if group.ID == "" {
+		return ClassicGroup{}, fmt.Errorf("%s %q found but missing id field", label, groupName)
+	}
+	return ClassicGroup(group), nil
+}
+
+// ClassicGroup is a resolved Classic group: its id and its name as stored.
+type ClassicGroup struct {
+	ID   string
+	Name string
+}
+
+// classicGroupRef is one entry of a Classic group listing, its name kept as
+// the literal text the server sent.
+type classicGroupRef struct {
+	ID   string `xml:"id"`
+	Name string `xml:"name"`
+}
+
+// parseClassicGroupList reads a Classic group listing without coercing names.
+// xmlconv turns numeric-looking text into numbers, so a group named "14.2"
+// would otherwise compare equal to a request for "14".
+func parseClassicGroupList(body []byte, listKey string) ([]classicGroupRef, error) {
+	if xmlconv.IsXML(body) {
+		var list struct {
+			Groups []classicGroupRef `xml:",any"`
+		}
+		if err := xml.Unmarshal(body, &list); err != nil {
+			return nil, err
+		}
+		return list.Groups, nil
+	}
+	var listData map[string]any
+	if err := json.Unmarshal(body, &listData); err != nil {
+		return nil, err
+	}
+	raw, _ := listData[listKey].([]any)
+	groups := make([]classicGroupRef, 0, len(raw))
+	for _, g := range raw {
+		gm, ok := g.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := gm["name"].(string)
+		groups = append(groups, classicGroupRef{ID: jsonString(gm, "id"), Name: name})
+	}
+	return groups, nil
 }
 
 func batchResolveComputers(ctx context.Context, client registry.HTTPClient, ids []string) ([]*DeviceIdentifiers, error) {
@@ -732,7 +867,7 @@ func fetchInventoryPage(ctx context.Context, client registry.HTTPClient, path st
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return nil, 0, &httpStatusError{code: resp.StatusCode}
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
@@ -749,6 +884,10 @@ func fetchInventoryPage(ctx context.Context, client registry.HTTPClient, path st
 	}
 	return page.Results, page.TotalCount, nil
 }
+
+type httpStatusError struct{ code int }
+
+func (e *httpStatusError) Error() string { return fmt.Sprintf("HTTP %d", e.code) }
 
 // jsonString extracts a string field from a map, handling both string and
 // numeric ID values (the Jamf API sometimes returns IDs as numbers).
@@ -767,14 +906,20 @@ func jsonString(m map[string]any, key string) string {
 	}
 }
 
-// EscapeRSQL escapes double quotes in a value for use in RSQL filter expressions.
+var rsqlEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+
+// EscapeRSQL escapes a value for use inside one double-quoted RSQL literal,
+// so the value cannot close the quote. A `*` stays a wildcard, so a caller
+// acting on the result compares the returned record's value itself.
 func EscapeRSQL(s string) string {
-	return strings.ReplaceAll(s, `"`, `\"`)
+	return rsqlEscaper.Replace(s)
 }
 
-// isNumericID returns true if s contains only digits (i.e., it's a Jamf Pro ID,
-// not a serial number).
-func isNumericID(s string) bool {
+func isNumericID(s string) bool { return IsNumericID(s) }
+
+// IsNumericID reports whether s contains only digits, so it can be a Jamf Pro
+// ID rather than a serial number or a name.
+func IsNumericID(s string) bool {
 	if s == "" {
 		return false
 	}
@@ -831,52 +976,28 @@ func readEntriesFromFile(path string) ([]string, error) {
 	return entries, nil
 }
 
-// resolveClassicGroupID is the shared implementation for Classic API group ID
-// lookups. pathSegment is the JSSResource collection name (e.g. "computergroups"),
-// label is the human-readable type used in error messages (e.g. "computer group").
-func resolveClassicGroupID(ctx context.Context, client registry.HTTPClient, pathSegment, label, groupName string) (string, error) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", pathSegment, registry.EscapeClassicPathSegment(groupName))
-	resp, err := client.Do(ctx, "GET", path, nil)
-	if err != nil {
-		return "", fmt.Errorf("looking up %s %q: %w", label, groupName, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+// ResolveClassicComputerGroup resolves a computer group name to exactly one
+// Classic group. Works for both smart and static computer groups.
+func ResolveClassicComputerGroup(ctx context.Context, client registry.HTTPClient, groupName string) (ClassicGroup, error) {
+	return pickClassicGroup(ctx, client, "/JSSResource/computergroups", "computer_groups", "computer group", groupName)
+}
 
-	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("%s %q not found", label, groupName)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("looking up %s %q: HTTP %d", label, groupName, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return "", err
-	}
-	detail, err := unmarshalClassic(body)
-	if err != nil {
-		return "", fmt.Errorf("parsing %s response: %w", label, err)
-	}
-	for _, v := range detail {
-		if inner, ok := v.(map[string]any); ok {
-			if id := jsonString(inner, "id"); id != "" {
-				return id, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("%s %q: id not found in response", label, groupName)
+// ResolveClassicMobileGroup resolves a mobile device group name to exactly one
+// Classic group. Works for both smart and static mobile device groups.
+func ResolveClassicMobileGroup(ctx context.Context, client registry.HTTPClient, groupName string) (ClassicGroup, error) {
+	return pickClassicGroup(ctx, client, "/JSSResource/mobiledevicegroups", "mobile_device_groups", "mobile device group", groupName)
 }
 
 // ResolveClassicComputerGroupID resolves a computer group name to its Classic API
 // numeric ID. Works for both smart and static computer groups.
 func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	return resolveClassicGroupID(ctx, client, "computergroups", "computer group", groupName)
+	return pickClassicGroupID(ctx, client, "/JSSResource/computergroups", "computer_groups", "computer group", groupName)
 }
 
 // ResolveClassicMobileGroupID resolves a mobile device group name to its Classic API
 // numeric ID. Works for both smart and static mobile device groups.
 func ResolveClassicMobileGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	return resolveClassicGroupID(ctx, client, "mobiledevicegroups", "mobile device group", groupName)
+	return pickClassicGroupID(ctx, client, "/JSSResource/mobiledevicegroups", "mobile_device_groups", "mobile device group", groupName)
 }
 
 // FormatDeviceDesc returns a human-readable device description for confirmation messages.

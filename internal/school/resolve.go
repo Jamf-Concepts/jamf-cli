@@ -4,8 +4,13 @@ package school
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -23,22 +28,37 @@ func (e *ErrNotFound) Error() string {
 	return fmt.Sprintf("%s %q not found", e.ResourceType, e.Name)
 }
 
+// listing caches one resource type's list response for the Resolver's lifetime.
+type listing[T any] struct {
+	items  []T
+	loaded bool
+}
+
+func (l *listing[T]) load(ctx context.Context, what string, list func(context.Context) ([]T, error)) ([]T, error) {
+	if !l.loaded {
+		items, err := list(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("listing %s: %w", what, err)
+		}
+		l.items, l.loaded = items, true
+	}
+	return l.items, nil
+}
+
 // Resolver maps resource names to IDs/UUIDs. Results are cached per
 // resource type to avoid redundant list calls within a single command.
 type Resolver struct {
 	client registry.SchoolClient
 
-	devices      map[string]string // name -> UDID
-	deviceSerial map[string]string // serial -> UDID
-	users        map[string]int64  // username -> ID
-	userEmail    map[string]int64  // email -> ID
-	profiles     map[string]int64  // name -> ID
-	apps         map[string]int64  // name -> ID
-	classes      map[string]string // name -> UUID
-	groups       map[string]int64  // name -> ID
-	deviceGroups map[string]int64  // name -> ID
-	locations    map[string]int64  // name -> ID
-	ibeacons     map[string]int64  // name -> ID
+	devices      listing[jamfschool.Device]
+	users        listing[jamfschool.User]
+	profiles     listing[jamfschool.Profile]
+	apps         listing[jamfschool.App]
+	classes      listing[jamfschool.Class]
+	groups       listing[jamfschool.Group]
+	deviceGroups listing[jamfschool.DeviceGroup]
+	locations    listing[jamfschool.Location]
+	ibeacons     listing[jamfschool.IBeacon]
 }
 
 // NewResolver creates a Resolver for the given School client.
@@ -46,187 +66,140 @@ func NewResolver(client registry.SchoolClient) *Resolver {
 	return &Resolver{client: client}
 }
 
-// ResolveDeviceUDID returns the UDID for a device given its name or serial number.
-func (r *Resolver) ResolveDeviceUDID(ctx context.Context, nameOrSerial string) (string, error) {
-	if r.devices == nil {
-		devices, err := r.client.GetDevices(ctx)
-		if err != nil {
-			return "", fmt.Errorf("listing devices: %w", err)
+// pick resolves arg to exactly one item. ErrNone becomes *ErrNotFound, so
+// create-on-absent callers keep working; an ambiguity names every candidate.
+func pick[T any](items []T, arg, kind, hint string, describe func(T) string, tiers ...pickone.Tier[T]) (T, error) {
+	item, candidates, err := pickone.One(items, arg, tiers...)
+	switch {
+	case errors.Is(err, pickone.ErrNone):
+		return item, &ErrNotFound{kind, arg, hint}
+	case errors.Is(err, pickone.ErrAmbiguous):
+		names := make([]string, len(candidates))
+		for i, c := range candidates {
+			names[i] = describe(c)
 		}
-		r.devices = make(map[string]string, len(devices))
-		r.deviceSerial = make(map[string]string, len(devices))
-		for _, d := range devices {
-			r.devices[d.Name] = d.UDID
-			if d.SerialNumber != "" {
-				r.deviceSerial[d.SerialNumber] = d.UDID
-			}
-		}
+		return item, fmt.Errorf("%q matches %d %ss: %s; refusing to pick one", arg, len(candidates), kind, strings.Join(names, "; "))
 	}
-	if udid, ok := r.devices[nameOrSerial]; ok {
-		return udid, nil
+	return item, err
+}
+
+// DescribeDevice renders a device as name, serial and UDID for confirmations
+// and ambiguity refusals.
+func DescribeDevice(d jamfschool.Device) string {
+	return fmt.Sprintf("%s (serial %s, UDID %s)", d.Name, d.SerialNumber, d.UDID)
+}
+
+// ResolveDevice returns the one device identified by arg, matched as an exact
+// UDID, then serial number, then name. The first identifier that matches
+// decides, so a device named after another device's serial cannot capture it.
+func (r *Resolver) ResolveDevice(ctx context.Context, arg string) (jamfschool.Device, error) {
+	devices, err := r.devices.load(ctx, "devices", r.client.GetDevices)
+	if err != nil {
+		return jamfschool.Device{}, err
 	}
-	if udid, ok := r.deviceSerial[nameOrSerial]; ok {
-		return udid, nil
-	}
-	return "", &ErrNotFound{"device", nameOrSerial, "use 'school devices list' to see available devices"}
+	return pick(devices, arg, "device", "use 'school devices list' to see available devices", DescribeDevice,
+		pickone.Exact(func(d jamfschool.Device) string { return d.UDID }),
+		pickone.Exact(func(d jamfschool.Device) string { return d.SerialNumber }),
+		pickone.Exact(func(d jamfschool.Device) string { return d.Name }))
+}
+
+// ResolveDeviceUDID returns the UDID of the device ResolveDevice picks.
+func (r *Resolver) ResolveDeviceUDID(ctx context.Context, arg string) (string, error) {
+	d, err := r.ResolveDevice(ctx, arg)
+	return d.UDID, err
 }
 
 // ResolveUserID returns the ID for a user given their username or email.
 func (r *Resolver) ResolveUserID(ctx context.Context, nameOrEmail string) (int64, error) {
-	if r.users == nil {
-		users, err := r.client.GetUsers(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("listing users: %w", err)
-		}
-		r.users = make(map[string]int64, len(users))
-		r.userEmail = make(map[string]int64, len(users))
-		for _, u := range users {
-			if u.Username != "" {
-				r.users[u.Username] = u.ID
-			}
-			if u.Email != "" {
-				r.userEmail[u.Email] = u.ID
-			}
-		}
+	users, err := r.users.load(ctx, "users", r.client.GetUsers)
+	if err != nil {
+		return 0, err
 	}
-	if id, ok := r.users[nameOrEmail]; ok {
-		return id, nil
+	u, err := pick(users, nameOrEmail, "user", "use 'school users list' to see available users",
+		func(u jamfschool.User) string { return fmt.Sprintf("%q (email %s, ID %d)", u.Username, u.Email, u.ID) },
+		pickone.Exact(func(u jamfschool.User) string { return u.Username }),
+		pickone.Exact(func(u jamfschool.User) string { return u.Email }))
+	return u.ID, err
+}
+
+// byName resolves a name-keyed resource and returns its ID.
+func byName[T any, ID any](items []T, name, kind, hint string, nameOf func(T) string, idOf func(T) ID) (ID, error) {
+	item, err := pick(items, name, kind, hint,
+		func(t T) string { return fmt.Sprintf("%q (ID %v)", nameOf(t), idOf(t)) },
+		pickone.Exact(nameOf))
+	if err != nil {
+		var zero ID
+		return zero, err
 	}
-	if id, ok := r.userEmail[nameOrEmail]; ok {
-		return id, nil
-	}
-	return 0, &ErrNotFound{"user", nameOrEmail, "use 'school users list' to see available users"}
+	return idOf(item), nil
 }
 
 // ResolveProfileID returns the ID for a profile given its name.
 func (r *Resolver) ResolveProfileID(ctx context.Context, name string) (int64, error) {
-	if r.profiles == nil {
-		items, err := r.client.GetProfiles(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("listing profiles: %w", err)
-		}
-		r.profiles = make(map[string]int64, len(items))
-		for _, p := range items {
-			r.profiles[p.Name] = p.ID
-		}
+	items, err := r.profiles.load(ctx, "profiles", r.client.GetProfiles)
+	if err != nil {
+		return 0, err
 	}
-	id, ok := r.profiles[name]
-	if !ok {
-		return 0, &ErrNotFound{"profile", name, "use 'school profiles list' to see available names"}
-	}
-	return id, nil
+	return byName(items, name, "profile", "use 'school profiles list' to see available names",
+		func(p jamfschool.Profile) string { return p.Name }, func(p jamfschool.Profile) int64 { return p.ID })
 }
 
 // ResolveAppID returns the ID for an app given its name.
 func (r *Resolver) ResolveAppID(ctx context.Context, name string) (int64, error) {
-	if r.apps == nil {
-		items, err := r.client.GetApps(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("listing apps: %w", err)
-		}
-		r.apps = make(map[string]int64, len(items))
-		for _, a := range items {
-			r.apps[a.Name] = a.ID
-		}
+	items, err := r.apps.load(ctx, "apps", r.client.GetApps)
+	if err != nil {
+		return 0, err
 	}
-	id, ok := r.apps[name]
-	if !ok {
-		return 0, &ErrNotFound{"app", name, "use 'school apps list' to see available names"}
-	}
-	return id, nil
+	return byName(items, name, "app", "use 'school apps list' to see available names",
+		func(a jamfschool.App) string { return a.Name }, func(a jamfschool.App) int64 { return a.ID })
 }
 
 // ResolveClassUUID returns the UUID for a class given its name.
 func (r *Resolver) ResolveClassUUID(ctx context.Context, name string) (string, error) {
-	if r.classes == nil {
-		items, err := r.client.GetClasses(ctx)
-		if err != nil {
-			return "", fmt.Errorf("listing classes: %w", err)
-		}
-		r.classes = make(map[string]string, len(items))
-		for _, c := range items {
-			r.classes[c.Name] = c.UUID
-		}
+	items, err := r.classes.load(ctx, "classes", r.client.GetClasses)
+	if err != nil {
+		return "", err
 	}
-	id, ok := r.classes[name]
-	if !ok {
-		return "", &ErrNotFound{"class", name, "use 'school classes list' to see available names"}
-	}
-	return id, nil
+	return byName(items, name, "class", "use 'school classes list' to see available names",
+		func(c jamfschool.Class) string { return c.Name }, func(c jamfschool.Class) string { return c.UUID })
 }
 
 // ResolveGroupID returns the ID for a user group given its name.
 func (r *Resolver) ResolveGroupID(ctx context.Context, name string) (int64, error) {
-	if r.groups == nil {
-		items, err := r.client.GetGroups(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("listing groups: %w", err)
-		}
-		r.groups = make(map[string]int64, len(items))
-		for _, g := range items {
-			r.groups[g.Name] = g.ID
-		}
+	items, err := r.groups.load(ctx, "groups", r.client.GetGroups)
+	if err != nil {
+		return 0, err
 	}
-	id, ok := r.groups[name]
-	if !ok {
-		return 0, &ErrNotFound{"group", name, "use 'school groups list' to see available names"}
-	}
-	return id, nil
+	return byName(items, name, "group", "use 'school groups list' to see available names",
+		func(g jamfschool.Group) string { return g.Name }, func(g jamfschool.Group) int64 { return g.ID })
 }
 
 // ResolveDeviceGroupID returns the ID for a device group given its name.
 func (r *Resolver) ResolveDeviceGroupID(ctx context.Context, name string) (int64, error) {
-	if r.deviceGroups == nil {
-		items, err := r.client.GetDeviceGroups(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("listing device groups: %w", err)
-		}
-		r.deviceGroups = make(map[string]int64, len(items))
-		for _, g := range items {
-			r.deviceGroups[g.Name] = g.ID
-		}
+	items, err := r.deviceGroups.load(ctx, "device groups", r.client.GetDeviceGroups)
+	if err != nil {
+		return 0, err
 	}
-	id, ok := r.deviceGroups[name]
-	if !ok {
-		return 0, &ErrNotFound{"device group", name, "use 'school device-groups list' to see available names"}
-	}
-	return id, nil
+	return byName(items, name, "device group", "use 'school device-groups list' to see available names",
+		func(g jamfschool.DeviceGroup) string { return g.Name }, func(g jamfschool.DeviceGroup) int64 { return g.ID })
 }
 
 // ResolveLocationID returns the ID for a location given its name.
 func (r *Resolver) ResolveLocationID(ctx context.Context, name string) (int64, error) {
-	if r.locations == nil {
-		items, err := r.client.GetLocations(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("listing locations: %w", err)
-		}
-		r.locations = make(map[string]int64, len(items))
-		for _, l := range items {
-			r.locations[l.Name] = l.ID
-		}
+	items, err := r.locations.load(ctx, "locations", r.client.GetLocations)
+	if err != nil {
+		return 0, err
 	}
-	id, ok := r.locations[name]
-	if !ok {
-		return 0, &ErrNotFound{"location", name, "use 'school locations list' to see available names"}
-	}
-	return id, nil
+	return byName(items, name, "location", "use 'school locations list' to see available names",
+		func(l jamfschool.Location) string { return l.Name }, func(l jamfschool.Location) int64 { return l.ID })
 }
 
 // ResolveIBeaconID returns the ID for an iBeacon given its name.
 func (r *Resolver) ResolveIBeaconID(ctx context.Context, name string) (int64, error) {
-	if r.ibeacons == nil {
-		items, err := r.client.GetIBeacons(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("listing ibeacons: %w", err)
-		}
-		r.ibeacons = make(map[string]int64, len(items))
-		for _, b := range items {
-			r.ibeacons[b.Name] = b.ID
-		}
+	items, err := r.ibeacons.load(ctx, "ibeacons", r.client.GetIBeacons)
+	if err != nil {
+		return 0, err
 	}
-	id, ok := r.ibeacons[name]
-	if !ok {
-		return 0, &ErrNotFound{"ibeacon", name, "use 'school ibeacons list' to see available names"}
-	}
-	return id, nil
+	return byName(items, name, "ibeacon", "use 'school ibeacons list' to see available names",
+		func(b jamfschool.IBeacon) string { return b.Name }, func(b jamfschool.IBeacon) int64 { return b.ID })
 }

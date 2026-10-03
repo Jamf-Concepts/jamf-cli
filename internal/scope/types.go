@@ -24,8 +24,9 @@ type Resource struct {
 	// caller can paste rather than fragments starting at "scope add".
 	CLIName string
 
-	// ResolveByList resolves name→ID by listing the collection, for the two
-	// resources with no /name/ endpoint.
+	// ResolveByList marks the two resources with no /name/ endpoint. Scope
+	// resolves every resource's name by listing the collection, so nothing
+	// reads it; generated code still sets it.
 	ResolveByList bool
 }
 

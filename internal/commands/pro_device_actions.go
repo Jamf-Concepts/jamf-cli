@@ -18,6 +18,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
@@ -1635,37 +1636,61 @@ func resolveAdminAccountGUID(cmd *cobra.Command, client registry.HTTPClient, man
 	}
 
 	var data struct {
-		Results []struct {
-			GUID       string `json:"guid"`
-			Username   string `json:"username"`
-			UserSource string `json:"userSource"`
-		} `json:"results"`
+		Results []lapsAccount `json:"results"`
 	}
 	if err := json.Unmarshal(body, &data); err != nil {
 		return "", fmt.Errorf("parsing LAPS accounts: %w", err)
 	}
-	if len(data.Results) == 0 {
+	return pickLAPSAccount(data.Results, userName)
+}
+
+type lapsAccount struct {
+	GUID       string `json:"guid"`
+	Username   string `json:"username"`
+	UserSource string `json:"userSource"`
+}
+
+func describeLAPSAccounts(accounts []lapsAccount) string {
+	names := make([]string, len(accounts))
+	for i, a := range accounts {
+		names[i] = fmt.Sprintf("%q (source %s, guid %s)", a.Username, a.UserSource, a.GUID)
+	}
+	return strings.Join(names, ", ")
+}
+
+// pickLAPSAccount returns the GUID of the one account named userName (exact,
+// then case-insensitive), or with no userName the one MDM-created account.
+// Anything else is refused with the candidates, since the password of the
+// account picked is the one rotated.
+func pickLAPSAccount(accounts []lapsAccount, userName string) (string, error) {
+	if len(accounts) == 0 {
 		return "", fmt.Errorf("no LAPS-capable admin accounts found on this device")
 	}
-
-	// If user specified a username, match it.
 	if userName != "" {
-		for _, a := range data.Results {
-			if strings.EqualFold(a.Username, userName) {
-				return a.GUID, nil
-			}
+		a, candidates, err := pickone.One(accounts, userName,
+			pickone.Exact(func(a lapsAccount) string { return a.Username }),
+			pickone.Fold(func(a lapsAccount) string { return a.Username }))
+		switch {
+		case errors.Is(err, pickone.ErrNone):
+			return "", fmt.Errorf("no LAPS account found with username %q; accounts on this device: %s", userName, describeLAPSAccounts(accounts))
+		case errors.Is(err, pickone.ErrAmbiguous):
+			return "", fmt.Errorf("username %q matches %d LAPS accounts: %s", userName, len(candidates), describeLAPSAccounts(candidates))
 		}
-		return "", fmt.Errorf("no LAPS account found with username %q", userName)
+		return a.GUID, nil
 	}
-
-	// Default: prefer the MDM-created account.
-	for _, a := range data.Results {
+	var mdm []lapsAccount
+	for _, a := range accounts {
 		if a.UserSource == "MDM" {
-			return a.GUID, nil
+			mdm = append(mdm, a)
 		}
 	}
-	// Fall back to the first account if no MDM source found.
-	return data.Results[0].GUID, nil
+	if len(mdm) == 1 {
+		return mdm[0].GUID, nil
+	}
+	if len(mdm) > 1 {
+		return "", fmt.Errorf("%d MDM-created LAPS accounts: %s; pass --user-name", len(mdm), describeLAPSAccounts(mdm))
+	}
+	return "", fmt.Errorf("no MDM-created LAPS account on this device; pass --user-name with one of: %s", describeLAPSAccounts(accounts))
 }
 
 func newComputerSetAutoAdminPasswordCmd(cliCtx *registry.CLIContext) *cobra.Command {

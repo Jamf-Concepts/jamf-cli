@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -107,11 +108,11 @@ func NewRef(args []string, flagName string) (Ref, error) {
 
 // FetchScope GETs a Classic API resource and returns its ID and parsed scope.
 //
-// An ID is one request. A name is one request too for most resources, via the
-// Classic /name/{name} endpoint, whose response carries <general><id> — the
-// ID needed for the subsequent PUT. Only a resource with no /name/ endpoint
-// (res.ResolveByList: the VPP pair) costs two, listing the collection to
-// resolve the name first.
+// An ID is one request. A name costs two: the collection is listed to resolve
+// the name to exactly one ID, then the document is fetched by that ID. The
+// Classic /name/{name} endpoint is not used, because when two records share a
+// name it answers with one of them and the write would land on whichever the
+// server picked.
 func FetchScope(ctx context.Context, client registry.HTTPClient, res Resource, ref Ref) (string, *ScopeXML, error) {
 	fetchPath, resolvedID, err := scopeFetchPath(ctx, client, res, ref)
 	if err != nil {
@@ -143,22 +144,18 @@ func FetchScope(ctx context.Context, client registry.HTTPClient, res Resource, r
 	return envelope.General.ID, &envelope.Scope, nil
 }
 
-// scopeFetchPath picks the GET path for a reference, resolving a name through
-// the collection listing only where the resource has no /name/ endpoint.
-// Returns the already-known ID when there is one, so FetchScope does not have
-// to re-derive it from a response body that may not carry <general><id>.
+// scopeFetchPath picks the GET path for a reference, resolving a name to
+// exactly one ID through the collection listing. Returns the ID, so FetchScope
+// does not have to re-derive it from a response body that may not carry
+// <general><id>.
 func scopeFetchPath(ctx context.Context, client registry.HTTPClient, res Resource, ref Ref) (path, resolvedID string, err error) {
-	if ref.ID != "" {
-		return fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(ref.ID)), ref.ID, nil
-	}
-	if res.ResolveByList {
-		id, err := resolveNameToID(ctx, client, res.APIPath, res.SingularKey, ref.Name)
-		if err != nil {
+	id := ref.ID
+	if id == "" {
+		if id, err = resolveNameToID(ctx, client, res.APIPath, res.SingularKey, ref.Name); err != nil {
 			return "", "", err
 		}
-		return fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id)), id, nil
 	}
-	return fmt.Sprintf("/JSSResource/%s/name/%s", res.APIPath, registry.EscapeClassicPathSegment(ref.Name)), "", nil
+	return fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id)), id, nil
 }
 
 // resolveNameToID lists all records at the resource root and returns the ID of
@@ -167,14 +164,17 @@ func scopeFetchPath(ctx context.Context, client registry.HTTPClient, res Resourc
 // Two matches is an error, not a coin toss: Classic names are not unique (a
 // live tenant carried two ebooks with the same name), and picking the first in
 // document order would silently rewrite the scope of whichever one the server
-// happened to list first. Only the resources with no /name/ endpoint reach
-// this — for the rest the server resolves the name and owns that choice.
+// happened to list first.
 func resolveNameToID(ctx context.Context, client registry.HTTPClient, apiPath, singularKey, name string) (string, error) {
 	resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
 	if err != nil {
 		return "", fmt.Errorf("listing %s: %w", singularKey, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", fmt.Errorf("listing %s: HTTP %d", singularKey, resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {

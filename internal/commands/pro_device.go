@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/ddmreport"
@@ -227,7 +228,7 @@ func fetchMDMHistory(ctx context.Context, client registry.HTTPClient, management
 	if managementID == "" {
 		return nil
 	}
-	filter := fmt.Sprintf(`clientManagementId=="%s"`, managementID)
+	filter := fmt.Sprintf(`clientManagementId=="%s"`, resolve.EscapeRSQL(managementID))
 	path := "/v2/mdm/commands?filter=" + url.QueryEscape(filter) + "&page-size=10&sort=dateCompleted%3Adesc"
 
 	data, err := fetchJSON(ctx, client, path)

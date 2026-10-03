@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -157,7 +158,9 @@ granular remove-* subcommands on the referenced resource to detach members.`,
 			// Check if plan exists by name
 			id, err := r.ResolvePlanID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreatePlan(ctx, input)
 				if err != nil {
 					return err

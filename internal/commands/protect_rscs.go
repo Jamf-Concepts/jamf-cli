@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -123,7 +124,9 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveRemovableStorageControlSetID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
+				if !errors.Is(err, protect.ErrNotFound) {
+					return err
+				}
 				result, err := cliCtx.ProtectClient.CreateRemovableStorageControlSet(ctx, input)
 				if err != nil {
 					return err

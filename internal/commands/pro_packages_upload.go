@@ -22,6 +22,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 func newPackagesUploadCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -217,28 +218,38 @@ func hashFile(path string) (fileHashes, error) {
 // findPackageByFileName searches for a package with the given filename.
 // Returns the package ID if found, empty string if not.
 func findPackageByFileName(ctx context.Context, client registry.HTTPClient, fileName string) (string, error) {
-	path := fmt.Sprintf("/v1/packages?filter=%s&page-size=1",
-		url.QueryEscape(fmt.Sprintf(`fileName=="%s"`, fileName)))
+	path := fmt.Sprintf("/v1/packages?filter=%s&page-size=2",
+		url.QueryEscape(fmt.Sprintf(`fileName=="%s"`, resolve.EscapeRSQL(fileName))))
 
 	data, err := fetchJSON(ctx, client, path)
 	if err != nil {
 		return "", fmt.Errorf("searching for package: %w", err)
 	}
 
+	results, _ := data["results"].([]any)
+	var ids []string
+	for _, r := range results {
+		rec, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		// Jamf Pro matches and enforces fileName case-insensitively, so a case
+		// variant is the same package and can be replaced, not created beside it.
+		if name, _ := rec["fileName"].(string); strings.EqualFold(name, fileName) {
+			ids = append(ids, extractField(rec, "id"))
+		}
+	}
 	totalCount, _ := data["totalCount"].(float64)
-	if totalCount == 0 {
+	if len(ids) > 1 || (len(ids) == 1 && totalCount > 1) {
+		return "", fmt.Errorf("%d packages have file name %q; refusing to pick one, remove the duplicate or upload under another name", max(len(ids), int(totalCount)), fileName)
+	}
+	if len(ids) == 0 && int(totalCount) > len(results) {
+		return "", fmt.Errorf("the search for file name %q matched %d packages and returned %d, so it cannot show the name is unused; rename the file or remove the packages it matches", fileName, int(totalCount), len(results))
+	}
+	if len(ids) == 0 {
 		return "", nil
 	}
-
-	results, ok := data["results"].([]any)
-	if !ok || len(results) == 0 {
-		return "", nil
-	}
-	first, ok := results[0].(map[string]any)
-	if !ok {
-		return "", nil
-	}
-	return extractField(first, "id"), nil
+	return ids[0], nil
 }
 
 // createPackage creates a new package record and returns its ID.

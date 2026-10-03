@@ -31,7 +31,7 @@ func (c classicProfileClient) Do(_ context.Context, method, path string, _ io.Re
 		body = `<` + c.root + `><general><id>7</id><name>Corp Wi-Fi</name><payloads>` + esc.String() + `</payloads></general>` +
 			`<scope><computer_groups><computer_group><id>1</id><name>G</name></computer_group></computer_groups></scope></` + c.root + `>`
 	case method == http.MethodGet && strings.HasPrefix(path, "/v2/groups"):
-		body = `{"totalCount":1,"results":[{"groupPlatformId":"00000000-0000-0000-0000-000000000001"}]}`
+		body = `{"totalCount":1,"results":[{"groupPlatformId":"00000000-0000-0000-0000-000000000001","groupName":"G"}]}`
 	default:
 		return nil, fmt.Errorf("unexpected %s %s", method, path)
 	}

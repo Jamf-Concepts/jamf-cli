@@ -261,6 +261,85 @@ Migration: a script that pointed the Radar client elsewhere with `--url` or a
 profile `url` sets `JAMFSECURITY_URL` instead. `--url` still selects the
 gateway for the gateway-served commands (`dns-*`, `ztna-*`, and the rest).
 
+### Behaviour — an identifier that names more than one record is refused
+
+These commands used to pick one record when an identifier matched several.
+Some picked the last match, and some picked a record whose name equalled
+another record's serial number. They now act on one record, or refuse and
+name every candidate:
+
+- `school devices get`, `erase`, `unenroll`, `trash`, `clear-activation-lock`,
+  `restore`, `restart` and `refresh` match an exact UDID, then a serial
+  number, then a name. The confirmation names the device it resolved: name,
+  serial and UDID. Every other School command that takes a name (users,
+  profiles, apps, classes, groups, device groups, locations, iBeacons)
+  refuses a name that two records share.
+- `protect computers get`, `delete`, `set-plan` and `update` match an exact
+  UUID, then a serial number, then a hostname. A UUID was not accepted
+  before. The `delete` confirmation names the computer it resolved.
+- `--group` on the Jamf Pro device actions (`pro computer-inventory erase`,
+  `pro mobile-devices erase`, and the `pro computers` and `pro mobile-devices`
+  actions such as `lock`, `restart`, `blank-push` and `update-inventory`)
+  compares the static-group name as the server sent it, so `--group 14` no
+  longer finds a group named `14.2`.
+  If two static groups differ only in case, the one that matches exactly is
+  used. If neither matches exactly, the command refuses. A smart-group lookup
+  that finds two groups is now an error. Before, the Classic static-group
+  lookup ran after it and picked one of the two. The refusal names the ids.
+- `pro computers flush-commands --group` and `pro mobile-devices
+  flush-commands --group` list the Classic group collection and resolve the
+  name to exactly one group. Before, they used the Classic `/name/` endpoint,
+  which returns one group when two share a name, and the commands were
+  flushed from that group. The command now refuses and names the ids. The
+  prompt shown without `--yes` names the group's stored name and id.
+- `pro bulk send-command --group`, `pro bulk add-to-group` and
+  `pro bulk remove-from-group` (`--group` and `--target-group`) resolve a
+  group name to exactly one group, by the same rule. Before, they took the
+  first group in the listing whose name matched without case.
+- Blueprint scoping by group name refuses a name that two groups share and
+  names their ids. It accepts a group only when the server returns that exact
+  name. Before, it took the first result.
+- `pro computer-inventory set-auto-admin-password` refuses a `--user-name`
+  that matches several LAPS accounts, preferring an exact match over a case
+  variant. Without `--user-name` it uses the one MDM-created account, and
+  refuses and lists the accounts when there is none or more than one. Before,
+  it took the device's first account.
+- `pro setup` updates an API role or integration, and rotates its client
+  credentials, only when the search result carries the display name it
+  searched for.
+- `protect restore` refuses an insight label that two insights share.
+- `pro packages upload` refuses when two packages have the local file name,
+  and it accepts a match only when the server returns that exact name.
+- `protect <resource> apply`, `protect analytics import` and
+  `protect unified-logging-filters import` refuse a name that two records
+  share and name their ids. Before, the last record in the listing was
+  updated. Every other Protect command that takes a name refuses it too.
+- `pro classic-<resource> scope get`, `add`, `remove` and `set` with `--name`
+  list the collection and resolve the name to exactly one record, for every
+  scopeable resource. Before, they used the Classic `/name/` endpoint. When
+  two records share a name, that endpoint returns one of them, and the scope
+  was written to that record. The command now refuses and names the ids. Pass
+  one as `<id>`. Names are compared without case, and a name lookup costs one
+  more request.
+
+RSQL filter values now escape `\` as well as `"`, so a value cannot close its
+quotes. A Jamf Pro lookup by serial number, name, management ID, UDID or
+group name accepts a result only when its value matches the one requested,
+ignoring case. A `*` in the value can make the server return other records,
+and those are now refused instead of acted on.
+
+`school devices` actions send an argument that the device listing does not
+hold only when it has a UDID's form. Before, any argument went into the
+request path.
+
+`protect <resource> apply` creates a record only when the lookup completes
+and finds no record with that name. A lookup that fails (a 401, a 403, a 5xx,
+a GraphQL error or a timeout) now returns the error. Before, the command
+created a duplicate. This applies to plans, API clients, users, groups,
+roles, action configs, analytic sets, exception sets, custom prevent lists,
+telemetry, removable storage control sets, unified logging filters and
+unified logging filter sets.
+
 ### Behaviour — the MCP `list_commands` tool browses and searches the catalog
 
 `list_commands` returned the whole catalog in one result. That result was

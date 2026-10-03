@@ -281,25 +281,16 @@ func enclosingFuncRange(lines []string, i int) (int, int) {
 // substituted into the concrete paths the code can actually build, keyed on the
 // normalised gateway-form path.
 //
-// Two live helpers assemble a Classic collection name from a closed set:
-// internal/resolve's resolveClassicGroupID takes "computergroups" or
-// "mobiledevicegroups", and pro_blueprints.go's classicProfilePath takes
-// "osxconfigurationprofiles" or "mobiledeviceconfigurationprofiles". The
-// resulting literal is "/JSSResource/%s/name/%s", which under the old matcher
-// matched every manifest pattern of the same arity and was therefore counted as
-// checked while being constrained by nothing. Expanded here, each concrete path
-// is checked like any other.
+// One live helper assembles a Classic collection name from a closed set:
+// pro_blueprints.go's classicProfilePath takes "osxconfigurationprofiles" or
+// "mobiledeviceconfigurationprofiles". A literal with the collection
+// substituted matched every manifest pattern of the same arity under the old
+// matcher and was therefore counted as checked while being constrained by
+// nothing. Expanded here, each concrete path is checked like any other.
 //
 // A new entry needs the call sites read: the value is the set of collection
 // names the callers pass, not the set the helper could accept.
 var handWrittenDynamicCollections = map[string][]string{
-	// internal/resolve/resolve.go, resolveClassicGroupID — callers pass
-	// "computergroups" (resolveComputerGroupID) and "mobiledevicegroups"
-	// (resolveMobileDeviceGroupID).
-	"/proclassic/{}/name/{}": {
-		"/proclassic/computergroups/name/{}",
-		"/proclassic/mobiledevicegroups/name/{}",
-	},
 	// pro_blueprints.go, classicProfilePath — classicProfileCollection returns
 	// "osxconfigurationprofiles" for "computer" and
 	// "mobiledeviceconfigurationprofiles" for "mobile".

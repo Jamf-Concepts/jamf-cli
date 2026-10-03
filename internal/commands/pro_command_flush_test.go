@@ -167,6 +167,7 @@ func TestComputerFlushCommands_DryRun_ByGroup(t *testing.T) {
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
 			"GET /JSSResource/computergroups/name/Lab%20Macs": {200, classicGroupXML},
+			"GET /JSSResource/computergroups":                 {200, `<computer_groups><size>1</size><computer_group><id>7</id><name>Lab Macs</name><is_smart>true</is_smart></computer_group></computer_groups>`},
 		},
 	}
 	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
@@ -270,6 +271,7 @@ func TestComputerFlushCommands_WithYes_ByGroup(t *testing.T) {
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
 			"GET /JSSResource/computergroups/name/Lab%20Macs":             {200, classicGroupXML},
+			"GET /JSSResource/computergroups":                             {200, `<computer_groups><size>1</size><computer_group><id>7</id><name>Lab Macs</name><is_smart>true</is_smart></computer_group></computer_groups>`},
 			"DELETE /JSSResource/commandflush/computergroups/id/7/status": {200, groupFlushXML},
 		},
 	}
@@ -322,6 +324,7 @@ func TestComputerFlushCommands_GroupWithoutYes_DoesNotExecute(t *testing.T) {
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
 			"GET /JSSResource/computergroups/name/Lab%20Macs": {200, classicGroupXML},
+			"GET /JSSResource/computergroups":                 {200, `<computer_groups><size>1</size><computer_group><id>7</id><name>Lab Macs</name><is_smart>true</is_smart></computer_group></computer_groups>`},
 		},
 	}
 	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
@@ -348,6 +351,7 @@ func TestComputerFlushCommands_NoInputGroup_Errors(t *testing.T) {
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
 			"GET /JSSResource/computergroups/name/Lab%20Macs": {200, classicGroupXML},
+			"GET /JSSResource/computergroups":                 {200, `<computer_groups><size>1</size><computer_group><id>7</id><name>Lab Macs</name><is_smart>true</is_smart></computer_group></computer_groups>`},
 		},
 	}
 	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
@@ -405,6 +409,7 @@ func TestMobileFlushCommands_WithYes_ByGroup(t *testing.T) {
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
 			"GET /JSSResource/mobiledevicegroups/name/Lab%20iPads":              {200, classicMobileGroupXML},
+			"GET /JSSResource/mobiledevicegroups":                               {200, `<mobile_device_groups><size>1</size><mobile_device_group><id>12</id><name>Lab iPads</name><is_smart>false</is_smart></mobile_device_group></mobile_device_groups>`},
 			"DELETE /JSSResource/commandflush/mobiledevicegroups/id/12/status/": {200, `<commandflush><status>+failed</status><mobile_device_groups>12</mobile_device_groups></commandflush>`},
 		},
 	}
@@ -430,6 +435,7 @@ func TestMobileFlushCommands_NoInputGroup_Errors(t *testing.T) {
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
 			"GET /JSSResource/mobiledevicegroups/name/Lab%20iPads": {200, classicMobileGroupXML},
+			"GET /JSSResource/mobiledevicegroups":                  {200, `<mobile_device_groups><size>1</size><mobile_device_group><id>12</id><name>Lab iPads</name><is_smart>false</is_smart></mobile_device_group></mobile_device_groups>`},
 		},
 	}
 	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
