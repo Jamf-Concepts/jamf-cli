@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
@@ -78,7 +79,8 @@ var errNoDeviceWithID = errors.New("no device with that ID")
 // a 400 INVALID_ID (Jamf Pro's answer to an id it cannot parse), returns
 // errNoDeviceWithID; any other failure is returned as is.
 func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (string, string, error) {
-	resp, err := client.Do(ctx, "GET", "/v4/computers-inventory-detail/"+url.PathEscape(id), nil)
+	path := "/v4/computers-inventory-detail/" + url.PathEscape(id)
+	resp, err := client.Do(registry.WithAllowedStatuses(ctx, http.StatusNotFound, http.StatusBadRequest), "GET", path, nil)
 	if err != nil {
 		return "", "", err
 	}
@@ -92,7 +94,7 @@ func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (
 		if hasAPIErrorCode(body, "INVALID_ID") {
 			return "", "", errNoDeviceWithID
 		}
-		return "", "", fmt.Errorf("HTTP %d", resp.StatusCode)
+		return "", "", jamfclient.StatusError(resp.StatusCode, "GET", path, body)
 	}
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)

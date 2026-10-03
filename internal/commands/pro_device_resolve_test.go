@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // deviceResolveMockClient routes responses based on the full path (including
@@ -18,10 +21,15 @@ type deviceResolveMockClient struct {
 	handler func(method, path string) (int, string, error)
 }
 
-func (m *deviceResolveMockClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+func (m *deviceResolveMockClient) Do(ctx context.Context, method, path string, _ io.Reader) (*http.Response, error) {
 	code, body, err := m.handler(method, path)
 	if err != nil {
 		return nil, err
+	}
+	// client.Do answers a status of 400 or above with an error unless the
+	// caller allowed it with registry.WithAllowedStatuses.
+	if code >= 400 && !registry.StatusAllowed(ctx, code) {
+		return nil, client.StatusError(code, method, path, []byte(body))
 	}
 	return &http.Response{
 		StatusCode: code,
