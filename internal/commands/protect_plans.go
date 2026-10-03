@@ -229,6 +229,19 @@ func newProtectPlansDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+// planConfigProfileFileName is the default file a plan's profile is saved to,
+// the plan name unchanged. A name that is not one path segment is refused, so
+// the default can never leave the working directory.
+func planConfigProfileFileName(plan string) (string, error) {
+	if plan == "" || plan == "." || plan == ".." || strings.ContainsAny(plan, `/\`) {
+		if registry.InMCPChild() {
+			return "", fmt.Errorf("plan name %q cannot be used as a file name in the working directory, and run_command cannot choose another, so this plan's profile cannot be saved through run_command", plan)
+		}
+		return "", fmt.Errorf("plan name %q cannot be used as a file name in the working directory; pass -O/--output to choose where the profile is saved", plan)
+	}
+	return plan + ".mobileconfig", nil
+}
+
 func newProtectPlansConfigProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		outPath             string
@@ -253,6 +266,13 @@ By default, all payload components are included. Use --no-* flags to
 exclude specific payloads. Use --sign to cryptographically sign the profile.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if outPath == "" {
+				name, err := planConfigProfileFileName(args[0])
+				if err != nil {
+					return err
+				}
+				outPath = name
+			}
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)
 
@@ -290,9 +310,6 @@ exclude specific payloads. Use --sign to cryptographically sign the profile.`,
 				return fmt.Errorf("decoding profile: %w", err)
 			}
 
-			if outPath == "" {
-				outPath = fmt.Sprintf("%s.mobileconfig", args[0])
-			}
 			if err := os.WriteFile(outPath, decoded, 0o644); err != nil {
 				return fmt.Errorf("writing profile: %w", err)
 			}

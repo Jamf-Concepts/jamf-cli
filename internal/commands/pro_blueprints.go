@@ -876,6 +876,13 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 				if err != nil {
 					return err
 				}
+				// Here and not in fetchClassicProfile: import-profile writes the
+				// downloaded payloads into a new blueprint and needs the real values.
+				if registry.InMCPChild() {
+					if data, err = profileconvert.RedactPayloadSecrets(data); err != nil {
+						return fmt.Errorf("redacting the profile's payload secrets, so it is not printed over MCP: %w", err)
+					}
+				}
 			} else {
 				data, err = readInput(fromFile)
 				if err != nil {
@@ -977,10 +984,11 @@ func isClassicID(s string) bool {
 // allowPrompt is false for speculative lookups (the wrong-`--type` hint below),
 // which must never stop to ask the user about a profile they didn't name.
 //
-// The resolver's own collision wording ("use update with a specific ID") is
-// written for the generated apply/update paths and doesn't fit here — nothing
-// is being replaced, so we discard it and phrase our own remedy (re-run with
-// one of the IDs) via the typed *generated.ClassicNameCollisionError.
+// The resolver's own collision hint ("run <verb> again with one of these IDs
+// as <id>") is written for the generated apply/update/delete paths and doesn't
+// fit here — nothing is being replaced, so we discard it and phrase our own
+// remedy (re-run with one of the IDs) via the typed
+// *generated.ClassicNameCollisionError.
 func findClassicProfileByName(ctx context.Context, client registry.HTTPClient, profileType, name string, allowPrompt bool) (string, error) {
 	collection := classicProfileCollection(profileType)
 	wrapperKey := "os_x_configuration_profiles"

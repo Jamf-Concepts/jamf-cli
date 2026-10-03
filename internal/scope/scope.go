@@ -20,14 +20,17 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// udidRe matches a 40-character hex string — the format of Apple device UDIDs.
-var udidRe = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+// udidRe matches the three shapes an Apple device UDID takes: 40 hex characters
+// (older iOS devices), 8-16 hex (iOS devices from 2018 on) and a UUID (every
+// Mac). Matching only the first sent a Mac's UDID as <name>, which the Classic
+// API answers with 409 "Unable to match computer".
+var udidRe = regexp.MustCompile(`^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{8}-[0-9a-fA-F]{16}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`)
 
 // numericRe matches a plain integer string (Jamf Pro Classic API numeric ID).
 var numericRe = regexp.MustCompile(`^[0-9]+$`)
 
 // namedItemFromIdentifier builds a NamedItem with the correct field populated
-// based on what the caller passed: a 40-char hex UDID, a numeric ID, or a name.
+// based on what the caller passed: a UDID, a numeric ID, or a name.
 // Used for individual device scope targets where the API accepts any of the three.
 func namedItemFromIdentifier(value string) NamedItem {
 	switch {
@@ -317,10 +320,10 @@ func marshalScopeBody(singularKey string, s *ScopeXML) ([]byte, error) {
 
 func silentDropError(singularKey, section, flagName, itemName string, expectedPresent bool) error {
 	if expectedPresent {
-		return fmt.Errorf("the server accepted the write but %s %q is not in the %s scope of this %s; the likeliest cause is that the identifier names no existing record",
+		return fmt.Errorf("the server accepted the write but %s %s is not in the %s scope of this %s; the likeliest cause is that the identifier names no existing record",
 			flagName, itemName, section, singularKey)
 	}
-	return fmt.Errorf("the server accepted the write but %s %q is still in the %s scope of this %s",
+	return fmt.Errorf("the server accepted the write but %s %s is still in the %s scope of this %s",
 		flagName, itemName, section, singularKey)
 }
 
@@ -331,15 +334,21 @@ func silentDropError(singularKey, section, flagName, itemName string, expectedPr
 // used to carry is gone, the server keeping that element in step with
 // <limitations><user_groups> by itself (see ScopeXML).
 func AddToScope(s *ScopeXML, section, flagName, name string) bool {
+	return AddTargetToScope(s, section, ScopeTarget{FlagName: flagName, Name: name})
+}
+
+// AddTargetToScope is AddToScope for a ScopeTarget, so a device that
+// resolveDeviceTarget resolved is matched by its ID alone (see
+// ScopeTarget.matches).
+func AddTargetToScope(s *ScopeXML, section string, t ScopeTarget) bool {
+	flagName, name := t.FlagName, t.Name
 	items := getOrCreateScopeItems(s, section, flagName)
 	if items == nil {
 		return false
 	}
 
 	for _, item := range items.Items {
-		if strings.EqualFold(item.Name, name) ||
-			(item.ID != "" && item.ID == name) ||
-			(item.UDID != "" && strings.EqualFold(item.UDID, name)) {
+		if t.matches(item) {
 			return false
 		}
 	}
@@ -360,7 +369,13 @@ func AddToScope(s *ScopeXML, section, flagName, name string) bool {
 // RemoveFromScope removes a named item from the given scope section. Returns
 // true if removed, false if not found (idempotent no-op).
 func RemoveFromScope(s *ScopeXML, section, flagName, name string) bool {
-	return removeNamedItem(readScopeItems(s, section, flagName), name)
+	return RemoveTargetFromScope(s, section, ScopeTarget{FlagName: flagName, Name: name})
+}
+
+// RemoveTargetFromScope is RemoveFromScope for a ScopeTarget, matched as
+// AddTargetToScope matches.
+func RemoveTargetFromScope(s *ScopeXML, section string, t ScopeTarget) bool {
+	return removeNamedItem(readScopeItems(s, section, t.FlagName), t)
 }
 
 // OutputScope writes the scope to the output formatter. The column formats get
@@ -450,16 +465,14 @@ func FlattenScope(s *ScopeXML) []map[string]any {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-func removeNamedItem(items *ScopeItemSlice, name string) bool {
+func removeNamedItem(items *ScopeItemSlice, t ScopeTarget) bool {
 	if items == nil {
 		return false
 	}
 	var keep []NamedItem
 	found := false
 	for _, item := range items.Items {
-		if strings.EqualFold(item.Name, name) ||
-			(item.ID != "" && item.ID == name) ||
-			(item.UDID != "" && strings.EqualFold(item.UDID, name)) {
+		if t.matches(item) {
 			found = true
 			continue
 		}

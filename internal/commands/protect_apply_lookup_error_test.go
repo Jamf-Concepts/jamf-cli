@@ -62,7 +62,7 @@ func protectRecord(id string) string {
 }
 
 // newFakeProtectServer answers ops.list according to mode and counts ops.create.
-func newFakeProtectServer(t *testing.T, ops protectOps, mode protectListFailure, creates *atomic.Int32) *httptest.Server {
+func newFakeProtectLookupServer(t *testing.T, ops protectOps, mode protectListFailure, creates *atomic.Int32) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/token" {
@@ -121,7 +121,7 @@ func namesOperation(query, kind, name string) bool {
 
 func newFakeProtectContext(t *testing.T, ops protectOps, mode protectListFailure, creates *atomic.Int32) *registry.CLIContext {
 	t.Helper()
-	srv := newFakeProtectServer(t, ops, mode, creates)
+	srv := newFakeProtectLookupServer(t, ops, mode, creates)
 	client := jamfprotect.NewClient(srv.URL, "cid", "secret",
 		jamfprotect.WithHTTPClient(&http.Client{Timeout: 300 * time.Millisecond}))
 	formatter := output.New("json", true, false)

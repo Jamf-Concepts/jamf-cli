@@ -5,6 +5,8 @@ package parser
 import (
 	"sort"
 	"strings"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 )
 
 // credentialNameMarkers are substrings of a normalized field name (lowercase,
@@ -75,12 +77,13 @@ var notCredentialSuffixes = []string{
 // `keystore.fileBytes` are a base64 `.p12` or `.pfx` carrying the client's
 // private key. `serverCert.data` shares the ADCS schema and holds only a public
 // certificate, so it stays settable.
-var credentialPathSuffixes = []string{
-	"institutional_recovery_key.key",
-	"institutional_recovery_key.data",
+//
+// The institutional keystore paths are redact's list, so -vvv and --dry-run hide
+// what --set refuses.
+var credentialPathSuffixes = append(append([]string{}, redact.CredentialFieldPaths...),
 	"clientcert.data",
 	"keystore.filebytes",
-}
+)
 
 // notCredentialFields are fields whose name marks a secret and whose content is
 // not one, keyed "<schema name>.<field>", each with the reason. Name matching

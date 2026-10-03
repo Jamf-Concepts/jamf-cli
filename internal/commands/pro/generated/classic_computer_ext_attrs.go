@@ -109,8 +109,11 @@ func newClassicComputerExtAttrsListCmd(ctx *registry.CLIContext) *cobra.Command 
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicComputerExtAttrs); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -178,8 +181,11 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicComputerExtAttrs); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -319,7 +325,15 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no computer_extension_attribute found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -392,7 +406,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -469,7 +483,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -593,7 +607,7 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

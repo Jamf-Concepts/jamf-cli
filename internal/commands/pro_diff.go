@@ -19,7 +19,9 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -95,6 +97,19 @@ func isDirectoryPath(s string) bool {
 		s == "." || s == "~"
 }
 
+// expandDiffDir returns the directory a diff side names, with a leading ~/
+// expanded to the home directory.
+func expandDiffDir(dir string) (string, error) {
+	if !strings.HasPrefix(dir, "~/") {
+		return dir, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("expanding ~: %w", err)
+	}
+	return filepath.Join(home, dir[2:]), nil
+}
+
 // resourceSnapshot maps resource type name → (object name → stripped fields).
 type resourceSnapshot map[string]map[string]map[string]any
 
@@ -109,13 +124,9 @@ func loadSourceSnapshot(ctx context.Context, source string, nameFilter []string)
 // loadSnapshotFromDirectory reads YAML/JSON backup files written by `backup`.
 // The directory layout is: <dir>/<resource-subdir>/<object>.yaml (or .json).
 func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapshot, error) {
-	// Expand ~ to home directory.
-	if strings.HasPrefix(dir, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("expanding ~: %w", err)
-		}
-		dir = filepath.Join(home, dir[2:])
+	dir, err := expandDiffDir(dir)
+	if err != nil {
+		return nil, err
 	}
 
 	info, err := os.Stat(dir)
@@ -145,27 +156,31 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 	// which is what makes the two comparable. nameField is the resource's
 	// BackupEndpoint.NameField, so an object read off disk is keyed by the same
 	// field live mode reads off the list item.
-	readInto := func(resourceName, nameField, path string) {
+	readInto := func(resourceName, nameField, path string) error {
 		if len(allowedResources) > 0 && !allowedResources[resourceName] {
-			return
+			return nil
 		}
 		objects, err := readObjectsFromSubdir(path, nameField)
+		if errors.Is(err, errMCPChildReadRefused) {
+			return err
+		}
 		if err != nil {
 			// A curated resource absent from this backup is not a problem —
 			// only an unreadable directory is.
 			if !errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", path, err)
 			}
-			return
+			return nil
 		}
 		if len(objects) == 0 {
-			return
+			return nil
 		}
 		if existing, ok := snapshot[resourceName]; ok {
 			maps.Copy(existing, objects)
 		} else {
 			snapshot[resourceName] = objects
 		}
+		return nil
 	}
 
 	// First, directories in the backup root that no curated resource claims,
@@ -196,7 +211,9 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 		if !entryIsDir(dir, entry) {
 			continue
 		}
-		readInto(name, nonStandardBackupNameField(name), filepath.Join(dir, name))
+		if err := readInto(name, nonStandardBackupNameField(name), filepath.Join(dir, name)); err != nil {
+			return nil, err
+		}
 	}
 
 	// Then every curated resource, read at the path `backup` writes it to and
@@ -212,7 +229,9 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 		return nil, err
 	}
 	for _, def := range defs {
-		readInto(def.FilterName, def.NameField, filepath.Join(dir, filepath.FromSlash(def.SubDir)))
+		if err := readInto(def.FilterName, def.NameField, filepath.Join(dir, filepath.FromSlash(def.SubDir))); err != nil {
+			return nil, err
+		}
 	}
 
 	return snapshot, nil
@@ -257,6 +276,9 @@ func readObjectsFromSubdir(subDir, nameField string) (map[string]map[string]any,
 		}
 
 		path := filepath.Join(subDir, name)
+		if err := refuseMCPChildReadOutsideInputDir(path); err != nil {
+			return nil, err
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: reading file %s: %v\n", path, err)
@@ -655,6 +677,10 @@ func runDiff(ctx context.Context, cliCtx *registry.CLIContext, opts diffOptions)
 	}
 
 	results := compareSnapshots(srcSnapshot, tgtSnapshot)
+	if registry.InMCPChild() {
+		redactDiffCredentials(results, classicCredentialLeavesByFilter())
+		redactDiffProfilePayloads(results, classicProfilePayloadFilters())
+	}
 
 	if len(results) == 0 {
 		fmt.Fprintln(os.Stderr, "No differences found.")
@@ -678,4 +704,160 @@ func runDiff(ctx context.Context, cliCtx *registry.CLIContext, opts diffOptions)
 	}
 
 	return printRows(cliCtx, rows)
+}
+
+// classicCredentialLeavesByFilter maps each diff resource filter to the element
+// names its Classic resources carry a credential in.
+func classicCredentialLeavesByFilter() map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for _, r := range BackupResources {
+		if !generated.BackupEndpoints[r.Key].IsClassic {
+			continue
+		}
+		for leaf := range generated.ClassicCredentialLeaves(r.Key) {
+			if out[r.FilterName] == nil {
+				out[r.FilterName] = map[string]bool{}
+			}
+			out[r.FilterName][leaf] = true
+		}
+	}
+	return out
+}
+
+// classicProfilePayloadFilters are the diff resource filters whose Classic
+// records carry a configuration profile in general.payloads.
+func classicProfilePayloadFilters() map[string]bool {
+	out := map[string]bool{}
+	for _, r := range BackupResources {
+		if generated.ClassicCarriesProfilePayloads(r.Key) {
+			out[r.FilterName] = true
+		}
+	}
+	return out
+}
+
+// redactDiffProfilePayloads masks, in place, each secret inside a profile
+// payload that an old or new value carries. It runs after the comparison, so a
+// changed Wi-Fi password is still reported as a modified field.
+func redactDiffProfilePayloads(results []diffResult, filters map[string]bool) {
+	for i := range results {
+		r := &results[i]
+		if !filters[r.Resource] || r.Field == "" {
+			continue
+		}
+		r.OldValue = redactDiffPayloadValue(r.Field, r.OldValue)
+		r.NewValue = redactDiffPayloadValue(r.Field, r.NewValue)
+	}
+}
+
+// redactDiffPayloadValue redacts v when field is the payloads plist itself, or
+// each payloads plist inside v when v is the JSON of a nested field.
+func redactDiffPayloadValue(field, v string) string {
+	if v == "" || v == "<nil>" {
+		return v
+	}
+	if field == "payloads" {
+		return redactPayloadPlist(v)
+	}
+	var decoded any
+	if json.Unmarshal([]byte(v), &decoded) != nil || !redactPayloadsKeys(decoded) {
+		return v
+	}
+	b, err := json.Marshal(decoded)
+	if err != nil {
+		return protectRedacted
+	}
+	return string(b)
+}
+
+// redactPayloadPlist redacts the secrets in one payloads plist, or replaces it
+// whole when it does not decode.
+func redactPayloadPlist(s string) string {
+	out, err := profileconvert.RedactPayloadSecrets([]byte(s))
+	if err != nil {
+		return protectRedacted
+	}
+	return string(out)
+}
+
+// redactPayloadsKeys redacts each non-empty string under a payloads key, at
+// any depth, and reports whether it changed one.
+func redactPayloadsKeys(v any) bool {
+	changed := false
+	switch t := v.(type) {
+	case map[string]any:
+		for k, child := range t {
+			if s, ok := child.(string); ok && k == "payloads" && s != "" {
+				if r := redactPayloadPlist(s); r != s {
+					t[k] = r
+					changed = true
+				}
+				continue
+			}
+			changed = redactPayloadsKeys(child) || changed
+		}
+	case []any:
+		for _, child := range t {
+			changed = redactPayloadsKeys(child) || changed
+		}
+	}
+	return changed
+}
+
+// redactDiffCredentials masks, in place, every old and new value that is or
+// holds a credential field of its resource. It runs after the comparison, so a
+// changed credential is still reported as modified.
+func redactDiffCredentials(results []diffResult, leavesByFilter map[string]map[string]bool) {
+	for i := range results {
+		r := &results[i]
+		leaves := leavesByFilter[r.Resource]
+		if len(leaves) == 0 || r.Field == "" {
+			continue
+		}
+		r.OldValue = redactDiffValue(r.Field, r.OldValue, leaves)
+		r.NewValue = redactDiffValue(r.Field, r.NewValue, leaves)
+	}
+}
+
+// redactDiffValue masks v when field is itself a credential, or masks each
+// credential inside v when v is the JSON formatFieldValue renders a nested
+// field as.
+func redactDiffValue(field, v string, leaves map[string]bool) string {
+	if v == "" || v == "<nil>" {
+		return v
+	}
+	if leaves[field] {
+		return protectRedacted
+	}
+	var decoded any
+	if json.Unmarshal([]byte(v), &decoded) != nil || !redactCredentialKeys(decoded, leaves) {
+		return v
+	}
+	b, err := json.Marshal(decoded)
+	if err != nil {
+		return protectRedacted
+	}
+	return string(b)
+}
+
+// redactCredentialKeys replaces each non-empty string under a key in leaves,
+// at any depth, and reports whether it replaced one.
+func redactCredentialKeys(v any, leaves map[string]bool) bool {
+	changed := false
+	switch t := v.(type) {
+	case map[string]any:
+		for k, child := range t {
+			if s, ok := child.(string); ok && s != "" && leaves[k] {
+				t[k] = protectRedacted
+				changed = true
+				continue
+			}
+			changed = redactCredentialKeys(child, leaves) || changed
+		}
+	case []any:
+		for _, child := range t {
+			changed = redactCredentialKeys(child, leaves) || changed
+		}
+	}
+	return changed
 }

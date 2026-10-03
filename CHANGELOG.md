@@ -11,6 +11,214 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — `scope add`/`remove` resolve `--computer` and `--mobile-device` to an ID first
+
+`scope add --computer <UDID>` answered `409 Unable to match computer` on every
+computer-scoped resource: a Mac's UUID-shaped UDID was sent as `<name>`, and a
+matched UDID went out beside an empty `<name>`, which the Classic computer
+matcher reads first and refuses. The `scope add` and `scope remove` commands
+of the eight scopeable Classic resources now look a `--computer` or
+`--mobile-device` value up in inventory — as an ID, name, UDID or serial
+number — and send the device's `<id>` alone. That is the one form both Classic
+matchers resolve unconditionally.
+
+Two things a script can see change:
+
+- **A name shared by more than one device is refused**, naming the matching
+  ids. The Classic API's own name match picked one of them silently.
+- **The API client needs Read Computers or Read Mobile Devices**, because the
+  lookup reads inventory. Without it, a numeric ID that worked before now
+  fails with a 403 (exit 5), and the hint names the privilege.
+
+`scope remove` by serial number now works; before, it could never match,
+because the scope GET carries no serial. A value that no longer names any
+device still removes a member listed under that ID or name.
+
+**Migration.** Pass the numeric ID for a device whose name is not unique, and
+grant the API client Read Computers / Read Mobile Devices.
+
+### Breaking — device secrets are read from a file, not a flag value
+
+Three flags took a device secret as their value, where `ps`, shell history and
+a CI log could read it. Each is removed and replaced by a file flag on the same
+command, with no alias. The old name now fails with `unknown flag` and a hint
+naming the new one.
+
+| command | removed | use instead |
+|---|---|---|
+| `pro computer-inventory set-recovery-lock` | `--new-password <pw>` | `--new-password-file <path>`, or the no-echo prompt |
+| `pro computer-inventory set-recovery-lock` | omitting `--new-password` to clear | `--clear` |
+| `pro mobile-devices lock` | `--pin <pin>` | `--pin-file <path>` |
+| `pro mobile-devices clear-passcode` | `--unlock-token <token>` | `--unlock-token-file <path>` |
+
+Clearing a Recovery Lock is now something a caller asks for. With neither
+`--new-password-file` nor `--clear`, `set-recovery-lock` prompts on a terminal,
+and under `--no-input` it refuses. It used to clear the password, so a script
+that relied on "no flag means clear" has to pass `--clear`. An empty file or an
+empty prompt is refused too, rather than read as a clear. None of the file
+flags reads stdin: `-` is refused with exit 2. A trailing line ending in any of
+the files is dropped. An error reading one of the files names
+the flag and not the path, so a secret typed where its path belongs is not
+echoed.
+
+### Behaviour — `-vvv`, `--dry-run` and error messages redact more credentials
+
+The `-vvv` body log redacted passwords, secrets and the OAuth `access_token`,
+and missed every other credential a body carries: `token`, `pin`,
+`unlockToken`, `accessToken`, `serverToken`, `bootstrapToken`, `encodedToken`,
+`identityKeystore`, `gsxKeystore.keystoreBytes`, an XML `<token>`, a form
+`token=`, a FileVault institutional recovery key's `<key>` and `<data>`, and
+any secret in a configuration profile's plist. Now:
+
+- A field is redacted when its name, split on camelCase and `_ - .`, ends in
+  `token`, `pin`, `passcode`, `keystore`, `keystore bytes`, `keystore file`,
+  `authorization`, `authorization header`, `challenge`, `signature`,
+  `credential` or `credentials`, or when it holds one of the old credential
+  words anywhere. A field that only starts with one of these words is left
+  alone, so `tokenUrl`, `tokenEndpointAuthMethod`, `token_type`, `pinned`,
+  `keystoreFileName` and `authorizationEndpoint` still read in full.
+- Every value inside an `institutional_recovery_key` element or object is
+  redacted. The inventory status form,
+  `<institutional_recovery_key>Not Present</institutional_recovery_key>`, is
+  not.
+- A plist `<key>Password</key><string>…</string>` pair is redacted by its key,
+  raw, entity-escaped inside a Classic `<payloads>` element, or inside a JSON
+  string.
+- A string array under a credential name is redacted. A number is redacted only
+  under a `pin` or `passcode` name, so `passwordMinLength` stays readable. A
+  boolean never is.
+
+`--dry-run` printed request bodies with no redaction at all, on Jamf Pro and
+Classic writes, on Platform gateway writes (including the gateway-served
+Security Cloud commands) and on Security Cloud Radar writes. All three previews
+now go through the same redactor as `-vvv`. So do the response bodies quoted
+into an HTTP error message and the JSON error envelope, and the query string of
+the `-v` request line. A JCDS download that fails before a response no longer
+prints the pre-signed URL's query, which is its credential. A script that read a
+credential back out of any of these gets `[REDACTED]`.
+
+### Behaviour — Classic `update --name`, `apply` and `--group` refuse an ambiguous name
+
+Jamf Pro allows two records to share a name. `update --name` on each of the 33
+Classic resources that take it asked the server's `/name/` endpoint, which
+answers with one record of its own choosing, and wrote to it. Now `update
+--name` resolves the name from the collection, the same way `delete --name`
+and `apply` already do, and writes by ID. When two records share the name,
+the command asks which one to update. With `--no-input`, or when stdin is not
+a terminal, it fails, names the colliding IDs, and writes nothing. The same
+refusal now applies to `delete --name`, `apply` and `pro blueprints
+import-profile` when stdin is not a terminal, where they used to read the
+choice from a pipe. The refusal exits 2 and its hint says to pass one of the
+IDs as `<id>`. A name that reads as a number or a boolean, such as `2024`,
+`true` or `1.50`, is now matched as text, so `update --name`, `delete --name`
+and `apply` find that record, and two records that both have that name are
+refused as a collision.
+
+`pro classic-mac-apps apply` and `pro classic-mobile-apps apply` resolved the
+name to an ID and then fetched the record to merge by name again, so they
+could merge one app's settings into another. They now fetch by the resolved
+ID.
+
+`--group` on `pro classic-mobile-devices delete`, `pro computer-inventory
+delete` and `pro computer-inventory attachments-delete` acted on the first
+group whose name matched without regard to case. Now a group whose name
+matches with the same case wins if it is the only one. Otherwise more than one
+match fails, names the colliding group IDs, and acts on no device. Pass the
+group's ID to choose one. A group list larger than 4 MiB is refused rather
+than searched in part. The device-action `--group` commands, such as `pro
+computer-inventory erase`, use a different resolver, which a separate change
+covers.
+
+### Breaking — MCP `run_command` refuses local paths and credential output unless the operator allows them
+
+`run_command` used to compare the model's raw argument list against a short
+deny-list. A command alias (`cfg`), a leading flag (`--no-color multi`) or a
+flag inside the path (`pro -q backup`) got past it. Flags that name a local
+file were not on the list, so the model could read, write or delete files on
+the machine running `mcp serve`, and `pro diff --target <profile>` used
+another profile's credentials.
+
+The server now judges the command and the flags that cobra resolves, and the
+child process checks again before it runs. These now fail over MCP:
+
+- A flag whose value is a local file to read (`--from-file`, `--file`,
+  `--script-file`, `--input` and the like), unless the path is inside the
+  directory the operator passes to `mcp serve --input-dir <dir>`.
+  `--password-file` is always refused.
+- A flag whose value is a local path to write (`--save-to`, a command's own
+  `--output`, `--report-dir`, `--dir` on `sync`). The `-o/--output` format
+  flag is not affected.
+- `pro diff` with a side that is neither the server's profile nor a directory
+  inside `--input-dir`.
+- Body logging: `-vvv`, or any `--verbose` level of 3 or more however it is
+  spelled. It logs each response body to stderr before any redaction, and
+  `run_command` returns stderr. Use `-vv` or less. In every mode, not only over MCP,
+  the `-vv` header log now shows `Cookie` and `Set-Cookie` values as
+  `[redacted]`, as it already did for `Authorization`.
+- `multi`, `mcp`, `completion`, the `config` write subcommands,
+  `config validate`, `doctor`, every `setup`, both `backup` commands and
+  `jcds sync`.
+- The commands that print an access token: `auth token` under `platform`,
+  `pro` and `protect`, and `pro api-authentication token`, `oauth-token` and
+  `keep-alive`.
+- `pro sso-oauth-session-tokens`, which prints the session's access and ID
+  tokens.
+- The commands that mint a credential and print it:
+  `pro api-integrations client-credentials` (a new client secret) and
+  `protect api-clients apply` (a new API client's password).
+- `pro cloud-distribution-point create` and `patch`, whose response
+  carries the CloudFront private key that signs download URLs.
+- The commands that set a Jamf Pro login password to a value the model
+  chose: `pro jamf-pro-user-account-settings change-password` and
+  `pro accounts create`, `update` and `apply`.
+- `protect downloads csr` and `websocket-auth`, which write the tenant's
+  `.p12` key material into the server's working directory.
+- `protect action-configs export`, whose document carries each report
+  client's header values, such as a SIEM or webhook bearer token. A redacted
+  copy would overwrite the real credential when applied.
+
+`config show` still runs over MCP, with each token, client ID and client
+secret shown as `<redacted>`. `config list --status` checks only the server's
+profile. These Protect commands also run over MCP with the credential shown as
+`<redacted>`: `action-configs get` and `apply` (each report client's header
+values, and the userinfo and query of each report-client URL),
+`data-forwarding get` and `update` (the Sentinel shared key) and
+`api-clients get` (the password). `pro cloud-distribution-point list` runs
+over MCP with the CloudFront private key and the CDN password shown as
+`<redacted>` in every output format. Every Classic `get` and `list` prints each
+field that Classic `--set` refuses as a credential as `<redacted>`, in every
+output format, so `-o raw` is not the wire bytes over MCP, and `pro diff`
+shows those fields' old and new values as `<redacted>` while still reporting
+the change. `get` and `list` on `classic-macos-config-profiles` and
+`classic-mobile-config-profiles`, `pro diff` on `profiles` and `pro blueprints
+components configuration-profile --id/--name` also redact profile payloads by
+key name: the value of a key named `Challenge`, or ending in any case in
+`password`, `secret`, `token`, `authkey`, `apikey`, `accesskey`, `privatekey`,
+`secretkey`, `passcode` or `credential`, prints as `<redacted>`, and so does a
+PKCS#12 certificate. Every other payload value is shown, a custom payload's
+included. The payload is re-encoded, so the record is still a profile
+document. A payload that does not decode is redacted whole, and the blueprint
+converter refuses it. Outside MCP their output is unchanged. Secrets of the pinned tenant's devices (the LAPS
+password, the recovery lock password, the FileVault personal recovery key),
+the JCDS upload credentials of `pro jamf-cloud-distribution-service
+renew-credentials` and `pro jamf-cloud-distribution-service-files create`,
+and blueprint configuration, a secret a component carries included, are
+still shown.
+
+`mcp serve --input-dir ""` (for example `--input-dir "$DIR"` with `DIR`
+unset) is now an error instead of starting with no input directory.
+
+**Migration:** if an agent sends file bodies through `run_command` (for
+example `pro scripts create --script-file …`), start the server with
+`mcp serve --input-dir <dir>` and keep those files in that directory.
+
+### Behaviour — `protect plans config-profile` refuses a plan name that is not a file name
+
+Without `-O`, the command saves `<plan name>.mobileconfig` in the working
+directory. It now refuses a plan name that contains `/` or `\`, or is empty,
+`.` or `..`, because that name would put the file somewhere else. Pass
+`-O <path>` for such a plan. Every other name is saved as before.
+
 ### Breaking — `--set` refuses credential fields in Pro, Platform and Security Cloud
 
 A `--set` value is on the command line, so it lands in shell history, in `ps`

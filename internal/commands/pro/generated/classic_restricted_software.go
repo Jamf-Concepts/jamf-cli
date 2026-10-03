@@ -182,8 +182,11 @@ func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicRestrictedSoftware); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -251,8 +254,11 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 			if err != nil {
 				return err
 			}
+			if body, err = redactClassicReadInMCPChild(body, bodySpecClassicRestrictedSoftware); err != nil {
+				return err
+			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			// -o xml = pretty-printed XML, -o raw = the wire bytes outside an MCP child.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
@@ -378,7 +384,15 @@ Optional sections: general, scope`,
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/restrictedsoftware/name/%s", registry.EscapeClassicPathSegment(flagName))
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", flagName, "update", noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no restricted_software found with name %q", flagName)
+				}
+				path = fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(id))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -451,7 +465,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", entry, "update", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", entry, "delete", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -528,7 +542,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", flagName, "update", noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", flagName, "delete", noInput)
 				if err != nil {
 					return err
 				}
@@ -645,7 +659,7 @@ Optional sections: general, scope`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", name, "update", noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", name, "apply", noInput)
 			if err != nil {
 				return err
 			}

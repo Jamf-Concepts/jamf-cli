@@ -6,12 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // ─── XML round-trip ────────────────────────────────────────────────────────────
@@ -501,12 +503,32 @@ func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
 // ─── namedItemFromIdentifier ─────────────────────────────────────────────────
 
 func TestNamedItemFromIdentifier_UDID(t *testing.T) {
-	item := namedItemFromIdentifier("270aae10800b6e61a2ee2bbc285eb967050b5984")
-	if item.UDID != "270aae10800b6e61a2ee2bbc285eb967050b5984" {
-		t.Errorf("UDID = %q", item.UDID)
+	for _, udid := range []string{
+		"270aae10800b6e61a2ee2bbc285eb967050b5984", // older iOS device
+		"00008030-001A2D3E0C38802E",                // iOS device from 2018 on
+		"96050be1-e53b-454d-9752-2306c709f192",     // Mac (UUID)
+		"96050BE1-E53B-454D-9752-2306C709F192",
+	} {
+		item := namedItemFromIdentifier(udid)
+		if item.UDID != udid {
+			t.Errorf("%s: UDID = %q", udid, item.UDID)
+		}
+		if item.Name != "" || item.ID != "" {
+			t.Errorf("%s: unexpected fields set: name=%q id=%q", udid, item.Name, item.ID)
+		}
 	}
-	if item.Name != "" || item.ID != "" {
-		t.Errorf("unexpected fields set: name=%q id=%q", item.Name, item.ID)
+}
+
+func TestNamedItemFromIdentifier_NearUDIDIsAName(t *testing.T) {
+	for _, name := range []string{
+		"96050be1-e53b-454d-9752-2306c709f19",  // UUID one short
+		"96050be1e53b454d97522306c709f192",     // UUID without hyphens
+		"00008030-001A2D3E0C38802",             // 8-16 one short
+		"Lab-Mac-96050be1-e53b-454d-9752-2306", // hyphenated name
+	} {
+		if item := namedItemFromIdentifier(name); item.Name != name {
+			t.Errorf("%s: want Name, got %+v", name, item)
+		}
 	}
 }
 
@@ -1257,5 +1279,236 @@ func TestMarshalScopeBody_FieldOrderIsSchemaOrder(t *testing.T) {
 	}
 	if !strings.HasPrefix(got, xml.Header) {
 		t.Errorf("body should open with the XML declaration:\n%s", got)
+	}
+}
+
+// A UDID-identified member must reach the wire as <udid> alone. Wire-checked
+// 2026-10-01 on all five computer-scoped resources, target and exclusion:
+// <name></name><udid>…</udid> answers 409 "Unable to match computer" because
+// the empty name is matched first, while <udid>…</udid> alone resolves.
+func TestMarshalScopeBody_UDIDMemberCarriesNoEmptyName(t *testing.T) {
+	s := &ScopeXML{}
+	const udid = "96050be1-e53b-454d-9752-2306c709f192"
+	if !AddToScope(s, "target", "computer", udid) {
+		t.Fatal("AddToScope returned false")
+	}
+	if !AddToScope(s, "exclusion", "computer", strings.ToUpper(udid)) {
+		t.Fatal("AddToScope (exclusion) returned false")
+	}
+	body, err := marshalScopeBody("mac_application", s)
+	if err != nil {
+		t.Fatalf("marshalScopeBody: %v", err)
+	}
+	got := string(body)
+	if strings.Count(got, "<udid>") != 2 {
+		t.Errorf("want two <udid> elements:\n%s", got)
+	}
+	if strings.Contains(got, "<name></name>") || strings.Contains(got, "<name/>") {
+		t.Errorf("a UDID-identified member must not carry an empty <name>:\n%s", got)
+	}
+}
+
+// ─── resolveDeviceTarget ─────────────────────────────────────────────────────
+
+func stubResolveDevice(t *testing.T, fn func(flag, value string) (*resolve.DeviceIdentifiers, error)) {
+	t.Helper()
+	orig := resolveDevice
+	resolveDevice = func(_ context.Context, _ registry.HTTPClient, flag, value string) (*resolve.DeviceIdentifiers, error) {
+		return fn(flag, value)
+	}
+	t.Cleanup(func() { resolveDevice = orig })
+}
+
+func TestResolveDeviceTarget_SendsOnlyTheResolvedID(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5", UDID: "96050be1-e53b-454d-9752-2306c709f192", SerialNumber: "FWWT058JG5"}, nil
+	})
+	target, err := resolveDeviceTarget(context.Background(), nil, ScopeTarget{FlagName: "computer", Name: "FWWT058JG5"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.Name != "107" || target.Input != "FWWT058JG5" {
+		t.Fatalf("got %+v", target)
+	}
+
+	s := &ScopeXML{}
+	if !AddToScope(s, "exclusion", target.FlagName, target.Name) {
+		t.Fatal("AddToScope returned false")
+	}
+	body, err := marshalScopeBody("policy", s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "<computer>\n") || strings.Contains(string(body), "<name>") || strings.Contains(string(body), "<udid>") {
+		t.Errorf("want <id> alone:\n%s", body)
+	}
+	if !strings.Contains(string(body), "<id>107</id>") {
+		t.Errorf("missing <id>107</id>:\n%s", body)
+	}
+	if got := target.display(); got != `"FWWT058JG5" (id 107, ARMADA-058JG5)` {
+		t.Errorf("display = %s", got)
+	}
+}
+
+// A serial number is not in the scope GET, so remove could only find the
+// member through its resolved ID.
+func TestResolveDeviceTarget_RemoveBySerialFindsTheMember(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "64", Name: "ARMADA-66B185"}, nil
+	})
+	s := &ScopeXML{}
+	s.MobileDevices.Items = []NamedItem{{ID: "64", Name: "ARMADA-66B185", UDID: "5f3644dc"}}
+	target, err := resolveDeviceTarget(context.Background(), nil, ScopeTarget{FlagName: "mobile-device", Name: "GMJR66B185"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !RemoveFromScope(s, "target", target.FlagName, target.Name) {
+		t.Fatal("member not removed")
+	}
+}
+
+func TestResolveDeviceTarget_RemoveFallsBackOnlyWhenNothingMatches(t *testing.T) {
+	stubResolveDevice(t, func(_, value string) (*resolve.DeviceIdentifiers, error) {
+		return nil, &resolve.NoDeviceMatchError{Label: "computer", Value: value}
+	})
+	in := ScopeTarget{FlagName: "computer", Name: "gone-mac"}
+	if _, err := resolveDeviceTarget(context.Background(), nil, in, false); err == nil {
+		t.Error("add must refuse a value that names no device")
+	}
+	target, err := resolveDeviceTarget(context.Background(), nil, in, true)
+	if err != nil || target.Name != "gone-mac" || target.Device != nil {
+		t.Errorf("remove should fall back to the literal value: %+v, %v", target, err)
+	}
+
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return nil, errors.New("HTTP 403")
+	})
+	if _, err := resolveDeviceTarget(context.Background(), nil, in, true); err == nil {
+		t.Error("a failed lookup must not fall back on remove")
+	}
+}
+
+func TestResolveDeviceTarget_NonDeviceFlagIsUntouched(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		t.Fatal("resolver called for a non-device flag")
+		return nil, nil
+	})
+	in := ScopeTarget{FlagName: "computer-group", Name: "Lab Macs"}
+	got, err := resolveDeviceTarget(context.Background(), nil, in, false)
+	if err != nil || got != in {
+		t.Errorf("got %+v, %v", got, err)
+	}
+}
+
+// A resolved device is matched by its ID alone. Another device whose name is
+// the same digits must not count as already present on add, be removed with it
+// on remove, or stand in for it in the verification read.
+func TestResolvedDeviceIsMatchedByIDOnly(t *testing.T) {
+	resolved := ScopeTarget{
+		FlagName: flagComputer,
+		Name:     "107",
+		Input:    "FWWT058JG5",
+		Device:   &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5"},
+	}
+	namesake := NamedItem{ID: "31", Name: "107"}
+
+	s := &ScopeXML{}
+	s.Computers.Items = []NamedItem{namesake}
+	if !AddTargetToScope(s, SectionTarget, resolved) {
+		t.Fatal(`add treated computer 31, named "107", as computer 107 already in scope`)
+	}
+	if len(s.Computers.Items) != 2 || s.Computers.Items[1].ID != "107" {
+		t.Fatalf("want the namesake kept and id 107 appended: %+v", s.Computers.Items)
+	}
+	if AddTargetToScope(s, SectionTarget, resolved) {
+		t.Error("add of a member already present by ID must be a no-op")
+	}
+
+	if !RemoveTargetFromScope(s, SectionTarget, resolved) {
+		t.Fatal("remove did not find computer 107")
+	}
+	if len(s.Computers.Items) != 1 || s.Computers.Items[0] != namesake {
+		t.Fatalf(`remove took the computer named "107" as well: %+v`, s.Computers.Items)
+	}
+
+	if targetPresent(&s.Computers, resolved) {
+		t.Error(`verification counted the computer named "107" as computer 107`)
+	}
+
+	// A target that did not resolve (remove's fallback) still matches by name,
+	// ID or UDID, so a member whose inventory record is gone can be removed.
+	literal := ScopeTarget{FlagName: flagComputer, Name: "107"}
+	if !targetPresent(&s.Computers, literal) {
+		t.Error("an unresolved literal value should still match a member by name")
+	}
+}
+
+// DiffScope leaves out only the touched member itself, not a different member
+// whose name is the touched device's ID.
+func TestDiffScope_ResolvedTouchedMemberIsExcludedByID(t *testing.T) {
+	touched := ScopeTarget{FlagName: flagComputer, Name: "107", Device: &resolve.DeviceIdentifiers{ID: "107"}}
+	sent := &ScopeXML{}
+	sent.Computers.Items = []NamedItem{{ID: "31", Name: "107"}, {ID: "107"}}
+	got := &ScopeXML{}
+	drops := DiffScope(sent, got, SectionTarget, touched)
+	if len(drops) != 1 || len(drops[0].Missing) != 1 || drops[0].Missing[0] != "107" {
+		t.Fatalf(`want the dropped namesake (label "107") reported and the touched member left out: %+v`, drops)
+	}
+}
+
+// The command, not just the helpers, must match a resolved device by ID: a
+// remove of computer 107 on a scope holding only computer 31, which is named
+// "107", finds nothing and sends no write.
+func TestScopeRemoveCommand_DoesNotTakeANamesakeOfTheResolvedID(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5"}, nil
+	})
+	client := &mockPutClient{getBody: `<policy><general><id>5</id><name>P</name></general><scope>` +
+		`<computers><computer><id>31</id><name>107</name></computer></computers></scope></policy>`}
+	res := Resource{APIPath: "policies", SingularKey: "policy", CLIName: "classic-policies"}
+	cmd := newScopeRemoveCmd(&registry.CLIContext{Client: client}, res)
+	cmd.SetArgs([]string{"5", "--computer", "FWWT058JG5"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range client.requests {
+		if !strings.HasPrefix(r, "GET ") {
+			t.Fatalf(`remove of computer 107 wrote the scope, taking computer 31 named "107": %v`, client.requests)
+		}
+	}
+}
+
+// And add of computer 107 is not a no-op because computer 31 is named "107".
+func TestScopeAddCommand_ANamesakeOfTheResolvedIDIsNotAlreadyPresent(t *testing.T) {
+	stubResolveDevice(t, func(_, _ string) (*resolve.DeviceIdentifiers, error) {
+		return &resolve.DeviceIdentifiers{ID: "107", Name: "ARMADA-058JG5"}, nil
+	})
+	client := &mockPutClient{getBody: `<policy><general><id>5</id><name>P</name></general><scope>` +
+		`<computers><computer><id>31</id><name>107</name></computer></computers></scope></policy>`}
+	res := Resource{APIPath: "policies", SingularKey: "policy", CLIName: "classic-policies"}
+	cmd := newScopeAddCmd(&registry.CLIContext{Client: client, Output: &captureFormatter{}}, res)
+	cmd.SetArgs([]string{"5", "--computer", "FWWT058JG5"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	// The canned GET never shows computer 107, so the verification read must
+	// report it missing rather than accept computer 31 named "107" in its place.
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "is not in the target scope") {
+		t.Errorf(`verification took computer 31 named "107" for computer 107: %v`, err)
+	}
+
+	var put string
+	for i, r := range client.requests {
+		if strings.HasPrefix(r, "PUT ") {
+			put = client.bodies[i]
+		}
+	}
+	if put == "" {
+		t.Fatalf(`add of computer 107 was skipped as already present because computer 31 is named "107": %v`, client.requests)
+	}
+	if !strings.Contains(put, "<id>107</id>") || !strings.Contains(put, "<id>31</id>") {
+		t.Errorf("want computer 107 added beside computer 31:\n%s", put)
 	}
 }
