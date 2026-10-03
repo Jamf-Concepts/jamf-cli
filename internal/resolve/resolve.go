@@ -617,7 +617,7 @@ func resolveGroupIDByName(ctx context.Context, client registry.HTTPClient, listP
 	filter := fmt.Sprintf(`%s=="%s"`, nameField, EscapeRSQL(groupName))
 	path := fmt.Sprintf("%s?page-size=2&filter=%s", listPath, url.QueryEscape(filter))
 
-	results, total, err := fetchInventoryPage(ctx, client, path)
+	results, total, err := fetchInventoryPage(registry.WithAllowedStatuses(ctx, http.StatusNotFound), client, path)
 	var status *httpStatusError
 	if errors.As(err, &status) && status.code == http.StatusNotFound {
 		return "", fmt.Errorf("group %q: %w (search answered HTTP 404)", groupName, errGroupNotFound)

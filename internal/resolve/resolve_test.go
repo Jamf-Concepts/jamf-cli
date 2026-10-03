@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // mockClient implements registry.HTTPClient for testing.
@@ -25,7 +28,7 @@ type mockResponse struct {
 	body   string
 }
 
-func (m *mockClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+func (m *mockClient) Do(ctx context.Context, method, path string, _ io.Reader) (*http.Response, error) {
 	key := method + " " + path
 	// Also match the unescaped form, so a test pattern can name an RSQL filter
 	// (`filter=id=in=(1,2)`) without percent-encoding it. Patterns that spell
@@ -48,16 +51,21 @@ func (m *mockClient) Do(_ context.Context, method, path string, _ io.Reader) (*h
 			bestResp = resp
 		}
 	}
-	if bestPattern != "" {
-		return &http.Response{
-			StatusCode: bestResp.status,
-			Body:       io.NopCloser(strings.NewReader(bestResp.body)),
-			Header:     make(http.Header),
-		}, nil
+	if bestPattern == "" {
+		bestResp = mockResponse{status: http.StatusNotFound, body: `{"httpStatus":404}`}
+	}
+	return statusResponse(ctx, method, path, bestResp.status, bestResp.body)
+}
+
+// statusResponse answers the way client.Do does: a status of 400 or above is
+// an error unless the caller allowed it with registry.WithAllowedStatuses.
+func statusResponse(ctx context.Context, method, path string, status int, body string) (*http.Response, error) {
+	if status >= 400 && !registry.StatusAllowed(ctx, status) {
+		return nil, client.StatusError(status, method, path, []byte(body))
 	}
 	return &http.Response{
-		StatusCode: http.StatusNotFound,
-		Body:       io.NopCloser(strings.NewReader(`{"httpStatus":404}`)),
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
 	}, nil
 }
