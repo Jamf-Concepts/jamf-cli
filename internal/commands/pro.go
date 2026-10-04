@@ -156,6 +156,21 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileLogOutUserCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnlockUserAccountCmd(cliCtx))
 
+	// Static group membership and policy enable/disable, on the resource they
+	// act on. These were `pro bulk add-to-group` / `remove-from-group` /
+	// `enable-policies` / `disable-policies`, which survive deprecated.
+	addSubcommand(cmd, []string{"classic-computer-groups"}, newClassicComputerGroupAddMembersCmd(cliCtx))
+	addSubcommand(cmd, []string{"classic-computer-groups"}, newClassicComputerGroupRemoveMembersCmd(cliCtx))
+	addSubcommand(cmd, []string{"classic-mobile-device-groups"}, newClassicMobileGroupAddMembersCmd(cliCtx))
+	addSubcommand(cmd, []string{"classic-mobile-device-groups"}, newClassicMobileGroupRemoveMembersCmd(cliCtx))
+	addSubcommand(cmd, []string{"classic-policies"}, newClassicPolicyToggleCmd(cliCtx, true))
+	addSubcommand(cmd, []string{"classic-policies"}, newClassicPolicyToggleCmd(cliCtx, false))
+
+	// The modern static-group writes refuse bodies their spec calls valid;
+	// see pro_static_group_bodies.go.
+	completeStaticGroupBodies(cmd, cliCtx, "computer-groups-static-groups", staticComputerGroupBodyNote, "create", "update", "apply")
+	completeStaticGroupBodies(cmd, cliCtx, "mobile-device-groups-static-groups", staticMobileGroupBodyNote, "create", "patch", "apply")
+
 	// Wire classic-mobile-devices delete under mobile-devices
 	for _, sub := range generated.NewClassicMobileDevicesCmd(cliCtx).Commands() {
 		if sub.Name() == "delete" {

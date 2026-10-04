@@ -1135,3 +1135,56 @@ func TestPlatformPatchDoesNotMerge_NamesLiveResources(t *testing.T) {
 		}
 	}
 }
+
+// TestSendsMergePatch_FollowsTheDeclaredContentType pins the PATCH content
+// type to the spec's. A PATCH declaring application/json used to reach the
+// transport with no content type and go out as merge-patch, which the
+// device and device-group endpoints refuse for every body.
+func TestSendsMergePatch_FollowsTheDeclaredContentType(t *testing.T) {
+	jsonPatch := &parser.Operation{Method: "PATCH", RequestBody: &parser.RequestBody{}}
+	mergePatch := &parser.Operation{Method: "PATCH", RequestBody: &parser.RequestBody{IsMergePatch: true}}
+	put := &parser.Operation{Method: "PUT", RequestBody: &parser.RequestBody{}}
+
+	if sendsMergePatch("devices", jsonPatch) {
+		t.Error("a PATCH declaring application/json is sent as merge-patch")
+	}
+	if !sendsMergePatch("blueprints", mergePatch) {
+		t.Error("a PATCH declaring merge-patch is not sent as merge-patch")
+	}
+	if sendsMergePatch("devices", put) || sendsMergePatch("devices", &parser.Operation{Method: "PATCH"}) {
+		t.Error("a PUT, or a PATCH with no body, is sent as merge-patch")
+	}
+	if !sendsMergePatch("ai-policies", jsonPatch) {
+		t.Error("ai-policies lost the merge-patch its wire behaviour was verified with")
+	}
+}
+
+// TestPlatformPatchMergeOnWire_NamesLiveJSONPatches keeps the override table
+// honest: each entry must be a live resource with a PATCH that declares
+// application/json, or the override is either dead or redundant.
+func TestPlatformPatchMergeOnWire_NamesLiveJSONPatches(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+	for name := range platformPatchMergeOnWire {
+		found := false
+		for _, r := range resources {
+			if r.Name != name {
+				continue
+			}
+			for _, op := range r.Operations {
+				if strings.EqualFold(op.Method, "PATCH") && op.RequestBody != nil && !op.RequestBody.IsMergePatch {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Errorf("platformPatchMergeOnWire names %q, which has no PATCH declaring application/json", name)
+		}
+	}
+}

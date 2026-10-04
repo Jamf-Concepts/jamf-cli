@@ -81,7 +81,7 @@ func TestProGroupAction_DuplicateGroupNameIsRefusedThroughTheRoot(t *testing.T) 
 		{"mobile erase", []string{"pro", "mobile-devices", "erase", "--group", "Decom", "--yes", "--confirm-destructive"}, []string{"31", "32"}},
 		{"computer flush-commands", []string{"pro", "computers", "flush-commands", "--group", "Decom", "--yes"}, []string{"21", "22"}},
 		{"mobile flush-commands", []string{"pro", "mobile-devices", "flush-commands", "--group", "Decom", "--yes"}, []string{"31", "32"}},
-		{"bulk send-command", []string{"pro", "bulk", "send-command", "--command", "EraseDevice", "--group", "Decom", "--yes", "--confirm-destructive"}, []string{"21", "22"}},
+		{"bulk send-command", []string{"pro", "bulk", "send-command", "--command", "EnableRemoteDesktop", "--group", "Decom", "--yes"}, []string{"21", "22"}},
 		{"bulk add-to-group target", []string{"pro", "bulk", "add-to-group", "--target-group", "Decom", "--group", "Lab", "--yes"}, []string{"21", "22"}},
 		{"bulk remove-from-group source", []string{"pro", "bulk", "remove-from-group", "--target-group", "Lab", "--group", "Decom", "--yes"}, []string{"21", "22"}},
 	}
@@ -140,7 +140,7 @@ func TestProGroupAction_UniqueGroupNameSendsOneWriteThroughTheRoot(t *testing.T)
 		want string
 	}{
 		{"computer flush-commands", []string{"pro", "computers", "flush-commands", "--group", "Lab", "--yes"}, "DELETE /JSSResource/commandflush/computergroups/id/23/status/Failed"},
-		{"bulk send-command", []string{"pro", "bulk", "send-command", "--command", "BlankPush", "--group", "Lab", "--yes"}, "POST /JSSResource/computercommands/command/BlankPush/id/42"},
+		{"bulk send-command", []string{"pro", "bulk", "send-command", "--command", "EnableRemoteDesktop", "--group", "Lab", "--yes"}, "POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/42"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

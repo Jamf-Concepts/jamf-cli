@@ -346,6 +346,8 @@ func TestResolveComputersFromFile_PartialFailureCounted(t *testing.T) {
 		// Only C02X1234 comes back; NOSUCHSERIAL and ID 99 are unknown.
 		`filter=hardware.serialNumber=in=("C02X1234","NOSUCHSERIAL")`: {200, computerV3Response},
 		`filter=id=in=(99)`: {200, `{"totalCount":0,"results":[]}`},
+		// A serial nothing matched is tried as a name before it is given up on.
+		`filter=general.name=in=("NOSUCHSERIAL")`: {200, `{"totalCount":0,"results":[]}`},
 	}}
 
 	results, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
@@ -367,6 +369,7 @@ func TestResolveComputersFromFile_AllUnresolvableErrors(t *testing.T) {
 
 	client := &mockClient{responses: map[string]mockResponse{
 		`filter=hardware.serialNumber=in=`: {200, `{"totalCount":0,"results":[]}`},
+		`filter=general.name=in=`:          {200, `{"totalCount":0,"results":[]}`},
 	}}
 
 	_, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
@@ -381,13 +384,13 @@ func TestResolveComputersFromFile_AllUnresolvableErrors(t *testing.T) {
 	}
 }
 
-// An entry that can't be quoted into a shared =in= list is resolved on its own
-// rather than interpolated into a filter alongside other entries.
-func TestResolveComputersFromFile_UnbatchableEntryIsolated(t *testing.T) {
-	path := writeEntriesFile(t, `C02"X,1234`+"\n")
+// An entry carrying a `*` is resolved on its own: inside a shared =in= list
+// the wildcard would page in every device it matches.
+func TestResolveComputersFromFile_WildcardEntryIsolated(t *testing.T) {
+	path := writeEntriesFile(t, "Lab*\n")
 
 	client := &mockClient{responses: map[string]mockResponse{
-		`filter=hardware.serialNumber==`: {200, `{"totalCount":0,"results":[]}`},
+		`filter=general.name==`: {200, `{"totalCount":0,"results":[]}`},
 	}}
 
 	_, _, err := ResolveComputersFromFile(context.Background(), client, path)
@@ -398,8 +401,119 @@ func TestResolveComputersFromFile_UnbatchableEntryIsolated(t *testing.T) {
 		t.Fatalf("made %d requests, want 1: %v", len(client.calls), client.calls)
 	}
 	if strings.Contains(client.calls[0], "=in=") {
-		t.Errorf("unquotable entry was packed into an =in= list: %s", client.calls[0])
+		t.Errorf("wildcard entry was packed into an =in= list: %s", client.calls[0])
 	}
+}
+
+// A name a serial cannot be — a space, quote, comma or paren — shares one
+// name-only =in= lookup with the others, escaped, rather than costing a
+// request per line. Wire-checked: `displayName=in=("Probe, \"Q\" (x)",…)`
+// matches that device, case-insensitively.
+func TestResolveComputersFromFile_SpacedNamesBatchByName(t *testing.T) {
+	path := writeEntriesFile(t, "Lab Mac 12\n"+`Lab "A", (B)`+"\nlab mac 7\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=general.name=in=`: {200, fmt.Sprintf(`{"totalCount":3,"results":[%s,%s,%s]}`,
+			computerRecordFull("12", "", "", "Lab Mac 12", "S12"),
+			computerRecordFull("13", "", "", `Lab "A", (B)`, "S13"),
+			computerRecordFull("7", "", "", "Lab Mac 7", "S7"))},
+	}}
+
+	got, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if skipped != 0 || len(got) != 3 || got[0].ID != "12" || got[1].ID != "13" || got[2].ID != "7" {
+		t.Fatalf("got %v / %d skipped, want [12 13 7] / 0", ids(got), skipped)
+	}
+	if len(client.calls) != 1 {
+		t.Fatalf("made %d requests, want 1: %v", len(client.calls), client.calls)
+	}
+	if want := `general.name=in=("Lab Mac 12","Lab \"A\", (B)","lab mac 7")`; !strings.Contains(client.calls[0], want) {
+		t.Errorf("call = %s, want it to carry %s", client.calls[0], want)
+	}
+	if strings.Contains(client.calls[0], "serialNumber") {
+		t.Errorf("a spaced name was also looked up as a serial: %s", client.calls[0])
+	}
+}
+
+// A chunk closes once its escaped filter would pass the byte cap, not only at
+// the entry count, so a list of long identifiers cannot build a URL a proxy
+// refuses.
+func TestFilterChunks_BoundedByEscapedLength(t *testing.T) {
+	var uuids []string
+	for i := range batchChunkSize {
+		uuids = append(uuids, fmt.Sprintf("96050be1-e53b-454d-9752-%012d", i))
+	}
+	filter := func(chunk []string) string {
+		list := quotedList(chunk)
+		return fmt.Sprintf("udid=in=(%s),general.managementId=in=(%s)", list, list)
+	}
+	chunks := filterChunks(uuids, filter)
+	if len(chunks) < 2 {
+		t.Fatalf("100 UUIDs fit one chunk of %d escaped bytes; want the byte cap to split them", len(url.QueryEscape(filter(uuids))))
+	}
+	total := 0
+	for _, c := range chunks {
+		if n := len(url.QueryEscape(filter(c))); n > batchFilterMaxBytes {
+			t.Errorf("chunk of %d entries escapes to %d bytes, over %d", len(c), n, batchFilterMaxBytes)
+		}
+		total += len(c)
+	}
+	if total != len(uuids) {
+		t.Errorf("chunks hold %d entries, want %d", total, len(uuids))
+	}
+
+	// An entry too long for any chunk still gets one of its own.
+	long := strings.Repeat("x", batchFilterMaxBytes)
+	if got := filterChunks([]string{"a", long, "b"}, filter); len(got) != 3 {
+		t.Errorf("got %d chunks, want 3 (the long entry alone)", len(got))
+	}
+}
+
+// A serial-shaped entry that matched no serial and resolved by name says so,
+// since a mistyped serial equal to another device's name would otherwise
+// target that device silently. A returned record that cannot be parsed is
+// counted rather than reported only as "not found".
+func TestResolveEntries_NotesNameFallbackAndUnreadableRecords(t *testing.T) {
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=hardware.serialNumber=in=`: {200, `{"totalCount":1,"results":[{"general":{"name":"no id"}}]}`},
+		`filter=general.name=in=`: {200, fmt.Sprintf(`{"totalCount":1,"results":[%s]}`,
+			computerRecordFull("9", "", "", "KIOSK-1", "C02REAL"))},
+	}}
+
+	var got []*DeviceIdentifiers
+	stderr := captureStderr(t, func() {
+		var err error
+		got, _, err = ResolveComputerEntries(context.Background(), client, []string{"KIOSK-1"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	if len(got) != 1 || got[0].ID != "9" {
+		t.Fatalf("got %v, want [9]", ids(got))
+	}
+	if !strings.Contains(stderr, `"KIOSK-1" matched no serial number; resolved by name to computer 9`) {
+		t.Errorf("stderr = %q, want the name fallback noted", stderr)
+	}
+	if !strings.Contains(stderr, "1 computer record(s) returned by the serial number lookup could not be read") {
+		t.Errorf("stderr = %q, want the unreadable record counted", stderr)
+	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	orig := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = orig }()
+	fn()
+	_ = w.Close()
+	b, _ := io.ReadAll(r)
+	return string(b)
 }
 
 // A transport/HTTP failure of the batch lookup is fatal — it must not be
@@ -428,6 +542,7 @@ func TestResolveMobileDevicesFromFile(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
 		`filter=serialNumber=in=("F4GH5678","NOSUCHSERIAL")`: {200, mobileV2Response},
 		`filter=mobileDeviceId=in=(99)`:                      {200, mobileV2Response},
+		`filter=displayName=in=("NOSUCHSERIAL")`:             {200, `{"totalCount":0,"results":[]}`},
 	}}
 
 	results, skipped, err := ResolveMobileDevicesFromFile(context.Background(), client, path)
@@ -437,8 +552,9 @@ func TestResolveMobileDevicesFromFile(t *testing.T) {
 	if len(results) != 2 || skipped != 1 {
 		t.Fatalf("got %d results / %d skipped, want 2 / 1", len(results), skipped)
 	}
-	if len(client.calls) != 2 {
-		t.Errorf("made %d requests, want 2 (one per identifier kind): %v", len(client.calls), client.calls)
+	// One per identifier kind, plus the name retry for the serial nothing matched.
+	if len(client.calls) != 3 {
+		t.Errorf("made %d requests, want 3: %v", len(client.calls), client.calls)
 	}
 	for _, c := range client.calls {
 		if !strings.Contains(c, "/v2/mobile-devices/detail") {

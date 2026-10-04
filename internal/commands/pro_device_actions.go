@@ -140,7 +140,7 @@ func (dt *deviceTarget) addFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&dt.name, "name", "", "device name")
 	cmd.Flags().StringVar(&dt.id, "id", "", "device numeric ID")
 	cmd.Flags().StringVar(&dt.group, "group", "", "target all members of a device group")
-	cmd.Flags().StringVar(&dt.fromFile, "from-file", "", "file containing one serial or ID per line")
+	cmd.Flags().StringVar(&dt.fromFile, "from-file", "", "file listing one device per line: ID, serial number, UDID, management ID or name")
 	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group", "from-file")
 }
 
@@ -576,15 +576,6 @@ func runMobileAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *device
 	return executeAction(cmd, dt, devices, unresolved, yes, confirmDestructive, cfg)
 }
 
-// unresolvedTargetsErr reports --from-file entries that never resolved, so an
-// action whose resolved devices all succeeded still exits non-zero.
-func unresolvedTargetsErr(deviceType string, unresolved int) error {
-	if unresolved == 0 {
-		return nil
-	}
-	return fmt.Errorf("%d %s target(s) from --from-file could not be resolved", unresolved, deviceType)
-}
-
 // deviceActionPreviewTable prints the bulk-targeting preview, which keeps the
 // contract newBulkCmd's Long documents: preview table on stdout, mutation log
 // on stderr. It stays a table whatever -o says, so it cannot come from the
@@ -659,12 +650,19 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 		}
 	}
 
+	// Every outcome below goes through finishBatch, so an action that reached
+	// some devices and not others exits 7 (or 0 with --allow-partial-failure)
+	// exactly as the group, policy and bulk commands do. A --from-file entry
+	// that never resolved counts as one that failed. These used to exit 1 for a
+	// partial failure, the same as for a total one, and ignore the flag.
+	noun := cfg.actionName + " operations"
+
 	// Batch endpoints (blank-push, renew-mdm): send all IDs in one request.
 	if (cfg.batchByManagementID || cfg.batchByUDID) && cfg.execBatch != nil && len(devices) > 0 {
 		if err := cfg.execBatch(devices); err != nil {
 			return err
 		}
-		return unresolvedTargetsErr(cfg.deviceType, unresolved)
+		return finishBatch(stderr, noun, len(devices), unresolved, nil)
 	}
 
 	// Read optional body (for erase commands).
@@ -678,15 +676,19 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 		if err := cfg.execSingle(devices[0], body); err != nil {
 			return err
 		}
-		return unresolvedTargetsErr(cfg.deviceType, unresolved)
+		return finishBatch(stderr, noun, 1, unresolved, nil)
 	}
 
 	// Bulk per-device execution with progress logging.
 	_, _ = fmt.Fprintf(stderr, "Sending %s to %d %ss...\n", cfg.actionName, len(devices), cfg.deviceType)
 	successCount, failCount := 0, unresolved
+	var firstErr error
 	for _, d := range devices {
 		if err := cfg.execSingle(d, nil); err != nil {
 			_, _ = fmt.Fprintf(stderr, "[%s] %-40s ERROR: %v\n", cfg.actionName, resolve.FormatDeviceDesc(d), err)
+			if firstErr == nil {
+				firstErr = err
+			}
 			failCount++
 		} else {
 			_, _ = fmt.Fprintf(stderr, "[%s] %-40s ok\n", cfg.actionName, resolve.FormatDeviceDesc(d))
@@ -695,10 +697,7 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 	}
 	_, _ = fmt.Fprintf(stderr, "%s complete: %d succeeded, %d failed%s.\n",
 		cfg.actionName, successCount, failCount, unresolvedNote(unresolved))
-	if failCount > 0 {
-		return fmt.Errorf("%d of %d %s operations failed", failCount, successCount+failCount, cfg.actionName)
-	}
-	return nil
+	return finishBatch(stderr, noun, successCount, failCount, firstErr)
 }
 
 // doPostAction sends a POST request and prints the response.
@@ -752,7 +751,9 @@ func sendComputerModernMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContex
 
 // newModernComputerMDMCmd creates a computer subcommand that sends a
 // modern API MDM command via POST /v2/mdm/commands with no additional body fields.
-func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, short, long, example string, destructive bool) *cobra.Command {
+// route is how it reaches a device on a gateway profile, or nil for no way
+// (see gatewayRoute).
+func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType string, route *gatewayRoute, short, long, example string, destructive bool) *cobra.Command {
 	var (
 		dt                 deviceTarget
 		yes                bool
@@ -770,6 +771,9 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 				deviceType:  "computer",
 				destructive: destructive,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					if sent, err := sendThroughRoute(cmd, cliCtx, route, d); sent {
+						return err
+					}
 					return sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{
 						"commandType": commandType,
 					})
@@ -782,12 +786,12 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 	if destructive {
 		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	}
-	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
+	return withGatewayRoute(cmd, route)
 }
 
 func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "lock", "DEVICE_LOCK",
+		cliCtx, "lock", "DEVICE_LOCK", nil,
 		"Lock a computer",
 		"Lock a computer by serial number, name, or ID. This is a destructive operation.",
 		`  jamf-cli pro comp lock --serial C02X1234 --yes
@@ -798,7 +802,7 @@ func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
+		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP", classicComputerCommandRoute("EnableRemoteDesktop"),
 		"Enable Remote Desktop on a computer",
 		"Enable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234
@@ -809,7 +813,7 @@ func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comma
 
 func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
+		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP", classicComputerCommandRoute("DisableRemoteDesktop"),
 		"Disable Remote Desktop on a computer",
 		"Disable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234
@@ -819,6 +823,7 @@ func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comm
 }
 
 func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	restartRoute := platformDeviceActionRoute("restart")
 	var (
 		dt                 deviceTarget
 		yes                bool
@@ -833,10 +838,22 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
   jamf-cli pro comp restart --serial C02X1234 --rebuild-kernel-cache
   jamf-cli pro comp restart --group "Lab Macs" --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// The Platform API restart takes no options, so the one this
+			// command offers is refused rather than silently dropped.
+			if rebuildKernelCache && isGatewayProvider(cliCtx.AuthProvider) {
+				return &exitcode.Error{
+					Code:    exitcode.Unsupported,
+					Message: "--rebuild-kernel-cache cannot be sent through a platform gateway profile",
+					Hint:    "the gateway restarts a computer through the Platform API device action, which takes no options; drop the flag, or use a direct Jamf Pro profile",
+				}
+			}
 			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
 				actionName: "restart",
 				deviceType: "computer",
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					if sent, err := sendThroughRoute(cmd, cliCtx, restartRoute, d); sent {
+						return err
+					}
 					commandData := map[string]any{"commandType": "RESTART_DEVICE"}
 					if rebuildKernelCache {
 						commandData["rebuildKernelCache"] = true
@@ -848,13 +865,13 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
-	cmd.Flags().BoolVar(&rebuildKernelCache, "rebuild-kernel-cache", false, "rebuild the kernel cache before restarting")
-	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
+	cmd.Flags().BoolVar(&rebuildKernelCache, "rebuild-kernel-cache", false, "rebuild the kernel cache before restarting (not through a platform gateway profile)")
+	return withGatewayRoute(cmd, restartRoute)
 }
 
 func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE", platformDeviceActionRoute("shutdown"),
 		"Shut down a computer",
 		"Shut down a supervised computer by serial number, name, or ID.",
 		`  jamf-cli pro comp shutdown --serial C02X1234
@@ -951,7 +968,7 @@ func sendMobileModernMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContext,
 
 // newModernMobileMDMCmd creates a mobile-device subcommand that sends a
 // modern API MDM command via POST /v2/mdm/commands with no additional body fields.
-func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short, long, example string, destructive bool) *cobra.Command {
+func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType string, route *gatewayRoute, short, long, example string, destructive bool) *cobra.Command {
 	var (
 		dt                 deviceTarget
 		yes                bool
@@ -969,6 +986,9 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short
 				deviceType:  "mobile device",
 				destructive: destructive,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					if sent, err := sendThroughRoute(cmd, cliCtx, route, d); sent {
+						return err
+					}
 					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
 						"commandType": commandType,
 					})
@@ -981,12 +1001,12 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short
 	if destructive {
 		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	}
-	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
+	return withGatewayRoute(cmd, route)
 }
 
 func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "restart", "RESTART_DEVICE",
+		cliCtx, "restart", "RESTART_DEVICE", platformDeviceActionRoute("restart"),
 		"Restart a mobile device",
 		"Restart a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md restart --serial F4GH5678
@@ -997,7 +1017,7 @@ func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobileShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE", platformDeviceActionRoute("shutdown"),
 		"Shut down a mobile device",
 		"Shut down a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md shutdown --serial F4GH5678`,
@@ -1190,7 +1210,7 @@ func newMobileEnableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE",
+		cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE", nil,
 		"Disable Lost Mode on a mobile device",
 		"Disable Lost Mode on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md disable-lost-mode --serial F4GH5678 --yes
@@ -1201,7 +1221,7 @@ func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND",
+		cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND", nil,
 		"Play a sound on a device in Lost Mode",
 		"Play a sound on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md play-lost-mode-sound --serial F4GH5678
@@ -1212,7 +1232,7 @@ func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobileClearRestrictionsPasswordCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD",
+		cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD", nil,
 		"Clear the restrictions password on a mobile device",
 		"Clear the restrictions password on a supervised mobile device.",
 		`  jamf-cli pro md clear-restrictions-password --serial F4GH5678
@@ -1450,7 +1470,7 @@ One of --destination-id or --destination-name is required.`,
 
 func newMobileStopMirroringCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "stop-mirroring", "STOP_MIRRORING",
+		cliCtx, "stop-mirroring", "STOP_MIRRORING", nil,
 		"Stop AirPlay mirroring on a mobile device",
 		"Stop an active AirPlay mirroring session on a mobile device.",
 		`  jamf-cli pro md stop-mirroring --serial F4GH5678`,
@@ -1580,7 +1600,7 @@ This is a destructive operation.`,
 
 func newMobileLogOutUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "log-out-user", "LOG_OUT_USER",
+		cliCtx, "log-out-user", "LOG_OUT_USER", nil,
 		"Log out the current user on a Shared iPad",
 		"Log out the currently signed-in user on a Shared iPad.",
 		`  jamf-cli pro md log-out-user --serial F4GH5678

@@ -82,13 +82,14 @@ func newSsoSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Updates the current Single Sign On configuration settings",
-		Long:  "Updates the current Single Sign On configuration settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  configurationType                            string\n  enrollmentSsoConfig.managementHint           string\n  enrollmentSsoForAccountDrivenEnrollmentEnabled boolean\n  groupEnrollmentAccessEnabled                 boolean\n  groupEnrollmentAccessName                    string\n  oidcSettings.jamfIdAuthenticationEnabled     boolean\n  oidcSettings.userMapping                     string\n  oidcSettings.usernameAttributeClaimMapping   string\n  samlSettings.entityId                        string\n  samlSettings.federationMetadataFile          string\n  samlSettings.groupAttributeName              string\n  samlSettings.groupRdnKey                     string\n  samlSettings.idpProviderType                 string\n  samlSettings.idpUrl                          string\n  samlSettings.metadataFileName                string\n  samlSettings.metadataSource                  string\n  samlSettings.otherProviderTypeName           string\n  samlSettings.sessionTimeout                  integer\n  samlSettings.tokenExpirationDisabled         boolean\n  samlSettings.userAttributeEnabled            boolean\n  samlSettings.userAttributeName               string\n  samlSettings.userMapping                     string\n  ssoBypassAllowed                             boolean\n  ssoEnabled                                   boolean\n  ssoForEnrollmentEnabled                      boolean\n  ssoForMacOsSelfServiceEnabled                boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  enrollmentSsoConfig                          object\n  enrollmentSsoConfig.hosts                    array\n  oidcSettings                                 object\n  samlSettings                                 object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates the current Single Sign On configuration settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  configurationType                            string\n  enrollmentSsoConfig.managementHint           string\n  enrollmentSsoForAccountDrivenEnrollmentEnabled boolean\n  groupEnrollmentAccessEnabled                 boolean\n  groupEnrollmentAccessName                    string\n  oidcSettings.jamfIdAuthenticationEnabled     boolean\n  oidcSettings.userMapping                     string\n  oidcSettings.usernameAttributeClaimMapping   string\n  samlSettings.entityId                        string\n  samlSettings.federationMetadataFile          string\n  samlSettings.groupAttributeName              string\n  samlSettings.groupRdnKey                     string\n  samlSettings.idpProviderType                 string\n  samlSettings.idpUrl                          string\n  samlSettings.metadataFileName                string\n  samlSettings.metadataSource                  string\n  samlSettings.otherProviderTypeName           string\n  samlSettings.sessionTimeout                  integer\n  samlSettings.tokenExpirationDisabled         boolean\n  samlSettings.userAttributeEnabled            boolean\n  samlSettings.userAttributeName               string\n  samlSettings.userMapping                     string\n  ssoBypassAllowed                             boolean\n  ssoEnabled                                   boolean\n  ssoForEnrollmentEnabled                      boolean\n  ssoForMacOsSelfServiceEnabled                boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  enrollmentSsoConfig                          object\n  enrollmentSsoConfig.hosts                    array\n  oidcSettings                                 object\n  samlSettings                                 object\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro sso-settings update --set field=value
 
@@ -188,12 +189,11 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -213,7 +213,9 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"configurationType=", "enrollmentSsoConfig.managementHint=", "enrollmentSsoForAccountDrivenEnrollmentEnabled=", "groupEnrollmentAccessEnabled=", "groupEnrollmentAccessName=", "oidcSettings.jamfIdAuthenticationEnabled=", "oidcSettings.userMapping=", "oidcSettings.usernameAttributeClaimMapping=", "samlSettings.entityId=", "samlSettings.federationMetadataFile=", "samlSettings.groupAttributeName=", "samlSettings.groupRdnKey=", "samlSettings.idpProviderType=", "samlSettings.idpUrl=", "samlSettings.metadataFileName=", "samlSettings.metadataSource=", "samlSettings.otherProviderTypeName=", "samlSettings.sessionTimeout=", "samlSettings.tokenExpirationDisabled=", "samlSettings.userAttributeEnabled=", "samlSettings.userAttributeName=", "samlSettings.userMapping=", "ssoBypassAllowed=", "ssoEnabled=", "ssoForEnrollmentEnabled=", "ssoForMacOsSelfServiceEnabled=",
@@ -427,6 +429,7 @@ func newSsoSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -456,12 +459,11 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -481,6 +483,7 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

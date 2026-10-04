@@ -9,6 +9,124 @@ release with none of those gets no entry here.
 Versions follow the `vMAJOR.MINOR.PATCH` tags in this repository, and headings match the
 commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
+## Unreleased
+
+### Added — generated Jamf Pro writes take a body `--from-file`
+
+Every generated Pro `create`, `update` and body-carrying action read its body
+from stdin only, so `pro categories create --from-file body.json` answered
+`unknown flag`. They now take `--from-file`, as the Classic, Platform and
+Security Cloud writes already did; stdin works as before. On `update`,
+`--from-file` and `--set` are mutually exclusive. Not changed: `patch` (its
+`--from-file` already was the body), the destructive commands whose
+`--from-file` is a list of IDs or names, and the multipart uploads (`--file`).
+
+### Deprecated — `pro bulk` group and policy subcommands move to the resource they act on
+
+| deprecated | use instead |
+|---|---|
+| `pro bulk add-to-group` | `pro classic-computer-groups add-members` |
+| `pro bulk remove-from-group` | `pro classic-computer-groups remove-members` |
+| — | `pro classic-mobile-device-groups add-members` / `remove-members` (new) |
+| `pro bulk enable-policies` | `pro classic-policies enable` |
+| `pro bulk disable-policies` | `pro classic-policies disable` |
+| `pro bulk send-command` | the MDM commands under `pro computer-inventory` |
+
+The deprecated commands still run, are hidden from help, and print a
+deprecation warning on stderr. They will be removed in a future release, and
+`pro bulk` with them.
+
+**`send-command` now refuses ten of its twelve commands before sending
+anything.** Jamf Pro 11.32 no longer queues them through the Classic API.
+Wire-checked direct and through the gateway: `BlankPush`, `DeleteUser`,
+`DeviceLock` and `ScheduleOSUpdate` answer `400 No command was queued`;
+`UpdateInventory`, `DeviceInformation`, `Settings` and
+`RedeployJamfManagementFramework` answer 500 through the gateway and 401
+direct; `UnlockUserAccount` needs a `user_name` that send-command cannot pass.
+`EraseDevice` is no longer documented. The refusal exits 8 and names the
+replacement where one exists. `EnableRemoteDesktop` and `DisableRemoteDesktop`
+still work. `--confirm-destructive` is accepted and has no effect, and
+send-command now honours `-n`.
+
+**Six MDM commands now work through a platform gateway profile**, where the
+modern MDM endpoint they use is not published:
+
+- `pro computer-inventory enable-remote-desktop` / `disable-remote-desktop`
+  send the Classic `EnableRemoteDesktop` / `DisableRemoteDesktop` command.
+  That was the last thing `send-command` did that nothing else could.
+- `pro computer-inventory restart` / `shutdown` and `pro mobile-devices
+  restart` / `shutdown` send the Platform API device action, by management
+  ID. `restart --rebuild-kernel-cache` is refused there (exit 8), because the
+  Platform action takes no options.
+
+The other modern MDM commands (`lock`, lost mode, `settings`, …) are still
+refused on a gateway profile, because no Classic or Platform command does the
+same.
+
+What differs in the new commands:
+
+- **The group is the positional `<id>` or `--name`**; the members come from
+  `--computer` / `--mobile-device` (repeatable), `--from-file` or `--from-group`
+  (was `--target-group` and `--group`).
+- **One request per 250 members** rather than one per member, read back
+  afterwards to confirm each change landed. A device already in the requested
+  state is reported and not sent. Removing a computer that is not a member
+  used to fail the whole request with a 409.
+- **An unmanaged device is refused before anything is sent.** Jamf Pro rejects
+  it as a static group member, and because the request is atomic it fails
+  every managed member sent with it.
+- **A single `--computer`, `<id>` or `--name` runs without `--yes`**, the way
+  `update --set` does. `--from-file`, `--from-group` and the policy filters
+  still preview until `--yes` is given; `-n` previews every form.
+- **A change that cannot be confirmed is a failure.** When the group cannot be
+  read back after the write, each change it carried is reported `unverified`
+  and the command exits non-zero, rather than reporting it done.
+- **A policy filter run counts a policy it could not read as a failure** (exit
+  7, or 1 when nothing else succeeded). `pro bulk enable-policies` /
+  `disable-policies` used to warn and exit 0, though the policy might have
+  matched. A filter matching nothing now says so.
+- `pro bulk enable-policies` / `disable-policies` now honour `-n`; before, `-n`
+  together with `--yes` wrote the change.
+
+### Behaviour — device actions exit 7 for a partial failure
+
+The `computer-inventory` and `mobile-devices` actions (`lock`, `restart`,
+`blank-push`, `erase`, …) exited 1 when some devices succeeded and some failed,
+or when `--from-file` lines did not resolve: the same code as a total failure.
+They also ignored `--allow-partial-failure`. They now exit 7 for a partial
+failure, as the group, policy and `bulk` commands do, and
+`--allow-partial-failure` turns that into a warning with exit 0. A total
+failure keeps the exit code of the error that caused it.
+
+### Behaviour — device `--from-file` lists take UDIDs, management IDs and names
+
+Every `--from-file` device list (the `computer-inventory` and `mobile-devices`
+actions, `bulk send-command`, and the new group commands) now resolves each
+line as a numeric ID, a UUID (a UDID or a management ID), a mobile UDID, a
+serial number or a name. A UUID used to be looked up as a serial number and
+never matched. **A line that matches no serial number is now tried as a name**,
+so an entry that was skipped before can now resolve to a device, and stderr
+notes each one that did. A line matching more than one device is refused,
+naming the matches. Names are looked up in batches, spaces and punctuation
+included: one request per 100 names rather than one per name.
+
+### Fixed — PATCH commands the server refused for every body
+
+`pro platform-devices patch`, `pro platform-device-groups patch` and
+`patch-members` sent `application/merge-patch+json` to endpoints that accept
+only the `application/json` their spec declares, and answered 400 for every
+input. `pro platform-device-groups add-members` / `remove-members` now report
+how many devices actually changed (they used to echo the number of IDs given)
+and preview under `-n`. An `--id` that is not a UUID (a numeric Jamf Pro ID,
+say) is refused before anything is sent.
+
+The generated Jamf Pro static-group writes failed for bodies their help
+documents: `pro computer-groups-static-groups create`/`update`/`apply` without
+`assignments` returned 500, as did `pro mobile-device-groups-static-groups
+create`/`patch`/`apply` without `groupName`, `siteId` and `assignments`. These
+fields are now filled in when left out. An `update` that names no members keeps
+the current ones, because that PUT replaces the member list.
+
 ## v1.32.0
 
 ### Breaking — `scope add`/`remove` resolve `--computer` and `--mobile-device` to an ID first

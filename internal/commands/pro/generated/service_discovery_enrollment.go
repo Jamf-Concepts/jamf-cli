@@ -71,13 +71,14 @@ func newServiceDiscoveryEnrollmentGetCmd(ctx *registry.CLIContext) *cobra.Comman
 func newServiceDiscoveryEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update service discovery well-known settings",
-		Long:  "Accepts JSON payload to update enrollment types for AxM organizations.\nRequires \"Update User-Initiated Enrollment\" privilege.\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  wellKnownSettings                            array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Accepts JSON payload to update enrollment types for AxM organizations.\nRequires \"Update User-Initiated Enrollment\" privilege.\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  wellKnownSettings                            array\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro service-discovery-enrollment update --set field=value
 
@@ -148,12 +149,11 @@ func newServiceDiscoveryEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -173,7 +173,9 @@ func newServiceDiscoveryEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{}, cobra.ShellCompDirectiveNoSpace
 	})

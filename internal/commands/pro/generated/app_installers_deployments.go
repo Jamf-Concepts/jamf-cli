@@ -316,6 +316,7 @@ func newAppInstallersDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 func newAppInstallersDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -379,12 +380,11 @@ func newAppInstallersDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -404,12 +404,14 @@ func newAppInstallersDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newAppInstallersDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 
 		flagSet []string
@@ -418,7 +420,7 @@ func newAppInstallersDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Updates App Installer deployment.",
-		Long:  "Updates App Installer deployment.\n\n**Required Permissions:** 'applications:update'\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  appTitleId                                   string\n  categoryId                                   string\n  deploymentType                               string\n  enabled                                      boolean\n  installPredefinedConfigProfiles              boolean\n  name                                         string\n  notificationSettings.completeMessage         string\n  notificationSettings.deadline                integer\n  notificationSettings.deadlineMessage         string\n  notificationSettings.notificationInterval    integer\n  notificationSettings.notificationMessage     string\n  notificationSettings.quitDelay               integer\n  notificationSettings.relaunch                boolean\n  notificationSettings.suppress                boolean\n  selfServiceSettings.description              string\n  selfServiceSettings.forceViewDescription     boolean\n  selfServiceSettings.includeInComplianceCategory boolean\n  selfServiceSettings.includeInFeaturedCategory boolean\n  siteId                                       string\n  smartGroupId                                 string\n  triggerAdminNotifications                    boolean\n  updateBehavior                               string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  notificationSettings                         object\n  selfServiceSettings                          object\n  selfServiceSettings.categories               array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates App Installer deployment.\n\n**Required Permissions:** 'applications:update'\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  appTitleId                                   string\n  categoryId                                   string\n  deploymentType                               string\n  enabled                                      boolean\n  installPredefinedConfigProfiles              boolean\n  name                                         string\n  notificationSettings.completeMessage         string\n  notificationSettings.deadline                integer\n  notificationSettings.deadlineMessage         string\n  notificationSettings.notificationInterval    integer\n  notificationSettings.notificationMessage     string\n  notificationSettings.quitDelay               integer\n  notificationSettings.relaunch                boolean\n  notificationSettings.suppress                boolean\n  selfServiceSettings.description              string\n  selfServiceSettings.forceViewDescription     boolean\n  selfServiceSettings.includeInComplianceCategory boolean\n  selfServiceSettings.includeInFeaturedCategory boolean\n  siteId                                       string\n  smartGroupId                                 string\n  triggerAdminNotifications                    boolean\n  updateBehavior                               string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  notificationSettings                         object\n  selfServiceSettings                          object\n  selfServiceSettings.categories               array\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro app-installers-deployments update 1 --set field=value
 
@@ -529,12 +531,11 @@ func newAppInstallersDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -556,7 +557,9 @@ func newAppInstallersDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-deployment by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"appTitleId=", "categoryId=", "deploymentType=", "enabled=", "installPredefinedConfigProfiles=", "name=", "notificationSettings.completeMessage=", "notificationSettings.deadline=", "notificationSettings.deadlineMessage=", "notificationSettings.notificationInterval=", "notificationSettings.notificationMessage=", "notificationSettings.quitDelay=", "notificationSettings.relaunch=", "notificationSettings.suppress=", "selfServiceSettings.description=", "selfServiceSettings.forceViewDescription=", "selfServiceSettings.includeInComplianceCategory=", "selfServiceSettings.includeInFeaturedCategory=", "siteId=", "smartGroupId=", "triggerAdminNotifications=", "updateBehavior=",
@@ -1006,6 +1009,7 @@ func newAppInstallersDeploymentsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 func newAppInstallersDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1053,12 +1057,11 @@ func newAppInstallersDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1080,6 +1083,7 @@ func newAppInstallersDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-deployment by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1093,6 +1097,7 @@ func newAppInstallersDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Comma
 		flagFilter       string
 		flagScaffold     bool
 		flagSaveTo       string
+		fromFile         string
 	)
 
 	cmd := &cobra.Command{
@@ -1160,12 +1165,11 @@ func newAppInstallersDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1206,6 +1210,7 @@ func newAppInstallersDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: 'id', 'name', 'app.deployedVersion', 'bundleId', 'deploymentType', 'updateBehavior', 'app.versionAction'. This param can be combined with paging and sorting. Example: name==\"*appInstaller*\"")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1649,6 +1654,7 @@ func newAppInstallersDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext)
 func newAppInstallersDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1696,12 +1702,11 @@ func newAppInstallersDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobr
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1723,6 +1728,7 @@ func newAppInstallersDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobr
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-deployment by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

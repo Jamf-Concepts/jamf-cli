@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -33,6 +34,9 @@ type DeviceIdentifiers struct {
 	UDID         string // device UDID for renew-mdm
 	Name         string // display name for confirmation messages
 	SerialNumber string // serial number for confirmation messages
+	// Managed is whether Jamf Pro manages the device, or nil when the record
+	// read did not say. A static group refuses an unmanaged member.
+	Managed *bool
 }
 
 // deviceQuery is a lookup by one identifier field: the RSQL field the server
@@ -108,6 +112,16 @@ func ResolveMobileDevice(ctx context.Context, client registry.HTTPClient, serial
 // Uses the Classic API to list group members, then batch-resolves each
 // via the v3 inventory API to get managementId/UDID.
 func ResolveComputerGroup(ctx context.Context, client registry.HTTPClient, groupName string) ([]*DeviceIdentifiers, error) {
+	memberIDs, err := ResolveComputerGroupMemberIDs(ctx, client, groupName)
+	if err != nil {
+		return nil, err
+	}
+	return batchResolveComputers(ctx, client, memberIDs)
+}
+
+// ResolveComputerGroupMemberIDs returns the numeric IDs of a smart or static
+// computer group's members, for a caller that resolves them itself.
+func ResolveComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupName string) ([]string, error) {
 	// Try smart group first (modern API), fall back to static group.
 	memberIDs, err := fetchSmartComputerGroupMemberIDs(ctx, client, groupName)
 	if errors.Is(err, errGroupNotFound) {
@@ -120,14 +134,21 @@ func ResolveComputerGroup(ctx context.Context, client registry.HTTPClient, group
 		}
 		memberIDs, err = staticIDs, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	return batchResolveComputers(ctx, client, memberIDs)
+	return memberIDs, err
 }
 
 // ResolveMobileDeviceGroup resolves all members of a mobile device group by name.
 func ResolveMobileDeviceGroup(ctx context.Context, client registry.HTTPClient, groupName string) ([]*DeviceIdentifiers, error) {
+	memberIDs, err := ResolveMobileDeviceGroupMemberIDs(ctx, client, groupName)
+	if err != nil {
+		return nil, err
+	}
+	return batchResolveMobileDevices(ctx, client, memberIDs)
+}
+
+// ResolveMobileDeviceGroupMemberIDs is ResolveComputerGroupMemberIDs for
+// mobile device groups.
+func ResolveMobileDeviceGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupName string) ([]string, error) {
 	// Try smart group first (modern API), fall back to Classic for static
 	// (no modern static mobile device group API exists yet).
 	memberIDs, err := fetchSmartMobileGroupMemberIDs(ctx, client, groupName)
@@ -139,14 +160,13 @@ func ResolveMobileDeviceGroup(ctx context.Context, client registry.HTTPClient, g
 		}
 		memberIDs, err = staticIDs, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	return batchResolveMobileDevices(ctx, client, memberIDs)
+	return memberIDs, err
 }
 
-// ResolveComputersFromFile reads serials or IDs from a file (one per line) and
-// resolves them to full identifiers. Blank lines and #-comments are skipped.
+// ResolveComputersFromFile reads computer identifiers from a file (one per
+// line) and resolves them to full identifiers. Blank lines and #-comments are
+// skipped. An entry may be a numeric ID, a serial number, a UDID, a management
+// ID or a name — see resolveEntries for how each is told apart.
 //
 // Returns the resolved devices and the number of entries that could not be
 // resolved. Each unresolvable entry warns to stderr and is skipped — matching
@@ -162,10 +182,23 @@ func ResolveComputersFromFile(ctx context.Context, client registry.HTTPClient, p
 	return resolveEntriesFromFile(ctx, client, path, computerEntrySpec)
 }
 
-// ResolveMobileDevicesFromFile reads serials or IDs from a file and resolves them.
-// Same contract as ResolveComputersFromFile — see there for the failure policy.
+// ResolveMobileDevicesFromFile reads mobile device identifiers from a file and
+// resolves them. Same contract as ResolveComputersFromFile — see there for the
+// failure policy.
 func ResolveMobileDevicesFromFile(ctx context.Context, client registry.HTTPClient, path string) ([]*DeviceIdentifiers, int, error) {
 	return resolveEntriesFromFile(ctx, client, path, mobileEntrySpec)
+}
+
+// ResolveComputerEntries resolves identifiers already in hand — repeated flag
+// values, say — with the same batching and failure policy as
+// ResolveComputersFromFile.
+func ResolveComputerEntries(ctx context.Context, client registry.HTTPClient, entries []string) ([]*DeviceIdentifiers, int, error) {
+	return resolveEntryList(ctx, client, entries, computerEntrySpec)
+}
+
+// ResolveMobileDeviceEntries is ResolveComputerEntries for mobile devices.
+func ResolveMobileDeviceEntries(ctx context.Context, client registry.HTTPClient, entries []string) ([]*DeviceIdentifiers, int, error) {
+	return resolveEntryList(ctx, client, entries, mobileEntrySpec)
 }
 
 // batchChunkSize caps how many identifiers are packed into one RSQL `=in=`
@@ -173,39 +206,48 @@ func ResolveMobileDevicesFromFile(ctx context.Context, client registry.HTTPClien
 // against 11.30), but 100 keeps the request URL comfortably short.
 const batchChunkSize = 100
 
+// batchFilterMaxBytes caps one chunk's query-escaped filter, since a count cap
+// alone does not bound the URL: 100 UUIDs OR'd across two fields escape to
+// about 9 KB, past the 8 KB request line common proxies enforce, and a name
+// can be any length.
+const batchFilterMaxBytes = 4096
+
 // fileEntrySpec describes how to batch-resolve --from-file entries for one
 // device type.
 type fileEntrySpec struct {
-	label       string // "computer" / "mobile device", used in messages
-	basePath    string // inventory list path, including any section params
-	idField     string // RSQL field holding the numeric ID
-	serialField string // RSQL field holding the serial number
-	parse       func(map[string]any) (*DeviceIdentifiers, error)
-	// resolveOne looks up a single entry by serial, for entries that cannot be
-	// packed into a shared `=in=` list.
-	resolveOne func(ctx context.Context, client registry.HTTPClient, entry string) (*DeviceIdentifiers, error)
+	label    string // "computer" / "mobile device", used in messages
+	basePath string // inventory list path, including any section params
+	idField  string // RSQL field holding the numeric ID
+	// RSQL fields holding the serial number, UDID, management ID and name.
+	serialField, udidField, managementIDField, nameField string
+	parse                                                func(map[string]any) (*DeviceIdentifiers, error)
+	// identifier resolves one entry that cannot be packed into a shared `=in=`
+	// list, by every identifier at once.
+	identifier identifierSpec
 }
 
 var computerEntrySpec = fileEntrySpec{
-	label:       "computer",
-	basePath:    "/v4/computers-inventory?section=GENERAL&section=HARDWARE",
-	idField:     "id",
-	serialField: "hardware.serialNumber",
-	parse:       parseComputerInventory,
-	resolveOne: func(ctx context.Context, client registry.HTTPClient, entry string) (*DeviceIdentifiers, error) {
-		return ResolveComputer(ctx, client, entry, "", "")
-	},
+	label:             "computer",
+	basePath:          "/v4/computers-inventory?section=GENERAL&section=HARDWARE",
+	idField:           "id",
+	serialField:       "hardware.serialNumber",
+	udidField:         "udid",
+	managementIDField: "general.managementId",
+	nameField:         "general.name",
+	parse:             parseComputerInventory,
+	identifier:        computerIdentifierSpec,
 }
 
 var mobileEntrySpec = fileEntrySpec{
-	label:       "mobile device",
-	basePath:    mobileDetailPath,
-	idField:     "mobileDeviceId",
-	serialField: "serialNumber",
-	parse:       parseMobileDevice,
-	resolveOne: func(ctx context.Context, client registry.HTTPClient, entry string) (*DeviceIdentifiers, error) {
-		return ResolveMobileDevice(ctx, client, entry, "", "")
-	},
+	label:             "mobile device",
+	basePath:          mobileDetailPath,
+	idField:           "mobileDeviceId",
+	serialField:       "serialNumber",
+	udidField:         "udid",
+	managementIDField: "managementId",
+	nameField:         "displayName",
+	parse:             parseMobileDevice,
+	identifier:        mobileIdentifierSpec,
 }
 
 func resolveEntriesFromFile(ctx context.Context, client registry.HTTPClient, path string, spec fileEntrySpec) ([]*DeviceIdentifiers, int, error) {
@@ -223,124 +265,284 @@ func resolveEntriesFromFile(ctx context.Context, client registry.HTTPClient, pat
 	return devices, skipped, nil
 }
 
-// resolveEntries resolves file entries to devices, preserving input order and
-// duplicates (one target per line, as before). The returned error covers only
+func resolveEntryList(ctx context.Context, client registry.HTTPClient, entries []string, spec fileEntrySpec) ([]*DeviceIdentifiers, int, error) {
+	cleaned := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e = strings.TrimSpace(e); e != "" {
+			cleaned = append(cleaned, e)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil, 0, fmt.Errorf("no %s identifiers given", spec.label)
+	}
+	devices, skipped, err := resolveEntries(ctx, client, spec, cleaned)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(devices) == 0 {
+		return nil, skipped, fmt.Errorf("none of the %d %s identifiers could be resolved", len(cleaned), spec.label)
+	}
+	return devices, skipped, nil
+}
+
+// entryKind is how resolveEntries reads one entry, decided by its shape alone.
+type entryKind int
+
+const (
+	entryID        entryKind = iota // all digits: a Jamf Pro ID, never a name
+	entryUUID                       // 8-4-4-4-12 hex: a computer UDID or either family's management ID
+	entryUDID                       // 40 hex, or 8-16 hex: a mobile device UDID
+	entrySerial                     // list-safe: a serial number, or failing that a name
+	entryName                       // quotable but not list-safe (a space, say): only ever a name
+	entryUnbatched                  // carries a `*`: one identifier lookup of its own
+)
+
+var (
+	uuidShape = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`)
+	udidShape = regexp.MustCompile(`^(?:[0-9A-Fa-f]{40}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16})$`)
+)
+
+// classifyEntry reads an entry's kind from its shape. A computer's UDID and
+// its management ID are both UUIDs, so a UUID is looked up as either; nothing
+// else about either shape can be a serial number, which Apple caps at 12
+// characters.
+func classifyEntry(entry string) entryKind {
+	switch {
+	case isNumericID(entry):
+		return entryID
+	case uuidShape.MatchString(entry):
+		return entryUUID
+	case udidShape.MatchString(entry):
+		return entryUDID
+	case isRSQLListSafe(entry):
+		return entrySerial
+	case !strings.Contains(entry, "*"):
+		return entryName
+	default:
+		return entryUnbatched
+	}
+}
+
+// entryResult is one entry's outcome: a device, or why there is none.
+type entryResult struct {
+	device *DeviceIdentifiers
+	err    error
+}
+
+// resolveEntries resolves entries to devices, preserving input order and
+// duplicates (one target per entry, as before). The returned error covers only
 // transport/HTTP failures of the batch lookups — an entry the server simply
 // doesn't know warns to stderr and counts towards the skipped total.
+//
+// Each kind batches into `=in=` queries of its own: IDs by ID; UUIDs by UDID
+// or management ID in one OR'd filter; UDIDs by UDID; list-safe entries by
+// serial number and then, for the ones no serial matched, by name; any other
+// entry by name alone, since a space, quote, comma or paren cannot be part of
+// a serial number or UDID. An entry matching more than one device is refused
+// rather than resolved to the first, since Jamf Pro names are not unique. An
+// entry carrying a `*` is resolved on its own: inside a shared list the
+// wildcard would page in every device it matches.
 func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEntrySpec, entries []string) ([]*DeviceIdentifiers, int, error) {
-	// Partition unique entries: numeric IDs and serials each batch into one
-	// filter; anything that can't be quoted safely into a shared `=in=` list
-	// is looked up on its own.
-	var ids, serials, unbatchable []string
+	byKind := map[entryKind][]string{}
 	seen := make(map[string]bool, len(entries))
 	for _, entry := range entries {
 		if seen[entry] {
 			continue
 		}
 		seen[entry] = true
-		switch {
-		case isNumericID(entry):
-			ids = append(ids, entry)
-		case isRSQLListSafe(entry):
-			serials = append(serials, entry)
-		default:
-			unbatchable = append(unbatchable, entry)
-		}
+		k := classifyEntry(entry)
+		byKind[k] = append(byKind[k], entry)
 	}
 
-	byID := make(map[string]*DeviceIdentifiers, len(ids))
-	for chunk := range slices.Chunk(ids, batchChunkSize) {
-		records, err := spec.fetchFiltered(ctx, client,
-			fmt.Sprintf("%s=in=(%s)", spec.idField, strings.Join(chunk, ",")))
-		if err != nil {
-			return nil, 0, fmt.Errorf("looking up %ss by ID: %w", spec.label, err)
-		}
-		for _, record := range records {
-			if d, err := spec.parse(record); err == nil {
-				byID[d.ID] = d
-			}
-		}
+	results := make(map[string]entryResult, len(seen))
+
+	byID := map[string][]*DeviceIdentifiers{}
+	if err := spec.batch(ctx, client, byKind[entryID], "ID", false,
+		func(chunk []string) string { return fmt.Sprintf("%s=in=(%s)", spec.idField, strings.Join(chunk, ",")) },
+		func(d *DeviceIdentifiers) []string { return []string{d.ID} }, byID); err != nil {
+		return nil, 0, err
+	}
+	for _, e := range byKind[entryID] {
+		results[e] = pickEntry(spec, e, "ID", byID[e])
 	}
 
-	bySerial := make(map[string][]*DeviceIdentifiers, len(serials))
-	for chunk := range slices.Chunk(serials, batchChunkSize) {
-		quoted := make([]string, len(chunk))
-		for i, s := range chunk {
-			quoted[i] = `"` + EscapeRSQL(s) + `"`
-		}
-		records, err := spec.fetchFiltered(ctx, client,
-			fmt.Sprintf("%s=in=(%s)", spec.serialField, strings.Join(quoted, ",")))
-		if err != nil {
-			return nil, 0, fmt.Errorf("looking up %ss by serial number: %w", spec.label, err)
-		}
-		for _, record := range records {
-			d, err := spec.parse(record)
-			if err != nil {
-				continue
-			}
-			// Jamf matches serials case-insensitively, so key case-folded to
-			// keep a file entry that differs only in case matchable.
-			key := strings.ToLower(d.SerialNumber)
-			bySerial[key] = append(bySerial[key], d)
-		}
+	byUUID := map[string][]*DeviceIdentifiers{}
+	if err := spec.batch(ctx, client, byKind[entryUUID], "UDID or management ID", true,
+		func(chunk []string) string {
+			list := quotedList(chunk)
+			return fmt.Sprintf("%s=in=(%s),%s=in=(%s)", spec.udidField, list, spec.managementIDField, list)
+		},
+		func(d *DeviceIdentifiers) []string { return []string{d.UDID, d.ManagementID} }, byUUID); err != nil {
+		return nil, 0, err
+	}
+	for _, e := range byKind[entryUUID] {
+		results[e] = pickEntry(spec, e, "UDID or management ID", byUUID[strings.ToLower(e)])
 	}
 
-	byEntry := make(map[string]*DeviceIdentifiers, len(unbatchable))
-	errByEntry := make(map[string]error, len(unbatchable))
-	for _, entry := range unbatchable {
-		d, err := spec.resolveOne(ctx, client, entry)
-		if err != nil {
-			errByEntry[entry] = err
+	byUDID := map[string][]*DeviceIdentifiers{}
+	if err := spec.batch(ctx, client, byKind[entryUDID], "UDID", true,
+		func(chunk []string) string { return fmt.Sprintf("%s=in=(%s)", spec.udidField, quotedList(chunk)) },
+		func(d *DeviceIdentifiers) []string { return []string{d.UDID} }, byUDID); err != nil {
+		return nil, 0, err
+	}
+	for _, e := range byKind[entryUDID] {
+		results[e] = pickEntry(spec, e, "UDID", byUDID[strings.ToLower(e)])
+	}
+
+	// Jamf matches serials and names case-insensitively, so both are keyed
+	// case-folded to keep an entry that differs only in case matchable.
+	bySerial := map[string][]*DeviceIdentifiers{}
+	if err := spec.batch(ctx, client, byKind[entrySerial], "serial number", true,
+		func(chunk []string) string { return fmt.Sprintf("%s=in=(%s)", spec.serialField, quotedList(chunk)) },
+		func(d *DeviceIdentifiers) []string { return []string{d.SerialNumber} }, bySerial); err != nil {
+		return nil, 0, err
+	}
+	var unmatchedSerials []string
+	for _, e := range byKind[entrySerial] {
+		if len(bySerial[strings.ToLower(e)]) == 0 {
+			unmatchedSerials = append(unmatchedSerials, e)
 			continue
 		}
-		byEntry[entry] = d
+		results[e] = pickEntry(spec, e, "serial number", bySerial[strings.ToLower(e)])
+	}
+	byName := map[string][]*DeviceIdentifiers{}
+	if err := spec.batch(ctx, client, slices.Concat(unmatchedSerials, byKind[entryName]), "name", true,
+		func(chunk []string) string { return fmt.Sprintf("%s=in=(%s)", spec.nameField, quotedList(chunk)) },
+		func(d *DeviceIdentifiers) []string { return []string{d.Name} }, byName); err != nil {
+		return nil, 0, err
+	}
+	for _, e := range unmatchedSerials {
+		r := pickEntry(spec, e, "serial number or name", byName[strings.ToLower(e)])
+		if r.device != nil {
+			// A mistyped serial that happens to be another device's name
+			// would otherwise target that device without a word.
+			_, _ = fmt.Fprintf(os.Stderr, "  note: %q matched no serial number; resolved by name to %s %s\n", e, spec.label, r.device.ID)
+		}
+		results[e] = r
+	}
+	for _, e := range byKind[entryName] {
+		results[e] = pickEntry(spec, e, "name", byName[strings.ToLower(e)])
 	}
 
-	results := make([]*DeviceIdentifiers, 0, len(entries))
+	for _, e := range byKind[entryUnbatched] {
+		d, err := resolveIdentifier(ctx, client, spec.identifier, e)
+		if err != nil && !errors.Is(err, ErrNoDeviceMatch) && !errors.Is(err, ErrAmbiguousDevice) {
+			return nil, 0, err
+		}
+		results[e] = entryResult{device: d, err: err}
+	}
+
+	devices := make([]*DeviceIdentifiers, 0, len(entries))
 	skipped := 0
 	for _, entry := range entries {
-		d, err := lookupEntry(spec, entry, byID, bySerial, byEntry, errByEntry)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %q: %v\n", spec.label, entry, err)
+		r := results[entry]
+		if r.err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %q: %v\n", spec.label, entry, r.err)
 			skipped++
 			continue
 		}
-		results = append(results, d)
+		devices = append(devices, r.device)
 	}
-	return results, skipped, nil
+	return devices, skipped, nil
 }
 
-// lookupEntry maps one file entry onto an already-fetched device record.
-func lookupEntry(
-	spec fileEntrySpec,
-	entry string,
-	byID map[string]*DeviceIdentifiers,
-	bySerial map[string][]*DeviceIdentifiers,
-	byEntry map[string]*DeviceIdentifiers,
-	errByEntry map[string]error,
-) (*DeviceIdentifiers, error) {
-	switch {
-	case isNumericID(entry):
-		if d, ok := byID[entry]; ok {
-			return d, nil
+// batch runs one identifier kind's chunked `=in=` lookups and indexes every
+// returned device under each key keysOf yields, case-folded when fold is set.
+// A device is indexed once per key however many queries return it. A returned
+// record that cannot be parsed is counted on stderr, so a device the server
+// did return is not reported only as "no device found".
+func (s fileEntrySpec) batch(ctx context.Context, client registry.HTTPClient, entries []string, label string, fold bool,
+	filter func(chunk []string) string, keysOf func(*DeviceIdentifiers) []string, into map[string][]*DeviceIdentifiers,
+) error {
+	unreadable := 0
+	for _, chunk := range filterChunks(entries, filter) {
+		records, err := s.fetchFiltered(ctx, client, filter(chunk))
+		if err != nil {
+			return fmt.Errorf("looking up %ss by %s: %w", s.label, label, err)
 		}
-		return nil, fmt.Errorf("no %s found with ID %s", spec.label, entry)
-	case isRSQLListSafe(entry):
-		matches := bySerial[strings.ToLower(entry)]
-		switch len(matches) {
-		case 0:
-			return nil, fmt.Errorf("no %s found with serial number %q", spec.label, entry)
-		case 1:
-			return matches[0], nil
-		default:
-			return nil, fmt.Errorf("multiple %ss found with serial number %q (%d matches)", spec.label, entry, len(matches))
+		for _, record := range records {
+			d, err := s.parse(record)
+			if err != nil {
+				unreadable++
+				continue
+			}
+			for _, k := range keysOf(d) {
+				if k == "" {
+					continue
+				}
+				if fold {
+					k = strings.ToLower(k)
+				}
+				if !slices.ContainsFunc(into[k], func(o *DeviceIdentifiers) bool { return o.ID == d.ID }) {
+					into[k] = append(into[k], d)
+				}
+			}
 		}
-	default:
-		if d, ok := byEntry[entry]; ok {
-			return d, nil
-		}
-		return nil, errByEntry[entry]
 	}
+	if unreadable > 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "  warning: %d %s record(s) returned by the %s lookup could not be read and were ignored\n", unreadable, s.label, label)
+	}
+	return nil
+}
+
+// filterChunks splits entries into the chunks batch queries: at most
+// batchChunkSize each, and closed early once the query-escaped filter would
+// pass batchFilterMaxBytes. An entry too long to share a chunk gets one alone.
+func filterChunks(entries []string, filter func(chunk []string) string) [][]string {
+	var chunks [][]string
+	var cur []string
+	for _, e := range entries {
+		next := append(slices.Clip(cur), e)
+		if len(cur) > 0 && (len(next) > batchChunkSize || len(url.QueryEscape(filter(next))) > batchFilterMaxBytes) {
+			chunks = append(chunks, cur)
+			next = []string{e}
+		}
+		cur = next
+	}
+	if len(cur) > 0 {
+		chunks = append(chunks, cur)
+	}
+	return chunks
+}
+
+// pickEntry turns an entry's matches into its result: one device, or an error
+// that says there were none or names every device it matched.
+func pickEntry(spec fileEntrySpec, entry, label string, matches []*DeviceIdentifiers) entryResult {
+	switch len(matches) {
+	case 0:
+		return entryResult{err: fmt.Errorf("no %s found with %s %q", spec.label, label, entry)}
+	case 1:
+		return entryResult{device: matches[0]}
+	}
+	ids := make([]string, len(matches))
+	for i, d := range matches {
+		ids[i] = d.ID
+	}
+	return entryResult{err: &AmbiguousEntryError{Label: spec.label, Value: entry, IDs: ids}}
+}
+
+// AmbiguousEntryError reports an identifier that matched more than one device.
+type AmbiguousEntryError struct {
+	Label string
+	Value string
+	IDs   []string
+}
+
+func (e *AmbiguousEntryError) Error() string {
+	return fmt.Sprintf("%q matches %d %ss (ids %s); use the numeric ID of the one you mean",
+		e.Value, len(e.IDs), e.Label, strings.Join(e.IDs, ", "))
+}
+
+// Is makes errors.Is(err, ErrAmbiguousDevice) hold.
+func (e *AmbiguousEntryError) Is(target error) bool { return target == ErrAmbiguousDevice }
+
+// quotedList renders entries as the quoted members of an RSQL `=in=` list.
+func quotedList(entries []string) string {
+	quoted := make([]string, len(entries))
+	for i, s := range entries {
+		quoted[i] = `"` + EscapeRSQL(s) + `"`
+	}
+	return strings.Join(quoted, ",")
 }
 
 // fetchFiltered runs an RSQL filter against the spec's inventory endpoint,
@@ -420,6 +622,9 @@ func parseComputerInventory(obj map[string]any) (*DeviceIdentifiers, error) {
 	if general, ok := obj["general"].(map[string]any); ok {
 		d.Name = jsonString(general, "name")
 		d.ManagementID = jsonString(general, "managementId")
+		if rm, ok := general["remoteManagement"].(map[string]any); ok {
+			d.Managed = boolField(rm, "managed")
+		}
 	}
 	if hardware, ok := obj["hardware"].(map[string]any); ok {
 		d.SerialNumber = jsonString(hardware, "serialNumber")
@@ -491,6 +696,7 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		UDID:         jsonString(obj, "udid"),
 		Name:         jsonString(obj, "name"),
 		SerialNumber: jsonString(obj, "serialNumber"),
+		Managed:      boolField(obj, "managed"),
 	}
 	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id",
 	// nests managementId/udid/displayName inside "general", and the serial
@@ -499,6 +705,9 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		d.ID = jsonString(obj, "mobileDeviceId")
 	}
 	if general, ok := obj["general"].(map[string]any); ok {
+		if d.Managed == nil {
+			d.Managed = boolField(general, "managed")
+		}
 		if d.ManagementID == "" {
 			d.ManagementID = jsonString(general, "managementId")
 		}
@@ -508,15 +717,9 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		if d.Name == "" {
 			d.Name = jsonString(general, "displayName")
 		}
-		if d.UDID == "" {
-			d.UDID = jsonString(general, "udid")
-		}
 	}
 	// /detail nests the serial under "hardware", populated only with
 	// section=HARDWARE.
-	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
-		d.SerialNumber = jsonString(hardware, "serialNumber")
-	}
 	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
 		d.SerialNumber = jsonString(hardware, "serialNumber")
 	}
@@ -906,6 +1109,14 @@ func jsonString(m map[string]any, key string) string {
 	}
 }
 
+// boolField reads a boolean field, or nil when it is absent or not a boolean.
+func boolField(m map[string]any, key string) *bool {
+	if b, ok := m[key].(bool); ok {
+		return &b
+	}
+	return nil
+}
+
 var rsqlEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
 
 // EscapeRSQL escapes a value for use inside one double-quoted RSQL literal,
@@ -931,10 +1142,9 @@ func IsNumericID(s string) bool {
 	return true
 }
 
-// isRSQLListSafe reports whether s can be placed inside a quoted RSQL `=in=`
-// list unambiguously. Serial numbers are alphanumeric, so an entry carrying
-// anything else (a quote, comma, paren, or whitespace) is resolved on its own
-// rather than interpolated into a filter shared with other entries.
+// isRSQLListSafe reports whether s can be a serial number: alphanumeric plus
+// `-`, `_` and `.`. An entry carrying anything else (a quote, comma, paren, or
+// whitespace) can only be a name, and is looked up by name alone.
 func isRSQLListSafe(s string) bool {
 	if s == "" {
 		return false

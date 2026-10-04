@@ -101,50 +101,76 @@
       "command": "jamf-cli pro diff --source staging --target production --resources policies,scripts"
     }
   ],
-  "pro bulk send-command": [
+  "pro computer-inventory blank-push": [
     {
-      "description": "Preview sending UpdateInventory to a group",
-      "command": "jamf-cli pro bulk send-command --command UpdateInventory --group \"All Managed Macs\""
+      "description": "Preview a blank push to every computer in a group",
+      "command": "jamf-cli pro computer-inventory blank-push --group \"All Managed Macs\""
     },
     {
-      "description": "Send BlankPush to devices listed in a file",
-      "command": "jamf-cli pro bulk send-command --command BlankPush --from-file device-ids.txt --yes"
+      "description": "Blank push the computers listed in a file",
+      "command": "jamf-cli pro computer-inventory blank-push --from-file devices.txt --yes"
+    }
+  ],
+  "pro computer-inventory enable-remote-desktop": [
+    {
+      "description": "Enable Remote Desktop on a group (works through a platform gateway profile)",
+      "command": "jamf-cli pro computer-inventory enable-remote-desktop --group \"Lab Macs\" --yes"
+    }
+  ],
+  "pro computer-inventory erase": [
+    {
+      "description": "Erase computers (requires double confirmation)",
+      "command": "jamf-cli pro computer-inventory erase --group \"Decommission\" --yes --confirm-destructive"
+    }
+  ],
+  "pro classic-computer-groups add-members": [
+    {
+      "description": "Add every member of one group to a static group",
+      "command": "jamf-cli pro classic-computer-groups add-members --name \"Production\" --from-group \"Staging\" --yes"
     },
     {
-      "description": "Erase devices (requires double confirmation)",
-      "command": "jamf-cli pro bulk send-command --command EraseDevice --group \"Decommission\" --yes --confirm-destructive"
-    }
-  ],
-  "pro bulk add-to-group": [
-    {
-      "description": "Add devices from one group to another",
-      "command": "jamf-cli pro bulk add-to-group --group \"Staging\" --target-group \"Production\""
+      "description": "Preview adding computers listed in a file (IDs, serials, UDIDs or names)",
+      "command": "jamf-cli pro classic-computer-groups add-members --name \"Lab Macs\" --from-file devices.txt"
     },
     {
-      "description": "Add devices listed in a file to a group",
-      "command": "jamf-cli pro bulk add-to-group --from-file device-ids.txt --target-group \"Lab Macs\""
+      "description": "Add two computers by serial number",
+      "command": "jamf-cli pro classic-computer-groups add-members 42 --computer C02X1234 --computer C02Y5678"
     }
   ],
-  "pro bulk remove-from-group": [
+  "pro classic-computer-groups remove-members": [
     {
-      "description": "Remove devices from a group using a file list",
-      "command": "jamf-cli pro bulk remove-from-group --from-file retired.txt --target-group \"Production\""
+      "description": "Remove computers listed in a file from a static group",
+      "command": "jamf-cli pro classic-computer-groups remove-members --name \"Production\" --from-file retired.txt --yes"
     }
   ],
-  "pro bulk disable-policies": [
+  "pro classic-mobile-device-groups add-members": [
+    {
+      "description": "Add mobile devices to a static group by UDID or serial",
+      "command": "jamf-cli pro classic-mobile-device-groups add-members --name \"Lab iPads\" --mobile-device F4GH5678 --mobile-device 00008110-000A3D820AB8401E"
+    }
+  ],
+  "pro classic-policies disable": [
     {
       "description": "Preview disabling all policies in a category",
-      "command": "jamf-cli pro bulk disable-policies --category \"Testing\""
+      "command": "jamf-cli pro classic-policies disable --category \"Testing\""
     },
     {
       "description": "Disable policies matching a name pattern",
-      "command": "jamf-cli pro bulk disable-policies --name-pattern \"*deprecated*\" --yes"
+      "command": "jamf-cli pro classic-policies disable --name-pattern \"*deprecated*\" --yes"
+    },
+    {
+      "description": "Disable one policy by name",
+      "command": "jamf-cli pro classic-policies disable --name \"Deploy Chrome\""
     }
   ],
-  "pro bulk enable-policies": [
+  "pro classic-policies enable": [
     {
       "description": "Re-enable all policies scoped to a group",
-      "command": "jamf-cli pro bulk enable-policies --scope-group \"Lab Macs\" --yes"
+      "command": "jamf-cli pro classic-policies enable --scope-group \"Lab Macs\" --yes"
+    },
+    {
+      "description": "Enable policies listed in a file",
+      "command": "jamf-cli pro classic-policies enable --from-file policies.txt --yes"
     }
   ],
   "pro group-tools list": [

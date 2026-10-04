@@ -75,7 +75,9 @@ func newJamfProUserAccountSettingsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newJamfProUserAccountSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		fromFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -105,12 +107,11 @@ func newJamfProUserAccountSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -129,6 +130,7 @@ func newJamfProUserAccountSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -215,6 +217,7 @@ func newJamfProUserAccountSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 func newJamfProUserAccountSettingsChangePasswordCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -245,12 +248,11 @@ func newJamfProUserAccountSettingsChangePasswordCmd(ctx *registry.CLIContext) *c
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -270,5 +272,6 @@ func newJamfProUserAccountSettingsChangePasswordCmd(ctx *registry.CLIContext) *c
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }

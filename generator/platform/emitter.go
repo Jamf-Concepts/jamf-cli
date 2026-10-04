@@ -532,6 +532,38 @@ func applyAnnotations(a *applySpec) string {
 	return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 }
 
+// sendsMergePatch reports whether op's body goes out as
+// application/merge-patch+json: when its spec declares that content type, or
+// when it is a PATCH on a resource platformPatchMergeOnWire names.
+//
+// Every other PATCH is sent as the application/json its spec declares. It used
+// to fall through to Transport().DoExpect, which sends any PATCH without an
+// explicit content type as merge-patch — and wire-checked 2026-10-04, PATCH
+// /v1/devices/{id}, /v1/device-groups/{id} and /v1/device-groups/{id}/members
+// each refused that with 400 "The request is malformed or the content type is
+// not supported", for every body. `pro platform-devices patch` had never sent
+// a request the server accepted. The transport default is tracked upstream as
+// jamf/jamfplatform-go-sdk#85.
+func sendsMergePatch(resource string, op *parser.Operation) bool {
+	if op == nil || op.RequestBody == nil {
+		return false
+	}
+	if op.RequestBody.IsMergePatch {
+		return true
+	}
+	return strings.EqualFold(op.Method, http.MethodPatch) && platformPatchMergeOnWire[resource]
+}
+
+// platformPatchMergeOnWire names resources whose PATCH is sent as merge-patch
+// although the spec declares application/json, because merge-patch is what was
+// wire-verified there. ai-policies is the case: platformPatchDoesNotMerge's
+// note records the CLI sending application/merge-patch+json to it and the
+// server accepting it, and the declared content type has not been checked
+// against a tenant carrying AI Governance.
+var platformPatchMergeOnWire = map[string]bool{
+	"ai-policies": true,
+}
+
 // platformPatchDoesNotMerge names resources whose PATCH does not behave like a
 // merge-patch on the wire, whatever its content type says, keyed by resource
 // name with the field the server replaces wholesale.
@@ -725,7 +757,7 @@ func buildApplySpec(r *parser.Resource, ownListPath string, nameLookupField stri
 		UpdateParam:      filterTenantPathParams(extractPathParams(update.Path))[0],
 		UpdateCode:       updateCode,
 		UpdateHasResult:  updateHasResult,
-		UpdateMergePatch: update.RequestBody.IsMergePatch || strings.EqualFold(update.Method, http.MethodPatch),
+		UpdateMergePatch: sendsMergePatch(r.Name, update),
 		Scaffold:         scaffold,
 		HasScaffold:      scaffold != "",
 		CredentialPaths:  parser.RequestCredentialPaths(nil, create, update),
@@ -883,7 +915,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			HasBody:         opCopy.RequestBody != nil,
 			CredentialPaths: parser.RequestCredentialPaths(nil, &opCopy),
 			IsDestructive:   opCopy.IsDestructive,
-			UsesMergePatch:  opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
+			UsesMergePatch:  sendsMergePatch(r.Name, &opCopy),
 			SuccessCode:     successCode,
 			HasResult:       hasResult,
 			QueryParams:     buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path), hasPaginationParams(opCopy.Parameters)),

@@ -342,6 +342,12 @@ var handWrittenUndeterminedMethods = map[string][]string{
 	"/pro/v1/cloud-distribution-point/refresh-inventory": {"POST"},
 	"/pro/v1/packages/{}":                                {"GET"},
 
+	// pro_classic_group_members.go — classicGroupKind.detailPath, a struct
+	// field read back by fetchClassicStaticGroup (GET) and putGroupMembership
+	// (PUT).
+	"/proclassic/computergroups/id/{}":     {"GET", "PUT"},
+	"/proclassic/mobiledevicegroups/id/{}": {"GET", "PUT"},
+
 	// internal/resolve/resolve.go — the Classic static-group fallback paths are
 	// arguments to fetchClassicGroupMemberIDs, which reads the collection and
 	// filters client-side.
@@ -640,16 +646,10 @@ func TestBackupResourcePathsAreServed(t *testing.T) {
 // silently stops being annotated.
 var modernMDMRefusedCommands = [][]string{
 	{"pro", "computers-inventory", "lock"},
-	{"pro", "computers-inventory", "restart"},
-	{"pro", "computers-inventory", "shutdown"},
-	{"pro", "computers-inventory", "enable-remote-desktop"},
-	{"pro", "computers-inventory", "disable-remote-desktop"},
 	{"pro", "computers-inventory", "set-recovery-lock"},
 	{"pro", "computers-inventory", "set-auto-admin-password"},
 	{"pro", "computers-inventory", "settings"},
 	{"pro", "mobile-devices", "lock"},
-	{"pro", "mobile-devices", "restart"},
-	{"pro", "mobile-devices", "shutdown"},
 	{"pro", "mobile-devices", "clear-passcode"},
 	{"pro", "mobile-devices", "enable-lost-mode"},
 	{"pro", "mobile-devices", "settings"},
@@ -702,6 +702,15 @@ func TestServedHandWrittenActionsAreNotAnnotatedUnserved(t *testing.T) {
 		{"pro", "computers-inventory", "erase"},
 		{"pro", "computers-inventory", "remove-mdm"},
 		{"pro", "mobile-devices", "update-inventory"},
+		// These POST /v2/mdm/commands directly, and on a gateway profile take
+		// the gatewayRoute their constructor names: the Classic computer
+		// command, or the Platform API device action.
+		{"pro", "computers-inventory", "enable-remote-desktop"},
+		{"pro", "computers-inventory", "disable-remote-desktop"},
+		{"pro", "computers-inventory", "restart"},
+		{"pro", "computers-inventory", "shutdown"},
+		{"pro", "mobile-devices", "restart"},
+		{"pro", "mobile-devices", "shutdown"},
 	} {
 		name := strings.Join(path, " ")
 		cmd, _, err := root.Find(path)

@@ -308,6 +308,7 @@ func newEnrollmentAccessGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newEnrollmentAccessGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -352,12 +353,11 @@ func newEnrollmentAccessGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -377,12 +377,14 @@ func newEnrollmentAccessGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newEnrollmentAccessGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 
 		flagSet []string
@@ -391,7 +393,7 @@ func newEnrollmentAccessGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.",
-		Long:  "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountDrivenUserEnrollmentEnabled           boolean\n  enterpriseEnrollmentEnabled                  boolean\n  groupId                                      string\n  ldapServerId                                 string\n  name                                         string\n  personalEnrollmentEnabled                    boolean\n  requireEula                                  boolean\n  siteId                                       string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountDrivenUserEnrollmentEnabled           boolean\n  enterpriseEnrollmentEnabled                  boolean\n  groupId                                      string\n  ldapServerId                                 string\n  name                                         string\n  personalEnrollmentEnabled                    boolean\n  requireEula                                  boolean\n  siteId                                       string\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro enrollment-access-groups update 1 --set field=value
 
@@ -483,12 +485,11 @@ func newEnrollmentAccessGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -510,7 +511,9 @@ func newEnrollmentAccessGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-access-group by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"accountDrivenUserEnrollmentEnabled=", "enterpriseEnrollmentEnabled=", "groupId=", "ldapServerId=", "name=", "personalEnrollmentEnabled=", "requireEula=", "siteId=",

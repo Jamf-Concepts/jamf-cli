@@ -31,9 +31,11 @@ func newGroupMutationCmd(cliCtx *registry.CLIContext, add bool) *cobra.Command {
 
 	verb := "add-to-group"
 	shortVerb := "Add computers to"
+	successor := "add-members"
 	if !add {
 		verb = "remove-from-group"
 		shortVerb = "Remove computers from"
+		successor = "remove-members"
 	}
 
 	cmd := &cobra.Command{
@@ -54,6 +56,7 @@ all, or the file holds no entries, the command fails without changing anything.
 
 Without --yes the command prints a preview table and exits without making any
 changes.`, shortVerb),
+		Deprecated: fmt.Sprintf("use `jamf-cli pro classic-computer-groups %s --name <group>` (one batched request, and mobile device groups via classic-mobile-device-groups); `pro bulk %s` will be removed in a future release", successor, verb),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGroupMutation(cmd, cliCtx, add, groupName, fromFile, fromGroup, yes)
 		},

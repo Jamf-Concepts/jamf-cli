@@ -308,6 +308,7 @@ func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -427,12 +428,11 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -457,12 +457,14 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 
 		flagSet []string
@@ -471,7 +473,7 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a Computer Prestage",
-		Long:  "Updates a Computer Prestage\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountSettings.adminUsername                string\n  accountSettings.hiddenAdminAccount           boolean\n  accountSettings.id                           string\n  accountSettings.localAdminAccountEnabled     boolean\n  accountSettings.localUserManaged             boolean\n  accountSettings.payloadConfigured            boolean\n  accountSettings.prefillAccountFullName       string\n  accountSettings.prefillAccountUserName       string\n  accountSettings.prefillPrimaryAccountInfoFeatureEnabled boolean\n  accountSettings.prefillType                  string\n  accountSettings.preventPrefillInfoFromModification boolean\n  accountSettings.userAccountType              string\n  accountSettings.versionLock                  integer\n  authenticationPrompt                         string\n  autoAdvanceSetup                             boolean\n  customPackageDistributionPointId             string\n  defaultPrestage                              boolean\n  department                                   string\n  deviceEnrollmentProgramInstanceId            string\n  displayName                                  string\n  enableDeviceBasedActivationLock              boolean\n  enableRecoveryLock                           boolean\n  enrollmentCustomizationId                    string\n  enrollmentSiteId                             string\n  installProfilesDuringSetup                   boolean\n  keepExistingLocationInformation              boolean\n  keepExistingSiteMembership                   boolean\n  language                                     string\n  locationInformation.buildingId               string\n  locationInformation.departmentId             string\n  locationInformation.email                    string\n  locationInformation.id                       string\n  locationInformation.phone                    string\n  locationInformation.position                 string\n  locationInformation.realname                 string\n  locationInformation.room                     string\n  locationInformation.username                 string\n  locationInformation.versionLock              integer\n  mandatory                                    boolean\n  manifestUrl                                  string\n  mdmRemovable                                 boolean\n  minimumOsSpecificVersion                     string\n  platformSsoAppBundleId                       string\n  prestageMinimumOsTargetVersionType           string\n  preventActivationLock                        boolean\n  profileUrl                                   string\n  pssoConfigProfileId                          string\n  pssoEnabled                                  boolean\n  purchasingInformation.appleCareId            string\n  purchasingInformation.id                     string\n  purchasingInformation.leaseDate              string\n  purchasingInformation.leased                 boolean\n  purchasingInformation.lifeExpectancy         integer\n  purchasingInformation.poDate                 string\n  purchasingInformation.poNumber               string\n  purchasingInformation.purchasePrice          string\n  purchasingInformation.purchased              boolean\n  purchasingInformation.purchasingAccount      string\n  purchasingInformation.purchasingContact      string\n  purchasingInformation.vendor                 string\n  purchasingInformation.versionLock            integer\n  purchasingInformation.warrantyDate           string\n  recoveryLockPasswordType                     string\n  region                                       string\n  requireAuthentication                        boolean\n  rotateRecoveryLockPassword                   boolean\n  supportEmailAddress                          string\n  supportPhoneNumber                           string\n  versionLock                                  integer\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  accountSettings                              object\n  anchorCertificates                           array\n  customPackageIds                             array\n  locationInformation                          object\n  prestageInstalledProfileIds                  array\n  purchasingInformation                        object\n  skipSetupItems                               object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: accountSettings.adminPassword, recoveryLockPassword. Send them in a JSON body on stdin, as the whole record.",
+		Long:  "Updates a Computer Prestage\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountSettings.adminUsername                string\n  accountSettings.hiddenAdminAccount           boolean\n  accountSettings.id                           string\n  accountSettings.localAdminAccountEnabled     boolean\n  accountSettings.localUserManaged             boolean\n  accountSettings.payloadConfigured            boolean\n  accountSettings.prefillAccountFullName       string\n  accountSettings.prefillAccountUserName       string\n  accountSettings.prefillPrimaryAccountInfoFeatureEnabled boolean\n  accountSettings.prefillType                  string\n  accountSettings.preventPrefillInfoFromModification boolean\n  accountSettings.userAccountType              string\n  accountSettings.versionLock                  integer\n  authenticationPrompt                         string\n  autoAdvanceSetup                             boolean\n  customPackageDistributionPointId             string\n  defaultPrestage                              boolean\n  department                                   string\n  deviceEnrollmentProgramInstanceId            string\n  displayName                                  string\n  enableDeviceBasedActivationLock              boolean\n  enableRecoveryLock                           boolean\n  enrollmentCustomizationId                    string\n  enrollmentSiteId                             string\n  installProfilesDuringSetup                   boolean\n  keepExistingLocationInformation              boolean\n  keepExistingSiteMembership                   boolean\n  language                                     string\n  locationInformation.buildingId               string\n  locationInformation.departmentId             string\n  locationInformation.email                    string\n  locationInformation.id                       string\n  locationInformation.phone                    string\n  locationInformation.position                 string\n  locationInformation.realname                 string\n  locationInformation.room                     string\n  locationInformation.username                 string\n  locationInformation.versionLock              integer\n  mandatory                                    boolean\n  manifestUrl                                  string\n  mdmRemovable                                 boolean\n  minimumOsSpecificVersion                     string\n  platformSsoAppBundleId                       string\n  prestageMinimumOsTargetVersionType           string\n  preventActivationLock                        boolean\n  profileUrl                                   string\n  pssoConfigProfileId                          string\n  pssoEnabled                                  boolean\n  purchasingInformation.appleCareId            string\n  purchasingInformation.id                     string\n  purchasingInformation.leaseDate              string\n  purchasingInformation.leased                 boolean\n  purchasingInformation.lifeExpectancy         integer\n  purchasingInformation.poDate                 string\n  purchasingInformation.poNumber               string\n  purchasingInformation.purchasePrice          string\n  purchasingInformation.purchased              boolean\n  purchasingInformation.purchasingAccount      string\n  purchasingInformation.purchasingContact      string\n  purchasingInformation.vendor                 string\n  purchasingInformation.versionLock            integer\n  purchasingInformation.warrantyDate           string\n  recoveryLockPasswordType                     string\n  region                                       string\n  requireAuthentication                        boolean\n  rotateRecoveryLockPassword                   boolean\n  supportEmailAddress                          string\n  supportPhoneNumber                           string\n  versionLock                                  integer\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  accountSettings                              object\n  anchorCertificates                           array\n  customPackageIds                             array\n  locationInformation                          object\n  prestageInstalledProfileIds                  array\n  purchasingInformation                        object\n  skipSetupItems                               object\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: accountSettings.adminPassword, recoveryLockPassword. Send them in a JSON body with --from-file or on stdin, as the whole record.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro computer-prestages update 1 --set field=value
 
@@ -641,12 +643,11 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -678,7 +679,9 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"accountSettings.adminUsername=", "accountSettings.hiddenAdminAccount=", "accountSettings.id=", "accountSettings.localAdminAccountEnabled=", "accountSettings.localUserManaged=", "accountSettings.payloadConfigured=", "accountSettings.prefillAccountFullName=", "accountSettings.prefillAccountUserName=", "accountSettings.prefillPrimaryAccountInfoFeatureEnabled=", "accountSettings.prefillType=", "accountSettings.preventPrefillInfoFromModification=", "accountSettings.userAccountType=", "accountSettings.versionLock=", "authenticationPrompt=", "autoAdvanceSetup=", "customPackageDistributionPointId=", "defaultPrestage=", "department=", "deviceEnrollmentProgramInstanceId=", "displayName=", "enableDeviceBasedActivationLock=", "enableRecoveryLock=", "enrollmentCustomizationId=", "enrollmentSiteId=", "installProfilesDuringSetup=", "keepExistingLocationInformation=", "keepExistingSiteMembership=", "language=", "locationInformation.buildingId=", "locationInformation.departmentId=", "locationInformation.email=", "locationInformation.id=", "locationInformation.phone=", "locationInformation.position=", "locationInformation.realname=", "locationInformation.room=", "locationInformation.username=", "locationInformation.versionLock=", "mandatory=", "manifestUrl=", "mdmRemovable=", "minimumOsSpecificVersion=", "platformSsoAppBundleId=", "prestageMinimumOsTargetVersionType=", "preventActivationLock=", "profileUrl=", "pssoConfigProfileId=", "pssoEnabled=", "purchasingInformation.appleCareId=", "purchasingInformation.id=", "purchasingInformation.leaseDate=", "purchasingInformation.leased=", "purchasingInformation.lifeExpectancy=", "purchasingInformation.poDate=", "purchasingInformation.poNumber=", "purchasingInformation.purchasePrice=", "purchasingInformation.purchased=", "purchasingInformation.purchasingAccount=", "purchasingInformation.purchasingContact=", "purchasingInformation.vendor=", "purchasingInformation.versionLock=", "purchasingInformation.warrantyDate=", "recoveryLockPasswordType=", "region=", "requireAuthentication=", "rotateRecoveryLockPassword=", "supportEmailAddress=", "supportPhoneNumber=", "versionLock=",
@@ -1239,6 +1242,7 @@ func newComputerPrestagesScopeByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 func newComputerPrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1290,12 +1294,11 @@ func newComputerPrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1327,12 +1330,14 @@ func newComputerPrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newComputerPrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1384,12 +1389,11 @@ func newComputerPrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1421,6 +1425,7 @@ func newComputerPrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

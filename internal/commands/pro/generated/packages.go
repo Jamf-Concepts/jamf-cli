@@ -316,6 +316,7 @@ func newPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -384,12 +385,11 @@ func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -409,12 +409,14 @@ func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 
 		flagSet []string
@@ -423,7 +425,7 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update specified package object",
-		Long:  "Update specified package object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  basePath                                     string\n  categoryId                                   string\n  fileName                                     string\n  fillExistingUsers                            boolean\n  fillUserTemplate                             boolean\n  format                                       string\n  hashType                                     string\n  hashValue                                    string\n  ignoreConflicts                              boolean\n  info                                         string\n  installLanguage                              string\n  manifest                                     string\n  manifestFileName                             string\n  md5                                          string\n  notes                                        string\n  osInstall                                    boolean\n  osInstallerVersion                           string\n  osRequirements                               string\n  packageName                                  string\n  parentPackageId                              string\n  priority                                     integer\n  rebootRequired                               boolean\n  selfHealNotify                               boolean\n  selfHealingAction                            string\n  serialNumber                                 string\n  sha256                                       string\n  sha3512                                      string\n  suppressEula                                 boolean\n  suppressFromDock                             boolean\n  suppressRegistration                         boolean\n  suppressUpdates                              boolean\n  swu                                          boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update specified package object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  basePath                                     string\n  categoryId                                   string\n  fileName                                     string\n  fillExistingUsers                            boolean\n  fillUserTemplate                             boolean\n  format                                       string\n  hashType                                     string\n  hashValue                                    string\n  ignoreConflicts                              boolean\n  info                                         string\n  installLanguage                              string\n  manifest                                     string\n  manifestFileName                             string\n  md5                                          string\n  notes                                        string\n  osInstall                                    boolean\n  osInstallerVersion                           string\n  osRequirements                               string\n  packageName                                  string\n  parentPackageId                              string\n  priority                                     integer\n  rebootRequired                               boolean\n  selfHealNotify                               boolean\n  selfHealingAction                            string\n  serialNumber                                 string\n  sha256                                       string\n  sha3512                                      string\n  suppressEula                                 boolean\n  suppressFromDock                             boolean\n  suppressRegistration                         boolean\n  suppressUpdates                              boolean\n  swu                                          boolean\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro packages update 1 --set field=value
 
@@ -539,12 +541,11 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -566,7 +567,9 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up package by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"basePath=", "categoryId=", "fileName=", "fillExistingUsers=", "fillUserTemplate=", "format=", "hashType=", "hashValue=", "ignoreConflicts=", "info=", "installLanguage=", "manifest=", "manifestFileName=", "md5=", "notes=", "osInstall=", "osInstallerVersion=", "osRequirements=", "packageName=", "parentPackageId=", "priority=", "rebootRequired=", "selfHealNotify=", "selfHealingAction=", "serialNumber=", "sha256=", "sha3512=", "suppressEula=", "suppressFromDock=", "suppressRegistration=", "suppressUpdates=", "swu=",
@@ -1113,6 +1116,7 @@ func newPackagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 func newPackagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1160,12 +1164,11 @@ func newPackagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1187,6 +1190,7 @@ func newPackagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up package by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1200,6 +1204,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagFilter       string
 		flagScaffold     bool
 		flagSaveTo       string
+		fromFile         string
 	)
 
 	cmd := &cobra.Command{
@@ -1267,12 +1272,11 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1313,6 +1317,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1326,6 +1331,7 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagFilter       string
 		flagScaffold     bool
 		flagSaveTo       string
+		fromFile         string
 		flagName         string
 	)
 
@@ -1414,12 +1420,11 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1462,6 +1467,7 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up package by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

@@ -21,8 +21,8 @@ package platform
 // Current scope:
 //   - GET (with or without path params, no body)
 //   - POST actions (bodyless, with --yes for destructive)
-//   - POST/PUT/PATCH with a JSON or YAML body via --from-file/--set; POST and PUT use
-//     application/json, PATCH uses application/merge-patch+json
+//   - POST/PUT/PATCH with a JSON or YAML body via --from-file/--set, sent as the
+//     content type the spec declares (see sendsMergePatch for the exception)
 //   - DELETE with --yes confirmation
 //   - Op-specific success status codes from spec responses
 //   - url.PathEscape on path parameters
@@ -297,7 +297,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/merge-patch+json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}
-{{- else if and .HasBody (or (eq .Method "POST") (eq .Method "PUT")) }}
+{{- else if and .HasBody (or (eq .Method "POST") (eq .Method "PUT") (eq .Method "PATCH")) }}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}

@@ -301,8 +301,8 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 
 | Command group | Refused | Why |
 |---|---|---|
-| `pro mobile-devices` | 16 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock`, `restart`, `shutdown` and lost mode |
-| `pro computer-inventory` | 8 | as above — `lock`, `restart`, `shutdown`, remote-desktop control, `set-recovery-lock`, `set-auto-admin-password` |
+| `pro mobile-devices` | 14 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock` and lost mode |
+| `pro computer-inventory` | 4 | as above — `lock`, `set-recovery-lock`, `set-auto-admin-password`, `settings` |
 | `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
 | `pro api-authentication` | 6 | outside the published API |
@@ -314,7 +314,7 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | `pro mdm commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro sso-oauth-session-tokens` | 1 | outside the published API |
 
-59 commands in total (a wholly-refused resource contributes its group node too).
+53 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
@@ -328,20 +328,35 @@ served. The other two were `pro policy-properties`, whose unversioned legacy twi
 Two groups also merged into `pro jamf-pro-initialization`, which is why the table has 12
 rows where it had 15 and still counts the same endpoints.
 
-**24 of the 59 are MDM device actions, and that is the refusal most likely to be felt.**
-`pro mobile-devices` loses `lock`, `restart`, `shutdown`, `enable-lost-mode`,
+**18 of the 53 are MDM device actions, and that is the refusal most likely to be felt.**
+`pro mobile-devices` loses `lock`, `enable-lost-mode`,
 `disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
 `delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
 `refresh-cellular-plans`, `request-mirroring`, `stop-mirroring` and `settings`;
-`pro computer-inventory` loses `lock`, `restart`, `shutdown`, `enable-remote-desktop`,
-`disable-remote-desktop`, `set-recovery-lock`, `set-auto-admin-password` and `settings`. The
+`pro computer-inventory` loses `lock`, `set-recovery-lock`, `set-auto-admin-password` and
+`settings`. The
 published API declares GET on those paths but not POST, so the refusal is **per method**: the
 inventory reads on both resources are unaffected, and so is everything else under them.
 `pro comp erase` and `pro comp remove-mdm` are hand-written against a different path and are
-**not** refused.
+**not** refused. Six MDM actions take another route on a gateway profile instead of being
+refused:
+
+| command | sent on a gateway profile as |
+|---|---|
+| `pro comp enable-remote-desktop` / `disable-remote-desktop` | the Classic `EnableRemoteDesktop` / `DisableRemoteDesktop` computer command |
+| `pro comp restart` / `shutdown`, `pro md restart` / `shutdown` | the Platform API `restart` / `shutdown` device action, by management ID |
+
+`pro comp restart --rebuild-kernel-cache` is refused there (exit 8), because the Platform
+action takes no options. Nothing else has a route. Jamf Pro 11.32 queues only the
+remote-desktop pair through the Classic computer API. Through the Classic mobile API it answers
+`Invalid command` for lock, restart, shutdown, passcode and lost-mode commands except
+`EnableLostMode`, and that one has no gateway route back out of lost mode, so it isn't offered.
+The deprecated `pro bulk send-command` refuses the ten Classic computer commands that are no
+longer queued before sending. The Platform device actions need the matching Platform API
+permission in Jamf Account.
 
 Those first two rows are the shape to expect from here on: a withdrawal can take **part of a
-command group**. `pro mobile-devices list`, `get` and the rest are served while 16 of its
+command group**. `pro mobile-devices list`, `get` and the rest are served while 14 of its
 subcommands are refused. Check `--help` on the individual subcommand rather than the group;
 a refused one says so in its first paragraph.
 

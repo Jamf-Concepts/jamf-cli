@@ -55,13 +55,21 @@ func unresolvedNote(unresolved int) string {
 // newBulkCmd builds the "bulk" parent command with all subcommands attached.
 func newBulkCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "bulk",
-		Short: "Bulk operations across multiple Jamf Pro resources",
+		Use:        "bulk",
+		Short:      "Bulk operations across multiple Jamf Pro resources",
+		Deprecated: "every subcommand has moved to the resource it acts on; see `jamf-cli pro bulk --help`. `pro bulk` will be removed in a future release",
 		Long: `Perform bulk mutations across policies, computer groups, and MDM commands.
 
+These operations now live on the resource they act on, and every subcommand
+here is deprecated:
+
+  bulk enable-policies / disable-policies  →  pro classic-policies enable / disable
+  bulk add-to-group / remove-from-group    →  pro classic-computer-groups add-members / remove-members
+                                              (and pro classic-mobile-device-groups for mobile devices)
+  bulk send-command                        →  the MDM commands under pro computer-inventory
+
 Default behavior is a dry-run preview — no changes are made unless --yes is
-provided. Destructive MDM commands (EraseDevice, DeviceLock) additionally
-require --confirm-destructive.
+provided.
 
 Output: preview table on stdout; mutation log on stderr.`,
 	}
@@ -433,12 +441,6 @@ func bulkPolicyRows(policies []map[string]any) []map[string]any {
 		}
 	}
 	return rows
-}
-
-// destructiveMDMCommands is the set of commands that require --confirm-destructive.
-var destructiveMDMCommands = map[string]bool{
-	"EraseDevice": true,
-	"DeviceLock":  true,
 }
 
 // staticGroupAddComputerXML builds the XML body to add a computer by ID to a
