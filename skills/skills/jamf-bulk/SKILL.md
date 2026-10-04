@@ -69,11 +69,13 @@ jamf-cli pro computer-inventory erase --group "Decomm" --yes --confirm-destructi
 jamf-cli pro mobile-devices update-inventory --from-file ipads.txt --yes
 ```
 
-Through a platform gateway profile the `computer-inventory` MDM commands that use
-the modern MDM endpoint (`lock`, `restart`, `shutdown`, `settings`, …) are refused
-(exit 8). `enable-remote-desktop` and `disable-remote-desktop` still work there,
-through the Classic API, and `blank-push`, `erase` and `redeploy-framework` use
-endpoints the gateway publishes. `pro bulk` is deprecated; do not use it.
+Through a platform gateway profile some MDM commands are refused (exit 8): `lock`,
+lost mode, `settings`, `set-recovery-lock` and the other commands that only the modern
+MDM endpoint can send. `restart` and `shutdown` (computers and mobile devices) go
+through the Platform API device actions there, and `enable-remote-desktop` /
+`disable-remote-desktop` through the Classic API. `blank-push`, `erase` and
+`redeploy-framework` use endpoints the gateway publishes. `pro bulk` is deprecated;
+do not use it.
 
 ## Translating Natural Language
 

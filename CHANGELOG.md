@@ -38,13 +38,20 @@ replacement where one exists. `EnableRemoteDesktop` and `DisableRemoteDesktop`
 still work. `--confirm-destructive` is accepted and has no effect, and
 send-command now honours `-n`.
 
-**`pro computer-inventory enable-remote-desktop` / `disable-remote-desktop`
-now work through a platform gateway profile.** The modern MDM endpoint is not
-published there, so on a gateway profile they send the Classic
-`EnableRemoteDesktop` / `DisableRemoteDesktop` command instead. That was the
-last thing `send-command` did that nothing else could. `lock`, `restart`,
-`shutdown`, `settings` and the other modern MDM commands are still refused on
-a gateway profile: no Classic command does the same.
+**Six MDM commands now work through a platform gateway profile**, where the
+modern MDM endpoint they use is not published:
+
+- `pro computer-inventory enable-remote-desktop` / `disable-remote-desktop`
+  send the Classic `EnableRemoteDesktop` / `DisableRemoteDesktop` command.
+  That was the last thing `send-command` did that nothing else could.
+- `pro computer-inventory restart` / `shutdown` and `pro mobile-devices
+  restart` / `shutdown` send the Platform API device action, by management
+  ID. `restart --rebuild-kernel-cache` is refused there (exit 8), because the
+  Platform action takes no options.
+
+The other modern MDM commands (`lock`, lost mode, `settings`, …) are still
+refused on a gateway profile, because no Classic or Platform command does the
+same.
 
 What differs in the new commands:
 
