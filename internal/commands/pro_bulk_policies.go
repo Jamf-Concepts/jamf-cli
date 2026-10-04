@@ -48,11 +48,11 @@ exits without making any changes.
 %s`, verb, policyFilterHelp),
 		Deprecated: fmt.Sprintf("use `jamf-cli pro classic-policies %s` (same filters, plus <id>, --name and --from-file); `pro bulk %s-policies` will be removed in a future release", verb, verb),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			selected, err := selectPoliciesByFilter(cmd.Context(), cliCtx.Client, cmd.ErrOrStderr(), pf.filters(cmd))
+			selected, unreadable, err := selectPoliciesByFilter(cmd.Context(), cliCtx.Client, cmd.ErrOrStderr(), pf.filters(cmd))
 			if err != nil {
 				return err
 			}
-			return togglePolicies(cmd, cliCtx, enable, selected, 0, policyToggleMode{
+			return togglePolicies(cmd, cliCtx, enable, selected, unreadable, policyToggleMode{
 				preview: dryRun || !yes,
 				dryRun:  dryRun,
 			})

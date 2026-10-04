@@ -197,7 +197,7 @@ progress on stderr.`, capitalize(verb), verb, policyFilterHelp),
 			)
 			switch {
 			case filtered:
-				selected, err = selectPoliciesByFilter(ctx, cliCtx.Client, stderr, pf.filters(cmd))
+				selected, unresolved, err = selectPoliciesByFilter(ctx, cliCtx.Client, stderr, pf.filters(cmd))
 			case fromFile != "":
 				var entries []string
 				entries, err = readPolicyEntries(fromFile)
@@ -331,13 +331,16 @@ func selectPoliciesByTarget(ctx context.Context, client registry.HTTPClient, std
 
 // selectPoliciesByFilter lists every policy, reads the detail of each one the
 // name pattern does not already exclude, and keeps those matching every filter.
-func selectPoliciesByFilter(ctx context.Context, client registry.HTTPClient, stderr io.Writer, f policyBulkFilters) ([]policyEntry, error) {
+// A policy whose detail cannot be read is counted as unreadable: it might have
+// matched, so skipping it silently would report a partial run as a clean one.
+func selectPoliciesByFilter(ctx context.Context, client registry.HTTPClient, stderr io.Writer, f policyBulkFilters) ([]policyEntry, int, error) {
 	rawPolicies, err := FetchClassicList(ctx, client, "/JSSResource/policies", "policies")
 	if err != nil {
-		return nil, fmt.Errorf("listing policies: %w", err)
+		return nil, 0, fmt.Errorf("listing policies: %w", err)
 	}
 
 	var matched []policyEntry
+	unreadable := 0
 	for _, r := range rawPolicies {
 		m, ok := r.(map[string]any)
 		if !ok {
@@ -353,7 +356,7 @@ func selectPoliciesByFilter(ctx context.Context, client registry.HTTPClient, std
 			listName, _ := m["name"].(string)
 			ok, err := matchGlob(f.namePattern, listName)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 			if !ok {
 				continue
@@ -362,18 +365,19 @@ func selectPoliciesByFilter(ctx context.Context, client registry.HTTPClient, std
 
 		detail, err := fetchClassicPolicyDetail(ctx, client, id)
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "WARNING: failed to fetch policy id=%s: %v\n", id, err)
+			_, _ = fmt.Fprintf(stderr, "  warning: could not read policy %s: %v\n", id, err)
+			unreadable++
 			continue
 		}
 		match, err := policyMatchesFilters(detail, f)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if match {
 			matched = append(matched, policyEntry{id: id, detail: detail})
 		}
 	}
-	return matched, nil
+	return matched, unreadable, nil
 }
 
 // policyToggleMode is how togglePolicies reports and whether it writes.
@@ -406,7 +410,13 @@ func togglePolicies(cmd *cobra.Command, cliCtx *registry.CLIContext, enable bool
 	}
 
 	if len(change) == 0 {
-		_, _ = fmt.Fprintf(stderr, "No policies require changes.\n")
+		if len(selected) == 0 {
+			// Only a filtered run reaches here empty; saying "no changes" would
+			// read a filter typo as success.
+			_, _ = fmt.Fprintf(stderr, "No policies matched the filters%s.\n", unresolvedNote(unresolved))
+		} else {
+			_, _ = fmt.Fprintf(stderr, "No policies require changes%s.\n", unresolvedNote(unresolved))
+		}
 		if mode.printResults {
 			if err := printRows(cliCtx, policyResultRows(nil, unchanged, enable, nil)); err != nil {
 				return err
@@ -431,6 +441,10 @@ func togglePolicies(cmd *cobra.Command, cliCtx *registry.CLIContext, enable bool
 
 	_, _ = fmt.Fprintf(stderr, "%sing %d polic%s...\n", capitalize(strings.TrimSuffix(verb, "e")), len(change), pluralY(len(change)))
 
+	// No read-back, unlike the group-member writes: those are confirmed because
+	// a Classic membership write can answer 201 and drop a member, while
+	// <enabled> is a plain boolean with no enum default to fall back to, and a
+	// minimal PUT carrying it was wire-checked to change it and nothing else.
 	failed := map[string]error{}
 	var firstErr error
 	for _, p := range change {

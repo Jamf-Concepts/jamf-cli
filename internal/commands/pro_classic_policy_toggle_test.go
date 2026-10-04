@@ -158,3 +158,35 @@ func TestPolicyToggle_AlreadyInState(t *testing.T) {
 		t.Errorf("stderr = %q, mutated = %v; want it left alone", stderr, mock.hasMutatingCall())
 	}
 }
+
+// A policy whose detail cannot be read might have matched the filters, so a
+// filtered run counts it as a failure instead of reporting a clean run.
+func TestPolicyToggle_FilterCountsUnreadablePolicy(t *testing.T) {
+	mock := policyToggleFixture()
+	mock.responses["GET /JSSResource/policies/id/2"] = overviewMockResponse{500, `boom`}
+	stderr, err := runPolicyToggle(t, mock, true, "--category", "Lab", "--yes")
+	if exitcode.CodeFrom(err) != exitcode.PartialFailure {
+		t.Fatalf("err = %v, want a partial failure for the unreadable policy", err)
+	}
+	if !strings.Contains(stderr, "(1 unresolved)") {
+		t.Errorf("stderr = %q, want the summary to count the unreadable policy", stderr)
+	}
+
+	// Nothing else selected: the unreadable policy is the whole result.
+	mock = policyToggleFixture()
+	mock.responses["GET /JSSResource/policies/id/1"] = overviewMockResponse{500, `boom`}
+	if _, err := runPolicyToggle(t, mock, true, "--category", "Apps", "--yes"); err == nil || exitcode.CodeFrom(err) == exitcode.PartialFailure {
+		t.Fatalf("err = %v, want a total failure", err)
+	}
+}
+
+// A filter matching nothing says so rather than reading as "nothing to do".
+func TestPolicyToggle_FilterMatchingNothing(t *testing.T) {
+	stderr, err := runPolicyToggle(t, policyToggleFixture(), true, "--category", "Nope", "--yes")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stderr, "No policies matched the filters.") {
+		t.Errorf("stderr = %q, want the no-match line", stderr)
+	}
+}
