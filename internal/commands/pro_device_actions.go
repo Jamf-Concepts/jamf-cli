@@ -140,7 +140,7 @@ func (dt *deviceTarget) addFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&dt.name, "name", "", "device name")
 	cmd.Flags().StringVar(&dt.id, "id", "", "device numeric ID")
 	cmd.Flags().StringVar(&dt.group, "group", "", "target all members of a device group")
-	cmd.Flags().StringVar(&dt.fromFile, "from-file", "", "file containing one serial or ID per line")
+	cmd.Flags().StringVar(&dt.fromFile, "from-file", "", "file listing one device per line: ID, serial number, UDID, management ID or name")
 	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group", "from-file")
 }
 

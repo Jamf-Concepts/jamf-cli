@@ -30,6 +30,17 @@ func (e *NoDeviceMatchError) Error() string {
 // Is makes errors.Is(err, ErrNoDeviceMatch) hold.
 func (e *NoDeviceMatchError) Is(target error) bool { return target == ErrNoDeviceMatch }
 
+// ErrAmbiguousDevice is what an identifier matching more than one device
+// answers errors.Is with, so a batch can count it against the entry rather
+// than abort.
+var ErrAmbiguousDevice = errors.New("identifier matches more than one device")
+
+// ambiguousIdentifierError carries resolveIdentifier's refusal text unchanged.
+type ambiguousIdentifierError struct{ msg string }
+
+func (e *ambiguousIdentifierError) Error() string        { return e.msg }
+func (e *ambiguousIdentifierError) Is(target error) bool { return target == ErrAmbiguousDevice }
+
 // identifierSpec describes one device family's inventory endpoint for
 // ResolveComputerIdentifier / ResolveMobileDeviceIdentifier.
 type identifierSpec struct {
@@ -144,8 +155,8 @@ func resolveIdentifier(ctx context.Context, client registry.HTTPClient, spec ide
 	for i, d := range matches {
 		described[i] = fmt.Sprintf("id %s (%s)", d.ID, matchedBy(d, value))
 	}
-	return nil, fmt.Errorf("%q matches %d %ss: %s; pass the numeric ID of the one you mean",
-		value, len(matches), spec.label, strings.Join(described, ", "))
+	return nil, &ambiguousIdentifierError{msg: fmt.Sprintf("%q matches %d %ss: %s; pass the numeric ID of the one you mean",
+		value, len(matches), spec.label, strings.Join(described, ", "))}
 }
 
 // lookupError wraps a failed inventory lookup. A 401 or 403 gets a hint naming

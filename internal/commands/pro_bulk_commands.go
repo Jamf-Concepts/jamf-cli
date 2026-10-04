@@ -43,10 +43,10 @@ func newSendCommandCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Send an MDM command to a set of computers",
 		Long: `Send a Classic API MDM command to multiple computers.
 
-Targets are specified via --from-file (one computer ID or serial per line) or
---group (all members of a computer group).
+Targets are specified via --from-file (one computer per line: ID, serial number,
+UDID, management ID or name) or --group (all members of a computer group).
 
-Serials in --from-file are resolved to computer IDs first. A line that matches
+Entries in --from-file are resolved to computer IDs first. A line that matches
 no computer is reported and skipped, and counts as a failure in the summary and
 exit code (use --allow-partial-failure to tolerate it); if no line resolves at
 all, or the file holds no entries, the command fails without sending anything.
@@ -67,7 +67,7 @@ Available commands: BlankPush, DeviceInformation, DeviceLock, DeleteUser,
 	}
 
 	cmd.Flags().StringVar(&command, "command", "", "MDM command name (required)")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one computer ID or serial per line")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "file listing one computer per line: ID, serial number, UDID, management ID or name")
 	cmd.Flags().StringVar(&fromGroup, "group", "", "computer group whose members receive the command")
 	cmd.Flags().BoolVar(&yes, "yes", false, "execute mutations (default: dry-run preview only)")
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for EraseDevice and DeviceLock")

@@ -346,6 +346,8 @@ func TestResolveComputersFromFile_PartialFailureCounted(t *testing.T) {
 		// Only C02X1234 comes back; NOSUCHSERIAL and ID 99 are unknown.
 		`filter=hardware.serialNumber=in=("C02X1234","NOSUCHSERIAL")`: {200, computerV3Response},
 		`filter=id=in=(99)`: {200, `{"totalCount":0,"results":[]}`},
+		// A serial nothing matched is tried as a name before it is given up on.
+		`filter=general.name=in=("NOSUCHSERIAL")`: {200, `{"totalCount":0,"results":[]}`},
 	}}
 
 	results, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
@@ -367,6 +369,7 @@ func TestResolveComputersFromFile_AllUnresolvableErrors(t *testing.T) {
 
 	client := &mockClient{responses: map[string]mockResponse{
 		`filter=hardware.serialNumber=in=`: {200, `{"totalCount":0,"results":[]}`},
+		`filter=general.name=in=`:          {200, `{"totalCount":0,"results":[]}`},
 	}}
 
 	_, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
@@ -428,6 +431,7 @@ func TestResolveMobileDevicesFromFile(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
 		`filter=serialNumber=in=("F4GH5678","NOSUCHSERIAL")`: {200, mobileV2Response},
 		`filter=mobileDeviceId=in=(99)`:                      {200, mobileV2Response},
+		`filter=displayName=in=("NOSUCHSERIAL")`:             {200, `{"totalCount":0,"results":[]}`},
 	}}
 
 	results, skipped, err := ResolveMobileDevicesFromFile(context.Background(), client, path)
@@ -437,8 +441,9 @@ func TestResolveMobileDevicesFromFile(t *testing.T) {
 	if len(results) != 2 || skipped != 1 {
 		t.Fatalf("got %d results / %d skipped, want 2 / 1", len(results), skipped)
 	}
-	if len(client.calls) != 2 {
-		t.Errorf("made %d requests, want 2 (one per identifier kind): %v", len(client.calls), client.calls)
+	// One per identifier kind, plus the name retry for the serial nothing matched.
+	if len(client.calls) != 3 {
+		t.Errorf("made %d requests, want 3: %v", len(client.calls), client.calls)
 	}
 	for _, c := range client.calls {
 		if !strings.Contains(c, "/v2/mobile-devices/detail") {
