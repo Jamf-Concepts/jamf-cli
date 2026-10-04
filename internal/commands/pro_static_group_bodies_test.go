@@ -65,6 +65,45 @@ func TestStaticGroupBodies_V3UpdateKeepsMembers(t *testing.T) {
 	}
 }
 
+// The fill replaces the member list, so a read it cannot vouch for is refused
+// before anything is written, rather than sent as an empty list that clears
+// the group. An empty group (Classic sends `[]`) still fills as empty.
+func TestStaticGroupBodies_V3UpdateRefusesAnUnreadableMemberList(t *testing.T) {
+	for name, detail := range map[string]string{
+		"no member list": `{"computer_group":{"id":7,"name":"G"}}`,
+		"smart group":    `{"computer_group":{"id":7,"name":"G","is_smart":true,"computers":[]}}`,
+		"member no id":   `{"computer_group":{"id":7,"name":"G","computers":[{"name":"Mac"}]}}`,
+		"non-object":     `{"computer_group":{"id":7,"name":"G","computers":["82"]}}`,
+	} {
+		inner := &recordingClient{gets: map[string]string{"/JSSResource/computergroups/id/7": detail}}
+		c := &staticGroupBodyClient{inner: inner}
+		if _, err := c.Do(context.Background(), http.MethodPut, "/v3/computer-groups/static-groups/7", strings.NewReader(`{"name":"G"}`)); err == nil {
+			t.Errorf("%s: the update was sent (%s)", name, inner.body)
+		}
+		if inner.method != "" {
+			t.Errorf("%s: wrote %s %s", name, inner.method, inner.path)
+		}
+	}
+
+	inner := &recordingClient{gets: map[string]string{"/JSSResource/computergroups/id/7": `{"computer_group":{"id":7,"name":"G","is_smart":false,"computers":[]}}`}}
+	sent := sendThrough(t, inner, http.MethodPut, "/v3/computer-groups/static-groups/7", `{"name":"G"}`)
+	if got, _ := json.Marshal(sent["assignments"]); string(got) != `[]` {
+		t.Errorf("empty group assignments = %s, want []", got)
+	}
+}
+
+// A PATCH fill the read cannot supply is refused rather than sent as null.
+func TestStaticGroupBodies_V2PatchRefusesAMissingName(t *testing.T) {
+	inner := &recordingClient{gets: map[string]string{
+		"/v2/mobile-device-groups/static-groups/9": `{"groupId":"9","siteId":"-1"}`,
+	}}
+	c := &staticGroupBodyClient{inner: inner}
+	_, err := c.Do(context.Background(), http.MethodPatch, "/v2/mobile-device-groups/static-groups/9", strings.NewReader(`{"groupDescription":"d"}`))
+	if err == nil || !strings.Contains(err.Error(), `"groupName"`) || inner.method != "" {
+		t.Errorf("err = %v, wrote %q; want a refusal naming groupName and nothing sent", err, inner.method)
+	}
+}
+
 func TestStaticGroupBodies_Creates(t *testing.T) {
 	sent := sendThrough(t, &recordingClient{}, http.MethodPost, "/v3/computer-groups/static-groups", `{"name":"G"}`)
 	if got, _ := json.Marshal(sent["assignments"]); string(got) != `[]` {

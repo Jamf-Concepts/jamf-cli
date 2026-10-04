@@ -92,8 +92,18 @@ var staticGroupBodyRules = []staticGroupBodyRule{
 		if err != nil {
 			return fmt.Errorf("reading static mobile device group %s for the groupName and siteId every PATCH must carry: %w", id, err)
 		}
-		setIfAbsent(b, "groupName", current["groupName"])
-		setIfAbsent(b, "siteId", current["siteId"])
+		// A fill the read cannot supply is refused rather than sent as null,
+		// which the server answers with an unactionable 400.
+		for _, key := range []string{"groupName", "siteId"} {
+			if _, ok := b[key]; ok {
+				continue
+			}
+			v, ok := current[key]
+			if !ok || v == nil {
+				return fmt.Errorf("static mobile device group %s was read without a %q, which every PATCH must carry; pass it in the body", id, key)
+			}
+			b[key] = v
+		}
 		return nil
 	}},
 }
@@ -106,16 +116,35 @@ func setIfAbsent(m map[string]any, key string, v any) {
 
 // classicStaticComputerGroupMemberIDs reads a static computer group's member
 // IDs from the Classic API, as strings for the modern `assignments` array.
+//
+// The result replaces the member list, so a read it cannot vouch for is
+// refused rather than taken as "no members": a detail with no `computers`
+// (Classic sends `[]` for an empty group), a smart group, or a member without
+// an ID would each send a shorter list and silently drop members.
 func classicStaticComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient, id string) ([]string, error) {
 	data, err := fetchJSON(ctx, client, fmt.Sprintf("/JSSResource/computergroups/id/%s", url.PathEscape(id)))
 	if err != nil {
 		return nil, err
 	}
+	detail := unwrapClassicDetail(data)
+	if smart, _ := detail["is_smart"].(bool); smart {
+		return nil, fmt.Errorf("computer group %s is a smart group", id)
+	}
+	raw, ok := detail["computers"]
+	if !ok {
+		return nil, fmt.Errorf("the Classic detail of computer group %s carries no member list", id)
+	}
+	items := extractScopeItems(detail, "computers", "computer")
+	if list, isList := raw.([]any); isList && len(list) != len(items) {
+		return nil, fmt.Errorf("the Classic detail of computer group %s has a member list this CLI cannot read", id)
+	}
 	ids := []string{}
-	for _, m := range extractScopeItems(unwrapClassicDetail(data), "computers", "computer") {
-		if mid := extractID(m); mid != "" {
-			ids = append(ids, mid)
+	for _, m := range items {
+		mid := extractID(m)
+		if mid == "" {
+			return nil, fmt.Errorf("the Classic detail of computer group %s has a member without an ID", id)
 		}
+		ids = append(ids, mid)
 	}
 	return ids, nil
 }
