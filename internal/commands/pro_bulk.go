@@ -59,6 +59,18 @@ func newBulkCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Bulk operations across multiple Jamf Pro resources",
 		Long: `Perform bulk mutations across policies, computer groups, and MDM commands.
 
+These operations now live on the resource they act on, and the subcommands
+here are deprecated:
+
+  bulk enable-policies / disable-policies  →  pro classic-policies enable / disable
+  bulk add-to-group / remove-from-group    →  pro classic-computer-groups add-members / remove-members
+                                              (and pro classic-mobile-device-groups for mobile devices)
+  bulk send-command                        →  the MDM commands under pro computer-inventory
+
+send-command is not yet deprecated: through the platform gateway it is the only
+route for its commands, because the modern MDM endpoint the computer-inventory
+commands use is not published there.
+
 Default behavior is a dry-run preview — no changes are made unless --yes is
 provided. Destructive MDM commands (EraseDevice, DeviceLock) additionally
 require --confirm-destructive.

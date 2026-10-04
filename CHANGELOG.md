@@ -9,6 +9,68 @@ release with none of those gets no entry here.
 Versions follow the `vMAJOR.MINOR.PATCH` tags in this repository, and headings match the
 commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
+## Unreleased
+
+### Deprecated — `pro bulk` group and policy subcommands move to the resource they act on
+
+| deprecated | use instead |
+|---|---|
+| `pro bulk add-to-group` | `pro classic-computer-groups add-members` |
+| `pro bulk remove-from-group` | `pro classic-computer-groups remove-members` |
+| — | `pro classic-mobile-device-groups add-members` / `remove-members` (new) |
+| `pro bulk enable-policies` | `pro classic-policies enable` |
+| `pro bulk disable-policies` | `pro classic-policies disable` |
+
+The deprecated commands still run, are hidden from help, and print a
+deprecation warning on stderr. They will be removed in a future release.
+`pro bulk send-command` is not deprecated: through the platform gateway it is
+the only route for its commands, because the modern MDM endpoint the
+`computer-inventory` commands use is not published there.
+
+What differs in the new commands:
+
+- **The group is the positional `<id>` or `--name`**; the members come from
+  `--computer` / `--mobile-device` (repeatable), `--from-file` or `--from-group`
+  (was `--target-group` and `--group`).
+- **One request per 250 members** rather than one per member, read back
+  afterwards to confirm each change landed. A device already in the requested
+  state is reported and not sent. Removing a computer that is not a member
+  used to fail the whole request with a 409.
+- **An unmanaged device is refused before anything is sent.** Jamf Pro rejects
+  it as a static group member, and because the request is atomic it fails
+  every managed member sent with it.
+- **A single `--computer`, `<id>` or `--name` runs without `--yes`**, the way
+  `update --set` does. `--from-file`, `--from-group` and the policy filters
+  still preview until `--yes` is given.
+- `pro bulk enable-policies` / `disable-policies` now honour `-n`; before, `-n`
+  together with `--yes` wrote the change.
+
+### Behaviour — device `--from-file` lists take UDIDs, management IDs and names
+
+Every `--from-file` device list (the `computer-inventory` and `mobile-devices`
+actions, `bulk send-command`, and the new group commands) now resolves each
+line as a numeric ID, a UUID (a UDID or a management ID), a mobile UDID, a
+serial number or a name. A UUID used to be looked up as a serial number and
+never matched. **A line that matches no serial number is now tried as a name**,
+so an entry that was skipped before can now resolve to a device. A line
+matching more than one device is refused, naming the matches.
+
+### Fixed — PATCH commands the server refused for every body
+
+`pro platform-devices patch`, `pro platform-device-groups patch` and
+`patch-members` sent `application/merge-patch+json` to endpoints that accept
+only the `application/json` their spec declares, and answered 400 for every
+input. `pro platform-device-groups add-members` / `remove-members` now report
+how many devices actually changed (they used to echo the number of IDs given)
+and preview under `-n`.
+
+The generated Jamf Pro static-group writes failed for bodies their help
+documents: `pro computer-groups-static-groups create`/`update`/`apply` without
+`assignments` returned 500, as did `pro mobile-device-groups-static-groups
+create`/`patch`/`apply` without `groupName`, `siteId` and `assignments`. These
+fields are now filled in when left out. An `update` that names no members keeps
+the current ones, because that PUT replaces the member list.
+
 ## v1.32.0
 
 ### Breaking — `scope add`/`remove` resolve `--computer` and `--mobile-device` to an ID first

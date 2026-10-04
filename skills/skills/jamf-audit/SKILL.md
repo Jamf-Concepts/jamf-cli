@@ -43,7 +43,7 @@ Present findings grouped by severity. For each finding:
 
 For remediable findings, offer to help:
 - Empty smart groups → `jamf-cli pro group-tools list --empty` to identify, then delete
-- Unscoped policies → Show which ones, offer to disable via `jamf-cli pro bulk disable-policies`
+- Unscoped policies → Show which ones, offer to disable via `jamf-cli pro classic-policies disable`
 - Stale devices → `jamf-cli pro report device-compliance` for the full list
 
 ### Step 5: Management Summary (if requested)

@@ -342,6 +342,12 @@ var handWrittenUndeterminedMethods = map[string][]string{
 	"/pro/v1/cloud-distribution-point/refresh-inventory": {"POST"},
 	"/pro/v1/packages/{}":                                {"GET"},
 
+	// pro_classic_group_members.go — classicGroupKind.detailPath, a struct
+	// field read back by fetchClassicStaticGroup (GET) and putGroupMembership
+	// (PUT).
+	"/proclassic/computergroups/id/{}":     {"GET", "PUT"},
+	"/proclassic/mobiledevicegroups/id/{}": {"GET", "PUT"},
+
 	// internal/resolve/resolve.go — the Classic static-group fallback paths are
 	// arguments to fetchClassicGroupMemberIDs, which reads the collection and
 	// filters client-side.
