@@ -11,6 +11,16 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Added — generated Jamf Pro writes take a body `--from-file`
+
+Every generated Pro `create`, `update` and body-carrying action read its body
+from stdin only, so `pro categories create --from-file body.json` answered
+`unknown flag`. They now take `--from-file`, as the Classic, Platform and
+Security Cloud writes already did; stdin works as before. On `update`,
+`--from-file` and `--set` are mutually exclusive. Not changed: `patch` (its
+`--from-file` already was the body), the destructive commands whose
+`--from-file` is a list of IDs or names, and the multipart uploads (`--file`).
+
 ### Deprecated — `pro bulk` group and policy subcommands move to the resource they act on
 
 | deprecated | use instead |
@@ -67,7 +77,14 @@ What differs in the new commands:
   every managed member sent with it.
 - **A single `--computer`, `<id>` or `--name` runs without `--yes`**, the way
   `update --set` does. `--from-file`, `--from-group` and the policy filters
-  still preview until `--yes` is given.
+  still preview until `--yes` is given; `-n` previews every form.
+- **A change that cannot be confirmed is a failure.** When the group cannot be
+  read back after the write, each change it carried is reported `unverified`
+  and the command exits non-zero, rather than reporting it done.
+- **A policy filter run counts a policy it could not read as a failure** (exit
+  7, or 1 when nothing else succeeded). `pro bulk enable-policies` /
+  `disable-policies` used to warn and exit 0, though the policy might have
+  matched. A filter matching nothing now says so.
 - `pro bulk enable-policies` / `disable-policies` now honour `-n`; before, `-n`
   together with `--yes` wrote the change.
 
@@ -88,8 +105,10 @@ actions, `bulk send-command`, and the new group commands) now resolves each
 line as a numeric ID, a UUID (a UDID or a management ID), a mobile UDID, a
 serial number or a name. A UUID used to be looked up as a serial number and
 never matched. **A line that matches no serial number is now tried as a name**,
-so an entry that was skipped before can now resolve to a device. A line
-matching more than one device is refused, naming the matches.
+so an entry that was skipped before can now resolve to a device, and stderr
+notes each one that did. A line matching more than one device is refused,
+naming the matches. Names are looked up in batches, spaces and punctuation
+included: one request per 100 names rather than one per name.
 
 ### Fixed — PATCH commands the server refused for every body
 
@@ -98,7 +117,8 @@ matching more than one device is refused, naming the matches.
 only the `application/json` their spec declares, and answered 400 for every
 input. `pro platform-device-groups add-members` / `remove-members` now report
 how many devices actually changed (they used to echo the number of IDs given)
-and preview under `-n`.
+and preview under `-n`. An `--id` that is not a UUID (a numeric Jamf Pro ID,
+say) is refused before anything is sent.
 
 The generated Jamf Pro static-group writes failed for bodies their help
 documents: `pro computer-groups-static-groups create`/`update`/`apply` without

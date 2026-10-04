@@ -2067,7 +2067,7 @@ func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) s
 	}
 
 	sb.WriteString(`\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.`)
-	sb.WriteString(goEscape(credentialFieldsNote(op, schemas, "on stdin, as the whole record")))
+	sb.WriteString(goEscape(credentialFieldsNote(op, schemas, "with --from-file or on stdin, as the whole record")))
 
 	sb.WriteString(`"`)
 	return sb.String()
