@@ -78,13 +78,14 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagOauthState string
 		flagScaffold   bool
+		fromFile       string
 		flagSet        []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Updates Jamf Pro SMTP Server information",
-		Long:  "Updates Jamf Pro SMTP Server information. If requiresAuthentication is set to true, a username and password must be provided\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  authenticationType                           string\n  basicAuthCredentials.username                string\n  connectionSettings.connectionTimeout         integer\n  connectionSettings.encryptionType            string\n  connectionSettings.host                      string\n  connectionSettings.port                      integer\n  enabled                                      boolean\n  googleMailCredentials.clientId               string\n  graphApiCredentials.clientId                 string\n  graphApiCredentials.tenantId                 string\n  senderSettings.displayName                   string\n  senderSettings.emailAddress                  string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  basicAuthCredentials                         object\n  connectionSettings                           object\n  googleMailCredentials                        object\n  googleMailCredentials.authentications        array\n  graphApiCredentials                          object\n  senderSettings                               object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: basicAuthCredentials.password, googleMailCredentials.clientSecret, graphApiCredentials.clientSecret. Send them in a JSON body on stdin, as the whole record.",
+		Long:  "Updates Jamf Pro SMTP Server information. If requiresAuthentication is set to true, a username and password must be provided\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  authenticationType                           string\n  basicAuthCredentials.username                string\n  connectionSettings.connectionTimeout         integer\n  connectionSettings.encryptionType            string\n  connectionSettings.host                      string\n  connectionSettings.port                      integer\n  enabled                                      boolean\n  googleMailCredentials.clientId               string\n  graphApiCredentials.clientId                 string\n  graphApiCredentials.tenantId                 string\n  senderSettings.displayName                   string\n  senderSettings.emailAddress                  string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  basicAuthCredentials                         object\n  connectionSettings                           object\n  googleMailCredentials                        object\n  googleMailCredentials.authentications        array\n  graphApiCredentials                          object\n  senderSettings                               object\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: basicAuthCredentials.password, googleMailCredentials.clientSecret, graphApiCredentials.clientSecret. Send them in a JSON body on stdin, as the whole record.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro smtp-server update --set field=value
 
@@ -184,12 +185,11 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -210,7 +210,9 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagOauthState, "oauth-state", "", "The OAuth state that was last used to authorize a Google Mail account. This is only required when the authentication type is Google Mail and new accounts are being added.")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"authenticationType=", "basicAuthCredentials.username=", "connectionSettings.connectionTimeout=", "connectionSettings.encryptionType=", "connectionSettings.host=", "connectionSettings.port=", "enabled=", "googleMailCredentials.clientId=", "graphApiCredentials.clientId=", "graphApiCredentials.tenantId=", "senderSettings.displayName=", "senderSettings.emailAddress=",
@@ -424,6 +426,7 @@ func newSmtpServerHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 func newSmtpServerAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -453,12 +456,11 @@ func newSmtpServerAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -478,12 +480,14 @@ func newSmtpServerAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newSmtpServerTestCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -513,12 +517,11 @@ func newSmtpServerTestCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -538,6 +541,7 @@ func newSmtpServerTestCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

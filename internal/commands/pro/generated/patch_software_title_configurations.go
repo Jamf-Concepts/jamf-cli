@@ -156,6 +156,7 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -204,12 +205,11 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -229,6 +229,7 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -675,6 +676,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -722,12 +724,11 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -749,6 +750,7 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

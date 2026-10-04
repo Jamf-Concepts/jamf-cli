@@ -593,8 +593,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"patchLongDesc": func(op *Operation, schemas map[string]*Schema, r *Resource) string {
 			return patchLongDesc(op, schemas, r)
 		},
-		"isUpdateSetOp":  func(op *Operation, r *Resource) bool { return updateSetEnabled(op, r) },
-		"hasUpdateSetOp": anyUpdateSet,
+		"isUpdateSetOp":       func(op *Operation, r *Resource) bool { return updateSetEnabled(op, r) },
+		"opTakesBodyFromFile": func(op *Operation, r *Resource) bool { return opTakesBodyFromFile(op, r) },
+		"hasStdinBodyOp":      hasStdinBodyOp,
+		"hasUpdateSetOp":      anyUpdateSet,
 		"updateSetLongDesc": func(op *Operation, schemas map[string]*Schema, r *Resource) string {
 			return updateSetLongDesc(op, schemas, r)
 		},
@@ -1231,6 +1233,19 @@ func hasPostOrPut(ops []*Operation) bool {
 	return false
 }
 
+// hasStdinBodyOp is hasPostOrPut minus the ops that read their body through
+// readBodyInput (see opTakesBodyFromFile). Only the ops that still read stdin
+// inline use "fmt" and "os" for it, so this, not hasPostOrPut, gates those
+// imports.
+func hasStdinBodyOp(r *Resource) bool {
+	for _, op := range r.Operations {
+		if (op.Method == "POST" || op.Method == "PUT" || op.Method == "PATCH") && !opTakesBodyFromFile(op, r) {
+			return true
+		}
+	}
+	return false
+}
+
 // hasNonMultipartPostOrPut is hasPostOrPut minus multipart ops. Used to gate
 // imports of "bytes" and "io" in the generated template: multipart upload now
 // streams through client.NewMultipartFileUpload and no longer pulls either
@@ -1563,6 +1578,26 @@ func setFieldTypesLiteral(op *Operation, schemas map[string]*Schema) string {
 func isPatchOp(op *Operation) bool {
 	return op.Method == "PATCH" && op.Name == "patch" &&
 		op.RequestBody != nil && !op.RequestBody.IsMultipart
+}
+
+// opTakesBodyFromFile reports whether op reads a request body that --from-file
+// can supply. A merge-patch `patch` has its own --from-file; a destructive op
+// with a name lookup already spends --from-file on a list of IDs or names; a
+// multipart upload takes --file; delete-multiple takes --ids.
+//
+// Every other body-carrying write used to read stdin only, so `pro <resource>
+// create --from-file body.json` answered "unknown flag" while the PATCH, apply,
+// Classic, Platform and Security Cloud writes beside it all took the flag.
+func opTakesBodyFromFile(op *Operation, r *Resource) bool {
+	if op.RequestBody == nil || op.RequestBody.IsMultipart || isPatchOp(op) || op.Name == "delete-multiple" {
+		return false
+	}
+	switch strings.ToUpper(op.Method) {
+	case "POST", "PUT", "PATCH":
+	default:
+		return false
+	}
+	return !op.IsDestructive || !opHasNameLookup(op, r)
 }
 
 // hasPatchOp reports whether any operation in the slice satisfies isPatchOp.
@@ -2031,7 +2066,7 @@ func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) s
 		}
 	}
 
-	sb.WriteString(`\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.`)
+	sb.WriteString(`\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.`)
 	sb.WriteString(goEscape(credentialFieldsNote(op, schemas, "on stdin, as the whole record")))
 
 	sb.WriteString(`"`)
@@ -2160,7 +2195,7 @@ import (
 {{- if or (hasList .Operations) (hasPaginated .Operations) (hasDeleteMultiple .Operations) (hasUpdateSetOp .) }}
 	"encoding/json"
 {{- end }}
-{{- if or (needsFmt .) (hasList .Operations) (hasPaginated .Operations) (hasPostOrPut .Operations) }}
+{{- if or (needsFmt .) (hasList .Operations) (hasPaginated .Operations) (hasStdinBodyOp .) (hasUpdateSetOp .) }}
 	"fmt"
 {{- end }}
 {{- if or (hasNonMultipartPostOrPut .Operations) (hasList .Operations) (hasPaginated .Operations) (hasAnyBinaryResponse .) }}
@@ -2172,7 +2207,7 @@ import (
 {{- if needsURL . }}
 	"net/url"
 {{- end }}
-{{- if or (hasPostOrPut .Operations) (hasDestructive .Operations) (hasDelete .Operations) (shouldGenerateApply .) (hasAnyBinaryResponse .) (needsMultipart .) }}
+{{- if or (hasStdinBodyOp .) (hasUpdateSetOp .) (hasDestructive .Operations) (hasDelete .Operations) (shouldGenerateApply .) (hasAnyBinaryResponse .) (needsMultipart .) }}
 	"os"
 {{- end }}
 {{- if anyOpHasRenameFlag . }}
@@ -2255,6 +2290,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if opHasBinaryResponse . }}
 		flagSaveTo string
+{{- end }}
+{{- if opTakesBodyFromFile . $ }}
+		fromFile string
 {{- end }}
 {{- if isPatchOp . }}
 		flagSet  []string
@@ -3082,12 +3120,20 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 			}
 {{- end }}
+{{- if opTakesBodyFromFile . $ }}
+			raw, haveBody, err := readBodyInput(fromFile, {{ if isUpdateSetOp . $ }}len(flagSet) > 0{{ else }}false{{ end }})
+			if err != nil {
+				return err
+			}
+			if haveBody {
+{{- else }}
 			stat, _ := os.Stdin.Stat()
 			if {{ if isUpdateSetOp . $ }}len(flagSet) == 0 && {{ end }}(stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
+{{- end }}
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -3353,8 +3399,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVar(&flagName, "name", "", {{ goStr (print "Look up " $.NameSingular " by name") }})
 {{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, {{ goStr (.Flag) }}, "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
+{{- if opTakesBodyFromFile . $ }}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
+{{- end }}
 {{- if isUpdateSetOp . $ }}
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+{{- if opTakesBodyFromFile . $ }}
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
+{{- end }}
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			{{ range patchSetCompletions . $.Schemas }}{{ goStr (.) }},{{ end }}
@@ -4169,6 +4221,36 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
+}
+
+// readBodyInput reads a request body from --from-file, or else from piped
+// stdin, and reports whether there was one. skipStdin is set when --set has
+// already built the body, so a CI runner's piped stdin is not read as a second
+// one. A named file is a body even when empty, so the empty-input error stays
+// reachable; stdin is read exactly as before --from-file existed.
+func readBodyInput(fromFile string, skipStdin bool) ([]byte, bool, error) {
+	if fromFile != "" {
+		if skipStdin {
+			return nil, false, fmt.Errorf("--set and --from-file are mutually exclusive")
+		}
+		data, err := os.ReadFile(fromFile)
+		if err != nil {
+			return nil, false, fmt.Errorf("reading input file: %w", err)
+		}
+		return data, true, nil
+	}
+	if skipStdin {
+		return nil, false, nil
+	}
+	stat, _ := os.Stdin.Stat()
+	if stat == nil || (stat.Mode()&os.ModeCharDevice) != 0 {
+		return nil, false, nil
+	}
+	raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+	if err != nil {
+		return nil, false, fmt.Errorf("reading stdin: %w", err)
+	}
+	return raw, true, nil
 }
 
 // printScaffoldOutput prints a scaffold JSON string, converting to YAML when the

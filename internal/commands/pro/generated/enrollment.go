@@ -81,13 +81,14 @@ func newEnrollmentGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Enrollment object",
-		Long:  "Update enrollment object. Regarding the 'developerCertificateIdentity',\nif this object is omitted, the certificate will not be deleted from Jamf Pro.\nThe 'identityKeystore' is the entire cert file as a base64 encoded string. The\n'md5Sum' field is not required in the PUT request, but is calculated and returned\nin the response.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountDrivenDeviceIosEnrollmentEnabled      boolean\n  accountDrivenDeviceMacosEnrollmentEnabled    boolean\n  accountDrivenDeviceVisionosEnrollmentEnabled boolean\n  accountDrivenUserEnrollmentEnabled           boolean\n  accountDrivenUserVisionosEnrollmentEnabled   boolean\n  allowSshOnlyManagementAccount                boolean\n  createManagementAccount                      boolean\n  developerCertificateIdentity.filename        string\n  developerCertificateIdentityDetails.serialNumber string\n  developerCertificateIdentityDetails.subject  string\n  ensureSshRunning                             boolean\n  flushExtensionAttributes                     boolean\n  flushLocationHistoryInformation              boolean\n  flushLocationInformation                     boolean\n  flushMdmCommandsOnReenroll                   string\n  flushPolicyHistory                           boolean\n  flushSoftwareUpdatePlans                     boolean\n  hideManagementAccount                        boolean\n  installSingleProfile                         boolean\n  iosEnterpriseEnrollmentEnabled               boolean\n  iosPersonalEnrollmentEnabled                 boolean\n  launchSelfService                            boolean\n  macOsEnterpriseEnrollmentEnabled             boolean\n  maidUsernameMergeEnabled                     boolean\n  managementUsername                           string\n  mdmSigningCertificate.filename               string\n  mdmSigningCertificateDetails.serialNumber    string\n  mdmSigningCertificateDetails.subject         string\n  restrictReenrollment                         boolean\n  signQuickAdd                                 boolean\n  signingMdmProfileEnabled                     boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  developerCertificateIdentity                 object\n  developerCertificateIdentityDetails          object\n  mdmSigningCertificate                        object\n  mdmSigningCertificateDetails                 object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: developerCertificateIdentity.identityKeystore, developerCertificateIdentity.keystorePassword, mdmSigningCertificate.identityKeystore, mdmSigningCertificate.keystorePassword. Send them in a JSON body on stdin, as the whole record.",
+		Long:  "Update enrollment object. Regarding the 'developerCertificateIdentity',\nif this object is omitted, the certificate will not be deleted from Jamf Pro.\nThe 'identityKeystore' is the entire cert file as a base64 encoded string. The\n'md5Sum' field is not required in the PUT request, but is calculated and returned\nin the response.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountDrivenDeviceIosEnrollmentEnabled      boolean\n  accountDrivenDeviceMacosEnrollmentEnabled    boolean\n  accountDrivenDeviceVisionosEnrollmentEnabled boolean\n  accountDrivenUserEnrollmentEnabled           boolean\n  accountDrivenUserVisionosEnrollmentEnabled   boolean\n  allowSshOnlyManagementAccount                boolean\n  createManagementAccount                      boolean\n  developerCertificateIdentity.filename        string\n  developerCertificateIdentityDetails.serialNumber string\n  developerCertificateIdentityDetails.subject  string\n  ensureSshRunning                             boolean\n  flushExtensionAttributes                     boolean\n  flushLocationHistoryInformation              boolean\n  flushLocationInformation                     boolean\n  flushMdmCommandsOnReenroll                   string\n  flushPolicyHistory                           boolean\n  flushSoftwareUpdatePlans                     boolean\n  hideManagementAccount                        boolean\n  installSingleProfile                         boolean\n  iosEnterpriseEnrollmentEnabled               boolean\n  iosPersonalEnrollmentEnabled                 boolean\n  launchSelfService                            boolean\n  macOsEnterpriseEnrollmentEnabled             boolean\n  maidUsernameMergeEnabled                     boolean\n  managementUsername                           string\n  mdmSigningCertificate.filename               string\n  mdmSigningCertificateDetails.serialNumber    string\n  mdmSigningCertificateDetails.subject         string\n  restrictReenrollment                         boolean\n  signQuickAdd                                 boolean\n  signingMdmProfileEnabled                     boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  developerCertificateIdentity                 object\n  developerCertificateIdentityDetails          object\n  mdmSigningCertificate                        object\n  mdmSigningCertificateDetails                 object\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: developerCertificateIdentity.identityKeystore, developerCertificateIdentity.keystorePassword, mdmSigningCertificate.identityKeystore, mdmSigningCertificate.keystorePassword. Send them in a JSON body on stdin, as the whole record.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro enrollment update --set field=value
 
@@ -198,12 +199,11 @@ func newEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -223,7 +223,9 @@ func newEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"accountDrivenDeviceIosEnrollmentEnabled=", "accountDrivenDeviceMacosEnrollmentEnabled=", "accountDrivenDeviceVisionosEnrollmentEnabled=", "accountDrivenUserEnrollmentEnabled=", "accountDrivenUserVisionosEnrollmentEnabled=", "allowSshOnlyManagementAccount=", "createManagementAccount=", "developerCertificateIdentity.filename=", "developerCertificateIdentityDetails.serialNumber=", "developerCertificateIdentityDetails.subject=", "ensureSshRunning=", "flushExtensionAttributes=", "flushLocationHistoryInformation=", "flushLocationInformation=", "flushMdmCommandsOnReenroll=", "flushPolicyHistory=", "flushSoftwareUpdatePlans=", "hideManagementAccount=", "installSingleProfile=", "iosEnterpriseEnrollmentEnabled=", "iosPersonalEnrollmentEnabled=", "launchSelfService=", "macOsEnterpriseEnrollmentEnabled=", "maidUsernameMergeEnabled=", "managementUsername=", "mdmSigningCertificate.filename=", "mdmSigningCertificateDetails.serialNumber=", "mdmSigningCertificateDetails.subject=", "restrictReenrollment=", "signQuickAdd=", "signingMdmProfileEnabled=",
@@ -432,6 +434,7 @@ func newEnrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 func newEnrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -461,12 +464,11 @@ func newEnrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -486,6 +488,7 @@ func newEnrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -499,6 +502,7 @@ func newEnrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagFilter       string
 		flagScaffold     bool
 		flagSaveTo       string
+		fromFile         string
 	)
 
 	cmd := &cobra.Command{
@@ -569,12 +573,11 @@ func newEnrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -615,6 +618,7 @@ func newEnrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*script*\"")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -723,6 +727,7 @@ func newEnrollmentAccessManagementCmd(ctx *registry.CLIContext) *cobra.Command {
 func newEnrollmentCreateAccessManagementCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -752,12 +757,11 @@ func newEnrollmentCreateAccessManagementCmd(ctx *registry.CLIContext) *cobra.Com
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -777,5 +781,6 @@ func newEnrollmentCreateAccessManagementCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }

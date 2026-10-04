@@ -322,6 +322,7 @@ func newEnrollmentCustomizationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newEnrollmentCustomizationCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -368,12 +369,11 @@ func newEnrollmentCustomizationCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -393,12 +393,14 @@ func newEnrollmentCustomizationCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newEnrollmentCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 
 		flagSet []string
@@ -407,7 +409,7 @@ func newEnrollmentCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update an Enrollment Customization",
-		Long:  "Updates an Enrollment Customization\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  description                                  string\n  displayName                                  string\n  enrollmentCustomizationBrandingSettings.backgroundColor string\n  enrollmentCustomizationBrandingSettings.buttonColor string\n  enrollmentCustomizationBrandingSettings.buttonTextColor string\n  enrollmentCustomizationBrandingSettings.iconUrl string\n  enrollmentCustomizationBrandingSettings.textColor string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  enrollmentCustomizationBrandingSettings      object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates an Enrollment Customization\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  description                                  string\n  displayName                                  string\n  enrollmentCustomizationBrandingSettings.backgroundColor string\n  enrollmentCustomizationBrandingSettings.buttonColor string\n  enrollmentCustomizationBrandingSettings.buttonTextColor string\n  enrollmentCustomizationBrandingSettings.iconUrl string\n  enrollmentCustomizationBrandingSettings.textColor string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  enrollmentCustomizationBrandingSettings      object\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro enrollment-customization update 1 --set field=value
 
@@ -501,12 +503,11 @@ func newEnrollmentCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -528,7 +529,9 @@ func newEnrollmentCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"description=", "displayName=", "enrollmentCustomizationBrandingSettings.backgroundColor=", "enrollmentCustomizationBrandingSettings.buttonColor=", "enrollmentCustomizationBrandingSettings.buttonTextColor=", "enrollmentCustomizationBrandingSettings.iconUrl=", "enrollmentCustomizationBrandingSettings.textColor=", "siteId=",
@@ -973,6 +976,7 @@ func newEnrollmentCustomizationHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 func newEnrollmentCustomizationAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1020,12 +1024,11 @@ func newEnrollmentCustomizationAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1047,12 +1050,14 @@ func newEnrollmentCustomizationAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newEnrollmentCustomizationLdapUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -1110,12 +1115,11 @@ func newEnrollmentCustomizationLdapUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1135,12 +1139,14 @@ func newEnrollmentCustomizationLdapUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newEnrollmentCustomizationSsoCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1194,12 +1200,11 @@ func newEnrollmentCustomizationSsoCreateCmd(ctx *registry.CLIContext) *cobra.Com
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1221,6 +1226,7 @@ func newEnrollmentCustomizationSsoCreateCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1264,6 +1270,7 @@ func newEnrollmentCustomizationSsoCmd(ctx *registry.CLIContext) *cobra.Command {
 func newEnrollmentCustomizationSsoUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -1315,12 +1322,11 @@ func newEnrollmentCustomizationSsoUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1340,12 +1346,14 @@ func newEnrollmentCustomizationSsoUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newEnrollmentCustomizationTextCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1399,12 +1407,11 @@ func newEnrollmentCustomizationTextCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1426,6 +1433,7 @@ func newEnrollmentCustomizationTextCreateCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1545,6 +1553,7 @@ func newEnrollmentCustomizationTextCmd(ctx *registry.CLIContext) *cobra.Command 
 func newEnrollmentCustomizationTextUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -1596,12 +1605,11 @@ func newEnrollmentCustomizationTextUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1621,6 +1629,7 @@ func newEnrollmentCustomizationTextUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1740,6 +1749,7 @@ func newEnrollmentCustomizationSsoDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 func newEnrollmentCustomizationParseMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -1769,12 +1779,11 @@ func newEnrollmentCustomizationParseMarkdownCmd(ctx *registry.CLIContext) *cobra
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1794,6 +1803,7 @@ func newEnrollmentCustomizationParseMarkdownCmd(ctx *registry.CLIContext) *cobra
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1913,6 +1923,7 @@ func newEnrollmentCustomizationLdapDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 func newEnrollmentCustomizationLdapCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1972,12 +1983,11 @@ func newEnrollmentCustomizationLdapCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1999,6 +2009,7 @@ func newEnrollmentCustomizationLdapCreateCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

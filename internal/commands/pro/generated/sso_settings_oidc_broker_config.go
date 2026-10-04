@@ -71,13 +71,14 @@ func newSsoSettingsOidcBrokerConfigGetCmd(ctx *registry.CLIContext) *cobra.Comma
 func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update the OIDC broker configuration",
-		Long:  "Full-replacement update of the tenant's selected broker configuration's contents on the\nremote authentication service. Omit clientSecret/privateKeyJwt to keep the currently\nstored value; supply either to rotate it — except when this request changes\nclientAuthMethod, which requires the new method's credential to be supplied, because the\nauthentication service clears the credential belonging to the method being left. The\nconfiguration is always written as an ADMIN_SSO capability, CONFIDENTIAL client; neither\nvalue is settable through this request.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  clientAuthMethod                             string\n  clientId                                     string\n  discoveryUrl                                 string\n  enabled                                      boolean\n  productUserMapping                           string\n  productUsernameClaim                         string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  scopes                                       array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: clientSecret, privateKeyJwt. Send them in a JSON body on stdin, as the whole record.",
+		Long:  "Full-replacement update of the tenant's selected broker configuration's contents on the\nremote authentication service. Omit clientSecret/privateKeyJwt to keep the currently\nstored value; supply either to rotate it — except when this request changes\nclientAuthMethod, which requires the new method's credential to be supplied, because the\nauthentication service clears the credential belonging to the method being left. The\nconfiguration is always written as an ADMIN_SSO capability, CONFIDENTIAL client; neither\nvalue is settable through this request.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  clientAuthMethod                             string\n  clientId                                     string\n  discoveryUrl                                 string\n  enabled                                      boolean\n  productUserMapping                           string\n  productUsernameClaim                         string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  scopes                                       array\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.\n\nCredential fields are refused by --set, which would leave them in shell history, ps output and CI logs: clientSecret, privateKeyJwt. Send them in a JSON body on stdin, as the whole record.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro sso-settings oidc-broker-config update --set field=value
 
@@ -155,12 +156,11 @@ func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -180,7 +180,9 @@ func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"clientAuthMethod=", "clientId=", "discoveryUrl=", "enabled=", "productUserMapping=", "productUsernameClaim=",

@@ -660,6 +660,36 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
 }
 
+// readBodyInput reads a request body from --from-file, or else from piped
+// stdin, and reports whether there was one. skipStdin is set when --set has
+// already built the body, so a CI runner's piped stdin is not read as a second
+// one. A named file is a body even when empty, so the empty-input error stays
+// reachable; stdin is read exactly as before --from-file existed.
+func readBodyInput(fromFile string, skipStdin bool) ([]byte, bool, error) {
+	if fromFile != "" {
+		if skipStdin {
+			return nil, false, fmt.Errorf("--set and --from-file are mutually exclusive")
+		}
+		data, err := os.ReadFile(fromFile)
+		if err != nil {
+			return nil, false, fmt.Errorf("reading input file: %w", err)
+		}
+		return data, true, nil
+	}
+	if skipStdin {
+		return nil, false, nil
+	}
+	stat, _ := os.Stdin.Stat()
+	if stat == nil || (stat.Mode()&os.ModeCharDevice) != 0 {
+		return nil, false, nil
+	}
+	raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+	if err != nil {
+		return nil, false, fmt.Errorf("reading stdin: %w", err)
+	}
+	return raw, true, nil
+}
+
 // printScaffoldOutput prints a scaffold JSON string, converting to YAML when the
 // output format requests it.
 func printScaffoldOutput(jsonStr, format string) error {

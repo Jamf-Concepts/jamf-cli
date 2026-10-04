@@ -313,6 +313,7 @@ func newVolumePurchasingLocationsGetCmd(ctx *registry.CLIContext) *cobra.Command
 func newVolumePurchasingLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold  bool
+		fromFile      string
 		flagTokenFile string
 
 		flagBodyName string
@@ -358,12 +359,11 @@ func newVolumePurchasingLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -397,6 +397,7 @@ func newVolumePurchasingLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim")
 
 	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the volume-purchasing-location (sets the body's name field)")
@@ -844,6 +845,7 @@ func newVolumePurchasingLocationsHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 func newVolumePurchasingLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -891,12 +893,11 @@ func newVolumePurchasingLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -918,6 +919,7 @@ func newVolumePurchasingLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up volume-purchasing-location by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 

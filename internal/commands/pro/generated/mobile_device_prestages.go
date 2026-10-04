@@ -319,6 +319,7 @@ func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
@@ -445,12 +446,11 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -475,12 +475,14 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 
 		flagSet []string
@@ -489,7 +491,7 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a Mobile Device Prestage",
-		Long:  "Updates a Mobile Device Prestage\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  allowPairing                                 boolean\n  authenticationPrompt                         string\n  autoAdvanceSetup                             boolean\n  configureDeviceBeforeSetupAssistant          boolean\n  defaultPrestage                              boolean\n  department                                   string\n  deviceEnrollmentProgramInstanceId            string\n  displayName                                  string\n  doNotUseProfileFromBackup                    boolean\n  enableDeviceBasedActivationLock              boolean\n  enforceTemporarySessionTimeout               boolean\n  enforceUserSessionTimeout                    boolean\n  enrollmentCustomizationId                    string\n  enrollmentSiteId                             string\n  installAppsDuringEnrollment                  boolean\n  keepExistingLocationInformation              boolean\n  keepExistingSiteMembership                   boolean\n  language                                     string\n  locationInformation.buildingId               string\n  locationInformation.departmentId             string\n  locationInformation.email                    string\n  locationInformation.id                       string\n  locationInformation.phone                    string\n  locationInformation.position                 string\n  locationInformation.realname                 string\n  locationInformation.room                     string\n  locationInformation.username                 string\n  locationInformation.versionLock              integer\n  mandatory                                    boolean\n  maximumSharedAccounts                        integer\n  mdmRemovable                                 boolean\n  minimumOsSpecificVersionIos                  string\n  minimumOsSpecificVersionIpad                 string\n  multiUser                                    boolean\n  names.assignNamesUsing                       string\n  names.deviceNamePrefix                       string\n  names.deviceNameSuffix                       string\n  names.deviceNamingConfigured                 boolean\n  names.manageNames                            boolean\n  names.singleDeviceName                       string\n  preserveManagedApps                          boolean\n  prestageMinimumOsTargetVersionTypeIos        string\n  prestageMinimumOsTargetVersionTypeIpad       string\n  preventActivationLock                        boolean\n  purchasingInformation.appleCareId            string\n  purchasingInformation.id                     string\n  purchasingInformation.leaseDate              string\n  purchasingInformation.leased                 boolean\n  purchasingInformation.lifeExpectancy         integer\n  purchasingInformation.poDate                 string\n  purchasingInformation.poNumber               string\n  purchasingInformation.purchasePrice          string\n  purchasingInformation.purchased              boolean\n  purchasingInformation.purchasingAccount      string\n  purchasingInformation.purchasingContact      string\n  purchasingInformation.vendor                 string\n  purchasingInformation.versionLock            integer\n  purchasingInformation.warrantyDate           string\n  region                                       string\n  requireAuthentication                        boolean\n  rtsConfigProfileId                           string\n  rtsEnabled                                   boolean\n  sendTimezone                                 boolean\n  storageQuotaSizeMegabytes                    integer\n  supervised                                   boolean\n  supportEmailAddress                          string\n  supportPhoneNumber                           string\n  temporarySessionOnly                         boolean\n  temporarySessionTimeout                      integer\n  timezone                                     string\n  useStorageQuotaSize                          boolean\n  userSessionTimeout                           integer\n  versionLock                                  integer\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  anchorCertificates                           array\n  locationInformation                          object\n  names                                        object\n  names.prestageDeviceNames                    array\n  purchasingInformation                        object\n  skipSetupItems                               object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates a Mobile Device Prestage\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  allowPairing                                 boolean\n  authenticationPrompt                         string\n  autoAdvanceSetup                             boolean\n  configureDeviceBeforeSetupAssistant          boolean\n  defaultPrestage                              boolean\n  department                                   string\n  deviceEnrollmentProgramInstanceId            string\n  displayName                                  string\n  doNotUseProfileFromBackup                    boolean\n  enableDeviceBasedActivationLock              boolean\n  enforceTemporarySessionTimeout               boolean\n  enforceUserSessionTimeout                    boolean\n  enrollmentCustomizationId                    string\n  enrollmentSiteId                             string\n  installAppsDuringEnrollment                  boolean\n  keepExistingLocationInformation              boolean\n  keepExistingSiteMembership                   boolean\n  language                                     string\n  locationInformation.buildingId               string\n  locationInformation.departmentId             string\n  locationInformation.email                    string\n  locationInformation.id                       string\n  locationInformation.phone                    string\n  locationInformation.position                 string\n  locationInformation.realname                 string\n  locationInformation.room                     string\n  locationInformation.username                 string\n  locationInformation.versionLock              integer\n  mandatory                                    boolean\n  maximumSharedAccounts                        integer\n  mdmRemovable                                 boolean\n  minimumOsSpecificVersionIos                  string\n  minimumOsSpecificVersionIpad                 string\n  multiUser                                    boolean\n  names.assignNamesUsing                       string\n  names.deviceNamePrefix                       string\n  names.deviceNameSuffix                       string\n  names.deviceNamingConfigured                 boolean\n  names.manageNames                            boolean\n  names.singleDeviceName                       string\n  preserveManagedApps                          boolean\n  prestageMinimumOsTargetVersionTypeIos        string\n  prestageMinimumOsTargetVersionTypeIpad       string\n  preventActivationLock                        boolean\n  purchasingInformation.appleCareId            string\n  purchasingInformation.id                     string\n  purchasingInformation.leaseDate              string\n  purchasingInformation.leased                 boolean\n  purchasingInformation.lifeExpectancy         integer\n  purchasingInformation.poDate                 string\n  purchasingInformation.poNumber               string\n  purchasingInformation.purchasePrice          string\n  purchasingInformation.purchased              boolean\n  purchasingInformation.purchasingAccount      string\n  purchasingInformation.purchasingContact      string\n  purchasingInformation.vendor                 string\n  purchasingInformation.versionLock            integer\n  purchasingInformation.warrantyDate           string\n  region                                       string\n  requireAuthentication                        boolean\n  rtsConfigProfileId                           string\n  rtsEnabled                                   boolean\n  sendTimezone                                 boolean\n  storageQuotaSizeMegabytes                    integer\n  supervised                                   boolean\n  supportEmailAddress                          string\n  supportPhoneNumber                           string\n  temporarySessionOnly                         boolean\n  temporarySessionTimeout                      integer\n  timezone                                     string\n  useStorageQuotaSize                          boolean\n  userSessionTimeout                           integer\n  versionLock                                  integer\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  anchorCertificates                           array\n  locationInformation                          object\n  names                                        object\n  names.prestageDeviceNames                    array\n  purchasingInformation                        object\n  skipSetupItems                               object\n\nWithout --set, pass a full JSON document with --from-file or on stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro mobile-device-prestages update 1 --set field=value
 
@@ -664,12 +666,11 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
 				}
 			}
-			stat, _ := os.Stdin.Stat()
-			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, len(flagSet) > 0)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -701,7 +702,9 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	cmd.MarkFlagsMutuallyExclusive("set", "from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
 			"allowPairing=", "authenticationPrompt=", "autoAdvanceSetup=", "configureDeviceBeforeSetupAssistant=", "defaultPrestage=", "department=", "deviceEnrollmentProgramInstanceId=", "displayName=", "doNotUseProfileFromBackup=", "enableDeviceBasedActivationLock=", "enforceTemporarySessionTimeout=", "enforceUserSessionTimeout=", "enrollmentCustomizationId=", "enrollmentSiteId=", "installAppsDuringEnrollment=", "keepExistingLocationInformation=", "keepExistingSiteMembership=", "language=", "locationInformation.buildingId=", "locationInformation.departmentId=", "locationInformation.email=", "locationInformation.id=", "locationInformation.phone=", "locationInformation.position=", "locationInformation.realname=", "locationInformation.room=", "locationInformation.username=", "locationInformation.versionLock=", "mandatory=", "maximumSharedAccounts=", "mdmRemovable=", "minimumOsSpecificVersionIos=", "minimumOsSpecificVersionIpad=", "multiUser=", "names.assignNamesUsing=", "names.deviceNamePrefix=", "names.deviceNameSuffix=", "names.deviceNamingConfigured=", "names.manageNames=", "names.singleDeviceName=", "preserveManagedApps=", "prestageMinimumOsTargetVersionTypeIos=", "prestageMinimumOsTargetVersionTypeIpad=", "preventActivationLock=", "purchasingInformation.appleCareId=", "purchasingInformation.id=", "purchasingInformation.leaseDate=", "purchasingInformation.leased=", "purchasingInformation.lifeExpectancy=", "purchasingInformation.poDate=", "purchasingInformation.poNumber=", "purchasingInformation.purchasePrice=", "purchasingInformation.purchased=", "purchasingInformation.purchasingAccount=", "purchasingInformation.purchasingContact=", "purchasingInformation.vendor=", "purchasingInformation.versionLock=", "purchasingInformation.warrantyDate=", "region=", "requireAuthentication=", "rtsConfigProfileId=", "rtsEnabled=", "sendTimezone=", "storageQuotaSizeMegabytes=", "supervised=", "supportEmailAddress=", "supportPhoneNumber=", "temporarySessionOnly=", "temporarySessionTimeout=", "timezone=", "useStorageQuotaSize=", "userSessionTimeout=", "versionLock=",
@@ -1148,6 +1151,7 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1195,12 +1199,11 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1222,6 +1225,7 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -1703,6 +1707,7 @@ func newMobileDevicePrestagesScopeByIdCmd(ctx *registry.CLIContext) *cobra.Comma
 func newMobileDevicePrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1754,12 +1759,11 @@ func newMobileDevicePrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Com
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1791,12 +1795,14 @@ func newMobileDevicePrestagesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
 func newMobileDevicePrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		fromFile     string
 		flagName     string
 	)
 
@@ -1848,12 +1854,11 @@ func newMobileDevicePrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Com
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
 				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
@@ -1885,6 +1890,7 @@ func newMobileDevicePrestagesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
