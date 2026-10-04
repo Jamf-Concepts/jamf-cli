@@ -9,7 +9,7 @@ release with none of those gets no entry here.
 Versions follow the `vMAJOR.MINOR.PATCH` tags in this repository, and headings match the
 commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
-## Unreleased
+## v1.32.0
 
 ### Breaking — `scope add`/`remove` resolve `--computer` and `--mobile-device` to an ID first
 
@@ -366,6 +366,37 @@ now. The old result was always cut and invalid, so no client parsed it.
 `--children` and `--search <words>`. With no flags it prints the whole
 catalog, as before.
 
+### Behaviour — `--all` honours a smaller `--page-size` and halves a page that times out
+
+Fixes [#392](https://github.com/Jamf-Concepts/jamf-cli/issues/392). v1.31.1 moved
+`--all` to 2000-row pages, and Jamf Pro can take longer than the gateway edge's 90
+seconds to build a 2000-row page of computer inventory. The CLI gave up at 60 seconds
+and sent the same request twice more, so `pro computer-inventory list --all` failed
+after three full timeouts. Four changes a script can see:
+
+- **`--all` honours a `--page-size` below the endpoint's maximum.** v1.31.1 ignored the
+  flag under `--all`, which left no way to ask for a smaller page. The CLI still clamps
+  a size above the maximum and says so on stderr.
+- **The `--all` walk halves a page that times out** and resumes after the rows it
+  holds, down to 100 rows a page. That covers the generated Jamf Pro `list --all` and
+  every report and audit that fetches a whole collection. Each halving prints
+  `page of 2000 timed out; continuing at --page-size 1000. Pass --page-size 1000 to
+  start there.` on stderr, and `--quiet` suppresses it. Platform and Security Cloud
+  lists do not shrink.
+- **The CLI retries a Jamf Pro request only when re-sending it is safe.** It retries a
+  request that never reached the server, whatever the method, and a `GET`, `HEAD` or
+  `OPTIONS` that failed after sending. It never retries a timeout. A write that fails
+  after sending carries the hint that it may have been applied. `PUT` counts as a
+  write, because a smart group `PUT` recalculates membership inside the request.
+- **The response-header timeout rises from 60 to 120 seconds**, above the gateway
+  edge's 90, so the edge's `504` arrives first. A timeout and a `504` produce the same
+  error.
+
+Reasoning and the measurements:
+`docs/solutions/logic-errors/timeout-retried-at-the-same-size-2026-09-30.md`.
+
+## v1.31.1
+
 ### Behaviour — computer group member counts come from the collection that carries one
 
 `pro group-tools` and `pro audit` read member counts from
@@ -400,8 +431,9 @@ collection.
 
 ### Behaviour — `--all` chooses its own page size, and `--page 0` means page 0
 
-Fixes [#385](https://github.com/Jamf-Concepts/jamf-cli/issues/385). Three changes
-a script can see:
+Fixes [#385](https://github.com/Jamf-Concepts/jamf-cli/issues/385). v1.32.0 reverses
+the first point: `--all` honours a smaller `--page-size`. Three changes a script can
+see:
 
 - **`--all` ignores `--page-size` and requests the largest page the endpoint is
   known to honour** — 2000 on the Jamf Pro API's `{totalCount, results}`
@@ -436,6 +468,164 @@ deployment tasks. Platform `blueprints` and `device-groups` stay at 100 — no
 declared maximum and no probe — as does the generic Platform name resolver.
 Reasoning and the wire evidence:
 `docs/solutions/logic-errors/all-ignored-page-size-2026-09-18.md`.
+
+### Fixed — a YAML export or scaffold carries the same document as the JSON one
+
+`pro blueprints export -o yaml` rendered each component's `configuration` as a sequence
+of integers — the bytes of its own JSON text — and lower-cased every key
+(`activationpredicate`). Both came from yaml.v3, which reads neither `json` tags nor
+encoding/json's treatment of `json.RawMessage`. The same two applied to
+`pro blueprints apply --scaffold -o yaml` and to the `--scaffold -o yaml` of
+`pro compliance-benchmarks apply` and `pro platform-device-groups create`.
+
+- **A YAML export and a YAML scaffold now carry the keys the JSON one carries.** A
+  script keying on `activationpredicate`, or reading `configuration` as a list of
+  numbers, has to read `activationPredicate` and a mapping instead. `-o json` is
+  unchanged. The Jamf Protect and Jamf School exports are unchanged, their input types
+  carrying no `json` tags for a YAML document to follow.
+- **The YAML input path binds by `json` tag.** Every `--from-file` reading JSON or YAML
+  through this path (`pro blueprints`, `pro compliance-benchmarks`, the platform device
+  groups, and the Protect and School applies) now decodes YAML through JSON, so a
+  key spelled either way binds — encoding/json matches a key case-insensitively.
+- **A blueprint YAML export written by v1.31.0 or earlier is refused rather than sent.**
+  Its byte-sequence `configuration` is a valid JSON array, so it would otherwise reach
+  the gateway as the component's configuration. Re-export and apply that file.
+
+## v1.30.0
+
+### Breaking — Classic `scope` subcommands take `[<id>]` and `--name`
+
+- **The positional argument is now the id, not the name.** `pro <resource> scope
+  get|add|remove` took the name positionally — the only commands in the binary that
+  did — so a caller holding an id from `list` had to go and find the name for it, and
+  an object whose name looks like an id could not be addressed at all. They now match
+  every other Classic command: an optional `[<id>]` plus `--name`, refused together.
+
+  ```
+  # before
+  jamf-cli pro classic-policies scope add "Deploy Chrome" --computer-group "Lab Macs"
+  # after — either of
+  jamf-cli pro classic-policies scope add 1 --computer-group "Lab Macs"
+  jamf-cli pro classic-policies scope add --name "Deploy Chrome" --computer-group "Lab Macs"
+  ```
+
+  A non-numeric positional is refused at exit 2 naming `--name`, rather than being sent
+  as an id and answering a 404 whose hint points at `list`.
+
+- **Each command now registers only the scope categories its own resource carries**, so
+  `--help` and shell completion stop offering flags the server refuses. Validation had
+  two branches — restricted software, and everything else — so a policy accepted
+  `--mobile-device-group` and a mobile configuration profile accepted `--computer-group`,
+  both spending a GET and a PUT to earn `409 Error: Mobile device groups cannot be
+  assigned to an macOS profile`. There are five scope shapes across the eight scopeable
+  resources, read off each resource's own GET and cross-checked against
+  terraform-provider-jamfplatform's independently wire-probed schemas.
+
+  A category belonging to another device family is now an unknown flag, whose hint names
+  the categories this resource does have. A valid category in the wrong section is
+  refused naming the section that takes it.
+
+- **`--ibeacon` and `--class` are new.** Both were categories `scope get` listed and
+  nothing could write — the worst shape for a gap, since the CLI showed a value it could
+  not change. `--ibeacon` is accepted on the three resources that carry iBeacons and
+  refused on the five that silently drop them; `--class` on ebooks only.
+
+- **`--user` is now accepted as a restricted-software exclusion.** It was refused
+  outright; the wire accepts it and stores it. It is the admin UI's "Directory
+  Service/Local Users" exclusion.
+
+- **A scope write sends only `<scope>`.** It used to GET the whole document, splice the
+  new scope into its bytes and PUT the entire document back, so one `scope add` cost
+  three GETs and re-sent sections the caller had not touched. A Classic PUT is a partial
+  update at top-level-section granularity, verified on all eight resources against a
+  direct instance and the platform gateway: every non-scope byte comes back identical,
+  including a 19 KB configuration profile's `<payloads>`.
+
+- **A scope name that matches more than one record is refused** instead of resolving to
+  the first in document order. Only the two VPP resources reach this path, having no
+  `/name/` endpoint; Classic names are not unique, and a live tenant carried two ebooks
+  sharing one.
+
+- **`-n, --dry-run` on a scope command no longer always fails.** The preview suppressed
+  the PUT and the post-write check then reported that the server had not persisted the
+  change, at exit 1.
+
+### Fixed — Classic scope writes no longer silently destroy an ebook's class targets
+
+- **Class targets are delivered in two requests, because one cannot work.** Jamf Pro
+  stores `<classes>` only while the stored category is empty: a write made while it
+  already holds a member clears it, and carrying the identical value, omitting the
+  element and every identifier shape all clear it (5/5 each way). Since a scope PUT
+  replaces `<scope>` wholesale, no single request can preserve an existing class across
+  any other scope change — so `scope add --building` on an ebook holding a class
+  destroyed the class and reported success. The intended change is now sent with
+  `<classes>` emptied, then the same scope with the classes populated.
+
+  The same defect is a hard `Provider produced inconsistent result after apply` in
+  terraform-provider-jamfplatform, reported as
+  [#428](https://github.com/jamf/terraform-provider-jamfplatform/issues/428).
+
+- **A write is checked against the whole scope that was sent**, not just the category the
+  command changed — which is why the loss above went unreported. Anything the server did
+  not keep is named.
+
+- **A Classic HTTP error renders its reason instead of an HTML page.** The Classic API
+  answers a refused write with a status page whose one useful sentence was buried in
+  ~400 bytes of markup and inline CSS, arriving in the JSON error envelope as a single
+  escaped line. `Error: Unable to match computer group` and its siblings are now the
+  message.
+
+### Added — Jamf Pro 11.32 and jamfplatform-go-sdk v1.1.0
+
+The SDK moved to the `jamf` GitHub org and its module path with it
+(`github.com/jamf/jamfplatform-go-sdk`). That is an import change inside this repo and
+nothing a CLI user sees. `v1.0.0` under the old `Jamf-Concepts` path keeps working and
+gets no further releases.
+
+- **`pro sso-settings oidc-broker-config get` and `update`** are new — `GET` and
+  `PUT /v3/sso/oidc-broker-config`, added in Jamf Pro 11.32. A sub-path carrying its own
+  `PUT` is an independently-writable object, so its verbs sit one token deeper, the same
+  shape as its sibling `pro sso-settings cert`. Nothing moved: there is no earlier
+  spelling of this command, the endpoint not having existed before.
+- **`pro jamf-pro-notifications delete` gains `--all`**, which dismisses every
+  dismissible notification for the user and site in one server-side call
+  (`DELETE /v1/notifications`, new in 11.32). It refuses to be combined with an `<id>`
+  and prompts for confirmation unless `--yes` is passed, like every other tenant-wide
+  `--all`. **`delete <id> <type>` is unchanged** — same positionals, same endpoint.
+
+  `-n, --dry-run` covers it: `delete --all -n` reports what it would send and sends
+  nothing. That needed its own code — a destructive generated command declares its own
+  `--dry-run`, which shadows the root persistent one, so the command's own branch is the
+  only thing honouring `-n` on it, and `--all` returns before that branch is reached.
+
+  Worth knowing why that needed saying: the new collection-level `DELETE` derives the
+  same `delete` name as the existing per-notification one, and the collection addresses
+  the resource root, so the plain verb went to it and the per-notification operation was
+  dropped. Left alone, `pro jamf-pro-notifications delete` would have silently changed
+  from removing one notification to dismissing all of them, and the per-notification
+  capability would have gone. Both are now the same command.
+- **Two filter fields and one preference** arrived with 11.32 and are visible in
+  `--help`: `general.awaitingConfiguration` and `security.lockdownModeEnabled` on
+  `pro computer-inventory list --filter`, and `showDirectoryGroupUuidColumn` on
+  `pro jamf-pro-account-preferences update --set`.
+
+### Changed — Jamf AI Governance commands are marked Preview
+
+Upstream declares all twelve AI Governance operations preview endpoints, subject to
+breaking change without warning, with general availability expected by 2027-03-03.
+
+- Each command's `Short` now opens with `Preview - ` and its `Long` with the preview
+  notice, both from the published spec. Anything parsing `platform ai-policies --help`
+  or `platform ai-tools --help` text sees new wording.
+- `jamf-cli commands -o json` carries `"preview": true` on those commands (thirteen: the
+  spec's twelve operations plus the synthesized `apply`), which is what to key on rather
+  than the help prose. Present only when true, so its absence means "nothing declared"
+  rather than "GA"; it is a JSON field only, table and CSV columns coming from the first
+  row.
+- Help text no longer carries markdown `**bold**` or `_italic_` markers on any platform
+  command; backticks, which quote a field or a value, are unchanged.
+
+## v1.29.0
 
 ### Breaking — `pro` command names come from the spec, not from spec filenames
 
@@ -835,88 +1025,6 @@ too, as whole resources), so no capability moves.
   the rename had left (`apply` and `get-by-name` on the former `jamf-protects` and
   `jamf-protect-deployment-tasks`); both are removed.
 
-### Breaking — Classic `scope` subcommands take `[<id>]` and `--name`
-
-- **The positional argument is now the id, not the name.** `pro <resource> scope
-  get|add|remove` took the name positionally — the only commands in the binary that
-  did — so a caller holding an id from `list` had to go and find the name for it, and
-  an object whose name looks like an id could not be addressed at all. They now match
-  every other Classic command: an optional `[<id>]` plus `--name`, refused together.
-
-  ```
-  # before
-  jamf-cli pro classic-policies scope add "Deploy Chrome" --computer-group "Lab Macs"
-  # after — either of
-  jamf-cli pro classic-policies scope add 1 --computer-group "Lab Macs"
-  jamf-cli pro classic-policies scope add --name "Deploy Chrome" --computer-group "Lab Macs"
-  ```
-
-  A non-numeric positional is refused at exit 2 naming `--name`, rather than being sent
-  as an id and answering a 404 whose hint points at `list`.
-
-- **Each command now registers only the scope categories its own resource carries**, so
-  `--help` and shell completion stop offering flags the server refuses. Validation had
-  two branches — restricted software, and everything else — so a policy accepted
-  `--mobile-device-group` and a mobile configuration profile accepted `--computer-group`,
-  both spending a GET and a PUT to earn `409 Error: Mobile device groups cannot be
-  assigned to an macOS profile`. There are five scope shapes across the eight scopeable
-  resources, read off each resource's own GET and cross-checked against
-  terraform-provider-jamfplatform's independently wire-probed schemas.
-
-  A category belonging to another device family is now an unknown flag, whose hint names
-  the categories this resource does have. A valid category in the wrong section is
-  refused naming the section that takes it.
-
-- **`--ibeacon` and `--class` are new.** Both were categories `scope get` listed and
-  nothing could write — the worst shape for a gap, since the CLI showed a value it could
-  not change. `--ibeacon` is accepted on the three resources that carry iBeacons and
-  refused on the five that silently drop them; `--class` on ebooks only.
-
-- **`--user` is now accepted as a restricted-software exclusion.** It was refused
-  outright; the wire accepts it and stores it. It is the admin UI's "Directory
-  Service/Local Users" exclusion.
-
-- **A scope write sends only `<scope>`.** It used to GET the whole document, splice the
-  new scope into its bytes and PUT the entire document back, so one `scope add` cost
-  three GETs and re-sent sections the caller had not touched. A Classic PUT is a partial
-  update at top-level-section granularity, verified on all eight resources against a
-  direct instance and the platform gateway: every non-scope byte comes back identical,
-  including a 19 KB configuration profile's `<payloads>`.
-
-- **A scope name that matches more than one record is refused** instead of resolving to
-  the first in document order. Only the two VPP resources reach this path, having no
-  `/name/` endpoint; Classic names are not unique, and a live tenant carried two ebooks
-  sharing one.
-
-- **`-n, --dry-run` on a scope command no longer always fails.** The preview suppressed
-  the PUT and the post-write check then reported that the server had not persisted the
-  change, at exit 1.
-
-### Fixed — Classic scope writes no longer silently destroy an ebook's class targets
-
-- **Class targets are delivered in two requests, because one cannot work.** Jamf Pro
-  stores `<classes>` only while the stored category is empty: a write made while it
-  already holds a member clears it, and carrying the identical value, omitting the
-  element and every identifier shape all clear it (5/5 each way). Since a scope PUT
-  replaces `<scope>` wholesale, no single request can preserve an existing class across
-  any other scope change — so `scope add --building` on an ebook holding a class
-  destroyed the class and reported success. The intended change is now sent with
-  `<classes>` emptied, then the same scope with the classes populated.
-
-  The same defect is a hard `Provider produced inconsistent result after apply` in
-  terraform-provider-jamfplatform, reported as
-  [#428](https://github.com/jamf/terraform-provider-jamfplatform/issues/428).
-
-- **A write is checked against the whole scope that was sent**, not just the category the
-  command changed — which is why the loss above went unreported. Anything the server did
-  not keep is named.
-
-- **A Classic HTTP error renders its reason instead of an HTML page.** The Classic API
-  answers a refused write with a status page whose one useful sentence was buried in
-  ~400 bytes of markup and inline CSS, arriving in the JSON error envelope as a single
-  escaped line. `Error: Unable to match computer group` and its siblings are now the
-  message.
-
 ### Fixed — a destructive `x-action` no longer sends `DELETE`, or describes itself as a delete
 
 - **`--from-file` and `--group` on a destructive action sent the wrong HTTP
@@ -1081,78 +1189,6 @@ too, as whole resources), so no capability moves.
 - **The renamed-flag hint reaches `-o json`.** It was written straight to stderr, so it
   landed ahead of the JSON error block in combined output and the envelope's `hint` field
   was empty — on the one hint a CI job would most want to read structurally.
-
-### Added — Jamf Pro 11.32 and jamfplatform-go-sdk v1.1.0
-
-The SDK moved to the `jamf` GitHub org and its module path with it
-(`github.com/jamf/jamfplatform-go-sdk`). That is an import change inside this repo and
-nothing a CLI user sees. `v1.0.0` under the old `Jamf-Concepts` path keeps working and
-gets no further releases.
-
-- **`pro sso-settings oidc-broker-config get` and `update`** are new — `GET` and
-  `PUT /v3/sso/oidc-broker-config`, added in Jamf Pro 11.32. A sub-path carrying its own
-  `PUT` is an independently-writable object, so its verbs sit one token deeper, the same
-  shape as its sibling `pro sso-settings cert`. Nothing moved: there is no earlier
-  spelling of this command, the endpoint not having existed before.
-- **`pro jamf-pro-notifications delete` gains `--all`**, which dismisses every
-  dismissible notification for the user and site in one server-side call
-  (`DELETE /v1/notifications`, new in 11.32). It refuses to be combined with an `<id>`
-  and prompts for confirmation unless `--yes` is passed, like every other tenant-wide
-  `--all`. **`delete <id> <type>` is unchanged** — same positionals, same endpoint.
-
-  `-n, --dry-run` covers it: `delete --all -n` reports what it would send and sends
-  nothing. That needed its own code — a destructive generated command declares its own
-  `--dry-run`, which shadows the root persistent one, so the command's own branch is the
-  only thing honouring `-n` on it, and `--all` returns before that branch is reached.
-
-  Worth knowing why that needed saying: the new collection-level `DELETE` derives the
-  same `delete` name as the existing per-notification one, and the collection addresses
-  the resource root, so the plain verb went to it and the per-notification operation was
-  dropped. Left alone, `pro jamf-pro-notifications delete` would have silently changed
-  from removing one notification to dismissing all of them, and the per-notification
-  capability would have gone. Both are now the same command.
-- **Two filter fields and one preference** arrived with 11.32 and are visible in
-  `--help`: `general.awaitingConfiguration` and `security.lockdownModeEnabled` on
-  `pro computer-inventory list --filter`, and `showDirectoryGroupUuidColumn` on
-  `pro jamf-pro-account-preferences update --set`.
-
-### Changed — Jamf AI Governance commands are marked Preview
-
-Upstream declares all twelve AI Governance operations preview endpoints, subject to
-breaking change without warning, with general availability expected by 2027-03-03.
-
-- Each command's `Short` now opens with `Preview - ` and its `Long` with the preview
-  notice, both from the published spec. Anything parsing `platform ai-policies --help`
-  or `platform ai-tools --help` text sees new wording.
-- `jamf-cli commands -o json` carries `"preview": true` on those commands (thirteen: the
-  spec's twelve operations plus the synthesized `apply`), which is what to key on rather
-  than the help prose. Present only when true, so its absence means "nothing declared"
-  rather than "GA"; it is a JSON field only, table and CSV columns coming from the first
-  row.
-- Help text no longer carries markdown `**bold**` or `_italic_` markers on any platform
-  command; backticks, which quote a field or a value, are unchanged.
-
-### Fixed — a YAML export or scaffold carries the same document as the JSON one
-
-`pro blueprints export -o yaml` rendered each component's `configuration` as a sequence
-of integers — the bytes of its own JSON text — and lower-cased every key
-(`activationpredicate`). Both came from yaml.v3, which reads neither `json` tags nor
-encoding/json's treatment of `json.RawMessage`. The same two applied to
-`pro blueprints apply --scaffold -o yaml` and to the `--scaffold -o yaml` of
-`pro compliance-benchmarks apply` and `pro platform-device-groups create`.
-
-- **A YAML export and a YAML scaffold now carry the keys the JSON one carries.** A
-  script keying on `activationpredicate`, or reading `configuration` as a list of
-  numbers, has to read `activationPredicate` and a mapping instead. `-o json` is
-  unchanged. The Jamf Protect and Jamf School exports are unchanged, their input types
-  carrying no `json` tags for a YAML document to follow.
-- **The YAML input path binds by `json` tag.** Every `--from-file` reading JSON or YAML
-  through this path (`pro blueprints`, `pro compliance-benchmarks`, the platform device
-  groups, and the Protect and School applies) now decodes YAML through JSON, so a
-  key spelled either way binds — encoding/json matches a key case-insensitively.
-- **A blueprint YAML export written by v1.31.0 or earlier is refused rather than sent.**
-  Its byte-sequence `configuration` is a valid JSON array, so it would otherwise reach
-  the gateway as the component's configuration. Re-export and apply that file.
 
 ## v1.28.0
 
