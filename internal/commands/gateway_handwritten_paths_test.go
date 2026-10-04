@@ -648,8 +648,6 @@ var modernMDMRefusedCommands = [][]string{
 	{"pro", "computers-inventory", "lock"},
 	{"pro", "computers-inventory", "restart"},
 	{"pro", "computers-inventory", "shutdown"},
-	{"pro", "computers-inventory", "enable-remote-desktop"},
-	{"pro", "computers-inventory", "disable-remote-desktop"},
 	{"pro", "computers-inventory", "set-recovery-lock"},
 	{"pro", "computers-inventory", "set-auto-admin-password"},
 	{"pro", "computers-inventory", "settings"},
@@ -708,6 +706,10 @@ func TestServedHandWrittenActionsAreNotAnnotatedUnserved(t *testing.T) {
 		{"pro", "computers-inventory", "erase"},
 		{"pro", "computers-inventory", "remove-mdm"},
 		{"pro", "mobile-devices", "update-inventory"},
+		// These POST /v2/mdm/commands directly and the Classic
+		// computercommands on a gateway profile (sendClassicComputerCommand).
+		{"pro", "computers-inventory", "enable-remote-desktop"},
+		{"pro", "computers-inventory", "disable-remote-desktop"},
 	} {
 		name := strings.Join(path, " ")
 		cmd, _, err := root.Find(path)

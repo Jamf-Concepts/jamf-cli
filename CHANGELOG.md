@@ -20,12 +20,31 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 | — | `pro classic-mobile-device-groups add-members` / `remove-members` (new) |
 | `pro bulk enable-policies` | `pro classic-policies enable` |
 | `pro bulk disable-policies` | `pro classic-policies disable` |
+| `pro bulk send-command` | the MDM commands under `pro computer-inventory` |
 
 The deprecated commands still run, are hidden from help, and print a
-deprecation warning on stderr. They will be removed in a future release.
-`pro bulk send-command` is not deprecated: through the platform gateway it is
-the only route for its commands, because the modern MDM endpoint the
-`computer-inventory` commands use is not published there.
+deprecation warning on stderr. They will be removed in a future release, and
+`pro bulk` with them.
+
+**`send-command` now refuses ten of its twelve commands before sending
+anything.** Jamf Pro 11.32 no longer queues them through the Classic API.
+Wire-checked direct and through the gateway: `BlankPush`, `DeleteUser`,
+`DeviceLock` and `ScheduleOSUpdate` answer `400 No command was queued`;
+`UpdateInventory`, `DeviceInformation`, `Settings` and
+`RedeployJamfManagementFramework` answer 500 through the gateway and 401
+direct; `UnlockUserAccount` needs a `user_name` that send-command cannot pass.
+`EraseDevice` is no longer documented. The refusal exits 8 and names the
+replacement where one exists. `EnableRemoteDesktop` and `DisableRemoteDesktop`
+still work. `--confirm-destructive` is accepted and has no effect, and
+send-command now honours `-n`.
+
+**`pro computer-inventory enable-remote-desktop` / `disable-remote-desktop`
+now work through a platform gateway profile.** The modern MDM endpoint is not
+published there, so on a gateway profile they send the Classic
+`EnableRemoteDesktop` / `DisableRemoteDesktop` command instead. That was the
+last thing `send-command` did that nothing else could. `lock`, `restart`,
+`shutdown`, `settings` and the other modern MDM commands are still refused on
+a gateway profile: no Classic command does the same.
 
 What differs in the new commands:
 

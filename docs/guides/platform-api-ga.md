@@ -302,7 +302,7 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | Command group | Refused | Why |
 |---|---|---|
 | `pro mobile-devices` | 16 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock`, `restart`, `shutdown` and lost mode |
-| `pro computer-inventory` | 8 | as above — `lock`, `restart`, `shutdown`, remote-desktop control, `set-recovery-lock`, `set-auto-admin-password` |
+| `pro computer-inventory` | 6 | as above — `lock`, `restart`, `shutdown`, `set-recovery-lock`, `set-auto-admin-password`, `settings` |
 | `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
 | `pro api-authentication` | 6 | outside the published API |
@@ -314,7 +314,7 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | `pro mdm commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro sso-oauth-session-tokens` | 1 | outside the published API |
 
-59 commands in total (a wholly-refused resource contributes its group node too).
+57 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
@@ -328,17 +328,21 @@ served. The other two were `pro policy-properties`, whose unversioned legacy twi
 Two groups also merged into `pro jamf-pro-initialization`, which is why the table has 12
 rows where it had 15 and still counts the same endpoints.
 
-**24 of the 59 are MDM device actions, and that is the refusal most likely to be felt.**
+**22 of the 57 are MDM device actions, and that is the refusal most likely to be felt.**
 `pro mobile-devices` loses `lock`, `restart`, `shutdown`, `enable-lost-mode`,
 `disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
 `delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
 `refresh-cellular-plans`, `request-mirroring`, `stop-mirroring` and `settings`;
-`pro computer-inventory` loses `lock`, `restart`, `shutdown`, `enable-remote-desktop`,
-`disable-remote-desktop`, `set-recovery-lock`, `set-auto-admin-password` and `settings`. The
+`pro computer-inventory` loses `lock`, `restart`, `shutdown`, `set-recovery-lock`,
+`set-auto-admin-password` and `settings`. The
 published API declares GET on those paths but not POST, so the refusal is **per method**: the
 inventory reads on both resources are unaffected, and so is everything else under them.
 `pro comp erase` and `pro comp remove-mdm` are hand-written against a different path and are
-**not** refused.
+**not** refused. Nor are `pro comp enable-remote-desktop` and `disable-remote-desktop`: on a
+gateway profile they send the Classic `EnableRemoteDesktop` / `DisableRemoteDesktop` computer
+command instead, which the gateway publishes. Those two are the only computer commands Jamf
+Pro still queues through the Classic API, so the rest have no such route, and the deprecated
+`pro bulk send-command` refuses the other ten before sending.
 
 Those first two rows are the shape to expect from here on: a withdrawal can take **part of a
 command group**. `pro mobile-devices list`, `get` and the rest are served while 16 of its

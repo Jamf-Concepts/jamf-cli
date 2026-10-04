@@ -749,9 +749,27 @@ func sendComputerModernMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContex
 	return doPostAction(cmd, cliCtx, "/v2/mdm/commands", strings.NewReader(string(data)))
 }
 
+// sendClassicComputerCommand sends a Classic computer command to one computer.
+//
+// It is the gateway route for the two commands the Classic API still queues.
+// Wire-checked 2026-10-04 on Jamf Pro 11.32, direct and through the gateway:
+// POST /computercommands/command/{command}/id/{id} queues EnableRemoteDesktop
+// and DisableRemoteDesktop (201 with a command_uuid) and nothing else — see
+// deadClassicComputerCommands. The Classic API documents only those two.
+func sendClassicComputerCommand(cmd *cobra.Command, cliCtx *registry.CLIContext, command string, d *resolve.DeviceIdentifiers) error {
+	path := fmt.Sprintf("/JSSResource/computercommands/command/%s/id/%s", url.PathEscape(command), url.PathEscape(d.ID))
+	return doPostAction(cmd, cliCtx, path, nil)
+}
+
 // newModernComputerMDMCmd creates a computer subcommand that sends a
 // modern API MDM command via POST /v2/mdm/commands with no additional body fields.
-func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, short, long, example string, destructive bool) *cobra.Command {
+//
+// classicCommand names a Classic computer command doing the same thing, or ""
+// for none. The gateway does not publish POST /v2/mdm/commands, so a command
+// without one is refused before anything is sent on a gateway profile; a
+// command with one is sent through the Classic API there instead, and through
+// the modern endpoint everywhere else.
+func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, classicCommand, short, long, example string, destructive bool) *cobra.Command {
 	var (
 		dt                 deviceTarget
 		yes                bool
@@ -769,6 +787,9 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 				deviceType:  "computer",
 				destructive: destructive,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					if classicCommand != "" && isGatewayProvider(cliCtx.AuthProvider) {
+						return sendClassicComputerCommand(cmd, cliCtx, classicCommand, d)
+					}
 					return sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{
 						"commandType": commandType,
 					})
@@ -781,12 +802,16 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 	if destructive {
 		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	}
+	if classicCommand != "" {
+		cmd.Long += "\n\nThrough a platform gateway profile, where the modern MDM endpoint is not published,\nthe command is sent as the Classic API's " + classicCommand + " computer command instead."
+		return cmd
+	}
 	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "lock", "DEVICE_LOCK",
+		cliCtx, "lock", "DEVICE_LOCK", "",
 		"Lock a computer",
 		"Lock a computer by serial number, name, or ID. This is a destructive operation.",
 		`  jamf-cli pro comp lock --serial C02X1234 --yes
@@ -797,7 +822,7 @@ func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
+		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP", "EnableRemoteDesktop",
 		"Enable Remote Desktop on a computer",
 		"Enable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234
@@ -808,7 +833,7 @@ func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comma
 
 func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
+		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP", "DisableRemoteDesktop",
 		"Disable Remote Desktop on a computer",
 		"Disable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234
@@ -853,7 +878,7 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE", "",
 		"Shut down a computer",
 		"Shut down a supervised computer by serial number, name, or ID.",
 		`  jamf-cli pro comp shutdown --serial C02X1234

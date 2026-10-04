@@ -24,8 +24,8 @@ All bulk operations follow this flow:
 
 ## Available Operations
 
-Each operation lives on the resource it acts on. The `pro bulk` subcommands for
-policies and groups are deprecated aliases of these; do not use them.
+Each operation lives on the resource it acts on. The `pro bulk` subcommands are
+deprecated; do not use them.
 
 ### Policy Management
 ```bash
@@ -70,8 +70,10 @@ jamf-cli pro mobile-devices update-inventory --from-file ipads.txt --yes
 ```
 
 Through a platform gateway profile the `computer-inventory` MDM commands that use
-the modern MDM endpoint are refused (exit 8). `pro bulk send-command` is the
-gateway route for its commands (e.g. `--command UpdateInventory`).
+the modern MDM endpoint (`lock`, `restart`, `shutdown`, `settings`, …) are refused
+(exit 8). `enable-remote-desktop` and `disable-remote-desktop` still work there,
+through the Classic API, and `blank-push`, `erase` and `redeploy-framework` use
+endpoints the gateway publishes. `pro bulk` is deprecated; do not use it.
 
 ## Translating Natural Language
 

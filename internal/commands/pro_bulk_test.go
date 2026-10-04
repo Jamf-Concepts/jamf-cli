@@ -5,6 +5,7 @@ package commands
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -1126,7 +1127,7 @@ func TestSendCommand_DryRunDefault(t *testing.T) {
 	cmd := newBulkCmd(cliCtx)
 	_, stderr, err := runCobraCmd(
 		t, cmd, "send-command",
-		"--command", "BlankPush",
+		"--command", "EnableRemoteDesktop",
 		"--group", "Lab Macs",
 	)
 	if err != nil {
@@ -1147,11 +1148,11 @@ func TestSendCommand_YesDispatches(t *testing.T) {
 			"GET /JSSResource/computergroups": {200, `{"computer_groups":[
 				{"id":100,"name":"Lab Macs"}
 			]}`},
-			"GET /JSSResource/computergroups/id/100":                    {200, staticGroupDetailJSON},
-			"GET /JSSResource/computers/id/1":                           {200, `{"computer":{"id":1,"name":"Mac-01"}}`},
-			"GET /JSSResource/computers/id/2":                           {200, `{"computer":{"id":2,"name":"Mac-02"}}`},
-			"POST /JSSResource/computercommands/command/BlankPush/id/1": {200, `<computer_command/>`},
-			"POST /JSSResource/computercommands/command/BlankPush/id/2": {200, `<computer_command/>`},
+			"GET /JSSResource/computergroups/id/100":                              {200, staticGroupDetailJSON},
+			"GET /JSSResource/computers/id/1":                                     {200, `{"computer":{"id":1,"name":"Mac-01"}}`},
+			"GET /JSSResource/computers/id/2":                                     {200, `{"computer":{"id":2,"name":"Mac-02"}}`},
+			"POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/1": {200, `<computer_command/>`},
+			"POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/2": {200, `<computer_command/>`},
 		},
 	}
 	cliCtx := newBulkCLIContext(mock)
@@ -1159,7 +1160,7 @@ func TestSendCommand_YesDispatches(t *testing.T) {
 	cmd := newBulkCmd(cliCtx)
 	_, _, err := runCobraCmd(
 		t, cmd, "send-command",
-		"--command", "BlankPush",
+		"--command", "EnableRemoteDesktop",
 		"--group", "Lab Macs",
 		"--yes",
 	)
@@ -1167,7 +1168,7 @@ func TestSendCommand_YesDispatches(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	posts := mock.callsMatching("POST /JSSResource/computercommands/command/BlankPush")
+	posts := mock.callsMatching("POST /JSSResource/computercommands/command/EnableRemoteDesktop")
 	if len(posts) == 0 {
 		t.Error("expected POST calls after --yes, got none")
 	}
@@ -1184,8 +1185,8 @@ func TestSendCommand_FromFile(t *testing.T) {
 
 	mock := &bulkMockClient{
 		responses: map[string]overviewMockResponse{
-			"POST /JSSResource/computercommands/command/BlankPush/id/5": {200, `<computer_command/>`},
-			"POST /JSSResource/computercommands/command/BlankPush/id/7": {200, `<computer_command/>`},
+			"POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/5": {200, `<computer_command/>`},
+			"POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/7": {200, `<computer_command/>`},
 		},
 		filterResponses: map[string]overviewMockResponse{
 			`filter=hardware.serialNumber=in=("FVFC41HCLYWP")`: {200, v3ComputerPage(v3Computer("5", "FVFC41HCLYWP", "FVFC41HCLYWP"))},
@@ -1197,7 +1198,7 @@ func TestSendCommand_FromFile(t *testing.T) {
 	cmd := newBulkCmd(cliCtx)
 	_, _, err := runCobraCmd(
 		t, cmd, "send-command",
-		"--command", "BlankPush",
+		"--command", "EnableRemoteDesktop",
 		"--from-file", filePath,
 		"--yes",
 	)
@@ -1205,7 +1206,7 @@ func TestSendCommand_FromFile(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	posts := mock.callsMatching("POST /JSSResource/computercommands/command/BlankPush")
+	posts := mock.callsMatching("POST /JSSResource/computercommands/command/EnableRemoteDesktop")
 	if len(posts) != 2 {
 		t.Fatalf("expected 2 command POSTs, got %d: %v", len(posts), posts)
 	}
@@ -1231,7 +1232,7 @@ func TestSendCommand_FromFile_UnresolvedCountsAsFailure(t *testing.T) {
 
 	mock := &bulkMockClient{
 		responses: map[string]overviewMockResponse{
-			"POST /JSSResource/computercommands/command/BlankPush/id/7": {200, `<computer_command/>`},
+			"POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/7": {200, `<computer_command/>`},
 		},
 		filterResponses: map[string]overviewMockResponse{
 			`filter=id=in=(7,999)`: {200, v3ComputerPage(v3Computer("7", "Mac-07", "C02ABCDEF"))},
@@ -1241,7 +1242,7 @@ func TestSendCommand_FromFile_UnresolvedCountsAsFailure(t *testing.T) {
 	cmd := newBulkCmd(newBulkCLIContext(mock))
 	_, stderr, err := runCobraCmd(
 		t, cmd, "send-command",
-		"--command", "BlankPush",
+		"--command", "EnableRemoteDesktop",
 		"--from-file", filePath,
 		"--yes",
 	)
@@ -1259,84 +1260,50 @@ func TestSendCommand_FromFile_UnresolvedCountsAsFailure(t *testing.T) {
 	}
 }
 
-func TestSendCommand_DestructiveRequiresConfirm(t *testing.T) {
-	mock := &bulkMockClient{responses: map[string]overviewMockResponse{}}
-	cliCtx := newBulkCLIContext(mock)
-
-	for _, cmd2 := range []string{"EraseDevice", "DeviceLock"} {
-		t.Run(cmd2, func(t *testing.T) {
-			cmd := newBulkCmd(cliCtx)
-			_, _, err := runCobraCmd(
-				t, cmd, "send-command",
-				"--command", cmd2,
-				"--from-file", "/dev/null",
-				"--yes",
-				// --confirm-destructive is NOT set
-			)
-			if err == nil {
-				t.Fatalf("expected error for destructive command %q without --confirm-destructive", cmd2)
+// Jamf Pro no longer queues these through the Classic API, so they are
+// refused before anything is read or sent, naming the replacement.
+func TestSendCommand_DeadClassicCommandsRefused(t *testing.T) {
+	for command, dead := range deadClassicComputerCommands {
+		t.Run(command, func(t *testing.T) {
+			mock := &bulkMockClient{responses: map[string]overviewMockResponse{}}
+			cmd := newBulkCmd(newBulkCLIContext(mock))
+			_, _, err := runCobraCmd(t, cmd, "send-command",
+				"--command", command, "--group", "Lab Macs", "--yes", "--confirm-destructive")
+			if exitcode.CodeFrom(err) != exitcode.Unsupported {
+				t.Fatalf("err = %v (code %d), want an unsupported refusal", err, exitcode.CodeFrom(err))
 			}
-			if !strings.Contains(err.Error(), "confirm-destructive") {
-				t.Errorf("expected 'confirm-destructive' in error, got: %v", err)
+			if len(mock.calls) != 0 {
+				t.Errorf("made requests before refusing: %v", mock.calls)
 			}
-			if mock.hasMutatingCall() {
-				t.Error("should not issue any calls when the destructive gate is not cleared")
+			var ee *exitcode.Error
+			if dead.successor != "" && (!errors.As(err, &ee) || !strings.Contains(ee.Hint, dead.successor)) {
+				t.Errorf("hint does not name %q: %v", dead.successor, err)
 			}
 		})
 	}
+	for _, live := range []string{"EnableRemoteDesktop", "DisableRemoteDesktop"} {
+		if _, dead := deadClassicComputerCommands[live]; dead {
+			t.Errorf("%s is refused, but it is the one Classic computer command family Jamf Pro still queues", live)
+		}
+	}
 }
 
-func TestSendCommand_DestructiveWithBothFlags(t *testing.T) {
-	// An empty --from-file now fails at target resolution (internal/resolve
-	// rejects a file with no entries), not at the destructive gate — this
-	// confirms --yes + --confirm-destructive together clear the gate before
-	// target resolution ever runs.
-	dir := t.TempDir()
-	filePath := filepath.Join(dir, "empty.txt")
-	if err := os.WriteFile(filePath, []byte("# only comments\n"), 0o600); err != nil {
-		t.Fatalf("writing temp file: %v", err)
-	}
-
-	mock := &bulkMockClient{responses: map[string]overviewMockResponse{}}
-	cliCtx := newBulkCLIContext(mock)
-
-	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(
-		t, cmd, "send-command",
-		"--command", "EraseDevice",
-		"--from-file", filePath,
-		"--yes",
-		"--confirm-destructive",
-	)
-	if err == nil {
-		t.Fatal("expected an error resolving an empty target file")
-	}
-	if strings.Contains(err.Error(), "destructive") {
-		t.Errorf("gate should already be cleared; got a destructive-gate error instead of a target-resolution error: %v", err)
+// -n previews even with --yes.
+func TestSendCommand_DryRunBeatsYes(t *testing.T) {
+	t.Cleanup(func() { dryRun = false })
+	dryRun = true
+	mock := &bulkMockClient{responses: map[string]overviewMockResponse{
+		"GET /JSSResource/computergroups":        {200, `{"computer_groups":[{"id":100,"name":"Lab Macs"}]}`},
+		"GET /JSSResource/computergroups/id/100": {200, staticGroupDetailJSON},
+		"GET /JSSResource/computers/id/1":        {200, `{"computer":{"id":1,"name":"Mac-01"}}`},
+		"GET /JSSResource/computers/id/2":        {200, `{"computer":{"id":2,"name":"Mac-02"}}`},
+	}}
+	cmd := newBulkCmd(newBulkCLIContext(mock))
+	if _, _, err := runCobraCmd(t, cmd, "send-command", "--command", "EnableRemoteDesktop", "--group", "Lab Macs", "--yes"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if mock.hasMutatingCall() {
-		t.Error("should not issue any calls when target resolution fails")
-	}
-}
-
-func TestSendCommand_DestructiveRequiresYesToo(t *testing.T) {
-	mock := &bulkMockClient{responses: map[string]overviewMockResponse{}}
-	cliCtx := newBulkCLIContext(mock)
-
-	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(
-		t, cmd, "send-command",
-		"--command", "EraseDevice",
-		"--from-file", "/dev/null",
-		// --yes is NOT set, --confirm-destructive IS set
-		"--confirm-destructive",
-	)
-	if err == nil {
-		t.Fatal("expected error for EraseDevice without --yes")
-		return
-	}
-	if !strings.Contains(err.Error(), "destructive") {
-		t.Errorf("expected 'destructive' in error, got: %v", err)
+		t.Error("-n --yes sent a command")
 	}
 }
 
@@ -1407,8 +1374,8 @@ func TestSendCommand_PartialFailure(t *testing.T) {
 			"GET /JSSResource/computers/id/1":        {200, `{"computer":{"id":1,"name":"Mac-01"}}`},
 			"GET /JSSResource/computers/id/2":        {200, `{"computer":{"id":2,"name":"Mac-02"}}`},
 			// Mac-01 succeeds, Mac-02 fails
-			"POST /JSSResource/computercommands/command/BlankPush/id/1": {200, `<computer_command/>`},
-			"POST /JSSResource/computercommands/command/BlankPush/id/2": {500, `Internal Server Error`},
+			"POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/1": {200, `<computer_command/>`},
+			"POST /JSSResource/computercommands/command/EnableRemoteDesktop/id/2": {500, `Internal Server Error`},
 		},
 	}
 	cliCtx := newBulkCLIContext(mock)
@@ -1416,7 +1383,7 @@ func TestSendCommand_PartialFailure(t *testing.T) {
 	cmd := newBulkCmd(cliCtx)
 	_, stderr, err := runCobraCmd(
 		t, cmd, "send-command",
-		"--command", "BlankPush",
+		"--command", "EnableRemoteDesktop",
 		"--group", "Lab Macs",
 		"--yes",
 	)

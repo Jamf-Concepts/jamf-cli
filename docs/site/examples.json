@@ -101,18 +101,26 @@
       "command": "jamf-cli pro diff --source staging --target production --resources policies,scripts"
     }
   ],
-  "pro bulk send-command": [
+  "pro computer-inventory blank-push": [
     {
-      "description": "Preview sending UpdateInventory to a group",
-      "command": "jamf-cli pro bulk send-command --command UpdateInventory --group \"All Managed Macs\""
+      "description": "Preview a blank push to every computer in a group",
+      "command": "jamf-cli pro computer-inventory blank-push --group \"All Managed Macs\""
     },
     {
-      "description": "Send BlankPush to devices listed in a file",
-      "command": "jamf-cli pro bulk send-command --command BlankPush --from-file device-ids.txt --yes"
-    },
+      "description": "Blank push the computers listed in a file",
+      "command": "jamf-cli pro computer-inventory blank-push --from-file devices.txt --yes"
+    }
+  ],
+  "pro computer-inventory enable-remote-desktop": [
     {
-      "description": "Erase devices (requires double confirmation)",
-      "command": "jamf-cli pro bulk send-command --command EraseDevice --group \"Decommission\" --yes --confirm-destructive"
+      "description": "Enable Remote Desktop on a group (works through a platform gateway profile)",
+      "command": "jamf-cli pro computer-inventory enable-remote-desktop --group \"Lab Macs\" --yes"
+    }
+  ],
+  "pro computer-inventory erase": [
+    {
+      "description": "Erase computers (requires double confirmation)",
+      "command": "jamf-cli pro computer-inventory erase --group \"Decommission\" --yes --confirm-destructive"
     }
   ],
   "pro classic-computer-groups add-members": [
