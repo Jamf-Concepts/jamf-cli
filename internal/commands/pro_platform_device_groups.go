@@ -9,11 +9,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
@@ -451,6 +454,15 @@ unchanged.`,
 			if len(ids) == 0 {
 				return fmt.Errorf("at least one --id is required")
 			}
+			for _, id := range ids {
+				if !platformDeviceIDShape.MatchString(strings.TrimSpace(id)) {
+					return &exitcode.Error{
+						Code:    exitcode.Usage,
+						Message: fmt.Sprintf("--id %q is not a Platform device ID", id),
+						Hint:    "a Platform device ID is a UUID: the device's Jamf Pro management ID, not its numeric inventory ID",
+					}
+				}
+			}
 			ctx := cmd.Context()
 			stderr := cmd.ErrOrStderr()
 			groupID, err := pdgResolveID(ctx, cliCtx.PlatformSDKClient, args[0], dt)
@@ -464,20 +476,25 @@ unchanged.`,
 			}
 			change, unchanged := pdgPartitionMembers(current, ids, add)
 
+			// Every requested ID is sent, not only the ones that change the
+			// group: re-adding a member and removing a non-member are both
+			// no-ops on the wire, but an ID that names no device answers
+			// INVALID_DEVICE only if it is sent. Filtering it out would read a
+			// typo as "not a member, left alone". The partition is for the
+			// report.
+			send := slices.Concat(change, unchanged)
 			patch := &devicegroups.DeviceGroupMemberPatchRepresentationV1{}
 			if add {
-				patch.Added = &change
+				patch.Added = &send
 			} else {
-				patch.Removed = &change
+				patch.Removed = &send
 			}
 			if cliCtx.DryRun {
 				_, _ = fmt.Fprintf(stderr, "[dry-run] %d to change, %d unchanged\n", len(change), len(unchanged))
 				return platform.ReportDryRun(stderr, http.MethodPatch, pdgItemPath(cliCtx.PlatformSDKClient, groupID)+"/members", patch)
 			}
-			if len(change) > 0 {
-				if err := dg.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
-					return err
-				}
+			if err := dg.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
+				return err
 			}
 			done, state := "Added", "already members"
 			if !add {
@@ -495,6 +512,9 @@ unchanged.`,
 	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow name lookup by device type: COMPUTER or MOBILE")
 	return cmd
 }
+
+// platformDeviceIDShape is a Platform device ID: the Jamf Pro management ID.
+var platformDeviceIDShape = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`)
 
 // pdgPartitionMembers splits requested IDs into those that would change the
 // group and those already in the requested state, de-duplicated and compared
