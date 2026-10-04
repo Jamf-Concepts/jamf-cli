@@ -206,6 +206,12 @@ func ResolveMobileDeviceEntries(ctx context.Context, client registry.HTTPClient,
 // against 11.30), but 100 keeps the request URL comfortably short.
 const batchChunkSize = 100
 
+// batchFilterMaxBytes caps one chunk's query-escaped filter, since a count cap
+// alone does not bound the URL: 100 UUIDs OR'd across two fields escape to
+// about 9 KB, past the 8 KB request line common proxies enforce, and a name
+// can be any length.
+const batchFilterMaxBytes = 4096
+
 // fileEntrySpec describes how to batch-resolve --from-file entries for one
 // device type.
 type fileEntrySpec struct {
@@ -287,7 +293,8 @@ const (
 	entryUUID                       // 8-4-4-4-12 hex: a computer UDID or either family's management ID
 	entryUDID                       // 40 hex, or 8-16 hex: a mobile device UDID
 	entrySerial                     // list-safe: a serial number, or failing that a name
-	entryUnbatched                  // anything else: one identifier lookup of its own
+	entryName                       // quotable but not list-safe (a space, say): only ever a name
+	entryUnbatched                  // carries a `*`: one identifier lookup of its own
 )
 
 var (
@@ -309,6 +316,8 @@ func classifyEntry(entry string) entryKind {
 		return entryUDID
 	case isRSQLListSafe(entry):
 		return entrySerial
+	case !strings.Contains(entry, "*"):
+		return entryName
 	default:
 		return entryUnbatched
 	}
@@ -327,10 +336,12 @@ type entryResult struct {
 //
 // Each kind batches into `=in=` queries of its own: IDs by ID; UUIDs by UDID
 // or management ID in one OR'd filter; UDIDs by UDID; list-safe entries by
-// serial number and then, for the ones no serial matched, by name. An entry
-// matching more than one device is refused rather than resolved to the first,
-// since Jamf Pro names are not unique. An entry that cannot be quoted into a
-// shared list is resolved on its own by every identifier at once.
+// serial number and then, for the ones no serial matched, by name; any other
+// entry by name alone, since a space, quote, comma or paren cannot be part of
+// a serial number or UDID. An entry matching more than one device is refused
+// rather than resolved to the first, since Jamf Pro names are not unique. An
+// entry carrying a `*` is resolved on its own: inside a shared list the
+// wildcard would page in every device it matches.
 func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEntrySpec, entries []string) ([]*DeviceIdentifiers, int, error) {
 	byKind := map[entryKind][]string{}
 	seen := make(map[string]bool, len(entries))
@@ -395,13 +406,22 @@ func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEn
 		results[e] = pickEntry(spec, e, "serial number", bySerial[strings.ToLower(e)])
 	}
 	byName := map[string][]*DeviceIdentifiers{}
-	if err := spec.batch(ctx, client, unmatchedSerials, "name", true,
+	if err := spec.batch(ctx, client, slices.Concat(unmatchedSerials, byKind[entryName]), "name", true,
 		func(chunk []string) string { return fmt.Sprintf("%s=in=(%s)", spec.nameField, quotedList(chunk)) },
 		func(d *DeviceIdentifiers) []string { return []string{d.Name} }, byName); err != nil {
 		return nil, 0, err
 	}
 	for _, e := range unmatchedSerials {
-		results[e] = pickEntry(spec, e, "serial number or name", byName[strings.ToLower(e)])
+		r := pickEntry(spec, e, "serial number or name", byName[strings.ToLower(e)])
+		if r.device != nil {
+			// A mistyped serial that happens to be another device's name
+			// would otherwise target that device without a word.
+			_, _ = fmt.Fprintf(os.Stderr, "  note: %q matched no serial number; resolved by name to %s %s\n", e, spec.label, r.device.ID)
+		}
+		results[e] = r
+	}
+	for _, e := range byKind[entryName] {
+		results[e] = pickEntry(spec, e, "name", byName[strings.ToLower(e)])
 	}
 
 	for _, e := range byKind[entryUnbatched] {
@@ -428,11 +448,14 @@ func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEn
 
 // batch runs one identifier kind's chunked `=in=` lookups and indexes every
 // returned device under each key keysOf yields, case-folded when fold is set.
-// A device is indexed once per key however many queries return it.
+// A device is indexed once per key however many queries return it. A returned
+// record that cannot be parsed is counted on stderr, so a device the server
+// did return is not reported only as "no device found".
 func (s fileEntrySpec) batch(ctx context.Context, client registry.HTTPClient, entries []string, label string, fold bool,
 	filter func(chunk []string) string, keysOf func(*DeviceIdentifiers) []string, into map[string][]*DeviceIdentifiers,
 ) error {
-	for chunk := range slices.Chunk(entries, batchChunkSize) {
+	unreadable := 0
+	for _, chunk := range filterChunks(entries, filter) {
 		records, err := s.fetchFiltered(ctx, client, filter(chunk))
 		if err != nil {
 			return fmt.Errorf("looking up %ss by %s: %w", s.label, label, err)
@@ -440,6 +463,7 @@ func (s fileEntrySpec) batch(ctx context.Context, client registry.HTTPClient, en
 		for _, record := range records {
 			d, err := s.parse(record)
 			if err != nil {
+				unreadable++
 				continue
 			}
 			for _, k := range keysOf(d) {
@@ -455,7 +479,30 @@ func (s fileEntrySpec) batch(ctx context.Context, client registry.HTTPClient, en
 			}
 		}
 	}
+	if unreadable > 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "  warning: %d %s record(s) returned by the %s lookup could not be read and were ignored\n", unreadable, s.label, label)
+	}
 	return nil
+}
+
+// filterChunks splits entries into the chunks batch queries: at most
+// batchChunkSize each, and closed early once the query-escaped filter would
+// pass batchFilterMaxBytes. An entry too long to share a chunk gets one alone.
+func filterChunks(entries []string, filter func(chunk []string) string) [][]string {
+	var chunks [][]string
+	var cur []string
+	for _, e := range entries {
+		next := append(slices.Clip(cur), e)
+		if len(cur) > 0 && (len(next) > batchChunkSize || len(url.QueryEscape(filter(next))) > batchFilterMaxBytes) {
+			chunks = append(chunks, cur)
+			next = []string{e}
+		}
+		cur = next
+	}
+	if len(cur) > 0 {
+		chunks = append(chunks, cur)
+	}
+	return chunks
 }
 
 // pickEntry turns an entry's matches into its result: one device, or an error
@@ -670,15 +717,9 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		if d.Name == "" {
 			d.Name = jsonString(general, "displayName")
 		}
-		if d.UDID == "" {
-			d.UDID = jsonString(general, "udid")
-		}
 	}
 	// /detail nests the serial under "hardware", populated only with
 	// section=HARDWARE.
-	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
-		d.SerialNumber = jsonString(hardware, "serialNumber")
-	}
 	if hardware, ok := obj["hardware"].(map[string]any); ok && d.SerialNumber == "" {
 		d.SerialNumber = jsonString(hardware, "serialNumber")
 	}
@@ -1101,10 +1142,9 @@ func IsNumericID(s string) bool {
 	return true
 }
 
-// isRSQLListSafe reports whether s can be placed inside a quoted RSQL `=in=`
-// list unambiguously. Serial numbers are alphanumeric, so an entry carrying
-// anything else (a quote, comma, paren, or whitespace) is resolved on its own
-// rather than interpolated into a filter shared with other entries.
+// isRSQLListSafe reports whether s can be a serial number: alphanumeric plus
+// `-`, `_` and `.`. An entry carrying anything else (a quote, comma, paren, or
+// whitespace) can only be a name, and is looked up by name alone.
 func isRSQLListSafe(s string) bool {
 	if s == "" {
 		return false

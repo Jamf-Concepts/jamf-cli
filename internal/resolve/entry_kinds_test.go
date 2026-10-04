@@ -24,7 +24,9 @@ func TestClassifyEntry(t *testing.T) {
 		"00008030-001A2D3E0C38802E":                entryUDID,
 		"C02X1234":                                 entrySerial,
 		"ARMADA-2ACE61":                            entrySerial,
-		"Neil's MacBook":                           entryUnbatched,
+		"Neil's MacBook":                           entryName,
+		`Lab "A", (B)`:                             entryName,
+		"Lab*":                                     entryUnbatched,
 	}
 	for in, want := range cases {
 		if got := classifyEntry(in); got != want {
