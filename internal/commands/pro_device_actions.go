@@ -576,15 +576,6 @@ func runMobileAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *device
 	return executeAction(cmd, dt, devices, unresolved, yes, confirmDestructive, cfg)
 }
 
-// unresolvedTargetsErr reports --from-file entries that never resolved, so an
-// action whose resolved devices all succeeded still exits non-zero.
-func unresolvedTargetsErr(deviceType string, unresolved int) error {
-	if unresolved == 0 {
-		return nil
-	}
-	return fmt.Errorf("%d %s target(s) from --from-file could not be resolved", unresolved, deviceType)
-}
-
 // deviceActionPreviewTable prints the bulk-targeting preview, which keeps the
 // contract newBulkCmd's Long documents: preview table on stdout, mutation log
 // on stderr. It stays a table whatever -o says, so it cannot come from the
@@ -659,12 +650,19 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 		}
 	}
 
+	// Every outcome below goes through finishBatch, so an action that reached
+	// some devices and not others exits 7 (or 0 with --allow-partial-failure)
+	// exactly as the group, policy and bulk commands do. A --from-file entry
+	// that never resolved counts as one that failed. These used to exit 1 for a
+	// partial failure, the same as for a total one, and ignore the flag.
+	noun := cfg.actionName + " operations"
+
 	// Batch endpoints (blank-push, renew-mdm): send all IDs in one request.
 	if (cfg.batchByManagementID || cfg.batchByUDID) && cfg.execBatch != nil && len(devices) > 0 {
 		if err := cfg.execBatch(devices); err != nil {
 			return err
 		}
-		return unresolvedTargetsErr(cfg.deviceType, unresolved)
+		return finishBatch(stderr, noun, len(devices), unresolved, nil)
 	}
 
 	// Read optional body (for erase commands).
@@ -678,15 +676,19 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 		if err := cfg.execSingle(devices[0], body); err != nil {
 			return err
 		}
-		return unresolvedTargetsErr(cfg.deviceType, unresolved)
+		return finishBatch(stderr, noun, 1, unresolved, nil)
 	}
 
 	// Bulk per-device execution with progress logging.
 	_, _ = fmt.Fprintf(stderr, "Sending %s to %d %ss...\n", cfg.actionName, len(devices), cfg.deviceType)
 	successCount, failCount := 0, unresolved
+	var firstErr error
 	for _, d := range devices {
 		if err := cfg.execSingle(d, nil); err != nil {
 			_, _ = fmt.Fprintf(stderr, "[%s] %-40s ERROR: %v\n", cfg.actionName, resolve.FormatDeviceDesc(d), err)
+			if firstErr == nil {
+				firstErr = err
+			}
 			failCount++
 		} else {
 			_, _ = fmt.Fprintf(stderr, "[%s] %-40s ok\n", cfg.actionName, resolve.FormatDeviceDesc(d))
@@ -695,10 +697,7 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 	}
 	_, _ = fmt.Fprintf(stderr, "%s complete: %d succeeded, %d failed%s.\n",
 		cfg.actionName, successCount, failCount, unresolvedNote(unresolved))
-	if failCount > 0 {
-		return fmt.Errorf("%d of %d %s operations failed", failCount, successCount+failCount, cfg.actionName)
-	}
-	return nil
+	return finishBatch(stderr, noun, successCount, failCount, firstErr)
 }
 
 // doPostAction sends a POST request and prints the response.

@@ -45,6 +45,16 @@ What differs in the new commands:
 - `pro bulk enable-policies` / `disable-policies` now honour `-n`; before, `-n`
   together with `--yes` wrote the change.
 
+### Behaviour — device actions exit 7 for a partial failure
+
+The `computer-inventory` and `mobile-devices` actions (`lock`, `restart`,
+`blank-push`, `erase`, …) exited 1 when some devices succeeded and some failed,
+or when `--from-file` lines did not resolve: the same code as a total failure.
+They also ignored `--allow-partial-failure`. They now exit 7 for a partial
+failure, as the group, policy and `bulk` commands do, and
+`--allow-partial-failure` turns that into a warning with exit 0. A total
+failure keeps the exit code of the error that caused it.
+
 ### Behaviour — device `--from-file` lists take UDIDs, management IDs and names
 
 Every `--from-file` device list (the `computer-inventory` and `mobile-devices`
