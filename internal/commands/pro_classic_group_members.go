@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/url"
@@ -145,13 +146,14 @@ is read back afterwards to confirm each change landed. Smart groups are refused:
 their membership is computed from criteria.
 
 With --from-file or --from-group the command prints a preview and changes
-nothing unless --yes is given. -n/--dry-run previews any form.
+nothing unless --yes is given. Members named with --%s are written at once,
+as one-off edits are; -n/--dry-run previews any form.
 
 Output: the preview table, or one row per member with its result, on stdout;
 progress on stderr.`,
 			did, plural, prep, kind.groupLabel,
 			kind.flag, kind.label, kind.groupLabel, kind.label,
-			membershipSkipNote(kind, add), prep),
+			membershipSkipNote(kind, add), prep, kind.flag),
 		Example: fmt.Sprintf(`  jamf-cli pro classic-%ss %s 42 --%s C02X1234 --%s 117
   jamf-cli pro classic-%ss %s --name "Quarantine" --from-file serials.txt --yes
   jamf-cli pro classic-%ss %s --name "Quarantine" --from-group "Lab Macs" -n`,
@@ -258,22 +260,37 @@ func runClassicGroupMembers(cmd *cobra.Command, cliCtx *registry.CLIContext, kin
 			firstErr = err
 		}
 	}
+	currentMembers := func() (map[string]bool, error) {
+		g, err := fetchClassicStaticGroup(ctx, client, kind, []string{group.id}, "")
+		if err != nil {
+			return nil, err
+		}
+		return g.members, nil
+	}
 	for chunk := range slices.Chunk(plan.change, groupMembersChunkSize) {
-		applyMembershipChunk(ctx, client, kind, group.id, chunk, add, record)
+		applyMembershipChunk(ctx, client, kind, group.id, chunk, add, record, currentMembers)
 	}
 
 	// Read the group back: a Classic write answering success is not proof it
 	// applied (an out-of-order or unrecognised element is accepted and
 	// dropped), so each change is confirmed against what the server now holds.
-	after, err := fetchClassicStaticGroup(ctx, client, kind, []string{group.id}, "")
+	// A change that cannot be confirmed is not reported as made: it counts as
+	// a failure, with a result saying it was sent but not verified.
+	after, err := currentMembers()
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "warning: could not read %s %q back to confirm the change: %v\n", kind.groupLabel, group.name, err)
 	}
+	unverified := map[string]bool{}
 	for _, d := range plan.change {
-		if _, ok := failed[d.ID]; ok || after == nil {
+		if _, ok := failed[d.ID]; ok {
 			continue
 		}
-		if after.members[d.ID] != add {
+		if after == nil {
+			unverified[d.ID] = true
+			record(d.ID, fmt.Errorf("sent, but the group could not be read back to confirm it: %w", err))
+			continue
+		}
+		if after[d.ID] != add {
 			state := "is still a member"
 			if add {
 				state = "is still not a member"
@@ -291,7 +308,9 @@ func runClassicGroupMembers(cmd *cobra.Command, cliCtx *registry.CLIContext, kin
 		if row["result"] != action {
 			continue
 		}
-		if err, ok := failed[id]; ok {
+		if unverified[id] {
+			plan.rows[i]["result"] = "unverified: sent, but the group could not be read back"
+		} else if err, ok := failed[id]; ok {
 			plan.rows[i]["result"] = "failed: " + err.Error()
 		} else {
 			plan.rows[i]["result"] = done
@@ -314,16 +333,33 @@ func runClassicGroupMembers(cmd *cobra.Command, cliCtx *registry.CLIContext, kin
 // computer group: 284, 287" (and "The devices with ..." for mobile devices).
 var unmanagedRefusal = regexp.MustCompile(`following IDs are unmanaged and cannot be added to a [a-z ]+ group: ([0-9][0-9, ]*)`)
 
+// staleDeletion matches the Classic API's refusal to remove a computer that is
+// not a member, which fails the whole request and names only the first such
+// ID. Wire-checked 2026-10-04: "Error: Unable to match computer in deletions
+// list id= 304". A mobile device group ignores the same deletion instead.
+var staleDeletion = regexp.MustCompile(`Unable to match [a-z ]+ in deletions list`)
+
 // applyMembershipChunk sends one chunk and records each failure. The PUT is
-// atomic, so one unmanaged member the server names fails every member sent
-// with it; those are recorded and the rest of the chunk is sent once more. The
-// managed check in planMembershipChange catches these before anything is sent
-// whenever inventory reports the state; this is for when it did not.
+// atomic, so one member the server refuses fails every member sent with it;
+// two refusals are narrowed and the rest of the chunk is sent once more:
+//
+//   - an unmanaged member the server names. The managed check in
+//     planMembershipChange catches these before anything is sent whenever
+//     inventory reports the state; this is for when it did not.
+//   - a removal of a computer another writer took out of the group since the
+//     snapshot. The group is read again and only its current members are
+//     sent; the ones already gone are in the state asked for, which the
+//     read-back confirms.
 func applyMembershipChunk(ctx context.Context, client registry.HTTPClient, kind classicGroupKind, groupID string,
 	chunk []*resolve.DeviceIdentifiers, add bool, record func(id string, err error),
+	currentMembers func() (map[string]bool, error),
 ) {
 	err := putGroupMembership(ctx, client, kind, groupID, chunk, add)
 	if err == nil {
+		return
+	}
+	if !add && staleDeletion.MatchString(err.Error()) {
+		retryStillMembers(ctx, client, kind, groupID, chunk, err, record, currentMembers)
 		return
 	}
 	m := unmanagedRefusal.FindStringSubmatch(err.Error())
@@ -356,6 +392,42 @@ func applyMembershipChunk(ctx context.Context, client registry.HTTPClient, kind 
 		return
 	}
 	if err := putGroupMembership(ctx, client, kind, groupID, rest, add); err != nil {
+		for _, d := range rest {
+			record(d.ID, err)
+		}
+	}
+}
+
+// retryStillMembers re-sends a refused removal with only the chunk's members
+// the group still holds. When the read fails, or every one is still a member
+// (so the refusal is not the stale snapshot), the original error stands.
+func retryStillMembers(ctx context.Context, client registry.HTTPClient, kind classicGroupKind, groupID string,
+	chunk []*resolve.DeviceIdentifiers, refusal error, record func(id string, err error),
+	currentMembers func() (map[string]bool, error),
+) {
+	members, err := currentMembers()
+	if err != nil {
+		for _, d := range chunk {
+			record(d.ID, refusal)
+		}
+		return
+	}
+	var rest []*resolve.DeviceIdentifiers
+	for _, d := range chunk {
+		if members[d.ID] {
+			rest = append(rest, d)
+		}
+	}
+	switch {
+	case len(rest) == 0:
+		return
+	case len(rest) == len(chunk):
+		for _, d := range rest {
+			record(d.ID, refusal)
+		}
+		return
+	}
+	if err := putGroupMembership(ctx, client, kind, groupID, rest, false); err != nil {
 		for _, d := range rest {
 			record(d.ID, err)
 		}
@@ -486,7 +558,11 @@ func groupMembershipXML(kind classicGroupKind, devices []*resolve.DeviceIdentifi
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
 	fmt.Fprintf(&b, "<%s><%s>", kind.root, wrapper)
 	for _, d := range devices {
-		fmt.Fprintf(&b, "<%s><id>%s</id></%s>", kind.element, d.ID, kind.element)
+		fmt.Fprintf(&b, "<%s><id>", kind.element)
+		// The ID is server-sourced and numeric; escaping keeps the builder
+		// safe on its own terms rather than on its callers'.
+		_ = xml.EscapeText(&b, []byte(d.ID))
+		fmt.Fprintf(&b, "</id></%s>", kind.element)
 	}
 	fmt.Fprintf(&b, "</%s></%s>", wrapper, kind.root)
 	return b.String()

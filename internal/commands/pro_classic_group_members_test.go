@@ -129,9 +129,7 @@ func (f *fakeGroupServer) applyPut(body string) (*http.Response, error) {
 		}
 	}
 	if len(unmanaged) > 0 {
-		return nil, client.StatusError(409, "PUT", "", []byte(fmt.Sprintf(
-			"Error: The computers with the following IDs are unmanaged and cannot be added to a computer group: %s",
-			strings.Join(unmanaged, ", "))))
+		return nil, client.StatusError(409, "PUT", "", []byte(unmanagedRefusalText(f.kind, unmanaged)))
 	}
 	if !f.ignoreWrites {
 		for _, id := range ids {
@@ -143,6 +141,15 @@ func (f *fakeGroupServer) applyPut(body string) (*http.Response, error) {
 		}
 	}
 	return &http.Response{StatusCode: 201, Body: io.NopCloser(strings.NewReader("<ok/>")), Header: http.Header{}}, nil
+}
+
+// unmanagedRefusalText is the server's refusal of unmanaged members, in each
+// family's own words. Wire-checked 2026-10-04 on pro-nmartin.
+func unmanagedRefusalText(kind classicGroupKind, ids []string) string {
+	if kind.element == "computer" {
+		return "Error: The computers with the following IDs are unmanaged and cannot be added to a computer group: " + strings.Join(ids, ", ")
+	}
+	return "Error: The devices with the following IDs are unmanaged and cannot be added to a mobile device group: " + strings.Join(ids, ", ")
 }
 
 func (f *fakeGroupServer) inventoryRecord(d fakeDevice) map[string]any {
@@ -370,12 +377,103 @@ func (r *refusingGroupServer) Do(ctx context.Context, method, path string, body 
 		}
 		if len(named) > 0 {
 			r.puts = append(r.puts, string(raw))
-			return nil, client.StatusError(409, "PUT", path, []byte(
-				"Error: The computers with the following IDs are unmanaged and cannot be added to a computer group: "+strings.Join(named, ", ")))
+			return nil, client.StatusError(409, "PUT", path, []byte(unmanagedRefusalText(r.kind, named)))
 		}
 		body = strings.NewReader(string(raw))
 	}
 	return r.fakeGroupServer.Do(ctx, method, path, body)
+}
+
+// The mobile family's refusal is worded differently ("The devices with …
+// mobile device group") and is narrowed the same way.
+func TestAddMembers_MobileServerNamedUnmanagedRetried(t *testing.T) {
+	f := newFakeGroupServer(classicMobileGroupKind)
+	f.devices = []fakeDevice{
+		{id: "7", name: "iPad-07", serial: "MSER07"},
+		{id: "8", name: "iPad-08", serial: "MSER08"},
+	}
+	f2 := &refusingGroupServer{fakeGroupServer: f, unmanaged: map[string]bool{"7": true}}
+	_, _, err := runCobraCmd(t, newClassicGroupMembersCmd(&registry.CLIContext{Client: f2}, f.kind, true), "200",
+		"--mobile-device", "7", "--mobile-device", "8")
+	if exitcode.CodeFrom(err) != exitcode.PartialFailure {
+		t.Fatalf("err = %v, want a partial failure", err)
+	}
+	if len(f.puts) != 2 || strings.Join(f.putIDs(1), ",") != "8" {
+		t.Fatalf("puts = %v, want the refused one and a retry carrying 8", f.puts)
+	}
+	if !f.members["8"] || f.members["7"] {
+		t.Errorf("members = %v, want 8 only", f.members)
+	}
+}
+
+// staleGroupServer takes the given members out of the group just before the
+// first PUT lands, the way another writer would between the snapshot and the
+// write.
+type staleGroupServer struct {
+	*fakeGroupServer
+	removeFirst []string
+	done        bool
+}
+
+func (s *staleGroupServer) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if method == "PUT" && !s.done {
+		s.done = true
+		for _, id := range s.removeFirst {
+			delete(s.members, id)
+		}
+	}
+	return s.fakeGroupServer.Do(ctx, method, path, body)
+}
+
+// A computer removed by someone else since the snapshot makes the server
+// refuse the whole chunk; the group is read again and the rest is sent, and
+// the one already gone is in the state asked for, not a failure.
+func TestRemoveMembers_StaleSnapshotRetried(t *testing.T) {
+	f := newFakeGroupServer(classicComputerGroupKind, "1", "2", "3")
+	f.devices = standardDevices()
+	s := &staleGroupServer{fakeGroupServer: f, removeFirst: []string{"2"}}
+	_, _, err := runCobraCmd(t, newClassicGroupMembersCmd(&registry.CLIContext{Client: s}, f.kind, false), "200",
+		"--computer", "1", "--computer", "2", "--computer", "3")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(f.puts) != 2 || strings.Join(f.putIDs(1), ",") != "1,3" {
+		t.Fatalf("puts = %v, want the refused one and a retry carrying 1,3", f.puts)
+	}
+	if len(f.members) != 0 {
+		t.Errorf("members = %v, want none", f.members)
+	}
+}
+
+// readBackFailingServer answers the group's detail GET with an error once a
+// PUT has been sent.
+type readBackFailingServer struct {
+	*fakeGroupServer
+}
+
+func (r *readBackFailingServer) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if method == "GET" && len(r.puts) > 0 && strings.HasPrefix(path, fmt.Sprintf(r.kind.detailPath, r.groupID)) {
+		return nil, client.StatusError(500, "GET", path, []byte("boom"))
+	}
+	return r.fakeGroupServer.Do(ctx, method, path, body)
+}
+
+// A change the read-back cannot confirm is not reported as made: it counts as
+// failed and the run does not exit 0.
+func TestAddMembers_ReadBackFailureIsUnverified(t *testing.T) {
+	f := newFakeGroupServer(classicComputerGroupKind)
+	f.devices = standardDevices()
+	_, stderr, err := runCobraCmd(t, newClassicGroupMembersCmd(&registry.CLIContext{Client: &readBackFailingServer{f}}, f.kind, true),
+		"200", "--computer", "1")
+	if err == nil {
+		t.Fatal("an unconfirmed change exited 0")
+	}
+	if !strings.Contains(err.Error(), "could not be read back") {
+		t.Errorf("err = %v, want it to say the change was not confirmed", err)
+	}
+	if !strings.Contains(stderr, "Added 0, 1 failed") {
+		t.Errorf("stderr = %q, want the unconfirmed change counted as failed", stderr)
+	}
 }
 
 // A write the server answers with success but does not apply is caught by the
