@@ -194,6 +194,20 @@ func TestMCP_RefusesCommandsThatPrintOrSetALoginCredential(t *testing.T) {
 		{[]string{"pro", "accounts", "create"}, "password"},
 		{[]string{"pro", "accounts", "update", "1"}, "password"},
 		{[]string{"pro", "accounts", "apply"}, "password"},
+		{[]string{"pro", "classic-account-users", "create", "--set", "name=svc", "--set", "email=a@evil.example", "--set", "privilege_set=Administrator"}, "who can log in"},
+		{[]string{"pro", "classic-account-users", "update", "1", "--set", "email=a@evil.example"}, "who can log in"},
+		{[]string{"pro", "classic-account-groups", "create", "--set", "ldap_server.id=1", "--set", "privilege_set=Administrator"}, "who can log in"},
+		{[]string{"pro", "classic-account-groups", "update", "1", "--set", "privilege_set=Administrator"}, "who can log in"},
+		{[]string{"pro", "classic-ldap-servers", "create", "--set", "connection.hostname=ldap.evil.example"}, "who can log in"},
+		{[]string{"pro", "classic-ldap-servers", "apply"}, "who can log in"},
+		{[]string{"pro", "classic-smtp-server", "update", "1", "--set", "host=smtp.evil.example"}, "who can log in"},
+		{[]string{"pro", "smtp-server", "update", "--set", "connectionSettings.host=smtp.evil.example"}, "who can log in"},
+		{[]string{"pro", "cloud-ldap", "update", "1", "--set", "server.serverUrl=ldaps://ldap.evil.example"}, "who can log in"},
+		{[]string{"pro", "sso-settings", "update", "--set", "ssoEnabled=true", "--set", "samlSettings.idpUrl=https://idp.evil.example/metadata", "--set", "ssoBypassAllowed=false"}, "who can log in"},
+		{[]string{"pro", "sso-settings", "disable"}, "who can log in"},
+		{[]string{"pro", "sso-settings-cert", "update"}, "who can log in"},
+		{[]string{"platform", "sso-connections", "create", "--set", "connectionType=WAAD"}, "who can log in"},
+		{[]string{"-q", "platform", "ssoc", "update", "1"}, "who can log in"},
 	} {
 		_, err := buildChildArgs("prod", tc.args)
 		if !isMCPRefusal(err) {
