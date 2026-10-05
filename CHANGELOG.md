@@ -11,6 +11,29 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — MCP `run_command` refuses the writes that change who can log in to Jamf Pro
+
+`run_command` refused `pro accounts create`, `update` and `apply`, because they
+set a login password. Other commands grant a Jamf Pro login with no password
+in the request, and they ran. A model could create a Classic administrator
+account, bind an account group to an LDAP server it runs, point SSO at its own
+identity provider, or send password-reset mail to its own SMTP server. Each
+login works outside the MCP server.
+
+These now fail over MCP, with the reason in the error:
+
+- `create`, `update` and, where it exists, `apply` on
+  `pro classic-account-users`, `classic-account-groups`,
+  `classic-ldap-servers`, `cloud-ldap` and `cloud-azure`, and
+  `pro cloud-ldap update-mappings`.
+- `pro classic-smtp-server update` and `pro smtp-server update`.
+- `pro sso-settings update`, `disable`, `cert create`, `cert update` and
+  `oidc-broker-config update`, including the `sso-settings-cert` spelling.
+- `platform sso-connections create` and `update`.
+
+The reads, `delete`, history notes and connection tests on these resources
+still run. Outside MCP, nothing changes.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body

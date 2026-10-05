@@ -114,6 +114,14 @@ spelling. It refuses:
   - 'pro jamf-pro-user-account-settings change-password' and 'pro accounts
     create', 'update' and 'apply', which set a Jamf Pro login password to a
     value the model chose
+  - the writes that change who can log in to Jamf Pro: 'create', 'update'
+    and, where it exists, 'apply' on 'pro classic-account-users',
+    'classic-account-groups', 'classic-ldap-servers', 'cloud-ldap' (and its
+    'update-mappings') and 'cloud-azure'; 'update' on 'pro
+    classic-smtp-server' and 'smtp-server', which deliver password
+    resets; 'pro sso-settings update', 'disable',
+    'cert create', 'cert update' and 'oidc-broker-config update'; and
+    'platform sso-connections create' and 'update'
   - 'protect action-configs export', whose document carries each report
     client's header values, the SIEM or webhook credential, verbatim
   - 'protect downloads csr' and 'websocket-auth', which write the tenant's
@@ -251,7 +259,14 @@ value is an error; there is no config key for it.`,
 					"'pro cloud-distribution-point create' and 'patch' (they print a " +
 					"CloudFront private key), the commands that set a Jamf Pro login password " +
 					"('pro jamf-pro-user-account-settings change-password', 'pro accounts " +
-					"create', 'update', 'apply'), 'protect downloads csr' and 'websocket-auth', " +
+					"create', 'update', 'apply'), the writes that change who can log in to " +
+					"Jamf Pro (create, update and, where it exists, apply on 'pro " +
+					"classic-account-users', 'classic-account-groups', 'classic-ldap-servers', " +
+					"'cloud-ldap' and 'cloud-azure', and 'cloud-ldap update-mappings'; " +
+					"'pro classic-smtp-server' and 'smtp-server' update; " +
+					"'pro sso-settings' update, disable, cert create and update, and " +
+					"oidc-broker-config update; 'platform sso-connections' create and update), " +
+					"'protect downloads csr' and 'websocket-auth', " +
 					"'protect action-configs export', " +
 					"every 'setup', the backup commands and jcds sync; and " +
 					"'pro diff' against anything but this server's profile or a directory the " +
@@ -593,7 +608,9 @@ const payloadRedactionToolNote = "In a configuration profile's payloads, from a 
 // buildChildArgs and must still spawn it, so the run_command handler refuses it
 // instead.
 //
-// A command that prints a credential working outside this server is refused.
+// A command that prints a credential working outside this server is refused,
+// and so is a write that changes who can log in to Jamf Pro, which needs no
+// secret to grant a login the model chose.
 // A secret of the pinned tenant's own devices is not: the operator decided the
 // model may read them. So the LAPS password (`pro local-admin-password
 // password`, `password-by-guid`, `audit`, `audit-by-guid`), the recovery lock
@@ -643,6 +660,29 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli pro accounts create", refusedSetsLoginPassword},
 	{"jamf-cli pro accounts update", refusedSetsLoginPassword},
 	{"jamf-cli pro accounts apply", refusedSetsLoginPassword},
+	{"jamf-cli pro classic-account-users create", refusedChangesLoginAuthority},
+	{"jamf-cli pro classic-account-users update", refusedChangesLoginAuthority},
+	{"jamf-cli pro classic-account-groups create", refusedChangesLoginAuthority},
+	{"jamf-cli pro classic-account-groups update", refusedChangesLoginAuthority},
+	{"jamf-cli pro classic-ldap-servers create", refusedChangesLoginAuthority},
+	{"jamf-cli pro classic-ldap-servers update", refusedChangesLoginAuthority},
+	{"jamf-cli pro classic-ldap-servers apply", refusedChangesLoginAuthority},
+	{"jamf-cli pro cloud-ldap create", refusedChangesLoginAuthority},
+	{"jamf-cli pro cloud-ldap update", refusedChangesLoginAuthority},
+	{"jamf-cli pro cloud-ldap update-mappings", refusedChangesLoginAuthority},
+	{"jamf-cli pro cloud-azure create", refusedChangesLoginAuthority},
+	{"jamf-cli pro cloud-azure update", refusedChangesLoginAuthority},
+	{"jamf-cli pro classic-smtp-server update", refusedChangesLoginAuthority},
+	{"jamf-cli pro smtp-server update", refusedChangesLoginAuthority},
+	{"jamf-cli pro sso-settings update", refusedChangesLoginAuthority},
+	{"jamf-cli pro sso-settings disable", refusedChangesLoginAuthority},
+	{"jamf-cli pro sso-settings cert create", refusedChangesLoginAuthority},
+	{"jamf-cli pro sso-settings cert update", refusedChangesLoginAuthority},
+	{"jamf-cli pro sso-settings-cert create", refusedChangesLoginAuthority},
+	{"jamf-cli pro sso-settings-cert update", refusedChangesLoginAuthority},
+	{"jamf-cli pro sso-settings oidc-broker-config update", refusedChangesLoginAuthority},
+	{"jamf-cli platform sso-connections create", refusedChangesLoginAuthority},
+	{"jamf-cli platform sso-connections update", refusedChangesLoginAuthority},
 	{"jamf-cli protect downloads csr", refusedWritesKeyMaterial},
 	{"jamf-cli protect downloads websocket-auth", refusedWritesKeyMaterial},
 	{"jamf-cli protect api-clients apply", refusedMintsProtectPassword},
@@ -663,15 +703,16 @@ type refusedCommand struct {
 }
 
 const (
-	refusedPicksTarget          = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
-	refusedReadsCredentials     = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
-	refusedPrintsToken          = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
-	refusedMintsClientSecret    = "it mints a new client secret for the API integration and prints it, a credential that works outside this server until it is rotated"
-	refusedMintsProtectPassword = "creating an API client mints a new password and prints it, a credential that works outside this server until the client is deleted"
-	refusedPrintsCDNKey         = "its response carries the CloudFront private key that signs download URLs, a credential that works outside this server"
-	refusedSetsLoginPassword    = "it sets a Jamf Pro login password to a value the model chose, a credential that works outside this server"
-	refusedWritesKeyMaterial    = "it writes the tenant's .p12 key material into the directory this server was started in, under a fixed name that replaces any file already there"
-	refusedExportsHeaders       = "its document carries each report client's header values verbatim (the SIEM or webhook bearer token), and a redacted copy would overwrite the real credential when applied; 'protect action-configs get' shows the configuration with them redacted"
+	refusedPicksTarget           = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
+	refusedReadsCredentials      = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
+	refusedPrintsToken           = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
+	refusedMintsClientSecret     = "it mints a new client secret for the API integration and prints it, a credential that works outside this server until it is rotated"
+	refusedMintsProtectPassword  = "creating an API client mints a new password and prints it, a credential that works outside this server until the client is deleted"
+	refusedPrintsCDNKey          = "its response carries the CloudFront private key that signs download URLs, a credential that works outside this server"
+	refusedSetsLoginPassword     = "it sets a Jamf Pro login password to a value the model chose, a credential that works outside this server"
+	refusedChangesLoginAuthority = "it changes who can log in to Jamf Pro: an account or account group, a directory or identity provider, single sign-on, or the mail server that delivers password resets, so the model could grant itself a login that works outside this server"
+	refusedWritesKeyMaterial     = "it writes the tenant's .p12 key material into the directory this server was started in, under a fixed name that replaces any file already there"
+	refusedExportsHeaders        = "its document carries each report client's header values verbatim (the SIEM or webhook bearer token), and a redacted copy would overwrite the real credential when applied; 'protect action-configs get' shows the configuration with them redacted"
 )
 
 // isCompletionRequest reports whether name is cobra's hidden completion
