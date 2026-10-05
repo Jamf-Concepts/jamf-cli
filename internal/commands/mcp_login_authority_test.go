@@ -10,9 +10,10 @@ import (
 )
 
 // loginAuthorityResources are the resources whose writes decide who can log in
-// to Jamf Pro: the account stores, the directories and identity providers an
-// account or group is bound to, single sign-on, and the mail server that
-// delivers password resets. Keyed by command path without the root name.
+// to a Jamf product and what that login may do: the account and user stores,
+// their groups and roles, the directories and identity providers they are
+// bound to, single sign-on, and the mail server that delivers password resets.
+// Keyed by command path without the root name.
 var loginAuthorityResources = []string{
 	"pro accounts",
 	"pro classic-account-users",
@@ -26,6 +27,12 @@ var loginAuthorityResources = []string{
 	"pro sso-settings",
 	"pro sso-settings-cert",
 	"platform sso-connections",
+	"protect users",
+	"protect groups",
+	"protect roles",
+	"protect connections",
+	"school users",
+	"school groups",
 }
 
 // loginAuthorityReadNames are leaf names that read, annotate or remove a login
@@ -69,10 +76,10 @@ var loginAuthorityAllowedLeaves = map[string]string{
 
 // TestMCP_RefusesEveryWriteThatChangesWhoCanLogIn fails on any leaf under a
 // login authority that runs over MCP without a reason above. A write the model
-// can make there grants a Jamf Pro login that works outside this server: an
-// account, a group bound to a directory, a directory or identity provider the
-// model runs, an SSO identity provider, or the mail server that receives
-// password resets.
+// can make there grants a login that works outside this server: an account or
+// user, a group or role that confers privilege, a directory or identity
+// provider the model runs, an SSO identity provider, or the mail server that
+// receives password resets.
 func TestMCP_RefusesEveryWriteThatChangesWhoCanLogIn(t *testing.T) {
 	root := NewRootCmd("test", "t", "t", "t")
 	usedAllowed := map[string]bool{}
@@ -106,7 +113,7 @@ func TestMCP_RefusesEveryWriteThatChangesWhoCanLogIn(t *testing.T) {
 			case (allowed || readName) && refused:
 				t.Errorf("%q is refused over MCP and also allowed here; drop the allowance", path)
 			case !allowed && !readName && !refused:
-				t.Errorf("%q writes a Jamf Pro login authority and runs over MCP: add it to mcpRefusedCommands, or to loginAuthorityAllowedLeaves with the reason it grants no login", path)
+				t.Errorf("%q writes a login authority and runs over MCP: add it to mcpRefusedCommands, or to loginAuthorityAllowedLeaves with the reason it grants no login", path)
 			}
 		}
 		walk(found)

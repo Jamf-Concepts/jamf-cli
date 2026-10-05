@@ -200,6 +200,11 @@ func TestMCP_RefusesCommandsThatPrintOrSetALoginCredential(t *testing.T) {
 		{[]string{"pro", "sso-settings-cert", "update"}, "who can log in"},
 		{[]string{"platform", "sso-connections", "create", "--set", "connectionType=WAAD"}, "who can log in"},
 		{[]string{"-q", "platform", "ssoc", "update", "1"}, "who can log in"},
+		{[]string{"protect", "users", "apply", "--from-file", "user.json"}, "who can log in"},
+		{[]string{"protect", "groups", "apply", "--from-file", "group.json"}, "who can log in"},
+		{[]string{"protect", "roles", "apply", "--from-file", "role.json"}, "who can log in"},
+		{[]string{"school", "users", "apply", "--from-file", "user.json"}, "who can log in"},
+		{[]string{"school", "groups", "apply", "--from-file", "group.json"}, "who can log in"},
 	} {
 		_, err := buildChildArgs("prod", tc.args)
 		if !isMCPRefusal(err) {
