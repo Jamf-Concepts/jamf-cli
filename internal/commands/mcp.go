@@ -120,10 +120,12 @@ spelling. It refuses:
     'update-mappings') and 'cloud-azure'; 'update' on 'pro
     classic-smtp-server' and 'smtp-server', which deliver password
     resets; 'pro sso-settings update', 'disable',
-    'cert create', 'cert update' and 'oidc-broker-config update';
-    'platform sso-connections create' and 'update'; and 'apply' on
+    'cert create', 'cert update' and 'oidc-broker-config update', and
+    'create' and 'update' under the 'pro sso-settings-cert' spelling;
+    'platform sso-connections create' and 'update'; 'apply' on
     'protect users', 'groups' and 'roles' and on 'school users' and
-    'groups'
+    'groups'; and 'protect restore', which applies a backup's roles,
+    groups and users
   - 'protect action-configs export', whose document carries each report
     client's header values, the SIEM or webhook credential, verbatim
   - 'protect downloads csr' and 'websocket-auth', which write the tenant's
@@ -261,15 +263,7 @@ value is an error; there is no config key for it.`,
 					"'pro cloud-distribution-point create' and 'patch' (they print a " +
 					"CloudFront private key), the commands that set a Jamf Pro login password " +
 					"('pro jamf-pro-user-account-settings change-password', 'pro accounts " +
-					"create', 'update', 'apply'), the writes that change who can log in to " +
-					"a Jamf product (create, update and, where it exists, apply on 'pro " +
-					"classic-account-users', 'classic-account-groups', 'classic-ldap-servers', " +
-					"'cloud-ldap' and 'cloud-azure', and 'cloud-ldap update-mappings'; " +
-					"'pro classic-smtp-server' and 'smtp-server' update; " +
-					"'pro sso-settings' update, disable, cert create and update, and " +
-					"oidc-broker-config update; 'platform sso-connections' create and update; " +
-					"apply on 'protect users', 'groups' and 'roles' and on 'school users' " +
-					"and 'groups'), " +
+					"create', 'update', 'apply'), " + loginAuthorityToolNote + ", " +
 					"'protect downloads csr' and 'websocket-auth', " +
 					"'protect action-configs export', " +
 					"every 'setup', the backup commands and jcds sync; and " +
@@ -598,6 +592,18 @@ var blockedChildFlagPrefixes = []string{
 	"--out-file",
 }
 
+// loginAuthorityToolNote is the run_command description's account of the
+// refusedChangesLoginAuthority entries in mcpRefusedCommands;
+// TestMCPPolicyTexts_NameEveryLoginAuthorityRefusal holds it, the `mcp serve`
+// help and agent_context.md to that list.
+const loginAuthorityToolNote = "the writes that change who can log in to a Jamf product (create, " +
+	"update and, where it exists, apply on 'pro classic-account-users', 'classic-account-groups', " +
+	"'classic-ldap-servers', 'cloud-ldap' and 'cloud-azure', and 'cloud-ldap update-mappings'; " +
+	"'pro classic-smtp-server' and 'smtp-server' update; 'pro sso-settings' update, disable, " +
+	"cert create and update, and oidc-broker-config update, and 'pro sso-settings-cert' create " +
+	"and update; 'platform sso-connections' create and update; apply on 'protect users', " +
+	"'groups' and 'roles' and on 'school users' and 'groups'; and 'protect restore')"
+
 // payloadRedactionToolNote is the run_command description's account of
 // profileconvert.SecretPayloadKeySuffixes; TestMCPPolicyTexts_NameEveryPayloadSecretSuffix
 // holds it and the other policy texts to that list.
@@ -692,6 +698,7 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli protect roles apply", refusedChangesLoginAuthority},
 	{"jamf-cli school users apply", refusedChangesLoginAuthority},
 	{"jamf-cli school groups apply", refusedChangesLoginAuthority},
+	{"jamf-cli protect restore", refusedChangesLoginAuthority},
 	{"jamf-cli protect downloads csr", refusedWritesKeyMaterial},
 	{"jamf-cli protect downloads websocket-auth", refusedWritesKeyMaterial},
 	{"jamf-cli protect api-clients apply", refusedMintsProtectPassword},

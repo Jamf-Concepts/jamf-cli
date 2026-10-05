@@ -35,6 +35,9 @@ These now fail over MCP, with the reason in the error:
   `groups`, which set a Jamf School login password or the group ACL that
   grants the teacher and parent app roles. These read their body from a file,
   so they ran only with that file inside `--input-dir`.
+- `protect restore`, which applies a backup directory's roles, groups and
+  users. It is refused whole, as `protect backup` already was, because
+  `--resources` and `--exclude` are the model's to choose.
 
 The reads, `delete`, history notes and connection tests on these resources
 still run. Outside MCP, nothing changes.

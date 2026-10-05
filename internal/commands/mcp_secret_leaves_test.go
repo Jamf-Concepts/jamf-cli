@@ -91,7 +91,6 @@ var notACredentialPrinter = map[string]string{
 	"pro blueprints import-profile":                                    "names the passcode payload type it converts",
 	"school blueprints import-profile":                                 "names the passcode payload type it converts",
 	"security uem-connectors create":                                   "names the USERNAME_PASSWORD auth strategy; the password is writeOnly",
-	"protect restore":                                                  "names the resources a restore skips because their secret cannot be restored",
 
 	"pro classic-jwt-configs get":    exemptClassicRead,
 	"pro classic-jwt-configs list":   exemptClassicRead,
@@ -205,6 +204,7 @@ func TestMCP_RefusesCommandsThatPrintOrSetALoginCredential(t *testing.T) {
 		{[]string{"protect", "roles", "apply", "--from-file", "role.json"}, "who can log in"},
 		{[]string{"school", "users", "apply", "--from-file", "user.json"}, "who can log in"},
 		{[]string{"school", "groups", "apply", "--from-file", "group.json"}, "who can log in"},
+		{[]string{"protect", "restore", "--input", "bk", "--resources", "users,roles", "--yes"}, "who can log in"},
 	} {
 		_, err := buildChildArgs("prod", tc.args)
 		if !isMCPRefusal(err) {
