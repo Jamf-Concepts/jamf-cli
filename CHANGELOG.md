@@ -11,7 +11,7 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
-### Breaking — MCP `run_command` refuses the writes that change who can log in to Jamf Pro
+### Breaking — MCP `run_command` refuses the writes that change who can log in to a Jamf product
 
 `run_command` refused `pro accounts create`, `update` and `apply`, because they
 set a login password. Other commands grant a Jamf Pro login with no password
@@ -30,6 +30,11 @@ These now fail over MCP, with the reason in the error:
 - `pro sso-settings update`, `disable`, `cert create`, `cert update` and
   `oidc-broker-config update`, including the `sso-settings-cert` spelling.
 - `platform sso-connections create` and `update`.
+- `apply` on `protect users`, `groups` and `roles`, which create a Jamf
+  Protect console login or change its role, and on `school users` and
+  `groups`, which set a Jamf School login password or the group ACL that
+  grants the teacher and parent app roles. These read their body from a file,
+  so they ran only with that file inside `--input-dir`.
 
 The reads, `delete`, history notes and connection tests on these resources
 still run. Outside MCP, nothing changes.

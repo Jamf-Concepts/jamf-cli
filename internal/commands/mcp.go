@@ -114,14 +114,16 @@ spelling. It refuses:
   - 'pro jamf-pro-user-account-settings change-password' and 'pro accounts
     create', 'update' and 'apply', which set a Jamf Pro login password to a
     value the model chose
-  - the writes that change who can log in to Jamf Pro: 'create', 'update'
+  - the writes that change who can log in to a Jamf product: 'create', 'update'
     and, where it exists, 'apply' on 'pro classic-account-users',
     'classic-account-groups', 'classic-ldap-servers', 'cloud-ldap' (and its
     'update-mappings') and 'cloud-azure'; 'update' on 'pro
     classic-smtp-server' and 'smtp-server', which deliver password
     resets; 'pro sso-settings update', 'disable',
-    'cert create', 'cert update' and 'oidc-broker-config update'; and
-    'platform sso-connections create' and 'update'
+    'cert create', 'cert update' and 'oidc-broker-config update';
+    'platform sso-connections create' and 'update'; and 'apply' on
+    'protect users', 'groups' and 'roles' and on 'school users' and
+    'groups'
   - 'protect action-configs export', whose document carries each report
     client's header values, the SIEM or webhook credential, verbatim
   - 'protect downloads csr' and 'websocket-auth', which write the tenant's
@@ -260,12 +262,14 @@ value is an error; there is no config key for it.`,
 					"CloudFront private key), the commands that set a Jamf Pro login password " +
 					"('pro jamf-pro-user-account-settings change-password', 'pro accounts " +
 					"create', 'update', 'apply'), the writes that change who can log in to " +
-					"Jamf Pro (create, update and, where it exists, apply on 'pro " +
+					"a Jamf product (create, update and, where it exists, apply on 'pro " +
 					"classic-account-users', 'classic-account-groups', 'classic-ldap-servers', " +
 					"'cloud-ldap' and 'cloud-azure', and 'cloud-ldap update-mappings'; " +
 					"'pro classic-smtp-server' and 'smtp-server' update; " +
 					"'pro sso-settings' update, disable, cert create and update, and " +
-					"oidc-broker-config update; 'platform sso-connections' create and update), " +
+					"oidc-broker-config update; 'platform sso-connections' create and update; " +
+					"apply on 'protect users', 'groups' and 'roles' and on 'school users' " +
+					"and 'groups'), " +
 					"'protect downloads csr' and 'websocket-auth', " +
 					"'protect action-configs export', " +
 					"every 'setup', the backup commands and jcds sync; and " +
@@ -609,8 +613,8 @@ const payloadRedactionToolNote = "In a configuration profile's payloads, from a 
 // instead.
 //
 // A command that prints a credential working outside this server is refused,
-// and so is a write that changes who can log in to Jamf Pro, which needs no
-// secret to grant a login the model chose.
+// and so is a write that changes who can log in to a Jamf product, which
+// needs no secret to grant a login the model chose.
 // A secret of the pinned tenant's own devices is not: the operator decided the
 // model may read them. So the LAPS password (`pro local-admin-password
 // password`, `password-by-guid`, `audit`, `audit-by-guid`), the recovery lock
@@ -683,6 +687,11 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli pro sso-settings oidc-broker-config update", refusedChangesLoginAuthority},
 	{"jamf-cli platform sso-connections create", refusedChangesLoginAuthority},
 	{"jamf-cli platform sso-connections update", refusedChangesLoginAuthority},
+	{"jamf-cli protect users apply", refusedChangesLoginAuthority},
+	{"jamf-cli protect groups apply", refusedChangesLoginAuthority},
+	{"jamf-cli protect roles apply", refusedChangesLoginAuthority},
+	{"jamf-cli school users apply", refusedChangesLoginAuthority},
+	{"jamf-cli school groups apply", refusedChangesLoginAuthority},
 	{"jamf-cli protect downloads csr", refusedWritesKeyMaterial},
 	{"jamf-cli protect downloads websocket-auth", refusedWritesKeyMaterial},
 	{"jamf-cli protect api-clients apply", refusedMintsProtectPassword},
@@ -710,7 +719,7 @@ const (
 	refusedMintsProtectPassword  = "creating an API client mints a new password and prints it, a credential that works outside this server until the client is deleted"
 	refusedPrintsCDNKey          = "its response carries the CloudFront private key that signs download URLs, a credential that works outside this server"
 	refusedSetsLoginPassword     = "it sets a Jamf Pro login password to a value the model chose, a credential that works outside this server"
-	refusedChangesLoginAuthority = "it changes who can log in to Jamf Pro: an account or account group, a directory or identity provider, single sign-on, or the mail server that delivers password resets, so the model could grant itself a login that works outside this server"
+	refusedChangesLoginAuthority = "it changes who can log in to a Jamf product or what that login may do: an account or user, a group or role, a directory or identity provider, single sign-on, or the mail server that delivers password resets, so the model could grant itself a login that works outside this server"
 	refusedWritesKeyMaterial     = "it writes the tenant's .p12 key material into the directory this server was started in, under a fixed name that replaces any file already there"
 	refusedExportsHeaders        = "its document carries each report client's header values verbatim (the SIEM or webhook bearer token), and a redacted copy would overwrite the real credential when applied; 'protect action-configs get' shows the configuration with them redacted"
 )
