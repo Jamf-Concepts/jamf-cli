@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -234,6 +235,42 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 		for _, p := range append(destructiveOperational, "blueprints delete", "compliance-benchmarks delete") {
 			if got[p] {
 				t.Errorf("standard: should not contain %q", p)
+			}
+		}
+	})
+
+	t.Run("standard grants no privilege that changes privileges or who can log in", func(t *testing.T) {
+		// A client holding any of these can rewrite its own role, attach a
+		// broader one, or create a login, so the tier's limits would not hold.
+		escalating := []string{
+			"Create API Roles", "Update API Roles",
+			"Create API Integrations", "Update API Integrations",
+			"Create Accounts", "Update Accounts",
+			"Create Account Groups", "Update Account Groups",
+			"Create LDAP Servers", "Update LDAP Servers",
+			"Update SSO Settings",
+			"Update SMTP Server",
+		}
+		endpointDestructive := []string{
+			"Send Computer Unmanage Command",
+			"Send Mobile Device Unmanage Command",
+			"Send Computer Delete User Command",
+		}
+		kept := []string{
+			"Read API Roles", "Read API Integrations", "Read Accounts", "Read Account Groups",
+			"Read LDAP Servers", "Read SSO Settings", "Read SMTP Server",
+			"Send Computer Remote Command to Install Package",
+		}
+		instance := slices.Concat(all, escalating, endpointDestructive, kept)
+		got := toSet(applyPrivilegeFilter(instance, scopeOptionByKey("standard")))
+		for _, p := range slices.Concat(escalating, endpointDestructive) {
+			if got[p] {
+				t.Errorf("standard: should not contain %q", p)
+			}
+		}
+		for _, p := range append(kept, "Update Computers") {
+			if !got[p] {
+				t.Errorf("standard: missing %q", p)
 			}
 		}
 	})
