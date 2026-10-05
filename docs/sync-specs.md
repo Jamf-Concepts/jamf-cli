@@ -2,73 +2,43 @@
 
 This document describes how to update the CLI when a new Jamf Pro Server version is released.
 
-There are two independent sources for the Jamf Pro API specs, and two matching
-sync routes:
+The Jamf Pro API spec comes from one source: the consolidated `/api/schema/`
+document that an instance on the target version serves. `make sync-spec`
+ingests it and regenerates the commands.
 
-| Source | Route | When to use |
+The committed layout under `specs/` is two files:
+
+| File | Source | Written by |
 |---|---|---|
-| `jamf/jss` monorepo (`**/swagger_docs/uapi/*.yaml`) | `make sync-specs` | You have a server repo checkout at the release tag |
-| A live instance's consolidated `/api/schema/` document | `make sync-spec` | You only have an instance running the target version |
+| `specs/JamfProAPI.yaml` | the instance's `/api/schema/` document | `make sync-spec` |
+| `specs/AppInstallers.yaml` | the gateway's published Pro API spec | `make sync-platform-specs-from-sdk` |
 
-Both routes end in `make generate` and both write the version to
-`specs/.spec-version`.
+App Installers sits under `hiddenapi/` in Jamf Pro's source, so no
+`/api/schema/` document carries it. `make sync-spec` does not write
+`AppInstallers.yaml` and does not delete it. `TestCommittedSpecsAreTheNormalisedLayout`
+(`generator/monolith/layout_test.go`) fails if `specs/` holds any other
+top-level `*.yaml` file, or if either file is missing.
+
+### Why there is no `jamf/jss` route
+
+An earlier `make sync-specs` target copied the per-resource specs out of a
+`jamf/jss` checkout. It is retired, and the target now refuses with a pointer
+to `make sync-spec`. The route deleted `specs/JamfProAPI.yaml` and
+`specs/AppInstallers.yaml`, and it carried nothing that `/api/schema/` lacks.
+At build `11.32.0-t1787580540993`, every operation in the checkout's
+`swagger_docs/uapi/` tree was also in the instance's document. The route also
+could not run at that tag, because two modules ship a file named `User.yaml`.
+
+Do not restore a per-resource layout to get an endpoint that `/api/schema/`
+does not serve. Derive it from the gateway's spec the way App Installers is
+derived (`monolith.ExtractSubtree`, `monolith.AppInstallerSpecs`).
 
 ## Prerequisites
 
 - Go toolchain matching `go.mod`
-- For `sync-specs`: a `jamf/jss` checkout at the release tag
-- For `sync-spec`: credentials for an instance on the target version
+- Credentials for an instance on the target version
 
-## Option A: from the jamf/jss monorepo
-
-### Automated (GitHub Actions)
-
-```bash
-gh workflow run sync-specs.yaml \
-  -f jamf_pro_version=11.31.0 \
-  -f server_repo_ref=11.31.0-t1785774933693
-```
-
-### Manual (local)
-
-```bash
-mkdir -p /tmp/jss-sparse && cd /tmp/jss-sparse
-git clone --no-checkout --depth 1 --filter=blob:none \
-  --branch <tag> https://github.com/jamf/jss.git jamf-pro-server
-cd jamf-pro-server
-git sparse-checkout set --no-cone '**/swagger_docs/uapi/*.yaml'
-git checkout
-```
-
-Specs are scattered across subdirectories in the jss repo (not a single folder). The sparse-checkout pattern `**/swagger_docs/uapi/*.yaml` collects them all.
-
-Then, from this repo:
-
-```bash
-make sync-specs JAMF_SERVER_PATH=/tmp/jss-sparse JAMF_PRO_VERSION=11.31.0
-```
-
-`JAMF_SERVER_PATH` is the directory *containing* the checkout — the target reads
-specs from `$JAMF_SERVER_PATH/jamf-pro-server/**/swagger_docs/uapi/`, which is
-why the clone above lands in a `jamf-pro-server` subdirectory.
-
-`JAMF_PRO_VERSION` is mandatory — it is what `specs/.spec-version` (and therefore
-`jamf-cli version`) reports.
-
-Both sync targets check the format and stop before they change anything if it does
-not match. Accepted values are three dot-separated numbers, with an optional build
-suffix:
-
-- `11.31.0`
-- `11.31.0-t1785774933693` — the form `/api/v1/jamf-pro-version` returns on a
-  non-GA instance
-
-Anything else is rejected, including a value that carries whitespace.
-
-## Option B: from a live instance's consolidated schema
-
-The public `/api/schema/` endpoint serves one consolidated OpenAPI document.
-`make sync-spec` splits it back into the per-resource layout under `specs/`.
+## Ingest the consolidated schema
 
 ```bash
 # 1. Fetch (needs auth)
@@ -80,36 +50,32 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 curl -s -H "Authorization: Bearer $TOKEN" \
   https://<instance>/api/v1/jamf-pro-version
 
-# 3. Split and regenerate
-make sync-spec JAMF_MONOLITH_SPEC=/tmp/monolith.json JAMF_PRO_VERSION=11.31.0
+# 3. Normalise and regenerate
+make sync-spec JAMF_MONOLITH_SPEC=/tmp/monolith.json JAMF_PRO_VERSION=11.32.0
 ```
 
 `JAMF_MONOLITH_SPEC` also accepts an `http(s)://` URL directly.
 
-Splitter behaviour and its knobs live in `generator/monolith/`:
+`JAMF_PRO_VERSION` is mandatory. It is what `specs/.spec-version` (and therefore
+`jamf-cli version`) reports. The target checks the format and stops before it
+changes anything if the value does not match. Accepted values are three
+dot-separated numbers, with an optional build suffix:
 
-- **Routing** — each path goes to the spec file that already owns it. Genuinely
-  new paths fall through to `TagFilenameOverrides[tag]` → the file that already
-  owns other paths with the same tag → `PascalSingular(tag).yaml`. Every
-  fall-through is reported as a `Warning:` line, so read the generator output.
-- **`DroppedTags`** — tags never emitted (legacy preview endpoints that shadow a
-  canonical resource).
-- **`PreservedSpecs`** — spec files sourced outside the public monolith. The
-  splitter leaves these files alone and treats their paths as invisible, so the
-  monolith cannot clobber them. Library files they `$ref` are auto-preserved.
-  The four `specs/AppInstaller*.yaml` are the current members: App Installers
-  sits under `hiddenapi/` in Jamf Pro's source, so no monolith carries it, and
-  those files are derived from the gateway's published Pro API spec by
-  `monolith.ExtractSubtree` — see `make sync-platform-specs-from-sdk`.
-- **Components** — a schema used by one spec file is inlined into it; a schema
-  shared by two or more is emitted to `specs/_MonolithLibrary.yaml` and
-  referenced by external `$ref`.
+- `11.32.0`
+- `11.32.0-t1787580540993` — the form `/api/v1/jamf-pro-version` returns on a
+  non-GA instance
 
-The public monolith is a subset of the monorepo specs, so Option B legitimately
-produces fewer paths than Option A. Do not "fix" a missing private endpoint by
-hand-editing a generated spec — add it to `PreservedSpecs` instead.
+Anything else is rejected, including a value that carries whitespace.
 
-## After either route
+`monolith.Normalise` (`generator/monolith/document.go`) writes the document as
+sorted, deterministic YAML, so an ingest produces a diff that a reviewer can
+read. It also coerces each `example` back to its declared `type`, because the
+JSON document turns `example: "3"` into a number. `monolith.PruneStaleSpecs`
+then removes any other top-level `*.yaml` in `specs/`, except the App
+Installer specs, and reports each removal. The subdirectories of `specs/` are
+not touched.
+
+## After the sync
 
 ```bash
 make test
@@ -125,8 +91,8 @@ A brand new tag becomes a brand new resource command, which trips
 
 ### 2. Sanity-check auto-derived resource names
 
-Resource names come from the spec filename and are auto-pluralized. When that
-reads wrong — a collective noun or a double `s` — add an entry to
+Resource names come from each resource's collection path and are
+auto-pluralized. When that reads wrong — a collective noun or a double `s` — add an entry to
 `resourceNameOverrides` in `generator/parser/parser.go` and regenerate. Getting
 this right before the command ships is much cheaper than renaming it later.
 
@@ -174,14 +140,14 @@ bin/jamf-cli -p <profile> pro mobile-devices list
 
 ```bash
 git add specs/ internal/commands/pro/generated/ internal/commands/groups.go
-git commit -m "feat: sync specs with Jamf Pro v11.31.0"
+git commit -m "feat(pro): ingest the Jamf Pro 11.32 spec"
 ```
 
 ## Version tracking
 
 `specs/.spec-version` contains the Jamf Pro version the specs were synced from.
 The Makefile reads it into the binary as `main.specProVersion`, surfaced by
-`jamf-cli version`. Both sync routes and the GitHub Action write it.
+`jamf-cli version`. `make sync-spec` writes it.
 
 ## Generated files
 
@@ -208,7 +174,9 @@ Check that specs are valid YAML:
 go run ./generator --specs ./specs --output ./internal/commands/pro/generated
 ```
 
-Some specs fail to parse due to missing `$ref` targets or schema issues — these are skipped with an error message. This is expected for specs that reference shared definition libraries not included in the uapi directory.
+A spec file that fails to load is reported as a `note:` line and skipped. If
+`specs/JamfProAPI.yaml` is the file that fails, the generator then has no Jamf
+Pro document at all, so fix the ingest rather than the generated code.
 
 ### New endpoints not appearing
 

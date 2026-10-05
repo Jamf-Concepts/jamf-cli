@@ -193,7 +193,7 @@ func main() {
 
 	if len(specs) == 0 {
 		fmt.Println("No OpenAPI specs found in", specsDir)
-		fmt.Println("Run 'make sync-specs' to fetch specs from jamf-pro-server")
+		fmt.Println("Run 'make sync-spec' to ingest the Jamf Pro API spec from an instance")
 		os.Exit(0)
 	}
 

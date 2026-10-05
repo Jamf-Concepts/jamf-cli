@@ -113,28 +113,29 @@ Specs live in three locations depending on the command namespace:
 
 | Command namespace | Spec location | Naming convention | Example |
 |---|---|---|---|
-| `pro <resource>` (modern API) | `specs/<ResourceName>.yaml` | PascalCase singular | `Category.yaml`, `MobileDevice.yaml` |
+| `pro <resource>` (modern API) | `specs/JamfProAPI.yaml` | one document for every resource — find the operation by its path | `POST /v1/categories` |
+| `pro app-installers*` (modern API) | `specs/AppInstallers.yaml` | one document for every App Installer command | `POST /v1/app-installers/deployments` |
 | `pro <resource>` (Classic API) | `specs/classic/resources.yaml` | single manifest | `specs/classic/resources.yaml` |
-| `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/` (see mapping below) | abbreviated, **not** derivable from the command name | `compliance-benchmarks` → `jamf-compliance-benchmark-engine-api.json` |
+| `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/` (see mapping below) | abbreviated, **not** derivable from the command name | `compliance-benchmarks` → `compliance_benchmark_engine.json` |
 
 Platform spec filenames do **not** follow a `<resource>-api.json` rule — they are abbreviated and must be looked up explicitly:
 
 | Command namespace | Spec file under `specs/platform/` |
 |---|---|
-| `pro blueprints` | `blueprints-api.json` |
-| `pro compliance-benchmarks` | `jamf-compliance-benchmark-engine-api.json` |
-| `pro platform-devices` | `device-inventory-api.json` (+ `device-management-actions-api.json` for actions) |
-| `pro platform-device-groups` | `device-groups-api.json` |
-| `pro ddm-reports` | `Declaration-reporting-openapi.json` |
+| `pro blueprints` | `blueprints_api.json` |
+| `pro compliance-benchmarks` | `compliance_benchmark_engine.json` |
+| `pro platform-devices` | `device_inventory_api.json` (+ `device_management_action_api.json` for actions) |
+| `pro platform-device-groups` | `device_group_inventory_api.json` |
+| `pro ddm-reports` | `declaration_reporting_service.json` |
 
 **Steps:**
 
 1. Determine which namespace the command belongs to (shown in `--help` under "Platform:" vs other groups). Pick the correct spec location from the table above.
 
 2. Fetch the raw spec via WebFetch using the appropriate URL:
-   - Pro modern: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/<ResourceName>.yaml`
+   - Pro modern: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml` (`specs/AppInstallers.yaml` for `pro app-installers*`). The document is large: ask WebFetch for the one operation you need by method and path (for example `POST /v1/categories`), and the schemas its `$ref`s name.
    - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/resources.yaml`
-   - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `jamf-compliance-benchmark-engine-api.json`), do not assume `<resource>-api.json`
+   - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `compliance_benchmark_engine.json`), do not assume `<resource>-api.json`
 
 3. Extract the request schema (`requestBody` → `content` → `application/json` → `schema`). Use that schema — and only that schema — to construct the body.
 

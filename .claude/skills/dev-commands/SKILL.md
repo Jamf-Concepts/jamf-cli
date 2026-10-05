@@ -10,8 +10,7 @@ make build                  # Build binary to bin/jamf-cli
 make test                   # Run all tests (-v)
 make lint                   # golangci-lint (skips generated code via .golangci.yml)
 make generate               # Regenerate commands from OpenAPI specs, Classic manifest, and DDM component scaffolds
-make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=11.32.0  # Copy per-resource specs from jamf-pro-server repo checkout, then regenerate
-make sync-spec JAMF_MONOLITH_SPEC=./monolith.json JAMF_PRO_VERSION=11.32.0  # Split a consolidated /api/schema/ JSON into specs/, then regenerate
+make sync-spec JAMF_MONOLITH_SPEC=./monolith.json JAMF_PRO_VERSION=11.32.0  # Write a consolidated /api/schema/ document into specs/JamfProAPI.yaml, then regenerate (the only Jamf Pro spec route)
 make sync-platform-specs-from-sdk           # Fetch the SDK's api/ specs (its main by default; JAMFPLATFORM_SDK_REF / JAMFPLATFORM_SDK_PATH override), then regenerate
 make sync-gateway-coverage-from-sdk         # Re-derive gateway Pro/Classic coverage + Classic body schemas alone (also run by the target above)
 make verify-generated       # Check that generated code is up to date (CI-safe)

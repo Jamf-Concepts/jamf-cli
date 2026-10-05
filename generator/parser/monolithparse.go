@@ -549,11 +549,10 @@ func sortedKeys[V any](m map[string]V) []string {
 
 // MergeDocuments unions several OpenAPI documents into one.
 //
-// It exists so there is a single parse path. Route A (`make sync-specs`) copies
-// per-resource files out of a jamf/jss checkout and route B ingests one
-// consolidated document; merging the first into the shape of the second means
-// the file boundary becomes an input detail rather than something that decides
-// command names.
+// It exists so there is a single parse path. specs/ holds one consolidated
+// document beside the App Installer subtree no consolidated document carries;
+// merging them means a file boundary is an input detail rather than something
+// that decides command names.
 //
 // Components are unioned across every document, the shared library file
 // included. A per-resource file references cross-resource definitions by
@@ -563,15 +562,14 @@ func sortedKeys[V any](m map[string]V) []string {
 // nothing.
 //
 // A path declared by two documents is a hard error: one URL meaning two things
-// is exactly what a silent overwrite hides, and upstream shipping a duplicate
-// basename is an occurrence this repo already guards against elsewhere.
+// is exactly what a silent overwrite hides.
 //
-// A *component* declared by two documents is not, and must not be. The splitter
-// inlines a component into every file that reaches it, so the same schema name
-// legitimately appears in dozens of per-resource files — `ApiError` is in most
-// of them. Identical declarations merge silently; a genuine disagreement takes
+// A *component* declared by two documents is not, and must not be.
+// monolith.ExtractSubtree inlines every component the App Installer subtree
+// reaches, so a shared name such as `ApiError` legitimately appears in both
+// files. Identical declarations merge silently; a genuine disagreement takes
 // the first and is reported, because refusing the whole ingest over a cosmetic
-// difference in an error schema would block route A for nothing. Returns the
+// difference in an error schema would block a sync for nothing. Returns the
 // merged document and any such reports.
 func MergeDocuments(docs []*openapi3.T) (*openapi3.T, []string, error) {
 	merged := &openapi3.T{

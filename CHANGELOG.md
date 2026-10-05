@@ -11,6 +11,21 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Removed — `make sync-specs` and the Sync Specs workflow
+
+The route that copied Jamf Pro specs out of a `jamf/jss` checkout is retired.
+It ran `rm -f specs/*.yaml`, so a run deleted `specs/JamfProAPI.yaml` and
+`specs/AppInstallers.yaml`, and with them every `pro app-installers*` command.
+It also carried no endpoint that an instance's `/api/schema/` lacks. The only
+Jamf Pro route is now `make sync-spec JAMF_MONOLITH_SPEC=<url-or-file>
+JAMF_PRO_VERSION=<version>`. `make sync-specs` refuses and names it, and
+`.github/workflows/sync-specs.yaml` is deleted.
+
+The `jamf-cli` skill and its pre-mutation hook told models to fetch
+`specs/<ResourceName>.yaml` and Platform files such as `blueprints-api.json`.
+None of those exist on `main`. They now name `specs/JamfProAPI.yaml`,
+`specs/AppInstallers.yaml` and the real `specs/platform/` filenames.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body

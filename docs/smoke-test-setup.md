@@ -46,9 +46,8 @@ Run once after setting up a test instance. The seed is idempotent — it skips r
 When a new Jamf Pro version drops:
 
 ```bash
-make sync-specs JAMF_SERVER_PATH=/path/to/jss   # Pull new OpenAPI specs
-make generate                                     # Regenerate CLI commands
-make release-check                                # Unit tests + smoke tests
+make sync-spec JAMF_MONOLITH_SPEC=<url-or-file> JAMF_PRO_VERSION=<version>  # Ingest the spec and regenerate
+make release-check                                                          # Unit tests + smoke tests
 # If green: tag and release
 ```
 
