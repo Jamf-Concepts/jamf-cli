@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in */internal/commands/generated/*) echo 'BLOCK: generated file — run make generate instead' >&2; exit 2;; esac"
+            "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in */internal/commands/*/generated/*_test.go) ;; */internal/commands/*/generated/*) echo 'BLOCK: generated file — run make generate instead' >&2; exit 2;; esac"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in */go.mod) echo 'go.mod changed — regenerating commands...' >&2; make -C \"$(dirname \"$file_path\")\" generate > /dev/null 2>&1 || echo 'WARN: make generate failed' >&2;; esac"
+            "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in \"${CLAUDE_PROJECT_DIR:-$PWD}/go.mod\") echo 'go.mod changed — run make generate to regenerate commands' >&2;; esac"
           }
         ]
       }
