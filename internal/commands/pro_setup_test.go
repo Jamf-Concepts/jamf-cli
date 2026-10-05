@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -247,6 +249,7 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 			"Create API Roles", "Update API Roles",
 			"Create API Integrations", "Update API Integrations",
 			"Create Accounts", "Update Accounts",
+			// Not in specs/JamfProAPI.yaml: names an instance may report for Classic endpoints.
 			"Create Account Groups", "Update Account Groups",
 			"Create LDAP Servers", "Update LDAP Servers",
 			"Update SSO Settings",
@@ -254,12 +257,15 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 		}
 		endpointDestructive := []string{
 			"Send Computer Unmanage Command",
+			"Unmanage Mobile Devices",
+			"Update Retention Policy",
+			// Not in specs/JamfProAPI.yaml: names an instance may report for Classic endpoints.
 			"Send Mobile Device Unmanage Command",
 			"Send Computer Delete User Command",
 		}
 		kept := []string{
 			"Read API Roles", "Read API Integrations", "Read Accounts", "Read Account Groups",
-			"Read LDAP Servers", "Read SSO Settings", "Read SMTP Server",
+			"Read LDAP Servers", "Read SSO Settings", "Read SMTP Server", "Read Retention Policy",
 			"Send Computer Remote Command to Install Package",
 		}
 		instance := slices.Concat(all, escalating, endpointDestructive, kept)
@@ -282,6 +288,54 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 			t.Errorf("full-admin: got %d privileges, want %d (all)", len(got), len(all))
 		}
 	})
+}
+
+func TestScopePresets_StandardWithholdsEveryEscalatingSpecPrivilege(t *testing.T) {
+	withheld := regexp.MustCompile(`^(Create|Update) (API Roles|API Integrations|Account|LDAP Servers|SSO Settings|SMTP Server|Retention Policy)|Unmanage`)
+
+	raw, err := os.ReadFile(filepath.Join("..", "..", "specs", "JamfProAPI.yaml"))
+	if err != nil {
+		t.Fatalf("reading specs/JamfProAPI.yaml: %v", err)
+	}
+	var required []string
+	seen := map[string]bool{}
+	inList, listIndent := false, 0
+	for _, line := range strings.Split(string(raw), "\n") {
+		trimmed := strings.TrimSpace(line)
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if trimmed == "x-required-privileges:" {
+			inList, listIndent = true, indent
+			continue
+		}
+		if !inList {
+			continue
+		}
+		name, isItem := strings.CutPrefix(trimmed, "- ")
+		if !isItem || indent <= listIndent {
+			inList = false
+			continue
+		}
+		if !seen[name] {
+			seen[name] = true
+			required = append(required, name)
+		}
+	}
+
+	for _, p := range []string{
+		"Update API Roles", "Create API Integrations", "Update Accounts", "Update LDAP Servers",
+		"Update SSO Settings", "Update SMTP Server", "Update Retention Policy",
+		"Unmanage Mobile Devices", "Send Computer Unmanage Command",
+	} {
+		if !seen[p] {
+			t.Errorf("specs/JamfProAPI.yaml requires no %q, so the sweep below cannot see it", p)
+		}
+	}
+
+	for _, p := range applyPrivilegeFilter(required, scopeOptionByKey("standard")) {
+		if withheld.MatchString(p) {
+			t.Errorf("standard grants %q", p)
+		}
+	}
 }
 
 func TestFilterPrivileges_NilPrefixes(t *testing.T) {

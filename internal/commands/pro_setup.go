@@ -362,8 +362,10 @@ var scopeOptions = []scopeOption{
 		// "Delete " covers "Delete Computers" (prefix) and "blueprints delete" (verb suffix).
 		// "Flush " covers "Flush MDM Commands" / "Flush Policy Logs" (destroys audit data).
 		// "Dismiss " covers "Dismiss Notifications" (irreversible).
+		// "Update Retention Policy" alone gates queueing a log flushing task.
 		// "*Remote Wipe Command" / "*Remote Lock Command" use the *suffix form to match
 		// "Send Computer/Mobile Device Remote Wipe/Lock Command" without listing each variant.
+		// "Unmanage " covers "Unmanage Mobile Devices", which "*Unmanage Command" does not.
 		//
 		// The privileges that grant privileges or logins are withheld as well: a
 		// client holding any of them can rewrite its own role, attach a broader
@@ -372,8 +374,8 @@ var scopeOptions = []scopeOption{
 		// "Update Account" cover both Accounts and Account Groups. Cloud identity
 		// providers are governed by the LDAP Servers privileges.
 		exclude: []string{
-			"Delete ", "Flush ", "Dismiss ",
-			"*Remote Wipe Command", "*Remote Lock Command", "*Unmanage Command", "*Delete User Command",
+			"Delete ", "Flush ", "Dismiss ", "Update Retention Policy",
+			"*Remote Wipe Command", "*Remote Lock Command", "*Unmanage Command", "Unmanage ", "*Delete User Command",
 			"Create API Roles", "Update API Roles",
 			"Create API Integrations", "Update API Integrations",
 			"Create Account", "Update Account",

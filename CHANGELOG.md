@@ -24,12 +24,19 @@ The tier now also withholds these privileges:
 - `Create` and `Update` on API Roles, API Integrations, Accounts and Account
   Groups, and LDAP Servers (which also governs cloud identity providers).
 - `Update SSO Settings` and `Update SMTP Server`.
-- The unmanage and delete-user device commands.
+- Unmanaging a computer or a mobile device (`Send Computer Unmanage Command`,
+  `Unmanage Mobile Devices`), and the delete-user device command.
+- `Update Retention Policy`, which alone is enough to queue a log flushing
+  task (`pro log-flushing-task create`).
 
 Their `Read` privileges stay. A `jamf-cli-standard` role that an earlier setup
 created keeps its old privileges. To rewrite it, run
-`pro setup --credentials create --scope standard` again. To manage roles,
-accounts or sign-in from the CLI, use `--scope full-admin`.
+`pro setup --credentials create --scope standard` again. Every
+`jamf-cli [<user>]` integration on the instance shares that one role, so the
+re-run narrows it for all of them. The re-run changes only that role: review
+the instance's API roles, API integrations and accounts for any that a
+`standard` client created. To manage roles, accounts or sign-in from the CLI,
+use `--scope full-admin`.
 
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
