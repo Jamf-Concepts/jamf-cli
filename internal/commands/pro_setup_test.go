@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -196,7 +197,7 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 		}
 	})
 
-	t.Run("standard excludes Delete/Flush/Dismiss, includes everything else", func(t *testing.T) {
+	t.Run("standard excludes Delete/Flush/Dismiss, keeps ordinary reads and writes", func(t *testing.T) {
 		got := toSet(applyPrivilegeFilter(all, scopeOptionByKey("standard")))
 
 		// Read/View/Create/Update must be included
@@ -1004,8 +1005,10 @@ func TestNormalizeURL(t *testing.T) {
 
 // setupInstanceServer builds a test HTTP server that handles the Jamf Pro API
 // calls made by setupInstance. existingIntID controls whether an existing
-// integration is returned (non-zero) or not (zero = create path).
-func setupInstanceServer(t *testing.T, existingIntID int) *httptest.Server {
+// integration is returned (non-zero) or not (zero = create path). The server
+// reports privileges as the instance's privilege list, and stores the
+// privileges of the role setupInstance writes in sentRole when it is non-nil.
+func setupInstanceServer(t *testing.T, existingIntID int, privileges []string, sentRole *[]string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -1014,7 +1017,7 @@ func setupInstanceServer(t *testing.T, existingIntID int) *httptest.Server {
 			_ = json.NewEncoder(w).Encode(map[string]string{"token": "test-bearer"})
 
 		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/api-role-privileges"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"privileges": []string{"Read Computers"}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"privileges": privileges})
 
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api-roles"):
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -1023,6 +1026,13 @@ func setupInstanceServer(t *testing.T, existingIntID int) *httptest.Server {
 			})
 
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api-roles/"):
+			if sentRole != nil {
+				var role struct {
+					Privileges []string `json:"privileges"`
+				}
+				_ = json.NewDecoder(r.Body).Decode(&role)
+				*sentRole = role.Privileges
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": "role-1"})
 
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api-integrations"):
@@ -1059,7 +1069,7 @@ func setupInstanceServer(t *testing.T, existingIntID int) *httptest.Server {
 // results in a profile with broken keychain references. The fix detects that the
 // keychain items are absent and regenerates credentials instead of skipping.
 func TestSetupInstance_ExistingIntegration_KeychainMissing(t *testing.T) {
-	server := setupInstanceServer(t, 42) // integration ID 42 already exists
+	server := setupInstanceServer(t, 42, []string{"Read Computers"}, nil) // integration ID 42 already exists
 	defer server.Close()
 
 	mock := newMockKeychainStore()
@@ -1105,7 +1115,7 @@ func TestSetupInstance_ExistingIntegration_KeychainMissing(t *testing.T) {
 // TestSetupInstance_ExistingIntegration_KeychainPresent verifies that when
 // credentials already exist in keychain, setup does NOT regenerate them.
 func TestSetupInstance_ExistingIntegration_KeychainPresent(t *testing.T) {
-	server := setupInstanceServer(t, 42)
+	server := setupInstanceServer(t, 42, []string{"Read Computers"}, nil)
 	defer server.Close()
 
 	mock := newMockKeychainStore()
@@ -1134,5 +1144,31 @@ func TestSetupInstance_ExistingIntegration_KeychainPresent(t *testing.T) {
 
 	if !strings.Contains(out.String(), "unchanged") {
 		t.Errorf("expected output to say credentials unchanged, got:\n%s", out.String())
+	}
+}
+
+func TestSetupInstance_StandardRoleCannotGrantPrivilegesOrLogins(t *testing.T) {
+	instance := []string{
+		"Read Computers", "Update Computers", "Read API Roles", "Read Accounts",
+		"Create API Roles", "Update API Roles", "Create API Integrations", "Update API Integrations",
+		"Create Accounts", "Update Accounts", "Create LDAP Servers", "Update LDAP Servers",
+		"Update SSO Settings", "Update SMTP Server",
+		"Send Computer Unmanage Command", "Send Computer Delete User Command",
+	}
+	var sent []string
+	server := setupInstanceServer(t, 0, instance, &sent)
+	defer server.Close()
+
+	old := config.KeychainStore
+	config.KeychainStore = newMockKeychainStore()
+	defer func() { config.KeychainStore = old }()
+
+	cfg := &config.Config{Profiles: make(map[string]config.Profile)}
+	if err := setupInstance(context.Background(), io.Discard, cfg, server.URL, "user", "pass", "standard", "p", false); err != nil {
+		t.Fatalf("setupInstance: %v", err)
+	}
+	want := []string{"Read Computers", "Update Computers", "Read API Roles", "Read Accounts"}
+	if !slices.Equal(sent, want) {
+		t.Errorf("standard role sent with privileges %q, want %q", sent, want)
 	}
 }

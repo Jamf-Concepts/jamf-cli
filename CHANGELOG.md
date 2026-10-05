@@ -11,6 +11,26 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — `pro setup --scope standard` no longer grants privileges that change privileges or logins
+
+The `standard` tier withheld deletes, wipes, locks and audit flushes, and
+granted every other privilege. That included `Create` and `Update` on API
+Roles, API Integrations and Accounts. So a `standard` client could rewrite its
+own role to hold every privilege the tier withholds, attach a broader role, or
+create an administrator account.
+
+The tier now also withholds these privileges:
+
+- `Create` and `Update` on API Roles, API Integrations, Accounts and Account
+  Groups, and LDAP Servers (which also governs cloud identity providers).
+- `Update SSO Settings` and `Update SMTP Server`.
+- The unmanage and delete-user device commands.
+
+Their `Read` privileges stay. A `jamf-cli-standard` role that an earlier setup
+created keeps its old privileges. To rewrite it, run
+`pro setup --credentials create --scope standard` again. To manage roles,
+accounts or sign-in from the CLI, use `--scope full-admin`.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body

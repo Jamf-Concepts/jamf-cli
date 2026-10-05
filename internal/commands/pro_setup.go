@@ -357,14 +357,29 @@ var scopeOptions = []scopeOption{
 		include: []string{"Read ", "View "},
 	},
 	{
-		key: "standard", displayName: "Standard", description: "read, create, update — no deletes, wipes, or audit destruction",
+		key: "standard", displayName: "Standard", description: "read, create, update — no deletes, wipes, locks, unmanage or audit destruction, and no changes to roles, accounts or sign-in",
 		// Denylist: all privileges except destructive/irreversible operations.
 		// "Delete " covers "Delete Computers" (prefix) and "blueprints delete" (verb suffix).
 		// "Flush " covers "Flush MDM Commands" / "Flush Policy Logs" (destroys audit data).
 		// "Dismiss " covers "Dismiss Notifications" (irreversible).
 		// "*Remote Wipe Command" / "*Remote Lock Command" use the *suffix form to match
 		// "Send Computer/Mobile Device Remote Wipe/Lock Command" without listing each variant.
-		exclude: []string{"Delete ", "Flush ", "Dismiss ", "*Remote Wipe Command", "*Remote Lock Command"},
+		//
+		// The privileges that grant privileges or logins are withheld as well: a
+		// client holding any of them can rewrite its own role, attach a broader
+		// one, create an administrator, or point sign-in at a directory, identity
+		// provider or reset-mail server it controls. "Create Account" and
+		// "Update Account" cover both Accounts and Account Groups. Cloud identity
+		// providers are governed by the LDAP Servers privileges.
+		exclude: []string{
+			"Delete ", "Flush ", "Dismiss ",
+			"*Remote Wipe Command", "*Remote Lock Command", "*Unmanage Command", "*Delete User Command",
+			"Create API Roles", "Update API Roles",
+			"Create API Integrations", "Update API Integrations",
+			"Create Account", "Update Account",
+			"Create LDAP Servers", "Update LDAP Servers",
+			"Update SSO Settings", "Update SMTP Server",
+		},
 	},
 	{
 		key: "full-admin", displayName: "Full Admin", description: "all privileges",
