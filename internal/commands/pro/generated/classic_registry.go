@@ -737,14 +737,15 @@ func classicNarrowToExactName(folded []classicNameMatch, name string) []classicN
 
 // extractClassicName extracts the resource name from XML input as text, so a
 // name that reads as a number or boolean ("2024", "true") is kept verbatim.
-// It tries a direct-child <name> first, then one under <general>. The
-// singularKey is the XML wrapper element (e.g., "policy"); a body that omits
-// the wrapper is read from its root.
+// It reads a direct-child <name> and one under <general>, and refuses a body
+// whose names differ, because the lookup and the server could then read
+// different ones. The singularKey is the XML wrapper element (e.g.,
+// "policy"); a body that omits the wrapper is read from its root.
 func extractClassicName(data []byte, singularKey string) (string, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	var stack []string
 	var text strings.Builder
-	var direct, general string
+	var names []string
 	for {
 		tok, err := dec.Token()
 		if err == io.EOF {
@@ -764,25 +765,22 @@ func extractClassicName(data []byte, singularKey string) (string, error) {
 			if len(path) > 0 && path[0] == singularKey {
 				path = path[1:]
 			}
-			if len(path) > 0 && path[len(path)-1] == "name" {
-				switch {
-				case len(path) == 1 && direct == "":
-					direct = strings.TrimSpace(text.String())
-				case len(path) == 2 && path[0] == "general" && general == "":
-					general = strings.TrimSpace(text.String())
+			if len(path) > 0 && path[len(path)-1] == "name" && (len(path) == 1 || len(path) == 2 && path[0] == "general") {
+				if v := strings.TrimSpace(text.String()); v != "" && !slices.Contains(names, v) {
+					names = append(names, v)
 				}
 			}
 			text.Reset()
 			stack = stack[:len(stack)-1]
 		}
 	}
-	if direct != "" {
-		return direct, nil
+	switch len(names) {
+	case 0:
+		return "", fmt.Errorf("could not find 'name' field in XML input")
+	case 1:
+		return names[0], nil
 	}
-	if general != "" {
-		return general, nil
-	}
-	return "", fmt.Errorf("could not find 'name' field in XML input")
+	return "", fmt.Errorf("the XML input names the record more than once (%q); keep one <name>", names)
 }
 
 // ClassicNameCollisionError signals that a name resolved to more than one
@@ -1131,16 +1129,17 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 // injectClassicRedeployOnUpdate ensures <redeploy_on_update>All</redeploy_on_update>
 // is present inside <general>. If <general> already holds <redeploy_on_update>
 // (e.g. supplied by the caller), the existing value is left unchanged, and so
-// is a body that does not parse or has no single <general>.
-func injectClassicRedeployOnUpdate(body []byte) []byte {
-	if _, _, found, err := classicElement(body, "general", "redeploy_on_update"); err != nil || found {
-		return body
+// is a body with no <general>.
+func injectClassicRedeployOnUpdate(body []byte) ([]byte, error) {
+	_, _, found, err := classicElement(body, "general", "redeploy_on_update")
+	if err != nil || found {
+		return body, err
 	}
 	_, general, found, err := classicElement(body, "general")
 	if err != nil || !found {
-		return body
+		return body, err
 	}
-	return classicInsertChild(body, general, "<redeploy_on_update>All</redeploy_on_update>", true)
+	return classicInsertChild(body, general, "<redeploy_on_update>All</redeploy_on_update>", true), nil
 }
 
 // stripCDATASections rewrites every <![CDATA[...]]> section in an XML
@@ -1306,7 +1305,7 @@ func escapeClassicAmpPreservingCRRefs(s string) string {
 // escapeClassicAmpPreservingCRRefs).
 // Text-form payloads (e.g. a GET/backup response piped back in) are
 // entity-decoded once to recover the plist first. Bodies without a
-// non-empty <payloads> element are returned unchanged.
+// non-empty <general><payloads> element are returned unchanged.
 //
 // Why the escape (PI-827, wire-verified 2026-07-30 on two tenants): the
 // server validates payload content after one entity decode and 409s
@@ -1319,19 +1318,22 @@ func escapeClassicAmpPreservingCRRefs(s string) string {
 // fragments are stored verbatim, keeping the extra layer. Profiles with
 // "&"/"<" in values of those types cannot be stored faithfully by any
 // client (verifyClassicProfileStored warns after the write).
-func normalizeClassicProfilePayloadsForSend(body []byte) []byte {
+func normalizeClassicProfilePayloadsForSend(body []byte) ([]byte, error) {
 	_, el, found, err := classicElement(body, "general", "payloads")
 	if err != nil || !found {
-		return body
+		return body, err
 	}
 	inner, err := classicElementText(body, el)
-	if err != nil || inner == "" {
-		return body
+	if err != nil {
+		return nil, fmt.Errorf("parsing <general><payloads>: %w", err)
+	}
+	if inner == "" {
+		return body, nil
 	}
 	inner = minimizeClassicPlistSourceEscaping(inner)
 	inner = strings.ReplaceAll(inner, "]]>", "]]&gt;")
 	inner = escapeClassicAmpPreservingCRRefs(inner)
-	return classicSplice(body, el.inner, el.innerEnd, "<![CDATA["+inner+"]]>")
+	return classicSplice(body, el.inner, el.innerEnd, "<![CDATA["+inner+"]]>"), nil
 }
 
 // classicProfilePayloadFromBody returns the true plist inside the request

@@ -23,13 +23,23 @@ or make `apply --name` overwrite a different existing profile.
 
 These commands now parse the document and edit only `<general><payloads>`,
 `<app_configuration><preferences>` or `<general><name>`. The rest of the
-document is sent byte for byte. Two visible changes follow when one of these
-flags is set:
+document is sent byte for byte. `apply --name` looks the record up by the name
+it was given, not by a `<name>` elsewhere in the document.
 
-- A document that is not well-formed XML fails before any request, with the
-  parser's error.
-- A document with more than one of those elements is refused, because the CLI
-  cannot know which one the server reads.
+Visible changes, all before any request is sent:
+
+- Every configuration-profile `create`, `update` and `apply`, and an app write
+  with `--appconfig-file`, fails on a document the XML parser cannot read, with
+  the parser's error. That includes a document that declares an encoding other
+  than UTF-8.
+- Those writes refuse a document with more than one `<general><payloads>` or
+  `<app_configuration><preferences>`, because the CLI cannot know which one the
+  server reads. A profile `update`, an `apply` that replaces a profile, and
+  `apply --name` also refuse a second `<general>`, and `apply --name` a second
+  `<general><name>`.
+- Every Classic `apply` refuses a document that carries two different names,
+  root-level `<name>` or `<general><name>`, because the record lookup and the
+  server could read different ones.
 
 ### Added — generated Jamf Pro writes take a body `--from-file`
 

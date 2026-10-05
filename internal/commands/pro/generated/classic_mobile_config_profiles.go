@@ -475,7 +475,10 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 				return err
 			}
 
-			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			bodyBytes, err = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			if err != nil {
+				return err
+			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
@@ -589,8 +592,13 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			}
 
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
-			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
-			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			var editErr error
+			if bodyBytes, editErr = injectClassicRedeployOnUpdate(bodyBytes); editErr != nil {
+				return editErr
+			}
+			if bodyBytes, editErr = normalizeClassicProfilePayloadsForSend(bodyBytes); editErr != nil {
+				return editErr
+			}
 
 			path := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
@@ -892,7 +900,10 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 					return nil
 				}
 
-				data = normalizeClassicProfilePayloadsForSend(data)
+				data, err = normalizeClassicProfilePayloadsForSend(data)
+				if err != nil {
+					return err
+				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -928,8 +939,12 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			// Preserve existing PayloadUUID and PayloadIdentifier.
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", id)
 			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
-			data = injectClassicRedeployOnUpdate(data)
-			data = normalizeClassicProfilePayloadsForSend(data)
+			if data, err = injectClassicRedeployOnUpdate(data); err != nil {
+				return err
+			}
+			if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+				return err
+			}
 
 			updatePath := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))

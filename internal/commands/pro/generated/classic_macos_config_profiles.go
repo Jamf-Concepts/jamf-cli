@@ -509,7 +509,10 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 				return err
 			}
 
-			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			bodyBytes, err = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			if err != nil {
+				return err
+			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
@@ -644,8 +647,13 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			}
 
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
-			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
-			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			var editErr error
+			if bodyBytes, editErr = injectClassicRedeployOnUpdate(bodyBytes); editErr != nil {
+				return editErr
+			}
+			if bodyBytes, editErr = normalizeClassicProfilePayloadsForSend(bodyBytes); editErr != nil {
+				return editErr
+			}
 
 			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
@@ -958,9 +966,13 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			// input (body typically empty); fall back to XML name if flag absent.
 			var name string
 
-			name, err = extractClassicName(data, "os_x_configuration_profile")
-			if err != nil {
-				return err
+			if flagName != "" {
+				name = flagName
+			} else {
+				name, err = extractClassicName(data, "os_x_configuration_profile")
+				if err != nil {
+					return err
+				}
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
@@ -978,7 +990,10 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 					return nil
 				}
 
-				data = normalizeClassicProfilePayloadsForSend(data)
+				data, err = normalizeClassicProfilePayloadsForSend(data)
+				if err != nil {
+					return err
+				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -1014,8 +1029,12 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			// Preserve existing PayloadUUID and PayloadIdentifier.
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", id)
 			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
-			data = injectClassicRedeployOnUpdate(data)
-			data = normalizeClassicProfilePayloadsForSend(data)
+			if data, err = injectClassicRedeployOnUpdate(data); err != nil {
+				return err
+			}
+			if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+				return err
+			}
 
 			updatePath := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
