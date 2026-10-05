@@ -15,7 +15,7 @@ description: Use when adding a feature, syncing Jamf Pro/Platform/Security specs
 
 Both routes require `JAMF_PRO_VERSION` — it is written to `specs/.spec-version`, which the Makefile bakes into the binary as `specProVersion`. Full walkthrough in `docs/sync-specs.md`.
 
-**A. Monorepo checkout:** `make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=11.31.0` → review `git diff --stat -- internal/commands/pro/generated/` → `make test`.
+**A. Monorepo checkout:** `make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=11.31.0` → review `git diff --stat -- internal/commands/pro/generated/` → `make test`. This route deletes every `specs/*.yaml`, `JamfProAPI.yaml` and `AppInstallers.yaml` included, and copies per-resource files back without normalising them. The shipped `jamf-cli` skill fetches `specs/JamfProAPI.yaml` from `main`, so a route A sync breaks that fetch.
 
 **B. Consolidated `/api/schema/` monolith:**
 1. Fetch (needs auth): `curl -H "Authorization: Bearer $JAMF_TOKEN" https://<instance>/api/schema/ -o monolith.json`

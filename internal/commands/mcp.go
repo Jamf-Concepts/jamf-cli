@@ -288,7 +288,7 @@ value is an error; there is no config key for it.`,
 					dashboardCostNote + " Run the fast report first. Set full:true only after " +
 					"the administrator knows the fleet size and asks for the full report. " +
 					"generate_report returns no figures, so get the fleet size with run_command " +
-					"[\"pro\",\"computer-inventory\",\"list\",\"--limit\",\"1\",\"--field\",\"totalCount\"].\n\n" +
+					"[\"pro\",\"computer-inventory\",\"list\",\"--all=false\",\"--page-size\",\"1\",\"-o\",\"json\",\"--field\",\"totalCount\"].\n\n" +
 					"The report covers the profile this server was started with. A Platform " +
 					"profile (auth-method: platform) gives the most comprehensive report: it " +
 					"authenticates one set of credentials against the Jamf Platform Gateway and " +

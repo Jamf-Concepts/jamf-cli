@@ -93,7 +93,8 @@ here, so that the three cannot disagree.
 
 `generate_report` returns only the path, size and warnings, never the report's
 own figures, so **the fleet size has to come from a separate call**:
-`run_command ["pro","computer-inventory","list","--limit","1","--field","totalCount"]`.
+`run_command ["pro","computer-inventory","list","--all=false","--page-size","1","-o","json","--field","totalCount"]`.
+Keep `--all=false`: the default `--all` prints the rows without the `totalCount` envelope.
 Then offer the extended report before running it: *"The instance has N managed
 devices. I can run a full report that also includes patch compliance, hardware
 models, cleanup analysis, and org structure. Would you like the full report?"*
@@ -130,8 +131,8 @@ For a shareable artifact:
 1. **Generate the dashboard** (`generate_report` over MCP, `jamf-cli dashboard`
    otherwise)
 2. **Report the file path** — that is the thing the user sends on
-3. **Say what the report covers** — its title and sections — so they know what
-   they are about to share. Over MCP the tool returns no figures, so do not
-   quote any
+3. **Say what the report covers** — which tier ran and the sections that tier
+   includes — so they know what they are about to share. Over MCP the tool
+   returns no figures, so do not quote any
 4. **Relay any warnings** the generation returned: a warned section is
    incomplete, and the recipient cannot tell that from the file

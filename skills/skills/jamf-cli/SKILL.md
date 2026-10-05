@@ -129,6 +129,8 @@ Platform spec filenames do **not** follow a `<resource>-api.json` rule — they 
 
 **Steps:**
 
+If the command's `--help` lists `--scaffold`, run it first: it prints the body template from the same spec, with no fetch. Use the steps below when it does not, or to read what a field means.
+
 1. Determine which namespace the command belongs to (shown in `--help` under "Platform:" vs other groups). Pick the correct spec location from the table above.
 
 2. Fetch the raw spec via WebFetch using the appropriate URL:
@@ -136,7 +138,7 @@ Platform spec filenames do **not** follow a `<resource>-api.json` rule — they 
    - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/schemas.json`
    - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `compliance_benchmark_engine.json`), do not assume `<resource>-api.json`
 
-3. Extract the request schema (`requestBody` → `content` → `application/json` → `schema`). Use that schema — and only that schema — to construct the body.
+3. Extract the request schema. In an OpenAPI spec it is `requestBody` → `content` → `application/json` → `schema`. In `specs/classic/schemas.json`, look the resource up under `x-jamf-classic-resources`, then read `components.schemas.<schema>`; the body is XML under its `root` element. Use that schema — and only that schema — to construct the body.
 
 4. If you cannot confidently map the resource to a spec file, tell the user and ask them to confirm before proceeding. Do not fall back to guessing.
 

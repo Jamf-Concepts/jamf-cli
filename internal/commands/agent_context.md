@@ -15,7 +15,7 @@ Environment variables (override profile config):
 - `JAMF_TOKEN` — pre-existing bearer token
 - `JAMF_CLIENT_ID` / `JAMF_CLIENT_SECRET` — OAuth2 client credentials
 - `JAMF_ENVIRONMENT_ID` — platform environment id for Platform gateway auth (the preferred level)
-- `JAMF_TENANT_ID` — tenant id for Platform gateway auth (the legacy level; set one of the two, not both)
+- `JAMF_TENANT_ID` — tenant id for Platform gateway auth (the legacy level; set at most one of the two, and neither for organization-scoped credentials)
 - `JAMFPROTECT_URL` / `JAMFPROTECT_CLIENT_ID` / `JAMFPROTECT_CLIENT_SECRET` — Jamf Protect
 
 Profiles: `-p <profile>` (or `JAMF_PROFILE`) selects a saved profile. Create one
