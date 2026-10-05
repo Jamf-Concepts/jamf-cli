@@ -11,6 +11,26 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — Classic profile and app writes edit the element the server reads
+
+`--mobileconfig-file`, `--custom-payload-file`, `--appconfig-file` and
+`apply --name` put the operator's value into the `--from-file` document. They
+used to find the target by the first matching text. So a `<payloads>` or
+`<name>` inside a comment, inside CDATA, or under another parent (such as
+`<general><category><name>`) took the value, and Jamf Pro stored the
+document's own element. A shared or vendor document could keep its own payload,
+or make `apply --name` overwrite a different existing profile.
+
+These commands now parse the document and edit only `<general><payloads>`,
+`<app_configuration><preferences>` or `<general><name>`. The rest of the
+document is sent byte for byte. Two visible changes follow when one of these
+flags is set:
+
+- A document that is not well-formed XML fails before any request, with the
+  parser's error.
+- A document with more than one of those elements is refused, because the CLI
+  cannot know which one the server reads.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body
