@@ -11,8 +11,10 @@ The gateway's published Pro/Classic API is the contract. `specs/gateway/coverage
 
 | spec | what it is |
 |---|---|
-| `pro_api.json` | Jamf Pro API as published on the gateway (476 paths, 700 ops, 11.31.0) |
-| `classic_api_resource_documentation.json` | Classic API, likewise (270 paths, 589 ops, 11.28.0) |
+| `pro_api.json` | Jamf Pro API as published on the gateway |
+| `classic_api_resource_documentation.json` | Classic API, likewise |
+
+The ingested versions and SDK commit are the `ProAPIVersion`, `ClassicAPIVersion` and `SDKCommit` constants in `internal/gateway/coverage_gen.go`. Path and operation counts are in the `sources` block of `coverage.json`.
 
 Both are in `PLATFORM_SDK_COVERAGE_SPECS` and must **never** join `PLATFORM_SDK_SPECS` — they describe Jamf Pro APIs this repo already generates from `specs/*.yaml`, so handing them to the platform generator emits a second set of Pro commands built from gateway paths.
 
@@ -22,8 +24,8 @@ A command outside the published surface is **refused on a gateway profile before
 
 `generator/gateway` reads the manifest, stamps every Pro and Classic operation with a `jamf:gateway` annotation, and emits the runtime table `internal/gateway/coverage_gen.go`. **One level, `unserved`, and every entry refuses.** What varies is `jamf:gateway-basis`, which selects the wording:
 
-- **`probe`** — a recorded, corroborated wire probe found it unrouted. `probedUnserved` in `generator/gateway/verdict.go`. Needs a corroborated probe — one 403 is not one. Zero entries as of the v0.20.1 ingest.
-- **`unpublished`** — absent from the published spec. Message says the endpoint may still answer today, that this is transitional, and that it is refused now rather than later. 37 Pro operations plus Classic `classic-computer-configs`.
+- **`probe`** — a recorded, corroborated wire probe found it unrouted. `probedUnserved` in `generator/gateway/verdict.go`. Needs a corroborated probe — one 403 is not one. The table is empty.
+- **`unpublished`** — absent from the published spec. Message says the endpoint may still answer today, that this is transitional, and that it is refused now rather than later. `unserved` in `internal/gateway/coverage_gen.go` lists every such entry, Pro and Classic.
 
 **`forceServed`** is the escape hatch asserting the published surface is *wrong*, not merely ahead of the wire. Its bar is not "the wire says this still works" — that is the transitional state, not a counter-example. Currently empty.
 

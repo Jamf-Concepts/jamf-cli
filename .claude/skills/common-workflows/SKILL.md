@@ -22,14 +22,9 @@ Both routes require `JAMF_PRO_VERSION` — it is written to `specs/.spec-version
 2. `make sync-spec JAMF_MONOLITH_SPEC=./monolith.json JAMF_PRO_VERSION=11.31.0`
 3. Review `git diff --stat -- specs/ internal/commands/pro/generated/` → `make test`.
 
-The public monolith is a **subset** of the monorepo specs — route B legitimately drops private endpoints, which is what `PreservedSpecs` protects.
+The public monolith is a **subset** of the monorepo specs — route B legitimately drops private endpoints.
 
-Splitter routes each path into the filename that owns it under `specs/` (path-based layout). New paths fall through to `firstTag → TagFilenameOverrides → PascalSingular(tag)`. Components classified as **exclusive** (inlined into owning file) or **shared** (emitted to `specs/_MonolithLibrary.yaml` and referenced via external $ref).
-
-Knobs in `generator/monolith/overrides.go`:
-- `TagFilenameOverrides` — explicit tag → filename map where auto-derived PascalSingular is wrong.
-- `DroppedTags` — tags whose paths must never be emitted (legacy preview endpoints shadowing canonical resources).
-- `PreservedSpecs` — spec files sourced outside the public monolith (private endpoints). Splitter leaves them untouched; library files they reference are auto-preserved via $ref scan.
+Route B writes one normalised document, `specs/JamfProAPI.yaml` (`monolith.Normalise`, `generator/monolith/document.go`), and `PruneStaleSpecs` removes the per-resource files an earlier split left behind. App Installers are the one Jamf Pro surface no monolith carries: they are derived from the SDK's `pro_api.json` through `AppInstallerSpecs` (`generator/monolith/overrides.go`), and `PruneStaleSpecs` exempts them.
 
 After ingest, any **new tag** surfaces as a new resource command and trips `TestApplyProGroups_AllCommandsGrouped` — wire into the correct `proGroupMap` entry in `internal/commands/groups.go`.
 
@@ -43,7 +38,7 @@ Unlike Platform, dropping a spec into `specs/.security-source/` isn't enough by 
 
 ## Adding handwritten commands (Pro, Protect, School, Security, Platform, new product)
 
-See the "Where to Make Changes" table in `.claude/rules/where-to-change.md` for file locations. Common pattern:
+See the `where-to-make-changes` skill (`.claude/skills/where-to-make-changes/SKILL.md`) for file locations. Common pattern:
 1. Create new file with appropriate prefix (`pro_`, `protect_`, `school_`, `security_`, or new product's).
 2. Wire into the product's bridge (`pro.go`, `protect.go`, `school.go`, `security.go`, or `root.go`).
 3. Add to `groups.go` and optionally `aliases.go`.

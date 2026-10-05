@@ -89,12 +89,11 @@ compliance, audit findings, and environment stats.
 **What each tier costs is stated in one place** — `jamf-cli dashboard --help`,
 which renders `dashboardCostNote` — and the `generate_report` tool description
 quotes the same sentence. Quote it from there rather than restating a number
-here: this file, the tool description and the command's own help gave three
-different figures once, and all three were wrong.
+here, so that the three cannot disagree.
 
 `generate_report` returns only the path, size and warnings, never the report's
 own figures, so **the fleet size has to come from a separate call**:
-`run_command ["pro","computers-inventory","list","--limit","1","--field","totalCount"]`.
+`run_command ["pro","computer-inventory","list","--limit","1","--field","totalCount"]`.
 Then offer the extended report before running it: *"The instance has N managed
 devices. I can run a full report that also includes patch compliance, hardware
 models, cleanup analysis, and org structure. Would you like the full report?"*
@@ -131,7 +130,8 @@ For a shareable artifact:
 1. **Generate the dashboard** (`generate_report` over MCP, `jamf-cli dashboard`
    otherwise)
 2. **Report the file path** — that is the thing the user sends on
-3. **Summarize the highlights in the conversation**, so they know what they are
-   about to share without opening it
+3. **Say what the report covers** — its title and sections — so they know what
+   they are about to share. Over MCP the tool returns no figures, so do not
+   quote any
 4. **Relay any warnings** the generation returned: a warned section is
    incomplete, and the recipient cannot tell that from the file

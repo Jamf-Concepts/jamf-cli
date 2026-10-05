@@ -1,4 +1,3 @@
----
 # Classic API
 
 ## Paths and Gateway Routing

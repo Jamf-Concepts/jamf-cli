@@ -113,28 +113,28 @@ Specs live in three locations depending on the command namespace:
 
 | Command namespace | Spec location | Naming convention | Example |
 |---|---|---|---|
-| `pro <resource>` (modern API) | `specs/<ResourceName>.yaml` | PascalCase singular | `Category.yaml`, `MobileDevice.yaml` |
-| `pro <resource>` (Classic API) | `specs/classic/resources.yaml` | single manifest | `specs/classic/resources.yaml` |
-| `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/` (see mapping below) | abbreviated, **not** derivable from the command name | `compliance-benchmarks` → `jamf-compliance-benchmark-engine-api.json` |
+| `pro <resource>` (modern API) | `specs/JamfProAPI.yaml` | one document for every resource | find the operation by its path |
+| `pro classic-<resource>` (Classic API) | `specs/classic/schemas.json` | request-body schemas, one per resource | `specs/classic/resources.yaml` lists resources and paths only |
+| `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/` (see mapping below) | abbreviated, **not** derivable from the command name | `compliance-benchmarks` → `compliance_benchmark_engine.json` |
 
 Platform spec filenames do **not** follow a `<resource>-api.json` rule — they are abbreviated and must be looked up explicitly:
 
 | Command namespace | Spec file under `specs/platform/` |
 |---|---|
-| `pro blueprints` | `blueprints-api.json` |
-| `pro compliance-benchmarks` | `jamf-compliance-benchmark-engine-api.json` |
-| `pro platform-devices` | `device-inventory-api.json` (+ `device-management-actions-api.json` for actions) |
-| `pro platform-device-groups` | `device-groups-api.json` |
-| `pro ddm-reports` | `Declaration-reporting-openapi.json` |
+| `pro blueprints` | `blueprints_api.json` |
+| `pro compliance-benchmarks` | `compliance_benchmark_engine.json` |
+| `pro platform-devices` | `device_inventory_api.json` (+ `device_management_action_api.json` for actions) |
+| `pro platform-device-groups` | `device_group_inventory_api.json` |
+| `pro ddm-reports` | `declaration_reporting_service.json` |
 
 **Steps:**
 
 1. Determine which namespace the command belongs to (shown in `--help` under "Platform:" vs other groups). Pick the correct spec location from the table above.
 
 2. Fetch the raw spec via WebFetch using the appropriate URL:
-   - Pro modern: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/<ResourceName>.yaml`
-   - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/resources.yaml`
-   - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `jamf-compliance-benchmark-engine-api.json`), do not assume `<resource>-api.json`
+   - Pro modern: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml` — one large document; ask for the request schema of the one operation you need
+   - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/schemas.json`
+   - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `compliance_benchmark_engine.json`), do not assume `<resource>-api.json`
 
 3. Extract the request schema (`requestBody` → `content` → `application/json` → `schema`). Use that schema — and only that schema — to construct the body.
 
@@ -173,7 +173,7 @@ Passing an ID or `--name` to a singleton command will fail. Singletons are ident
 
 ### Classic API payloads are XML
 
-Classic API resources (commands under `pro` that map to `/JSSResource/` paths) use XML request and response bodies — not JSON. When constructing a `--from-file` payload or piping input, the content must be valid XML. Check `specs/classic/resources.yaml` for the expected structure.
+Classic API resources (commands under `pro` that map to `/JSSResource/` paths) use XML request and response bodies — not JSON. When constructing a `--from-file` payload or piping input, the content must be valid XML. Run the command with `--scaffold`, or read the resource's schema in `specs/classic/schemas.json`, for the expected structure.
 
 ### List response shape varies — don't assume `.id`
 
@@ -210,7 +210,7 @@ jamf-cli -p <profile> pro platform-device-groups list -o json \
   | jq -r '.results[] | select(.name == "Test Group") | .id'
 
 # 3. Scope the blueprint using that UUID
-jamf-cli -p <profile> pro blueprints get "My Blueprint" -o json \
+jamf-cli -p <profile> pro blueprints get --name "My Blueprint" -o json \
   | jq '.scope.deviceGroups += ["<uuid>"]' \
   | jamf-cli -p <profile> pro blueprints apply
 ```
