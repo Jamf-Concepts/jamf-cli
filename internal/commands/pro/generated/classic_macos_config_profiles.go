@@ -930,7 +930,10 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			// can populate <general><name> for lookup.
 
 			if flagName != "" {
-				data = setClassicGeneralName(data, "os_x_configuration_profile", flagName)
+				data, err = setClassicGeneralName(data, "os_x_configuration_profile", flagName)
+				if err != nil {
+					return err
+				}
 			}
 			if len(flagCustomPayloadFiles) > 0 {
 				var mcBytes []byte

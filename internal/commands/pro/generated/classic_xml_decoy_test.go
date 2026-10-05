@@ -114,7 +114,10 @@ func TestSetClassicGeneralName_SetsTheNameTheServerReads(t *testing.T) {
 		"comment":        `<os_x_configuration_profile><!-- <general><name>x</name></general> --><general><name>Corp Baseline</name></general></os_x_configuration_profile>`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			out := setClassicGeneralName([]byte(body), "os_x_configuration_profile", "Vendor Test")
+			out, err := setClassicGeneralName([]byte(body), "os_x_configuration_profile", "Vendor Test")
+			if err != nil {
+				t.Fatal(err)
+			}
 			wantTexts(t, out, []string{"Vendor Test"}, "general", "name")
 		})
 	}
@@ -126,8 +129,8 @@ func TestHasClassicGeneralName_IgnoresOtherNames(t *testing.T) {
 		`<p><general><!-- <name>x</name> --></general></p>`,
 		`<p><general><description><![CDATA[<name>x</name>]]></description></general></p>`,
 	} {
-		if hasClassicGeneralName(body) {
-			t.Errorf("hasClassicGeneralName(%s) = true; the document has no general/name", body)
+		if has, err := hasClassicGeneralName([]byte(body)); err != nil || has {
+			t.Errorf("hasClassicGeneralName(%s) = %v, %v; the document has no general/name", body, has, err)
 		}
 	}
 }

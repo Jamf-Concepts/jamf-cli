@@ -655,7 +655,7 @@ func TestInjectClassicFileFields_MalformedXML_LeafOpensWithoutClose(t *testing.T
 	if err == nil {
 		t.Fatal("expected error for unterminated leaf tag")
 	}
-	if !strings.Contains(err.Error(), "opens without close") {
+	if !strings.Contains(err.Error(), "parsing the XML body") || !strings.Contains(err.Error(), "<payloads>") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
@@ -703,7 +703,7 @@ func TestHasClassicGeneralName(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			if got := hasClassicGeneralName(tc.body); got != tc.want {
+			if got, _ := hasClassicGeneralName([]byte(tc.body)); got != tc.want {
 				t.Errorf("got %v, want %v for %q", got, tc.want, tc.body)
 			}
 		})

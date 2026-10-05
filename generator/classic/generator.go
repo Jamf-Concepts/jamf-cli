@@ -1417,7 +1417,10 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 			// can populate <general><name> for lookup.
 {{ if .HasCustomPayload }}
 			if flagName != "" {
-				data = setClassicGeneralName(data, "{{ .Singular }}", flagName)
+				data, err = setClassicGeneralName(data, "{{ .Singular }}", flagName)
+				if err != nil {
+					return err
+				}
 			}
 			if len(flagCustomPayloadFiles) > 0 {
 				var mcBytes []byte
@@ -2437,6 +2440,114 @@ func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, b
 	return result.IDGeneral, nil
 }
 {{ end }}
+{{ if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
+// classicSpan is one element of a Classic XML body as byte offsets: start is
+// its "<", inner and innerEnd bound its content, and end is just past its
+// close tag. A self-closing element has inner == innerEnd == end.
+type classicSpan struct {
+	name                         string
+	start, inner, innerEnd, end int
+}
+
+// classicElements returns the document element and every element at path
+// below it, as an XML parser reads the body. Text inside a comment, a CDATA
+// section or a processing instruction is never an element, so the editors
+// below change what the server reads, and nothing else in the body.
+func classicElements(body []byte, path ...string) (classicSpan, []classicSpan, error) {
+	d := xml.NewDecoder(bytes.NewReader(body))
+	var stack []classicSpan
+	var root classicSpan
+	var found []classicSpan
+	for {
+		before := int(d.InputOffset())
+		tok, err := d.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return classicSpan{}, nil, fmt.Errorf("parsing the XML body: %w", err)
+		}
+		switch tok := tok.(type) {
+		case xml.StartElement:
+			if len(stack) == 0 && root.name != "" {
+				return classicSpan{}, nil, fmt.Errorf("parsing the XML body: a second root element <%s> follows <%s>", tok.Name.Local, root.name)
+			}
+			stack = append(stack, classicSpan{name: tok.Name.Local, start: before, inner: int(d.InputOffset())})
+		case xml.EndElement:
+			el := stack[len(stack)-1]
+			el.innerEnd, el.end = before, int(d.InputOffset())
+			stack = stack[:len(stack)-1]
+			if len(stack) == 0 {
+				root = el
+				continue
+			}
+			if len(stack) == len(path) && slices.EqualFunc(stack[1:], path[:len(path)-1], func(s classicSpan, p string) bool { return s.name == p }) && el.name == path[len(path)-1] {
+				found = append(found, el)
+			}
+		}
+	}
+	if root.name == "" {
+		return classicSpan{}, nil, fmt.Errorf("parsing the XML body: no root element")
+	}
+	return root, found, nil
+}
+
+// classicElement is classicElements for a path the server reads once: more
+// than one element there is an error rather than a guess at which one counts.
+func classicElement(body []byte, path ...string) (root, el classicSpan, found bool, err error) {
+	root, all, err := classicElements(body, path...)
+	if err != nil {
+		return classicSpan{}, classicSpan{}, false, err
+	}
+	switch len(all) {
+	case 0:
+		return root, classicSpan{}, false, nil
+	case 1:
+		return root, all[0], true, nil
+	}
+	return classicSpan{}, classicSpan{}, false, fmt.Errorf("the XML body has %d <%s> elements; it must have at most one", len(all), strings.Join(path, "/"))
+}
+
+// classicElementText returns el's character data, with CDATA read as text and
+// comments skipped.
+func classicElementText(body []byte, el classicSpan) (string, error) {
+	d := xml.NewDecoder(bytes.NewReader(body[el.inner:el.innerEnd]))
+	var b strings.Builder
+	for {
+		tok, err := d.Token()
+		if err == io.EOF {
+			return b.String(), nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if cd, ok := tok.(xml.CharData); ok {
+			b.Write(cd)
+		}
+	}
+}
+
+// classicSplice returns body with body[from:to] replaced by insert.
+func classicSplice(body []byte, from, to int, insert string) []byte {
+	out := make([]byte, 0, len(body)-(to-from)+len(insert))
+	out = append(out, body[:from]...)
+	out = append(out, insert...)
+	return append(out, body[to:]...)
+}
+
+// classicInsertChild adds child as el's last content, or its first when
+// first is set. A self-closing element is rewritten with a close tag.
+func classicInsertChild(body []byte, el classicSpan, child string, first bool) []byte {
+	if el.inner == el.end {
+		return classicSplice(body, el.start, el.end, "<"+el.name+">"+child+"</"+el.name+">")
+	}
+	at := el.innerEnd
+	if first {
+		at = el.inner
+	}
+	return classicSplice(body, at, at, child)
+}
+{{ end }}
 {{ if anyIsConfigProfile . }}
 // fetchClassicProfilePayloadPlist fetches the payload plist for an existing
 // Classic config profile via the /subset/General endpoint. Returns nil when
@@ -2475,30 +2586,18 @@ func fetchClassicProfilePayloadPlist(ctx context.Context, client registry.HTTPCl
 	return nil
 }
 
-// replaceClassicProfilePayload replaces the <payloads> CDATA block in a Classic
-// API config profile XML body with newPayload. The replacement targets only the
-// <payloads> element used by osxconfigurationprofiles and
-// mobiledeviceconfigurationprofiles. Returns xmlBody unchanged when no
-// <payloads> element is present.
+// replaceClassicProfilePayload replaces the content of a Classic API config
+// profile's <general><payloads> with newPayload as a CDATA block. Returns
+// xmlBody unchanged when the body does not parse or has no such element.
 func replaceClassicProfilePayload(xmlBody, newPayload []byte) []byte {
-	const openTag = "<payloads>"
-	const closeTag = "</payloads>"
-
-	si := bytes.Index(xmlBody, []byte(openTag))
-	ei := bytes.Index(xmlBody, []byte(closeTag))
-	if si == -1 || ei == -1 || si >= ei {
+	_, el, found, err := classicElement(xmlBody, "general", "payloads")
+	if err != nil || !found {
 		return xmlBody
 	}
-
-	var buf bytes.Buffer
-	buf.Write(xmlBody[:si])
-	buf.WriteString(openTag + "<![CDATA[")
 	// Guard "]]>" so the payload can never terminate the CDATA section early
 	// (XML 1.0 §2.4/§2.7).
-	buf.Write(bytes.ReplaceAll(newPayload, []byte("]]>"), []byte("]]&gt;")))
-	buf.WriteString("]]>" + closeTag)
-	buf.Write(xmlBody[ei+len(closeTag):])
-	return buf.Bytes()
+	cdata := "<![CDATA[" + string(bytes.ReplaceAll(newPayload, []byte("]]>"), []byte("]]&gt;"))) + "]]>"
+	return classicSplice(xmlBody, el.start, el.end, "<payloads>"+cdata+"</payloads>")
 }
 
 // injectClassicProfilePayloadUUIDs extracts the mobileconfig plist from xmlBody,
@@ -2539,19 +2638,18 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 }
 
 // injectClassicRedeployOnUpdate ensures <redeploy_on_update>All</redeploy_on_update>
-// is present inside <general>. If the XML already contains <redeploy_on_update>
-// (e.g. supplied by the caller), the existing value is left unchanged.
+// is present inside <general>. If <general> already holds <redeploy_on_update>
+// (e.g. supplied by the caller), the existing value is left unchanged, and so
+// is a body that does not parse or has no single <general>.
 func injectClassicRedeployOnUpdate(body []byte) []byte {
-	s := string(body)
-	if strings.Contains(s, "<redeploy_on_update>") {
+	if _, _, found, err := classicElement(body, "general", "redeploy_on_update"); err != nil || found {
 		return body
 	}
-	gOpen := strings.Index(s, "<general>")
-	if gOpen < 0 {
+	_, general, found, err := classicElement(body, "general")
+	if err != nil || !found {
 		return body
 	}
-	insertAt := gOpen + len("<general>")
-	return []byte(s[:insertAt] + "<redeploy_on_update>All</redeploy_on_update>" + s[insertAt:])
+	return classicInsertChild(body, general, "<redeploy_on_update>All</redeploy_on_update>", true)
 }
 
 // stripCDATASections rewrites every <![CDATA[...]]> section in an XML
@@ -2731,62 +2829,35 @@ func escapeClassicAmpPreservingCRRefs(s string) string {
 // "&"/"<" in values of those types cannot be stored faithfully by any
 // client (verifyClassicProfileStored warns after the write).
 func normalizeClassicProfilePayloadsForSend(body []byte) []byte {
-	const openTag = "<payloads>"
-	s := string(body)
-	si := strings.Index(s, openTag)
-	if si < 0 {
+	_, el, found, err := classicElement(body, "general", "payloads")
+	if err != nil || !found {
 		return body
 	}
-	ci := si + len(openTag)
-	var inner string
-	var restAt int // index into s of the first byte after </payloads>
-	if strings.HasPrefix(s[ci:], "<![CDATA[") {
-		end := strings.Index(s[ci:], "]]></payloads>")
-		if end < 0 {
-			return body
-		}
-		inner = s[ci+len("<![CDATA[") : ci+end]
-		restAt = ci + end + len("]]></payloads>")
-	} else {
-		end := strings.Index(s[ci:], "</payloads>")
-		if end < 0 {
-			return body
-		}
-		var decoded struct {
-			Data string ` + "`" + `xml:",chardata"` + "`" + `
-		}
-		if err := xml.Unmarshal([]byte(openTag+s[ci:ci+end]+"</payloads>"), &decoded); err != nil {
-			return body
-		}
-		inner = decoded.Data
-		restAt = ci + end + len("</payloads>")
-	}
-	if inner == "" {
+	inner, err := classicElementText(body, el)
+	if err != nil || inner == "" {
 		return body
 	}
 	inner = minimizeClassicPlistSourceEscaping(inner)
 	inner = strings.ReplaceAll(inner, "]]>", "]]&gt;")
 	inner = escapeClassicAmpPreservingCRRefs(inner)
-	return []byte(s[:ci] + "<![CDATA[" + inner + "]]></payloads>" + s[restAt:])
+	return classicSplice(body, el.inner, el.innerEnd, "<![CDATA["+inner+"]]>")
 }
 
 // classicProfilePayloadFromBody returns the true plist inside the request
-// body's <payloads> CDATA block, or nil. The block carries the normalizer's
-// escaped form (every "&" escaped once); undoing that single escape — our
-// own, exactly invertible — recovers the submitted plist for comparison
-// against what the server stored.
+// body's <general><payloads> CDATA block, or nil. The block carries the
+// normalizer's escaped form (every "&" escaped once); undoing that single
+// escape — our own, exactly invertible — recovers the submitted plist for
+// comparison against what the server stored.
 func classicProfilePayloadFromBody(body []byte) []byte {
-	s := string(body)
-	si := strings.Index(s, "<payloads><![CDATA[")
-	if si < 0 {
+	_, el, found, err := classicElement(body, "general", "payloads")
+	if err != nil || !found {
 		return nil
 	}
-	ci := si + len("<payloads><![CDATA[")
-	ei := strings.Index(s[ci:], "]]></payloads>")
-	if ei < 0 {
+	raw := string(body[el.inner:el.innerEnd])
+	if !strings.HasPrefix(raw, "<![CDATA[") || !strings.HasSuffix(raw, "]]>") {
 		return nil
 	}
-	return []byte(strings.ReplaceAll(s[ci:ci+ei], "&amp;", "&"))
+	return []byte(strings.ReplaceAll(raw[len("<![CDATA["):len(raw)-len("]]>")], "&amp;", "&"))
 }
 
 // classicCreatedResourceID extracts the numeric <id> from a Classic create
@@ -2881,9 +2952,9 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 		return body, nil
 	}
 
-	bodyStr := string(bytes.TrimSpace(body))
-	if bodyStr == "" {
-		bodyStr = "<" + rootName + "></" + rootName + ">"
+	out := bytes.TrimSpace(body)
+	if len(out) == 0 {
+		out = []byte("<" + rootName + "></" + rootName + ">")
 	}
 
 	for _, s := range specs {
@@ -2935,42 +3006,38 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 		}
 		wrapped := "<" + s.LeafName + ">" + inner + "</" + s.LeafName + ">"
 
-		// Replace an existing leaf anywhere in the body. Safe for our known
-		// XML shapes because "payloads"/"preferences" only appear inside their
-		// expected parents.
-		openTag := "<" + s.LeafName + ">"
-		closeTag := "</" + s.LeafName + ">"
-		if si := strings.Index(bodyStr, openTag); si >= 0 {
-			if ei := strings.Index(bodyStr[si:], closeTag); ei >= 0 {
-				bodyStr = bodyStr[:si] + wrapped + bodyStr[si+ei+len(closeTag):]
-			} else {
-				return nil, fmt.Errorf("malformed XML: %s opens without close", openTag)
-			}
+		// Replace the leaf the server reads, or insert it into its parent,
+		// building the parent under the root when it is missing.
+		root, leaf, found, err := classicElement(out, append(slices.Clone(s.ParentPath), s.LeafName)...)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			out = classicSplice(out, leaf.start, leaf.end, wrapped)
 		} else {
-			// Insert before </parent>. If the parent is missing, build the path.
-			parentName := s.ParentPath[len(s.ParentPath)-1]
-			parentClose := "</" + parentName + ">"
-			if idx := strings.Index(bodyStr, parentClose); idx >= 0 {
-				bodyStr = bodyStr[:idx] + wrapped + bodyStr[idx:]
+			_, parent, found, err := classicElement(out, s.ParentPath...)
+			if err != nil {
+				return nil, err
+			}
+			if found {
+				out = classicInsertChild(out, parent, wrapped, false)
 			} else {
 				build := wrapped
 				for i := len(s.ParentPath) - 1; i >= 0; i-- {
 					build = "<" + s.ParentPath[i] + ">" + build + "</" + s.ParentPath[i] + ">"
 				}
-				rootClose := "</" + rootName + ">"
-				if idx := strings.LastIndex(bodyStr, rootClose); idx >= 0 {
-					bodyStr = bodyStr[:idx] + build + bodyStr[idx:]
-				} else {
-					return nil, fmt.Errorf("root </%s> not found in body", rootName)
-				}
+				out = classicInsertChild(out, root, build, false)
 			}
 		}
 
 		if s.NameFallback != "" && s.NameFallback != "none" {
-			// Only fill a name if one isn't already present under <general>.
-			// Users often provide scope/category with their own <name> elements —
-			// those are distinct, so we target <general><name> specifically.
-			if !hasClassicGeneralName(bodyStr) {
+			// Only fill a name if <general> has none. Scope and category carry
+			// their own <name> elements, which are not the record's name.
+			has, err := hasClassicGeneralName(out)
+			if err != nil {
+				return nil, err
+			}
+			if !has {
 				nm := nameForFallback
 				if s.NameFallback == "strip-ext" {
 					if dot := strings.LastIndex(nm, "."); dot > 0 {
@@ -2978,30 +3045,26 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 					}
 				}
 				nameEl := "<name>" + classicXMLEscape(nm) + "</name>"
-				if gi := strings.Index(bodyStr, "</general>"); gi >= 0 {
-					bodyStr = bodyStr[:gi] + nameEl + bodyStr[gi:]
-				} else if ri := strings.LastIndex(bodyStr, "</"+rootName+">"); ri >= 0 {
-					bodyStr = bodyStr[:ri] + "<general>" + nameEl + "</general>" + bodyStr[ri:]
+				root, general, found, err := classicElement(out, "general")
+				if err != nil {
+					return nil, err
+				}
+				if found {
+					out = classicInsertChild(out, general, nameEl, false)
+				} else {
+					out = classicInsertChild(out, root, "<general>"+nameEl+"</general>", false)
 				}
 			}
 		}
 	}
-	return []byte(bodyStr), nil
+	return out, nil
 }
 
-// hasClassicGeneralName returns true if <general>…<name>…</name>…</general>
-// appears in the XML body.
-func hasClassicGeneralName(bodyStr string) bool {
-	gOpen := strings.Index(bodyStr, "<general>")
-	if gOpen < 0 {
-		return false
-	}
-	gClose := strings.Index(bodyStr[gOpen:], "</general>")
-	if gClose < 0 {
-		return false
-	}
-	inner := bodyStr[gOpen : gOpen+gClose]
-	return strings.Contains(inner, "<name>")
+// hasClassicGeneralName reports whether the body has a <general><name>
+// element as an XML parser reads it.
+func hasClassicGeneralName(body []byte) (bool, error) {
+	_, names, err := classicElements(body, "general", "name")
+	return len(names) > 0, err
 }
 
 // classicXMLEscape escapes reserved characters for an XML text node.
@@ -3083,37 +3146,30 @@ func buildCustomPayloadMobileconfig(files []string, domain string) ([]byte, erro
 	return plist.MarshalIndent(profile, plist.XMLFormat, "\t")
 }
 
-// setClassicGeneralName sets or replaces the <name> element inside <general>
-// in a Classic API XML body. When body is empty, a minimal root element is
-// created. Used by apply --name to override the NameFallback-derived name.
-func setClassicGeneralName(body []byte, rootName, name string) []byte {
+// setClassicGeneralName sets or replaces the <general><name> element in a
+// Classic API XML body. When body is empty, a minimal root element is created.
+// Used by apply --name to override the NameFallback-derived name.
+func setClassicGeneralName(body []byte, rootName, name string) ([]byte, error) {
 	nameEl := "<name>" + classicXMLEscape(name) + "</name>"
-	s := strings.TrimSpace(string(body))
-	if s == "" {
-		return []byte("<" + rootName + "><general>" + nameEl + "</general></" + rootName + ">")
+	s := bytes.TrimSpace(body)
+	if len(s) == 0 {
+		return []byte("<" + rootName + "><general>" + nameEl + "</general></" + rootName + ">"), nil
 	}
-	gOpen := strings.Index(s, "<general>")
-	if gOpen < 0 {
-		// No <general>: insert before closing root tag.
-		if ri := strings.LastIndex(s, "</"+rootName+">"); ri >= 0 {
-			s = s[:ri] + "<general>" + nameEl + "</general>" + s[ri:]
-		}
-		return []byte(s)
+	root, general, found, err := classicElement(s, "general")
+	if err != nil {
+		return nil, err
 	}
-	gClose := strings.Index(s[gOpen:], "</general>")
-	if gClose < 0 {
-		return []byte(s)
+	if !found {
+		return classicInsertChild(s, root, "<general>"+nameEl+"</general>", false), nil
 	}
-	gClose += gOpen
-	inner := s[gOpen+len("<general>") : gClose]
-	if nOpen := strings.Index(inner, "<name>"); nOpen >= 0 {
-		if nClose := strings.Index(inner[nOpen:], "</name>"); nClose >= 0 {
-			inner = inner[:nOpen] + nameEl + inner[nOpen+nClose+len("</name>"):]
-			return []byte(s[:gOpen+len("<general>")] + inner + s[gClose:])
-		}
+	_, existing, found, err := classicElement(s, "general", "name")
+	if err != nil {
+		return nil, err
 	}
-	// No existing <name>: prepend inside <general>.
-	return []byte(s[:gOpen+len("<general>")] + nameEl + inner + s[gClose:])
+	if found {
+		return classicSplice(s, existing.start, existing.end, nameEl), nil
+	}
+	return classicInsertChild(s, general, nameEl, true), nil
 }
 {{ end }}
 // fetchClassicFullXMLByID fetches a Classic resource's full XML body by id.
