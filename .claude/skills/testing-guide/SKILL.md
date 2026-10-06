@@ -37,7 +37,7 @@ Critical distinction: **it reads `specs/gateway/coverage.json`'s `spec` section 
 
 `unservedHandWrittenPaths` is its allowlist, each entry carrying why no successor exists. A stale entry fails the test. Grep for hard-coded versions whenever a resource's winning version changes — the test covers command files, but cannot see a stale literal in an override table.
 
-**`TestAlmostEveryRequestResolvesAsServed`** — catches a manifest that is present but not matching the live spec state. Its `gatewayOps` helper must replay the generator's consolidation passes, not just `ParseSpec`: parsing alone counts all three `ComputersInventory{,V2,V3}.yaml` resources when only one becomes a command, and a superseded version is what a spec drop withdraws. Only `DeduplicateVersioned` and the two passes that rewrite a path are replayed (not the passes that set names, columns, lookup fields — no verdict reads those).
+**`TestAlmostEveryRequestResolvesAsServed`** — catches a manifest that is present but not matching the live spec state. Its `gatewayOps` helper (`generator/gateway/overrides_test.go`) uses the generator's own entry point, `parser.LoadDocuments`, then replays the passes that decide which resource survives or rewrite a path (`ApplyNameOverrides`, `ApplyListDetailPaths`, `ApplyGetDetailPaths`). It does not replay the passes that set names, columns or lookup fields, because no verdict reads those.
 
 **`TestEveryRefusalCarriesItsEvidence`** — asserts every refused command has an entry in the coverage table with a recorded basis. Fails on a missing manifest.
 
@@ -107,8 +107,6 @@ Five tests hold the positional contract tree — each covers a surface the other
 
 **`TestLivePagingFlagsAreNotSilentlyDropped`** — walks live specs to ensure `--page-size` (and `--page`) are not filtered out for cursor-paged and non-auto-paginating ops. Catches the bug where `buildQueryParams` filtered `page`/`page-size` unconditionally. Fails if no op is left to cover.
 
-**`TestDeduplicateVersioned_BaseWinsWhenItServesTheHigherVersion`** — pins the computers-inventory shape (base file declares v1 AND v4 together, so base file wins). `..._BaseStillLosesWhenItIsOlder` pins the inventory-preload shape. Both must hold — the fix must not flip the case the old rule was written for.
-
 **`TestBuildEnumChoices_ReachesAllOfComposedUnionVariants`** — pins the `allOf`-composed-union enum extraction end-to-end for account specs. Without the fix, SSO connection type and setting enums were invisible in `--help`.
 
 ## Auth and Credentials Tests
@@ -147,17 +145,16 @@ Five tests hold the positional contract tree — each covers a surface the other
 
 ## Scope and Platform Infra Tests
 
-**`TestScopeFromParams`** / **`TestCheckScopeConflict`** — cover the mutual-exclusion of `--tenant-id` and `--environment-id` when both are supplied. Must fire on both the `pro`/`platform` and `security` product paths.
+**`TestCheckScopeConflict`** / **`TestCheckScopeConflictRefusesBothFlags`** — cover the mutual-exclusion of `--tenant-id` and `--environment-id` when both are supplied. Must fire on both the `pro`/`platform` and `security` product paths.
 
 **`TestGatewayUnservedNote`** — pins every direction of the response-side `gatewayUnservedNote` mechanism, including App Installers as the **served** case.
 
 **`TestEveryExampleInvocationNamesACommandThatExists`** — `TestEveryLeafRefusesAnUndocumentedPositional` reads only the leaf the `Example` sits on; this test reads every `jamf-cli` invocation on every `Example` line across all commands.
 
-## Guard Tests the Root CLAUDE.md Used to Name
+## Guard Tests Whose Reason Is Not in the Name
 
-These eight were named in the pre-restructure root `CLAUDE.md` and are the ones
-whose *reasoning* is not obvious from the test name. Each fails on a specific
-regression that shipped once.
+The reasoning behind these eight is not obvious from the test name. Each fails
+on a specific regression that shipped once.
 
 | Test | What regressing it costs |
 |---|---|

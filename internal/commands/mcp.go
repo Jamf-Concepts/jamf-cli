@@ -281,24 +281,21 @@ value is an error; there is no config key for it.`,
 					"too large for a conversation. Use this when the administrator wants " +
 					"something to share or action rather than read now; use run_command for " +
 					"questions answered by a table.\n\n" +
-					"TWO-TIER COLLECTION — call generate_report WITHOUT full:true first. " +
-					"The fast report covers fleet counts, security posture, " +
-					"OS distribution, check-in compliance, audit findings, and environment stats. " +
-					dashboardCostNote + "\n\n" +
-					"After it completes, get the fleet size with run_command " +
-					"[\"pro\",\"computers-inventory\",\"list\",\"--limit\",\"1\",\"--field\",\"totalCount\"] " +
-					"— generate_report returns only the path, size and warnings, never the report's " +
-					"own figures — then offer the extended report: 'The instance has N managed " +
-					"devices. I can run a full report that also includes patch compliance, hardware " +
-					"models, cleanup analysis, and org structure. Would you like the full report?' " +
-					"Only set full:true after explicit confirmation.\n\n" +
+					"Collection has two tiers. The default fast report covers fleet counts, " +
+					"security posture, OS distribution, check-in compliance, audit findings, and " +
+					"environment stats. full:true adds patch compliance, hardware models, cleanup " +
+					"analysis and org structure, at a cost that grows with the fleet. " +
+					dashboardCostNote + " Run the fast report first. Set full:true only after " +
+					"the administrator knows the fleet size and asks for the full report. " +
+					"generate_report returns no figures, so get the fleet size with run_command " +
+					"[\"pro\",\"computer-inventory\",\"list\",\"--all=false\",\"--page-size\",\"1\",\"-o\",\"json\",\"--field\",\"totalCount\"].\n\n" +
 					"The report covers the profile this server was started with. A Platform " +
 					"profile (auth-method: platform) gives the most comprehensive report: it " +
 					"authenticates one set of credentials against the Jamf Platform Gateway and " +
 					"collects both Jamf Pro data and Platform-specific data (blueprints, compliance " +
 					"benchmarks, DDM reports). The destination and file name are server-derived " +
-					"and cannot be set per call. After calling it, tell the administrator the " +
-					"path and summarize what the report says.",
+					"and cannot be set per call. After calling it, give the administrator the " +
+					"path and relay any warnings: a warned section is incomplete.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in generateReportInput) (*mcp.CallToolResult, any, error) {
 				return runReportChild(ctx, executable, serverProfile, in, time.Now()), nil, nil
 			})
