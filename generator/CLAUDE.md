@@ -5,7 +5,7 @@ specs/*.yaml ──────────────► generator/parser/   �
                                ParseSpec()            + registry.go
                                Generator.Generate()
 
-specs/.platform-source/     ► generator/monolith/ ──► specs/AppInstaller*.yaml
+specs/.platform-source/     ► generator/monolith/ ──► specs/AppInstallers.yaml
   pro_api.json                 ExtractSubtree()       (the only published spec that
                                                         describes App Installers; runs
                                                         before the glob above, so one
@@ -24,7 +24,7 @@ Entrypoint: generator/main.go
 
 Key types in templates: `parser.Resource` (`Name`, `NameSingular`, `GoName`, `Operations`, `IsSingleton`), `parser.Operation` (`Name`, `Method`, `Path`, `IsList`, `IsPaginated`, `IsDestructive`), `classic.ClassicResource`. `IsPaginated` (any GET with `page`/`page-size` params) is broader than `IsList` (list/history only) and gates `--all`/`--limit` auto-pagination so report/action GETs like `patch-report` page through all results.
 
-`ParseSpec` returns `[]*Resource` — most specs produce one, but multi-family specs (e.g. `SelfServiceBranding.yaml`) produce one per family. `IsSingleton` is true for settings-style resources (GET+PUT, no `{id}`) — they get `get` instead of `list`, skip `apply`.
+`ParseSpec` returns `[]*Resource` — most specs produce one, but sibling collection families (e.g. `/v1/self-service/branding/macos` beside `/ios`) produce one per family. `IsSingleton` is true for settings-style resources (GET+PUT, no `{id}`) — they get `get` instead of `list`, skip `apply`.
 
 **A resource's name does not tell you which API version it serves, and reading it that way cost the CLI its newest computer inventory endpoint.** Version consolidation happens at two levels: `deduplicateVersionedOps` picks between paths *inside* one spec file, and `DeduplicateVersioned` picks between *resources* across files, keyed on the `-v-{N}s` suffix the parser derives from a file like `ComputersInventoryV3.yaml`. The second one used to treat a resource whose name carries no suffix as the family's legacy base and suppress it outright. That is right for `inventory-preload`, whose base file declares v1; it is wrong for `computers-inventory`, whose base file declares **v1 and v4 together** — so the within-file pass leaves it holding v4, under a name with no suffix, and it lost to the `-v-3s` sibling. Every `pro computers-inventory` command sent `/v3`, and the two v4-only operations (`erase`, `remove-mdm-profile`) were never generated at all.
 

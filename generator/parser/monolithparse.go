@@ -554,12 +554,8 @@ func sortedKeys[V any](m map[string]V) []string {
 // merging them means a file boundary is an input detail rather than something
 // that decides command names.
 //
-// Components are unioned across every document, the shared library file
-// included. A per-resource file references cross-resource definitions by
-// external $ref, so its own Components block holds only part of what its
-// operations reach — and a closure computed against that part would silently
-// come up short, which is how detectNameField would start answering from
-// nothing.
+// Components are unioned across every document, because every merged path
+// resolves its $refs against the one merged Components block.
 //
 // A path declared by two documents is a hard error: one URL meaning two things
 // is exactly what a silent overwrite hides.
@@ -604,10 +600,10 @@ func MergeDocuments(docs []*openapi3.T) (*openapi3.T, []string, error) {
 				continue
 			}
 			if prev, dup := schemaSource[name]; dup && prev != i {
-				// Compared by content, not by pointer: the splitter inlines a
-				// component into every file that reaches it, so identical
-				// copies under one name are the normal case and a pointer
-				// comparison calls every one of them a conflict.
+				// Compared by content, not by pointer: ExtractSubtree inlines
+				// every component the App Installer subtree reaches, so
+				// identical copies under one name are the normal case and a
+				// pointer comparison calls every one of them a conflict.
 				if existing := merged.Components.Schemas[name]; existing != nil && !sameSchema(existing, ref) {
 					reports = append(reports, fmt.Sprintf(
 						"component schema %q is declared differently by document %d and document %d; keeping the first",

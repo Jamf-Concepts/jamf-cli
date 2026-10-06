@@ -36,3 +36,44 @@ func TestCommittedSpecsAreTheNormalisedLayout(t *testing.T) {
 		t.Errorf("specs/*.yaml = %v, want %v", got, want)
 	}
 }
+
+// The jamf-cli skill prints one block of JamfProAPI.yaml with grep and an awk
+// whole-line match, so it depends on the bytes writeYAML emits: every path key
+// unquoted at two spaces, every schema name at four. A change to the indent or
+// to key quoting would make each user's extract print nothing and exit 0.
+func TestCommittedProSpecKeepsTheShapeTheSkillExtractsRead(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "specs", NormalisedSpecFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(data), "\n")
+
+	inPaths, pathKeys := false, 0
+	for _, l := range lines {
+		if l == "paths:" {
+			inPaths = true
+			continue
+		}
+		if inPaths && l != "" && l[0] != ' ' {
+			break
+		}
+		if inPaths && strings.HasPrefix(l, "  ") && len(l) > 2 && l[2] != ' ' {
+			pathKeys++
+			if !strings.HasPrefix(l, "  /") || !strings.HasSuffix(l, ":") {
+				t.Errorf("path key %q is not an unquoted two-space /path: line", l)
+			}
+		}
+	}
+	if pathKeys == 0 {
+		t.Fatal("found no path keys under paths:, so this test would assert nothing")
+	}
+
+	// The skill's own examples.
+	for _, key := range []string{"  /v1/categories:", "  /v1/categories/{id}:", "    Category:"} {
+		if n := slices.Index(lines, key); n < 0 {
+			t.Errorf("%q is not a whole line of %s", key, NormalisedSpecFile)
+		} else if slices.Index(lines[n+1:], key) >= 0 {
+			t.Errorf("%q occurs more than once, so the awk extract would print the first match only", key)
+		}
+	}
+}

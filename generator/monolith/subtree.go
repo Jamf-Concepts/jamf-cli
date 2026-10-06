@@ -9,8 +9,7 @@ import (
 	"strings"
 )
 
-// SubtreeSpec routes one branch of a path subtree into its own per-resource
-// spec file. Prefix is the collection path the file owns; the longest matching
+// SubtreeSpec routes one branch of a path subtree into its own spec file. Prefix is the collection path the file owns; the longest matching
 // prefix wins, so a parent and its children can both be declared.
 type SubtreeSpec struct {
 	Prefix      string
@@ -19,7 +18,7 @@ type SubtreeSpec struct {
 	Description string
 }
 
-// ExtractSubtree derives per-resource spec files for one subtree of a
+// ExtractSubtree derives the spec files for one subtree of a
 // consolidated Jamf Pro OpenAPI document, leaving every other file in specsDir
 // alone.
 //
@@ -33,14 +32,11 @@ type SubtreeSpec struct {
 // the coverage sync, and these files are derived from it rather than maintained
 // by hand.
 //
-// It is deliberately not Split. Split owns the whole of specsDir: it wipes every
-// root *.yaml, routes every path in the document, and partitions components into
-// a shared _MonolithLibrary.yaml. Handing it pro_api.json would regenerate all
-// 164 specs from the gateway's version-filtered view of the Pro API and delete
-// the commands that view has withdrawn. This walks one subtree, writes only the
-// files it is given, and inlines each bucket's whole component closure so the
-// files are self-contained — a shared library would entangle them with Split's
-// wipe-and-regenerate contract, and PreservedSpecs' $ref scan with it.
+// It is deliberately a subtree, not the whole document. Normalise run on
+// pro_api.json would replace specs/JamfProAPI.yaml with the gateway's
+// version-filtered view of the Pro API and delete the commands that view has
+// withdrawn. This walks one subtree, writes only the files it is given, and
+// inlines each bucket's whole component closure so each file is self-contained.
 //
 // Three transforms turn a gateway-published operation into a Pro-direct one.
 // Each is a property of the publication rather than of the endpoint, so it is

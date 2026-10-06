@@ -134,8 +134,9 @@ Platform spec filenames do **not** follow a `<resource>-api.json` rule — they 
 
 2. Load the spec for that namespace:
    - Pro modern: run `jamf-cli pro <resource> <verb> --scaffold` first. It renders the body from the same spec, offline. For required fields or enums beyond the scaffold, do **not** WebFetch `specs/JamfProAPI.yaml`: it is 1.6 MB and WebFetch truncates it before `paths:`. Use Bash to print one block from it instead:
-     - the operation: `curl -sL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | awk '$0=="  /v1/categories:"{p=1;print;next} p&&/^  \//{exit} p'`
-     - a schema its `$ref` names: `curl -sL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | awk '$0=="    Category:"{p=1;print;next} p&&/^    [^ ]/{exit} p'`
+     - find the path key first, because the version segment varies by resource (`/v1/categories`, `/v3/computer-prestages`): `curl -sL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | grep '^  /.*categories'`. `create` and `list` use the collection key (`/v1/categories:`). `get`, `update`, `patch` and `delete` use the `{id}` key (`/v1/categories/{id}:`), which is where the PUT and PATCH bodies are.
+     - the operation, with the key copied exactly as `grep` printed it: `curl -sL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | awk '$0=="  /v1/categories/{id}:"{p=1;print;next} p&&/^([^ ]|  [^ ])/{exit} p'`. Empty output means the key did not match; rerun the `grep`.
+     - a schema its `$ref` names: `curl -sL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | awk '$0=="    Category:"{p=1;print;next} p&&/^([^ ]|  [^ ]|    [^ ])/{exit} p'`
    - App Installers (`pro app-installers*`): `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/AppInstallers.yaml` is small enough to WebFetch.
    - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/resources.yaml`
    - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `compliance_benchmark_engine.json`), do not assume `<resource>-api.json`

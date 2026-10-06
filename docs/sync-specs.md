@@ -19,19 +19,31 @@ App Installers sits under `hiddenapi/` in Jamf Pro's source, so no
 (`generator/monolith/layout_test.go`) fails if `specs/` holds any other
 top-level `*.yaml` file, or if either file is missing.
 
+If a release starts serving `/v1/app-installers` in `/api/schema/`, the
+`make sync-spec` that ingests it stops during generation with `path
+/v1/app-installers/... is declared by document 0 and document 1`, because both
+files then carry the same paths. The instance's document
+is the better source at that point. Remove the entry from
+`monolith.AppInstallerSpecs` (`generator/monolith/overrides.go`) and delete
+`specs/AppInstallers.yaml`, then regenerate.
+
 ### Why there is no `jamf/jss` route
 
 An earlier `make sync-specs` target copied the per-resource specs out of a
 `jamf/jss` checkout. It is retired, and the target now refuses with a pointer
 to `make sync-spec`. The route deleted `specs/JamfProAPI.yaml` and
-`specs/AppInstallers.yaml`, and it carried nothing that `/api/schema/` lacks.
-At build `11.32.0-t1787580540993`, every operation in the checkout's
-`swagger_docs/uapi/` tree was also in the instance's document. The route also
-could not run at that tag, because two modules ship a file named `User.yaml`.
+`specs/AppInstallers.yaml`. It also added nothing at the last build it was
+compared on: at `11.32.0-t1787580540993`, every `METHOD PATH` in the checkout's
+`swagger_docs/uapi/` tree (excluding `hiddenapi/`) was also in the instance's
+document. The route could not run at that tag either, because two modules ship
+a file named `User.yaml`.
 
-Do not restore a per-resource layout to get an endpoint that `/api/schema/`
-does not serve. Derive it from the gateway's spec the way App Installers is
-derived (`monolith.ExtractSubtree`, `monolith.AppInstallerSpecs`).
+That comparison is an observation at one build, not a guarantee. If a release
+ever serves an operation in `uapi/` that `/api/schema/` leaves out, do not
+restore the per-resource copy. Add a subtree file for it the way App Installers
+is added (`monolith.ExtractSubtree`, an entry in `monolith.AppInstallerSpecs`'s
+pattern), sourced from whichever published spec carries the operation, so
+`MergeDocuments` combines it with `JamfProAPI.yaml`.
 
 ## Prerequisites
 
