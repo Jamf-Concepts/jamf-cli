@@ -22,10 +22,20 @@ top-level `*.yaml` file, or if either file is missing.
 If a release starts serving `/v1/app-installers` in `/api/schema/`, the
 `make sync-spec` that ingests it stops during generation with `path
 /v1/app-installers/... is declared by document 0 and document 1`, because both
-files then carry the same paths. The instance's document
-is the better source at that point. Remove the entry from
-`monolith.AppInstallerSpecs` (`generator/monolith/overrides.go`) and delete
-`specs/AppInstallers.yaml`, then regenerate.
+files then carry the same paths. The instance's document is the better source
+at that point, so retire the gateway derivation:
+
+1. Remove the entry from `monolith.AppInstallerSpecs`
+   (`generator/monolith/overrides.go`). An empty list turns the derivation in
+   `generator/main.go` off, so `make sync-platform-specs-from-sdk` stops
+   writing the file.
+2. Delete `specs/AppInstallers.yaml` and
+   `TestPruneStaleSpecs_KeepsAppInstallerSpecsOnAMonolithOnlyRun`
+   (`generator/monolith/document_test.go`), which tests the exemption you just
+   emptied and fails on an empty list.
+3. Run the `make sync-spec` again, then `make test`.
+   `TestCommittedSpecsAreTheNormalisedLayout` then expects `JamfProAPI.yaml`
+   alone.
 
 ### Why there is no `jamf/jss` route
 

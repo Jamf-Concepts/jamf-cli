@@ -141,7 +141,9 @@ func main() {
 	// that has to be refreshed alongside another one is not a second flag.
 	//
 	// Before the spec glob below, so the files this writes are the ones parsed.
-	if gatewaySource != "" {
+	// An empty AppInstallerSpecs turns the derivation off rather than failing,
+	// so the instance's document can take the subtree over (docs/sync-specs.md).
+	if gatewaySource != "" && len(monolith.AppInstallerSpecs) > 0 {
 		fmt.Println("Deriving App Installer specs")
 		fmt.Println("----------------------------")
 		written, warnings, err := monolith.ExtractSubtree(
