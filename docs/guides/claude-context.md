@@ -20,7 +20,7 @@ sessions both know where to put new context and where to look for it.
 → Add to the relevant section in the root `CLAUDE.md`.
 
 **Adding a convention or wire fact that applies broadly but not every session** (e.g. a new API quirk, a coding convention):
-→ Create or update `.claude/rules/<topic>.md`, and add both a pointer in the "Always-loaded rules" list and an `@.claude/rules/<topic>.md` import line in root `CLAUDE.md` (the `@`-import is what actually loads it every session).
+→ Create or update `.claude/rules/<topic>.md`, and add both a pointer in the "Always-loaded rules" list and an `@.claude/rules/<topic>.md` import line in root `CLAUDE.md` (the `@`-import is what actually loads it every session). Start the file with its `#` heading. A bare leading `---` opens a frontmatter block that the loader closes at the next `---` it finds, a table separator included, and everything above that line silently never loads.
 
 **Adding a workflow recipe or navigation guide** (e.g. how to add a new product namespace, how to sync a new spec source):
 → Create or update `.claude/skills/<topic>/SKILL.md`, and add a pointer in the "Skills" list in root `CLAUDE.md`.
