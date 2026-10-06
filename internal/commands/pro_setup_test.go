@@ -261,7 +261,7 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 			"Update Retention Policy",
 			// Not in specs/JamfProAPI.yaml: names an instance may report for Classic endpoints.
 			"Send Mobile Device Unmanage Command",
-			"Send Computer Delete User Command",
+			"Send Computer Delete User Account Command",
 		}
 		kept := []string{
 			"Read API Roles", "Read API Integrations", "Read Accounts", "Read Account Groups",
@@ -1207,7 +1207,7 @@ func TestSetupInstance_StandardRoleCannotGrantPrivilegesOrLogins(t *testing.T) {
 		"Create API Roles", "Update API Roles", "Create API Integrations", "Update API Integrations",
 		"Create Accounts", "Update Accounts", "Create LDAP Servers", "Update LDAP Servers",
 		"Update SSO Settings", "Update SMTP Server",
-		"Send Computer Unmanage Command", "Send Computer Delete User Command",
+		"Send Computer Unmanage Command", "Send Computer Delete User Account Command",
 	}
 	var sent []string
 	server := setupInstanceServer(t, 0, instance, &sent)
