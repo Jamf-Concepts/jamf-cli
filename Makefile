@@ -91,8 +91,9 @@ endef
 JAMF_MONOLITH_SPEC ?=
 
 # Sync the Jamf Pro API spec from a consolidated document and regenerate
-# commands. This is the only Jamf Pro spec route: a jamf/jss checkout carries no
-# endpoint the instance's own /api/schema/ lacks.
+# commands. This is the only Jamf Pro spec route: at 11.32.0-t1787580540993 a
+# jamf/jss checkout carried no endpoint (by method and path) that the
+# instance's own /api/schema/ lacked.
 # JAMF_MONOLITH_SPEC accepts a local path or an http(s):// URL, e.g.:
 #   make sync-spec JAMF_MONOLITH_SPEC=/path/to/monolith-schema.json
 #   make sync-spec JAMF_MONOLITH_SPEC=https://<instance>/api/schema/

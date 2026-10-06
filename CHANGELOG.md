@@ -16,7 +16,8 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 The route that copied Jamf Pro specs out of a `jamf/jss` checkout is retired.
 It ran `rm -f specs/*.yaml`, so a run deleted `specs/JamfProAPI.yaml` and
 `specs/AppInstallers.yaml`, and with them every `pro app-installers*` command.
-It also carried no endpoint that an instance's `/api/schema/` lacks. The only
+It also carried no endpoint that an instance's `/api/schema/` lacks, by method
+and path at build `11.32.0-t1787580540993`. The only
 Jamf Pro route is now `make sync-spec JAMF_MONOLITH_SPEC=<url-or-file>
 JAMF_PRO_VERSION=<version>`. `make sync-specs` refuses and names it, and
 `.github/workflows/sync-specs.yaml` is deleted.

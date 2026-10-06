@@ -166,6 +166,9 @@ func TestPruneStaleSpecs(t *testing.T) {
 // nothing else, so keep never names the App Installer specs. They must survive
 // anyway: no monolith carries them, and losing them drops four commands.
 func TestPruneStaleSpecs_KeepsAppInstallerSpecsOnAMonolithOnlyRun(t *testing.T) {
+	if len(AppInstallerSpecs) == 0 {
+		t.Fatal("no App Installer specs registered, so this test would assert nothing")
+	}
 	specsDir := t.TempDir()
 	writeFile(t, specsDir, NormalisedSpecFile, "openapi: 3.0.1\n")
 	for _, s := range AppInstallerSpecs {
