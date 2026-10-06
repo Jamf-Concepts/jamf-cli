@@ -37,7 +37,7 @@ Unlike Platform, dropping a spec into `specs/.security-source/` isn't enough by 
 
 ## Adding handwritten commands (Pro, Protect, School, Security, Platform, new product)
 
-See the "Where to Make Changes" table in `.claude/rules/where-to-change.md` for file locations. Common pattern:
+See the `where-to-make-changes` skill (`.claude/skills/where-to-make-changes/SKILL.md`) for file locations. Common pattern:
 1. Create new file with appropriate prefix (`pro_`, `protect_`, `school_`, `security_`, or new product's).
 2. Wire into the product's bridge (`pro.go`, `protect.go`, `school.go`, `security.go`, or `root.go`).
 3. Add to `groups.go` and optionally `aliases.go`.

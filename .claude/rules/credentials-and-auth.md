@@ -1,4 +1,3 @@
----
 # Credentials and Authentication
 
 ## CRITICAL: Credential Input Policy

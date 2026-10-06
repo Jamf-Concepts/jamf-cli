@@ -33,7 +33,7 @@ bin/jamf-cli -p my-protect-profile protect overview                 # Use a name
 JAMF_CLI_ARGS='--quiet --no-input' bin/jamf-cli pro computers list  # Prepend default flags (CI/CD)
 
 # Platform gateway auth (enables both Pro API and Platform API commands)
-bin/jamf-cli config add-profile my-platform --url https://eu.api.jamfcloud.com --auth-method platform --tenant-id <id>
+bin/jamf-cli config add-profile my-platform --url https://eu.api.jamfcloud.com --auth-method platform --environment-id <id>
 bin/jamf-cli -p my-platform pro blueprints list           # Platform API command
 bin/jamf-cli -p my-platform pro computers list            # Pro API routed through gateway
 ```

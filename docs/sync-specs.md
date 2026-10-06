@@ -53,7 +53,8 @@ ever serves an operation in `uapi/` that `/api/schema/` leaves out, do not
 restore the per-resource copy. Add a subtree file for it the way App Installers
 is added (`monolith.ExtractSubtree`, an entry in `monolith.AppInstallerSpecs`'s
 pattern), sourced from whichever published spec carries the operation, so
-`MergeDocuments` combines it with `JamfProAPI.yaml`.
+`MergeDocuments` combines it with `JamfProAPI.yaml`. Do not hand-edit
+`specs/JamfProAPI.yaml` to add it: the next ingest overwrites that file.
 
 ## Prerequisites
 
