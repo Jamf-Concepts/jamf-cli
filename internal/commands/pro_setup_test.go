@@ -291,7 +291,7 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 }
 
 func TestScopePresets_StandardWithholdsEveryEscalatingSpecPrivilege(t *testing.T) {
-	withheld := regexp.MustCompile(`^(Create|Update) (API Roles|API Integrations|Account|LDAP Servers|SSO Settings|SMTP Server|Retention Policy)|Unmanage`)
+	withheld := regexp.MustCompile(`^(Create|Update) (API Roles|API Integrations|Account|LDAP Servers|SSO Settings|SMTP Server|Retention Policy)|Unmanage|^(Delete|Flush|Dismiss) |Remote (Wipe|Lock) Command$`)
 
 	raw, err := os.ReadFile(filepath.Join("..", "..", "specs", "JamfProAPI.yaml"))
 	if err != nil {
@@ -300,11 +300,16 @@ func TestScopePresets_StandardWithholdsEveryEscalatingSpecPrivilege(t *testing.T
 	var required []string
 	seen := map[string]bool{}
 	inList, listIndent := false, 0
+	lists, emptyLists, items := 0, 0, 0
 	for _, line := range strings.Split(string(raw), "\n") {
 		trimmed := strings.TrimSpace(line)
 		indent := len(line) - len(strings.TrimLeft(line, " "))
 		if trimmed == "x-required-privileges:" {
-			inList, listIndent = true, indent
+			if inList && items == 0 {
+				emptyLists++
+			}
+			inList, listIndent, items = true, indent, 0
+			lists++
 			continue
 		}
 		if !inList {
@@ -312,13 +317,23 @@ func TestScopePresets_StandardWithholdsEveryEscalatingSpecPrivilege(t *testing.T
 		}
 		name, isItem := strings.CutPrefix(trimmed, "- ")
 		if !isItem || indent <= listIndent {
+			if items == 0 {
+				emptyLists++
+			}
 			inList = false
 			continue
 		}
+		items++
 		if !seen[name] {
 			seen[name] = true
 			required = append(required, name)
 		}
+	}
+	if want := strings.Count(string(raw), "x-required-privileges:"); lists != want {
+		t.Errorf("the scan read %d x-required-privileges lists, the spec declares %d; a list it cannot read escapes the sweep", lists, want)
+	}
+	if emptyLists > 0 {
+		t.Errorf("the scan read %d x-required-privileges lists with no items; a line inside a list ended it early", emptyLists)
 	}
 
 	for _, p := range []string{

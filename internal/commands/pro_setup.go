@@ -366,6 +366,8 @@ var scopeOptions = []scopeOption{
 		// "*Remote Wipe Command" / "*Remote Lock Command" use the *suffix form to match
 		// "Send Computer/Mobile Device Remote Wipe/Lock Command" without listing each variant.
 		// "Unmanage " covers "Unmanage Mobile Devices", which "*Unmanage Command" does not.
+		// "*Delete User Account Command" is the name an instance's privilege list
+		// reports for deleting a local macOS user account; the spec never names it.
 		//
 		// The privileges that grant privileges or logins are withheld as well: a
 		// client holding any of them can rewrite its own role, attach a broader
@@ -375,7 +377,7 @@ var scopeOptions = []scopeOption{
 		// providers are governed by the LDAP Servers privileges.
 		exclude: []string{
 			"Delete ", "Flush ", "Dismiss ", "Update Retention Policy",
-			"*Remote Wipe Command", "*Remote Lock Command", "*Unmanage Command", "Unmanage ", "*Delete User Command",
+			"*Remote Wipe Command", "*Remote Lock Command", "*Unmanage Command", "Unmanage ", "*Delete User Account Command",
 			"Create API Roles", "Update API Roles",
 			"Create API Integrations", "Update API Integrations",
 			"Create Account", "Update Account",
