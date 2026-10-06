@@ -985,15 +985,15 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			if id == "" {
 				// Not found — create (not allowed for fetch-merge-put resources)
 
+				if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+					return err
+				}
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create os_x_configuration_profile %q\n", name)
 					return nil
 				}
 
-				data, err = normalizeClassicProfilePayloadsForSend(data)
-				if err != nil {
-					return err
-				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -1010,6 +1010,16 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			}
 
 			// Found — replace
+			// Preserve existing PayloadUUID and PayloadIdentifier.
+			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", id)
+			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
+			if data, err = injectClassicRedeployOnUpdate(data); err != nil {
+				return err
+			}
+			if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+				return err
+			}
+
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "[dry-run] Would replace os_x_configuration_profile %q (id: %s)\n", name, id)
 				return nil
@@ -1024,16 +1034,6 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 				if confirm != "yes" {
 					return fmt.Errorf("aborted")
 				}
-			}
-
-			// Preserve existing PayloadUUID and PayloadIdentifier.
-			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", id)
-			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
-			if data, err = injectClassicRedeployOnUpdate(data); err != nil {
-				return err
-			}
-			if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
-				return err
 			}
 
 			updatePath := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(id))

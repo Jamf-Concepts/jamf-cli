@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -173,14 +174,26 @@ func TestClassicProfilePayloadEditors_IgnoreACommentedPayloads(t *testing.T) {
 }
 
 // classicRoutingClient answers GETs from a fixed path table and records every
-// request, so a test can assert which record a write was sent to.
+// request, so a test can assert which record a write was sent to and what it
+// carried.
 type classicRoutingClient struct {
-	gets  map[string]string
-	calls []string
+	gets   map[string]string
+	calls  []string
+	bodies map[string][]byte
 }
 
-func (c *classicRoutingClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+func (c *classicRoutingClient) Do(_ context.Context, method, path string, reqBody io.Reader) (*http.Response, error) {
 	c.calls = append(c.calls, method+" "+path)
+	if method != http.MethodGet && reqBody != nil {
+		b, err := io.ReadAll(reqBody)
+		if err != nil {
+			return nil, err
+		}
+		if c.bodies == nil {
+			c.bodies = map[string][]byte{}
+		}
+		c.bodies[method+" "+path] = b
+	}
 	status, body := http.StatusCreated, `<os_x_configuration_profile><id>9</id></os_x_configuration_profile>`
 	if method == http.MethodGet {
 		status, body = http.StatusOK, c.gets[path]
@@ -214,9 +227,12 @@ func TestClassicProfileApply_NameFlagIsTheLookupKey(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if got := client.writes(); !slices.Equal(got, []string{"PUT /JSSResource/osxconfigurationprofiles/id/2"}) {
-		t.Errorf("writes = %q, want one PUT to the record --name names (id 2)", got)
+	const put = "PUT /JSSResource/osxconfigurationprofiles/id/2"
+	if got := client.writes(); !slices.Equal(got, []string{put}) {
+		t.Fatalf("writes = %q, want one PUT to the record --name names (id 2)", got)
 	}
+	wantTexts(t, client.bodies[put], []string{"Corp WiFi"}, "general", "name")
+	wantTexts(t, client.bodies[put], []string{"All"}, "general", "redeploy_on_update")
 }
 
 func TestClassicProfileApply_RefusesTwoDifferentNames(t *testing.T) {
@@ -282,5 +298,37 @@ func TestInjectClassicRedeployOnUpdate_RefusesTwoGenerals(t *testing.T) {
 	_, err := injectClassicRedeployOnUpdate([]byte(`<p><general/><general/></p>`))
 	if err == nil || !strings.Contains(err.Error(), "general") {
 		t.Fatalf("err = %v, want a refusal naming general", err)
+	}
+}
+
+func TestClassicProfileApply_RefusesABodyTheEditorsCannotRead(t *testing.T) {
+	// "Corp WiFi" exists (id 2) and "New" does not, so each case reaches a
+	// different branch: --name with two <general>, create, and replace.
+	for _, tc := range []struct {
+		name, body string
+		args       []string
+	}{
+		{"--name with two generals", `<os_x_configuration_profile><general/><general/></os_x_configuration_profile>`, []string{"--name", "Corp WiFi"}},
+		{"create with two payloads", `<os_x_configuration_profile><general><name>New</name><payloads>X</payloads><payloads>Y</payloads></general></os_x_configuration_profile>`, nil},
+		{"replace with two payloads", `<os_x_configuration_profile><general><name>Corp WiFi</name><payloads>X</payloads><payloads>Y</payloads></general></os_x_configuration_profile>`, nil},
+		{"replace with two generals", `<os_x_configuration_profile><general><name>Corp WiFi</name></general><general><name>Corp WiFi</name></general></os_x_configuration_profile>`, nil},
+	} {
+		for _, dryRun := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/dry-run=%v", tc.name, dryRun), func(t *testing.T) {
+				client := profileListClient()
+				cmd := newClassicMacosConfigProfilesApplyCmd(&registry.CLIContext{Client: client, Output: newNDJSONOutput()})
+				args := append([]string{"--from-file", writeXML(t, tc.body), "--yes"}, tc.args...)
+				if dryRun {
+					args = append(args, "--dry-run")
+				}
+				cmd.SetArgs(args)
+				if err := cmd.Execute(); err == nil {
+					t.Fatal("expected the refusal the real run gives")
+				}
+				if w := client.writes(); len(w) != 0 {
+					t.Errorf("write sent despite the refusal: %q", w)
+				}
+			})
+		}
 	}
 }

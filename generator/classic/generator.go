@@ -1494,15 +1494,16 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasFetchMergePut . }}
 				return fmt.Errorf("no {{ .Singular }} found with name %q — this resource must already exist (apply is fetch-merge-put only)", name)
 {{ else }}
+{{ if .IsConfigProfile }}
+				if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+					return err
+				}
+{{ end }}
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .Singular }} %q\n", name)
 					return nil
 				}
 {{ if .IsConfigProfile }}
-				data, err = normalizeClassicProfilePayloadsForSend(data)
-				if err != nil {
-					return err
-				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -1528,6 +1529,17 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Found — replace
+{{- if .IsConfigProfile }}
+			// Preserve existing PayloadUUID and PayloadIdentifier.
+			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", id)
+			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
+			if data, err = injectClassicRedeployOnUpdate(data); err != nil {
+				return err
+			}
+			if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+				return err
+			}
+{{ end }}
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "[dry-run] Would replace {{ .Singular }} %q (id: %s)\n", name, id)
 				return nil
@@ -1564,16 +1576,6 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 {{ end }}
 {{ if .IsConfigProfile }}
-			// Preserve existing PayloadUUID and PayloadIdentifier.
-			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", id)
-			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
-			if data, err = injectClassicRedeployOnUpdate(data); err != nil {
-				return err
-			}
-			if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
-				return err
-			}
-
 			updatePath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {

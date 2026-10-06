@@ -26,7 +26,7 @@ These commands now parse the document and edit only `<general><payloads>`,
 document is sent byte for byte. `apply --name` looks the record up by the name
 it was given, not by a `<name>` elsewhere in the document.
 
-Visible changes, all before any request is sent:
+Visible changes, all before any write is sent, and the same under `--dry-run`:
 
 - Every configuration-profile `create`, `update` and `apply`, and an app write
   with `--appconfig-file`, fails on a document the XML parser cannot read, with
