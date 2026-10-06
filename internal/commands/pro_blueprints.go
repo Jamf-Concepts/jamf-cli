@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -1191,6 +1192,58 @@ func warnAPIOnlyPayloads(config json.RawMessage) {
 	}
 }
 
+// reportTakeover tells the admin, before anything is created, whether the
+// blueprint will adopt the profile already installed on devices or install
+// beside it. The two are very different to operate, and the failure mode of
+// the second (both profiles active, conflicting keys) is easy to miss.
+func reportTakeover(w io.Writer, t profileconvert.TakeoverReport) {
+	if t.Supported {
+		_, _ = fmt.Fprintln(w, "Takeover supported: deploying this blueprint adopts the profile already installed from Jamf Pro without reinstalling it.")
+		_, _ = fmt.Fprintln(w, "  Keep the Classic profile scoped while the blueprint is deployed. Undeploying the blueprint after the Classic profile is gone removes the profile from devices.")
+		return
+	}
+	_, _ = fmt.Fprintln(w, "Warning: takeover is not supported for this profile, so deploying the blueprint installs it alongside the Classic profile (both stay active):")
+	for _, r := range t.Reasons {
+		_, _ = fmt.Fprintf(w, "  - %s\n", r)
+	}
+}
+
+// warnDroppedKeys compares what was sent with what the blueprints API stored and
+// warns about keys it discarded. The API silently drops any key Apple's schema
+// does not define for a payload type, and after a takeover those keys are no
+// longer enforced on the device.
+func warnDroppedKeys(w io.Writer, sent []blueprints.Component, steps []blueprints.BlueprintStep, takeover bool) {
+	const legacyComponent = "com.jamf.ddm-configuration-profile"
+	var sentCfg, storedCfg json.RawMessage
+	for _, c := range sent {
+		if c.Identifier == legacyComponent {
+			sentCfg = c.Configuration
+		}
+	}
+	for _, s := range steps {
+		for _, c := range s.Components {
+			if c.Identifier == legacyComponent {
+				storedCfg = c.Configuration
+			}
+		}
+	}
+	if sentCfg == nil || storedCfg == nil {
+		return
+	}
+	dropped := profileconvert.DroppedKeys(sentCfg, storedCfg)
+	if len(dropped) == 0 {
+		return
+	}
+	consequence := "they will not be enforced"
+	if takeover {
+		consequence = "once the blueprint takes over the profile they stop being enforced on devices"
+	}
+	_, _ = fmt.Fprintf(w, "Warning: the blueprints API dropped keys it does not recognise (%s):\n", consequence)
+	for _, d := range dropped {
+		_, _ = fmt.Fprintf(w, "  - %s\n", d)
+	}
+}
+
 func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		blueprintName      string
@@ -1249,6 +1302,38 @@ profiles or "mobile" for mobile device configuration profiles. Profiles can shar
 names across types, so the flag is required when ambiguous.
 
 The blueprint name defaults to the profile's display name (override with --blueprint-name).
+The blueprint description records where it came from and whether it can take over
+the installed profile.
+
+Takeover:
+  A blueprint can adopt the copy of the profile already installed on devices from
+  Jamf Pro, without reinstalling it, so an existing deployment moves to a blueprint
+  with no gap. This is what import-profile does whenever it can: it carries the
+  profile's own identifiers and UUIDs onto the blueprint, and tells you so.
+
+  Takeover needs the blueprint to mirror the installed profile exactly — the same
+  payloads, types and order. It is therefore not available when:
+    - a payload type is outside the set the API takes standalone and has to be
+      delivered as Application & Custom Settings (MCX) instead;
+    - a payload is skipped, removed as empty, or unwrapped from MCX;
+    - payloads were promoted to native DDM components (re-run with --legacy to keep
+      them as legacy payloads and allow takeover);
+    - a payload's PayloadUUID differs from its PayloadIdentifier (blueprints force
+      the two to match);
+    - the profile has no identifiers to carry over.
+  Such a profile still imports, with a warning naming the reasons. Its blueprint
+  installs alongside the Classic profile and both stay active, so deploying it can
+  produce conflicting settings. The identifiers are deliberately not carried over in
+  that case: with identity preserved but a payload changed, the declaration is
+  reported invalid and nothing is applied at all.
+
+  While a takeover blueprint is deployed it owns the profile. Editing the blueprint
+  changes the profile on devices; removing or unscoping the Classic profile leaves it
+  in place, and Jamf Pro logs a failed "Remove Configuration Profile" command that is
+  expected. Undeploying hands the profile back to the Classic definition at the next
+  recon — or, if the Classic profile no longer exists, removes it from the devices.
+  Keys the blueprints API does not recognise are dropped (the command lists them)
+  and stop being enforced once the blueprint takes over.
 
 Use --strip-defaults to remove keys that are set to their Apple default values.
 This is useful for profiles created by Jamf Pro's UI which sets every key even
@@ -1274,6 +1359,7 @@ Examples:
   jamf-cli pro blueprints import-profile --name "Managed Restrictions" --type mobile
   jamf-cli pro blueprints import-profile 42 --blueprint-name "FV Blueprint"
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
+  jamf-cli pro blueprints import-profile "Passcode Policy" --legacy   # keep legacy payloads so the blueprint can take over
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
 		Args: cobra.MaximumNArgs(1),
@@ -1311,6 +1397,9 @@ Examples:
 			// Step 3: Convert mobileconfig to blueprint components.
 			displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
 			var components []blueprints.Component
+			// takeover records whether the blueprint can adopt the profile already
+			// installed on devices; see profileconvert.ApplyTakeoverIdentity.
+			var takeover profileconvert.TakeoverReport
 
 			if noConvert {
 				// Legacy mode: wrap all payloads in a single configuration-profile component.
@@ -1335,6 +1424,10 @@ Examples:
 				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
 				fmt.Fprintf(os.Stderr, "Processed %d payload(s) (legacy mode — no DDM conversion)\n", len(types))
 				warnAPIOnlyPayloads(config)
+				config, takeover, err = profileconvert.ApplyTakeoverIdentity(config, []byte(mobileconfig), 0)
+				if err != nil {
+					return fmt.Errorf("checking takeover: %w", err)
+				}
 				components = append(components, blueprints.Component{
 					Identifier:    "com.jamf.ddm-configuration-profile",
 					Configuration: config,
@@ -1383,6 +1476,12 @@ Examples:
 				if ddmResult.ProfileConfig != nil {
 					fmt.Fprintln(os.Stderr, "  remaining payloads wrapped in configuration-profile component")
 					warnAPIOnlyPayloads(ddmResult.ProfileConfig)
+					ddmResult.ProfileConfig, takeover, err = profileconvert.ApplyTakeoverIdentity(ddmResult.ProfileConfig, []byte(mobileconfig), len(ddmResult.NativeComponents))
+					if err != nil {
+						return fmt.Errorf("checking takeover: %w", err)
+					}
+				} else {
+					takeover = profileconvert.NativeConversionReport(len(ddmResult.NativeComponents))
 				}
 
 				for _, nc := range ddmResult.NativeComponents {
@@ -1402,6 +1501,7 @@ Examples:
 			if len(components) == 0 {
 				return fmt.Errorf("no components produced — all payloads were stripped or unsupported")
 			}
+			reportTakeover(os.Stderr, takeover)
 
 			// Step 4: Determine scope. --computer-group/--mobile-device-group override
 			// the profile's own scope; otherwise carry over the profile's target groups.
@@ -1444,9 +1544,16 @@ Examples:
 				name = "Imported profile " + profileID
 			}
 
+			sourceName := resolvedName
+			if sourceName == "" {
+				sourceName = displayName
+			}
+			description := profileconvert.ImportDescription(profileType, sourceName, profileID, takeover)
+
 			importStepName := "Step 1"
 			createReq := &blueprints.CreateBlueprintRequest{
-				Name: name,
+				Name:        name,
+				Description: &description,
 				Scope: blueprints.CreateScope{
 					DeviceGroups: scopeGroups,
 				},
@@ -1470,13 +1577,14 @@ Examples:
 			if err != nil {
 				return err
 			}
+			warnDroppedKeys(os.Stderr, components, bp.Steps, takeover.Supported)
 			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
 		},
 	}
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
-	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion")
+	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion (keeps the profile's structure, so it can take over the installed profile)")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Set the blueprint scope to these computer group name(s), overriding the profile's scope (repeatable)")

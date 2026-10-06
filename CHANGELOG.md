@@ -42,6 +42,41 @@ These now fail over MCP, with the reason in the error:
 The reads, `delete`, history notes and connection tests on these resources
 still run. Outside MCP, nothing changes.
 
+### Behaviour — `pro blueprints import-profile` takes over the installed profile where it can
+
+`import-profile` used to give every blueprint fresh, generated payload
+identifiers, so a blueprint made from a profile already installed on devices
+was a second profile beside the first, never a replacement for it. It now
+carries the profile's own identifiers and UUIDs onto the blueprint whenever
+that lets the blueprint adopt the installed copy (Apple's legacy-profile
+declaration) without reinstalling it. Nothing needs a flag.
+
+What a script can see change:
+
+- The blueprint **description** is set: `Imported from the computer
+  configuration profile "<name>" (ID <id>) using jamf-cli. Takeover is
+  supported: …` or `… Takeover is not supported: <reasons>. …`.
+- A line on stderr before anything is created says either `Takeover supported`
+  or `Warning: takeover is not supported`, with each reason. Takeover is
+  unavailable when a payload has to be wrapped as MCX, skipped, removed as
+  empty or unwrapped; when payloads were promoted to native DDM components
+  (`--legacy` keeps them as legacy payloads and allows takeover); when a
+  payload's `PayloadUUID` differs from its `PayloadIdentifier` (the blueprints
+  API rewrites one to match the other); or when the profile has no identifiers.
+- Identifiers are only carried over when takeover is supported. Carrying them
+  over with a payload changed made the device reject the declaration as
+  invalid, and nothing was applied at all.
+- After creating the blueprint the command reads it back and warns about keys
+  the API dropped because Apple's schema does not define them. Once a blueprint
+  has taken over a profile those keys stop being enforced on devices.
+
+Operating a takeover blueprint: while it is deployed it owns the profile on the
+device, so editing the blueprint changes the profile. Removing or unscoping the
+Classic profile leaves it in place, and Jamf Pro logs a failed "Remove
+Configuration Profile" command, which is expected. Undeploying returns the
+profile to the Classic definition at the next recon, or removes it from the
+device if the Classic profile no longer exists.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body

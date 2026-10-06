@@ -8,3 +8,8 @@ Partial converters return `remaining` keys (extracted from shared payload types 
 
 Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register via `newXxxConverter()` in `ddm_converter.go` `init()`, add tests in `ddm_converter_test.go`.
 
+### Takeover
+
+`takeover.go` decides whether a blueprint can adopt the profile already installed on devices. `ApplyTakeoverIdentity` judges the **converted output** against the original mobileconfig (payload count, type and order per index, identifier == UUID, top-level identity) and only then stamps the original identifiers on. It is called after all stripping and validation, so any change the converter made to the profile's shape shows up as a reason. When takeover is refused the configuration comes back untouched — **never preserve identity on a profile that cannot be adopted**: with identity kept but a payload changed the device reports the declaration invalid and applies nothing.
+
+The API rewrites each payload's `payloadUUID` to equal its `payloadIdentifier`, which is why a payload whose two differ can never match. Native conversion (`NativeConversionReport`) always refuses takeover; `--legacy` is the way to keep those payloads and allow it. `ImportDescription` writes the blueprint description (clipped to the API's 2000 bytes on a rune boundary); `DroppedKeys` diffs sent against stored to name keys the API discarded. Facts and lifecycle: `docs/solutions/logic-errors/blueprint-takeover-needs-identity-and-standalone-types-2026-10-06.md`.

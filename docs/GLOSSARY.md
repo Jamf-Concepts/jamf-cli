@@ -49,6 +49,7 @@ which API you call and which device-side mechanism applies the config.
 | **Blueprint** | A **Jamf Pro** AND **Jamf School** feature that bundles DDM declarations (and increasingly, configuration-profile payloads too) into a single deployable unit. Built on DDM. Scoped to smart groups or static groups. Available in both products via the Platform Gateway API surface — *the API lives in `specs/platform/`, but the user-facing concept is a Pro/School feature, not a separate "Platform product".* |
 | **Blueprint component** | A single declaration or supported configuration-profile payload inside a blueprint. Newer Apple payloads (AirPrint, Restrictions, Lock Screen Message, etc.) can be added as components alongside DDM declarations. |
 | **Legacy-to-DDM conversion** | `import-profile` auto-converts compatible mobileconfig payloads into native DDM components in a blueprint. `--legacy` opts out. Unsupported payloads are filtered unless `--include-unsupported` is set. |
+| **Takeover** | A blueprint adopting the configuration profile already installed on a device by MDM, without reinstalling it (Apple's legacy-profile declaration, `com.apple.configuration.legacy`). Needs the blueprint to carry the profile's own identifiers and the same payloads, types and order. `import-profile` does it whenever it can and says so in the blueprint description. While deployed the blueprint owns the profile; undeploying with no Classic profile left removes it from the device. |
 
 ## Groups and scope
 
