@@ -101,9 +101,9 @@ Two specs may tag a resource with the same name. `platformResourceNameOverrides`
 
 Endpoints sit under `hiddenapi/` in `jamf/jss`, so no published spec described them until `public-apis-oas#430` published 24 operations into `pro_api.json` (GitOps v2043, 2026-09-03). `#451` withdrew `POST /v1/app-installers/titles/{id}/cache-update` 80 minutes later.
 
-Specs come from `pro_api.json` via `monolith.ExtractSubtree` (`generator/monolith/subtree.go`). Route table is `AppInstallerSpecs` in `generator/monolith/overrides.go`. All four files stay in `PreservedSpecs` so the monolith splitter cannot delete them. Refresh with `make sync-platform-specs-from-sdk`.
+Specs come from `pro_api.json` via `monolith.ExtractSubtree` (`generator/monolith/subtree.go`). Route table is `AppInstallerSpecs` in `generator/monolith/overrides.go`, which writes one file, `specs/AppInstallers.yaml`. `monolith.PruneStaleSpecs` exempts every `AppInstallerSpecs` filename, so a `make sync-spec` ingest cannot delete it, and `TestCommittedSpecsAreTheNormalisedLayout` fails if it goes missing. Refresh with `make sync-platform-specs-from-sdk`.
 
-**It is deliberately not `Split`.** `Split` owns all of `specs/`, wipes every root `*.yaml`, and would regenerate all 164 specs from the gateway's version-filtered view, deleting commands for withdrawn operations.
+**It is deliberately a subtree, not the whole document.** `monolith.Normalise` run on `pro_api.json` would replace `specs/JamfProAPI.yaml` with the gateway's version-filtered view and delete the commands for every withdrawn operation.
 
 Three transforms turn a gateway-published operation into a Pro-direct one:
 - Header parameters dropped (gateway declares `X-Tenant-Id` on every operation; parser turns any declared parameter into a flag)
