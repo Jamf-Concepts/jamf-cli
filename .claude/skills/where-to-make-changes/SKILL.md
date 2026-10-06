@@ -44,7 +44,7 @@ description: Use when you know what to change but not where — a lookup table m
 | Add/change alternate lookup fields (--serial, --udid) — modern API | `generator/parser/parser.go` → `resourceLookupFields` map |
 | Add a CLI flag alias for a classic lookup (e.g. `--serial` → `--serialnumber`) | `generator/classic/generator.go` → `lookupFlagAliases` map |
 | Fix a resource name auto-pluralization issue | `generator/parser/parser.go` → `resourceNameOverrides` map |
-| Change which API version a multi-file resource family ships | nothing — `DeduplicateVersioned` ranks by the version each resource *serves* (`resourceAPIVersion`), not by its name suffix. Check `resourceGetDetailPathOverrides` and `internal/commands/pro_device_actions.go` for hand-pinned versions of the same resource |
+| Change which API version a resource ships | nothing — `deduplicateVersionedOps` keeps the highest version per version-stripped path shape inside the resource, read from the paths and not from a name. Check `resourceGetDetailPathOverrides`, `resourceListDetailPathOverrides` and `internal/commands/pro_device_actions.go` for hand-pinned versions of the same resource |
 | Fix wrong RSQL filter field for --name lookup | `generator/parser/parser.go` → `resourceNameFieldOverrides` map |
 | Fix wrong ID field extracted from list response | `generator/parser/parser.go` → `resourceIDFieldOverrides` map |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
