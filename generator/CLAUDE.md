@@ -24,7 +24,7 @@ Entrypoint: generator/main.go
 
 Key types in templates: `parser.Resource` (`Name`, `NameSingular`, `GoName`, `Operations`, `IsSingleton`), `parser.Operation` (`Name`, `Method`, `Path`, `IsList`, `IsPaginated`, `IsDestructive`), `classic.ClassicResource`. `IsPaginated` (any GET with `page`/`page-size` params) is broader than `IsList` (list/history only) and gates `--all`/`--limit` auto-pagination so report/action GETs like `patch-report` page through all results.
 
-`ParseSpec` returns `[]*Resource` — most specs produce one, but multi-family specs (e.g. `SelfServiceBranding.yaml`) produce one per family. `IsSingleton` is true for settings-style resources (GET+PUT, no `{id}`) — they get `get` instead of `list`, skip `apply`.
+`LoadDocuments` returns `[]*Resource`, one for each group that `GroupPathsByTagAndCollection` (`generator/parser/taggroup.go`) forms. The tag bounds what can be grouped together, and the path structure decides the boundary inside a tag. An independently writable sub-path becomes a nested sub-resource (`subResourceRoots`, `generator/parser/subresource.go`). `IsSingleton` is true for settings-style resources (GET+PUT, no `{id}`) — they get `get` instead of `list`, skip `apply`.
 
 **A resource's API version comes from its paths, never from a filename.** `LoadDocuments` (`generator/parser/monolithparse.go`) merges every spec in `specs/` into one document. `ParseMonolith` groups the paths of that document into resources by collection, so every version of an endpoint lands in one resource. `buildResourceShell` then runs `deduplicateVersionedOps` on the operations of each resource, as **Version consolidation** below describes. There is no cross-resource version pass.
 
