@@ -1,4 +1,3 @@
----
 # Coding Style and Conventions
 
 ## Output Routing — Always `printRows`, Never `output.New`

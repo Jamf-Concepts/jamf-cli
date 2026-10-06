@@ -41,6 +41,37 @@ Visible changes, all before any write is sent, and the same under `--dry-run`:
   root-level `<name>` or `<general><name>`, because the record lookup and the
   server could read different ones.
 
+### Breaking — MCP `run_command` refuses the writes that change who can log in to a Jamf product
+
+`run_command` refused `pro accounts create`, `update` and `apply`, because they
+set a login password. Other commands grant a Jamf Pro login with no password
+in the request, and they ran. A model could create a Classic administrator
+account, bind an account group to an LDAP server it runs, point SSO at its own
+identity provider, or send password-reset mail to its own SMTP server. Each
+login works outside the MCP server.
+
+These now fail over MCP, with the reason in the error:
+
+- `create`, `update` and, where it exists, `apply` on
+  `pro classic-account-users`, `classic-account-groups`,
+  `classic-ldap-servers`, `cloud-ldap` and `cloud-azure`, and
+  `pro cloud-ldap update-mappings`.
+- `pro classic-smtp-server update` and `pro smtp-server update`.
+- `pro sso-settings update`, `disable`, `cert create`, `cert update` and
+  `oidc-broker-config update`, including the `sso-settings-cert` spelling.
+- `platform sso-connections create` and `update`.
+- `apply` on `protect users`, `groups` and `roles`, which create a Jamf
+  Protect console login or change its role, and on `school users` and
+  `groups`, which set a Jamf School login password or the group ACL that
+  grants the teacher and parent app roles. These read their body from a file,
+  so they ran only with that file inside `--input-dir`.
+- `protect restore`, which applies a backup directory's roles, groups and
+  users. It is refused whole, as `protect backup` already was, because
+  `--resources` and `--exclude` are the model's to choose.
+
+The reads, `delete`, history notes and connection tests on these resources
+still run. Outside MCP, nothing changes.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body

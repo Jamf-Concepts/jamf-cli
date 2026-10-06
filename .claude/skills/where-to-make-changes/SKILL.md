@@ -12,7 +12,7 @@ description: Use when you know what to change but not where — a lookup table m
 | Change what a 403 says a permission is *called* (section + picker name) | `internal/privileges/catalogue.go` — a hand transcription of Jamf's permissions-map article, guarded by `TestCatalogueMatchesThePublishedMap` against the committed copy in `internal/privileges/permissions-map.md` (`make sync-permissions-map`) and by `TestCatalogueCoversEveryScopeThisCLISends`. Rendering is `internal/privileges/privileges.go` |
 | Change the 403 hint for a Pro/Classic request **through the gateway** | `forbiddenHint` (`internal/client/client.go`), which reads `gateway.Scopes(method, path)` — the request knows the endpoint, the command annotation does not |
 | Change what a platform 403 says when the *scope level* is wrong rather than the grants | `scopeMismatchHint` / `hasGatewayErrorCode` (`internal/commands/privilege_error.go`), branched on the gateway's `OWNERSHIP_FORBIDDEN` code; the declared levels it names come from `scopesOf` (`internal/commands/platform_scope.go`) |
-| Change what is redacted from a `-vvv` body log | `RedactCredentialBody` (`internal/client/client.go`) — JSON, form-encoded and Classic XML; `redactBodyForLog` composes it with `RedactTokenBody` and every body log goes through it |
+| Change what is redacted from a `-vvv` body log | `redact.Body` (`internal/redact/redact.go`) — JSON, form-encoded and Classic XML. `RedactCredentialBody`, `RedactTokenBody` and `RedactBodyForLog` (`internal/client/client.go`) all delegate to it, and every body log goes through it |
 | Change behavior of all modern API commands | `generator/parser/generator.go` (`resourceTemplate`) |
 | Change behavior of all classic API commands | `generator/classic/generator.go` (`classicResourceTemplate`) |
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
@@ -44,7 +44,7 @@ description: Use when you know what to change but not where — a lookup table m
 | Add/change alternate lookup fields (--serial, --udid) — modern API | `generator/parser/parser.go` → `resourceLookupFields` map |
 | Add a CLI flag alias for a classic lookup (e.g. `--serial` → `--serialnumber`) | `generator/classic/generator.go` → `lookupFlagAliases` map |
 | Fix a resource name auto-pluralization issue | `generator/parser/parser.go` → `resourceNameOverrides` map |
-| Change which API version a multi-file resource family ships | nothing — `DeduplicateVersioned` ranks by the version each resource *serves* (`resourceAPIVersion`), not by its name suffix. Check `resourceGetDetailPathOverrides` and `internal/commands/pro_device_actions.go` for hand-pinned versions of the same resource |
+| Change which API version a resource ships | nothing — every version of an endpoint lands in one resource, and `deduplicateVersionedOps` (`generator/parser/parser.go`) keeps the highest version per version-stripped path shape. Check `resourceGetDetailPathOverrides` and `internal/commands/pro_device_actions.go` for hand-pinned versions of the same resource |
 | Fix wrong RSQL filter field for --name lookup | `generator/parser/parser.go` → `resourceNameFieldOverrides` map |
 | Fix wrong ID field extracted from list response | `generator/parser/parser.go` → `resourceIDFieldOverrides` map |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
