@@ -37,7 +37,7 @@ Critical distinction: **it reads `specs/gateway/coverage.json`'s `spec` section 
 
 `unservedHandWrittenPaths` is its allowlist, each entry carrying why no successor exists. A stale entry fails the test. Grep for hard-coded versions whenever a resource's winning version changes — the test covers command files, but cannot see a stale literal in an override table.
 
-**`TestAlmostEveryRequestResolvesAsServed`** — catches a manifest that is present but not matching the live spec state. Its `gatewayOps` helper (`generator/gateway/overrides_test.go`) uses the generator's own entry point, `parser.LoadDocuments`, then replays the passes that decide which resource survives or rewrite a path (`ApplyNameOverrides`, `ApplyListDetailPaths`, `ApplyGetDetailPaths`). It does not replay the passes that set names, columns or lookup fields, because no verdict reads those.
+**`TestAlmostEveryRequestResolvesAsServed`** — catches a manifest that is present but not matching the live spec state. Its `gatewayOps` helper (`generator/gateway/overrides_test.go`) must build the op list the way the generator does. It calls `parser.LoadDocuments`, the entry point `generator/main.go` uses, so `deduplicateVersionedOps` already ran inside each resource. A superseded version is what a spec drop withdraws, so a list that kept every version would report requests this CLI does not send. The helper then replays `ApplyNameOverrides` and the two passes that rewrite a path, `ApplyListDetailPaths` and `ApplyGetDetailPaths`. Both path passes key on the overridden name, so the name pass runs first. The passes that set columns or lookup fields are not replayed, because no verdict reads them.
 
 **`TestEveryRefusalCarriesItsEvidence`** — asserts every refused command has an entry in the coverage table with a recorded basis. Fails on a missing manifest.
 
@@ -106,6 +106,8 @@ Five tests hold the positional contract tree — each covers a surface the other
 **`TestPlatformUnroutedOpsIsEmptyOrEvidenced`** — fails on any addition to `platformUnroutedOps`, so the next drop is a deliberate edit to this test rather than a quiet table append.
 
 **`TestLivePagingFlagsAreNotSilentlyDropped`** — walks live specs to ensure `--page-size` (and `--page`) are not filtered out for cursor-paged and non-auto-paginating ops. Catches the bug where `buildQueryParams` filtered `page`/`page-size` unconditionally. Fails if no op is left to cover.
+
+**`TestDeduplicateVersionedOps`** (`generator/parser/parser_test.go`) — pins the version choice inside a resource. Its subtests check that the higher version wins, that a versioned path beats an unversioned one, and that different path shapes both survive. `TestDeduplicateVersionedOps_GatewayPathShape` checks that a version after the service namespace still collapses, with the lower version recorded in `FallbackPaths`. `TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive` checks that two services with one terminal segment do not merge. `TestParseMonolith_LosesNoEndpoint` compares version-stripped shapes, so it guards reachability and not the version choice. The tests for the deleted cross-resource pass went with it, because they pinned a function that no longer ran.
 
 **`TestBuildEnumChoices_ReachesAllOfComposedUnionVariants`** — pins the `allOf`-composed-union enum extraction end-to-end for account specs. Without the fix, SSO connection type and setting enums were invisible in `--help`.
 
