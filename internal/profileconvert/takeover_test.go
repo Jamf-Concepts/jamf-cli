@@ -218,23 +218,34 @@ func TestApplyTakeoverIdentity_AllReasonsAreReported(t *testing.T) {
 
 func TestImportDescription(t *testing.T) {
 	supported := ImportDescription("computer", "Finder Takeover", "9696", TakeoverReport{Supported: true})
-	for _, want := range []string{`computer configuration profile "Finder Takeover" (ID 9696)`, "using jamf-cli", "Takeover is supported"} {
-		if !strings.Contains(supported, want) {
-			t.Errorf("supported description lacks %q: %s", want, supported)
-		}
-	}
-	if strings.Contains(supported, "not supported") {
-		t.Errorf("supported description says not supported: %s", supported)
+	if want := `Imported from computer profile "Finder Takeover" (ID 9696) by jamf-cli. Takeover supported.`; supported != want {
+		t.Errorf("supported description = %q, want %q", supported, want)
 	}
 
-	unsupported := ImportDescription("mobile", "Passcode", "12", TakeoverReport{Reasons: []string{"r1", "r2", "r3", "r4", "r5"}})
-	for _, want := range []string{"mobile device configuration profile", "Takeover is not supported: r1; r2; r3; and 2 more", "installs it alongside"} {
-		if !strings.Contains(unsupported, want) {
-			t.Errorf("unsupported description lacks %q: %s", want, unsupported)
-		}
+	unsupported := ImportDescription("mobile", "Passcode", "12", TakeoverReport{Reasons: []string{
+		"payload 1 (com.apple.MCX) is delivered as com.apple.ManagedClient.preferences",
+		"r2", "r3",
+	}})
+	want := `Imported from mobile device profile "Passcode" (ID 12) by jamf-cli. Takeover not supported: ` +
+		`payload 1 (com.apple.MCX) is delivered as com.apple.ManagedClient.preferences (+2 more).`
+	if unsupported != want {
+		t.Errorf("unsupported description = %q, want %q", unsupported, want)
 	}
-	if strings.Contains(unsupported, "r4") {
-		t.Errorf("only the first three reasons are listed: %s", unsupported)
+}
+
+func TestImportDescription_TrimsTheExplanatoryTail(t *testing.T) {
+	for reason, want := range map[string]string{
+		nativeConversionReason(2): "2 payload type(s) were converted to native DDM components",
+		"payload 4 (com.apple.finder) has a PayloadUUID that differs from its PayloadIdentifier, and blueprints force them to match":  "payload 4 (com.apple.finder) has a PayloadUUID that differs from its PayloadIdentifier",
+		"the blueprint carries 12 payload(s) but the installed profile has 14 (payloads were skipped, removed as empty or unwrapped)": "the blueprint carries 12 payload(s) but the installed profile has 14",
+	} {
+		d := ImportDescription("computer", "n", "1", TakeoverReport{Reasons: []string{reason}})
+		if !strings.HasSuffix(d, "not supported: "+want+".") {
+			t.Errorf("description %q does not end with %q", d, want)
+		}
+		if len(d) > 220 {
+			t.Errorf("description is %d bytes, want a short line: %s", len(d), d)
+		}
 	}
 }
 
@@ -264,5 +275,62 @@ func TestDroppedKeys(t *testing.T) {
 	// A reshaped payload list cannot be compared position by position.
 	if mismatch := DroppedKeys(sent, json.RawMessage(`{"payloadContent":[]}`)); mismatch != nil {
 		t.Errorf("mismatched lengths should report nothing, got %q", mismatch)
+	}
+}
+
+func TestConvertVerbatim_KeepsTheShapeOfTheInstalledProfile(t *testing.T) {
+	dash := takeoverPayload{typ: "com.apple.dashboard", id: "DDDD", uuid: "DDDD", body: `<key>whiteListEnabled</key><false/>`}
+	empty := takeoverPayload{typ: "com.apple.desktop", id: "EEEE", uuid: "EEEE"}
+	profile := takeoverProfile(topUUID, topUUID, finderPayload, dash, empty)
+
+	wrapped, err := ConvertToDDMComponents(profile, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verbatim, err := ConvertToDDMComponentsVerbatim(profile, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, wrappedContent := decodeContent(t, wrapped.ProfileConfig)
+	_, verbatimContent := decodeContent(t, verbatim.ProfileConfig)
+
+	if len(verbatimContent) != 3 {
+		t.Fatalf("verbatim kept %d payloads, want 3 (empty one included)", len(verbatimContent))
+	}
+	if len(wrappedContent) != 2 {
+		t.Errorf("the fallback drops the empty payload: got %d payloads", len(wrappedContent))
+	}
+	if verbatimContent[1]["payloadType"] != "com.apple.dashboard" {
+		t.Errorf("verbatim changed dashboard's type to %v", verbatimContent[1]["payloadType"])
+	}
+	if wrappedContent[1]["payloadType"] != "com.apple.ManagedClient.preferences" {
+		t.Errorf("the fallback should wrap dashboard, got %v", wrappedContent[1]["payloadType"])
+	}
+
+	// Same two behaviours on the legacy path, which has its own copy of the logic.
+	legacyVerbatim, _, err := ConvertMobileconfigVerbatim(profile, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := UnlistedPayloadTypes(legacyVerbatim); len(got) != 1 || got[0] != "com.apple.dashboard" {
+		t.Errorf("UnlistedPayloadTypes = %v, want [com.apple.dashboard]", got)
+	}
+	legacyWrapped, _, err := ConvertMobileconfig(profile, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := UnlistedPayloadTypes(legacyWrapped); len(got) != 0 {
+		t.Errorf("the fallback carries no unlisted standalone type, got %v", got)
+	}
+}
+
+func TestImportDescription_ALongReasonIsCutAtAWord(t *testing.T) {
+	reason := "payload 1 (com.apple.TCC.configuration-profile-policy) has a PayloadUUID that differs from its PayloadIdentifier and then some"
+	d := ImportDescription("computer", "n", "1", TakeoverReport{Reasons: []string{reason}})
+	if !strings.HasSuffix(d, "…") || strings.Contains(d, "...") || strings.HasSuffix(d, "….") {
+		t.Errorf("want a clean cut ending in an ellipsis, got %q", d)
+	}
+	if strings.Contains(d, "PayloadIdentifi…") {
+		t.Errorf("cut mid-word: %q", d)
 	}
 }

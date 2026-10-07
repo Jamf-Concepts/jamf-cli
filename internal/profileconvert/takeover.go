@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -158,30 +159,56 @@ const maxDescriptionLength = 2000
 
 // ImportDescription is the blueprint description import-profile writes, saying
 // where the blueprint came from and whether it can take over the installed
-// profile.
+// profile. It stays one short line: the full reasons are in the command's own
+// warning, and a description is read in a list.
 func ImportDescription(profileKind, profileName, profileID string, report TakeoverReport) string {
-	kind := "computer configuration profile"
+	kind := "computer profile"
 	if profileKind == "mobile" {
-		kind = "mobile device configuration profile"
+		kind = "mobile device profile"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Imported from the %s %q (ID %s) using jamf-cli. ", kind, profileName, profileID)
+	fmt.Fprintf(&b, "Imported from %s %q (ID %s) by jamf-cli. ", kind, profileName, profileID)
 	if report.Supported {
-		b.WriteString("Takeover is supported: deploying this blueprint adopts the profile already installed from Jamf Pro without reinstalling it.")
+		b.WriteString("Takeover supported.")
 		return clipDescription(b.String())
 	}
-	b.WriteString("Takeover is not supported")
-	const shown = 3
+	b.WriteString("Takeover not supported")
 	if len(report.Reasons) > 0 {
 		b.WriteString(": ")
-		n := min(len(report.Reasons), shown)
-		b.WriteString(strings.Join(report.Reasons[:n], "; "))
-		if more := len(report.Reasons) - n; more > 0 {
-			fmt.Fprintf(&b, "; and %d more", more)
+		b.WriteString(shortReason(report.Reasons[0]))
+		if more := len(report.Reasons) - 1; more > 0 {
+			fmt.Fprintf(&b, " (+%d more)", more)
 		}
 	}
-	b.WriteString(". Deploying this blueprint installs it alongside the Classic profile.")
+	if s := b.String(); !strings.HasSuffix(s, "…") {
+		b.WriteString(".")
+	}
 	return clipDescription(b.String())
+}
+
+var (
+	reasonTrailingParen = regexp.MustCompile(`\s*\([^()]*\)$`)
+	reasonTail          = regexp.MustCompile(`,\s+(and|which)\s.*$`)
+)
+
+// shortReason trims a takeover reason to its first clause: the explanatory tail
+// (", and blueprints force them to match", "(re-run with --legacy ...)") is for
+// the warning on stderr, not for a description.
+func shortReason(r string) string {
+	r = reasonTrailingParen.ReplaceAllString(r, "")
+	r = reasonTail.ReplaceAllString(r, "")
+	const limit = 110
+	if len(r) > limit {
+		cut := strings.LastIndexByte(r[:limit], ' ')
+		if cut <= 0 {
+			cut = limit
+		}
+		for cut > 0 && !utf8.RuneStart(r[cut]) {
+			cut--
+		}
+		r = r[:cut] + "…"
+	}
+	return r
 }
 
 // clipDescription shortens s to the API limit in bytes, which is stricter than

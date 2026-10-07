@@ -87,6 +87,18 @@ func findConverters(payloadType string) []*ddmConverter {
 // is non-nil, Apple schema defaults are stripped from payload settings before
 // conversion so that default-valued keys are not actively managed.
 func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *SchemaFetcher) (*DDMConversionResult, error) {
+	return convertToDDMComponents(data, filterUnsupported, fetcher, false)
+}
+
+// ConvertToDDMComponentsVerbatim is ConvertToDDMComponents without the two
+// recoveries that change a profile's shape: unsupported payload types are sent
+// as themselves rather than wrapped as Custom Settings (MCX), and empty payloads
+// are kept rather than removed. See ConvertMobileconfigVerbatim.
+func ConvertToDDMComponentsVerbatim(data []byte, filterUnsupported bool, fetcher *SchemaFetcher) (*DDMConversionResult, error) {
+	return convertToDDMComponents(data, filterUnsupported, fetcher, true)
+}
+
+func convertToDDMComponents(data []byte, filterUnsupported bool, fetcher *SchemaFetcher, verbatim bool) (*DDMConversionResult, error) {
 	var profile map[string]any
 	if _, err := plist.Unmarshal(data, &profile); err != nil {
 		return nil, fmt.Errorf("parsing mobileconfig: %w", err)
@@ -145,7 +157,7 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 			}
 			entry := buildPayloadEntry(payloadType, payload, typeCount[payloadType])
 			// Skip payloads with no settings (only payloadType + payloadIdentifier)
-			if len(entry) <= 2 {
+			if len(entry) <= 2 && !verbatim {
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("removed empty payload %q — no settings after metadata stripping", payloadType))
 				continue
@@ -154,7 +166,7 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 			// rejected as standalone payloads (opaque "Failed to validate
 			// configuration.") but accepted as Custom Settings, which is also their
 			// correct legacy delivery. Wrap rather than fail the whole import.
-			if !SupportedPayloadTypes[payloadType] && !DisabledPayloadTypes[payloadType] {
+			if !verbatim && !SupportedPayloadTypes[payloadType] && !DisabledPayloadTypes[payloadType] {
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("payload type %q is not a standalone blueprints payload — delivering it as Custom Settings (MCX)", payloadType))
 				entry = wrapAsManagedPreferences(payloadType, settingsFromEntry(entry), typeCount[payloadType])

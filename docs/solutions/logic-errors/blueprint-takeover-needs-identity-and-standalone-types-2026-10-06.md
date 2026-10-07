@@ -93,7 +93,7 @@ that is a remove-then-install, not a takeover.
 
 So a fallback that keeps identity is strictly worse than one that drops it: while the Classic
 profile is installed it fails, where a blueprint with no identity installs alongside. This is why
-`import-profile` decides statically and offline and never preserves identity "where possible".
+`import-profile` never preserves identity "where possible". It sends the profile as installed first and falls back to the MCX-wrapped form (no identity) only when the API refuses it, so the decision to give up on takeover comes from the API's answer rather than jamf-cli's type list.
 
 An empty payload (the profile's `com.apple.desktop` here) is a second trap: the converter drops
 it, which changes the payload count, and the UI will not deploy a blueprint that carries one.

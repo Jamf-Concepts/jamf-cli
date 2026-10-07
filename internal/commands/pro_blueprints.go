@@ -1175,23 +1175,6 @@ Examples:
 	return cmd
 }
 
-// warnAPIOnlyPayloads inspects a configuration-profile component's config and,
-// if it contains payload types the Jamf Pro UI cannot manage directly, prints
-// an advisory naming them. Those payloads show as read-only "Legacy payload"
-// items in the UI and can only be edited through the blueprints API. Payload
-// types the UI can manage (UIManageablePayloadTypes) produce no warning.
-func warnAPIOnlyPayloads(config json.RawMessage) {
-	apiOnly := profileconvert.APIOnlyPayloadTypes(config)
-	if len(apiOnly) == 0 {
-		return
-	}
-	fmt.Fprintln(os.Stderr, "Note: the following payload(s) can only be managed through the blueprints API — "+
-		"they show as read-only \"Legacy payload\" items in the Jamf Pro UI and cannot be edited there:")
-	for _, pt := range apiOnly {
-		fmt.Fprintf(os.Stderr, "  - %s\n", pt)
-	}
-}
-
 // reportTakeover tells the admin, before anything is created, whether the
 // blueprint will adopt the profile already installed on devices or install
 // beside it. The two are very different to operate, and the failure mode of
@@ -1321,6 +1304,13 @@ Takeover:
     - a payload's PayloadUUID differs from its PayloadIdentifier (blueprints force
       the two to match);
     - the profile has no identifiers to carry over.
+  The profile is sent as installed first, without wrapping anything or removing empty
+  payloads. Only if the API rejects that (HTTP 400, "Failed to validate configuration.")
+  is it sent again with the types the API does not take standalone delivered as
+  Application & Custom Settings (MCX), which cannot take over. A type the API has
+  started accepting therefore takes over without a code change, and the command says
+  so. Any other failure is returned as it is, without a retry.
+
   Such a profile still imports, with a warning naming the reasons. Its blueprint
   installs alongside the Classic profile and both stay active, so deploying it can
   produce conflicting settings. The identifiers are deliberately not carried over in
@@ -1394,114 +1384,23 @@ Examples:
 				return fmt.Errorf("no <payloads> found in %s profile %s", profileType, profileLabel)
 			}
 
-			// Step 3: Convert mobileconfig to blueprint components.
+			// Step 3: Convert mobileconfig to blueprint components. Two plans: the
+			// profile as installed, sent first so that a payload type the API has
+			// started accepting is found by asking it, and the profile with the
+			// types jamf-cli lists as unsupported delivered as Custom Settings (MCX),
+			// which the API accepts but which cannot take over the installed profile.
 			displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
-			var components []blueprints.Component
-			// takeover records whether the blueprint can adopt the profile already
-			// installed on devices; see profileconvert.ApplyTakeoverIdentity.
-			var takeover profileconvert.TakeoverReport
-
-			if noConvert {
-				// Legacy mode: wrap all payloads in a single configuration-profile component.
-				config, warnings, err := profileconvert.ConvertMobileconfig([]byte(mobileconfig), !includeUnsupported)
-				if err != nil {
-					return fmt.Errorf("converting profile: %w", err)
-				}
-				for _, w := range warnings {
-					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-				}
-				if stripDefaults {
-					fetcher := profileconvert.NewSchemaFetcher(nil)
-					var msgs []string
-					config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
-					for _, m := range msgs {
-						fmt.Fprintf(os.Stderr, "  %s\n", m)
-					}
-				}
-				if err := profileconvert.ConfigHasPayloads(config); err != nil {
-					return fmt.Errorf("no payloads remain after processing")
-				}
-				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
-				fmt.Fprintf(os.Stderr, "Processed %d payload(s) (legacy mode — no DDM conversion)\n", len(types))
-				warnAPIOnlyPayloads(config)
-				config, takeover, err = profileconvert.ApplyTakeoverIdentity(config, []byte(mobileconfig), 0)
-				if err != nil {
-					return fmt.Errorf("checking takeover: %w", err)
-				}
-				components = append(components, blueprints.Component{
-					Identifier:    "com.jamf.ddm-configuration-profile",
-					Configuration: config,
-				})
-			} else {
-				// DDM mode: promote compatible payloads to native DDM components.
-				var ddmFetcher *profileconvert.SchemaFetcher
-				if stripDefaults {
-					ddmFetcher = profileconvert.NewSchemaFetcher(nil)
-				}
-				ddmResult, err := profileconvert.ConvertToDDMComponents([]byte(mobileconfig), !includeUnsupported, ddmFetcher)
-				if err != nil {
-					return fmt.Errorf("converting profile: %w", err)
-				}
-				for _, w := range ddmResult.Warnings {
-					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-				}
-
-				// Validate/strip the configuration-profile component (if any)
-				if ddmResult.ProfileConfig != nil {
-					fetcher := profileconvert.NewSchemaFetcher(nil)
-					if stripDefaults {
-						var msgs []string
-						ddmResult.ProfileConfig, msgs = profileconvert.StripConfigDefaults(ddmResult.ProfileConfig, fetcher)
-						for _, m := range msgs {
-							fmt.Fprintf(os.Stderr, "  %s\n", m)
-						}
-					} else {
-						var msgs []string
-						ddmResult.ProfileConfig, msgs = profileconvert.ValidatePayloads(ddmResult.ProfileConfig, fetcher)
-						for _, m := range msgs {
-							fmt.Fprintf(os.Stderr, "  %s\n", m)
-						}
-					}
-					if err := profileconvert.ConfigHasPayloads(ddmResult.ProfileConfig); err != nil {
-						ddmResult.ProfileConfig = nil
-					}
-				}
-
-				// Print conversion summary
-				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
-				fmt.Fprintf(os.Stderr, "Processed %d payload(s)\n", len(types))
-				for _, c := range ddmResult.Conversions {
-					fmt.Fprintf(os.Stderr, "  %s (native DDM)\n", c)
-				}
-				if ddmResult.ProfileConfig != nil {
-					fmt.Fprintln(os.Stderr, "  remaining payloads wrapped in configuration-profile component")
-					warnAPIOnlyPayloads(ddmResult.ProfileConfig)
-					ddmResult.ProfileConfig, takeover, err = profileconvert.ApplyTakeoverIdentity(ddmResult.ProfileConfig, []byte(mobileconfig), len(ddmResult.NativeComponents))
-					if err != nil {
-						return fmt.Errorf("checking takeover: %w", err)
-					}
-				} else {
-					takeover = profileconvert.NativeConversionReport(len(ddmResult.NativeComponents))
-				}
-
-				for _, nc := range ddmResult.NativeComponents {
-					components = append(components, blueprints.Component{
-						Identifier:    nc.Identifier,
-						Configuration: nc.Configuration,
-					})
-				}
-				if ddmResult.ProfileConfig != nil {
-					components = append(components, blueprints.Component{
-						Identifier:    "com.jamf.ddm-configuration-profile",
-						Configuration: ddmResult.ProfileConfig,
-					})
-				}
+			convertOpts := importConvertOptions{legacy: noConvert, includeUnsupported: includeUnsupported, stripDefaults: stripDefaults}
+			schemaFetcher := profileconvert.NewSchemaFetcher(nil)
+			plan, err := buildImportPlan([]byte(mobileconfig), convertOpts, true, schemaFetcher)
+			if err != nil {
+				return err
 			}
-
-			if len(components) == 0 {
-				return fmt.Errorf("no components produced — all payloads were stripped or unsupported")
+			var fallback *importPlan
+			if wrapped, err := buildImportPlan([]byte(mobileconfig), convertOpts, false, schemaFetcher); err == nil && !sameComponents(plan, wrapped) {
+				fallback = wrapped
 			}
-			reportTakeover(os.Stderr, takeover)
+			printPlanMessages(plan)
 
 			// Step 4: Determine scope. --computer-group/--mobile-device-group override
 			// the profile's own scope; otherwise carry over the profile's target groups.
@@ -1548,36 +1447,42 @@ Examples:
 			if sourceName == "" {
 				sourceName = displayName
 			}
-			description := profileconvert.ImportDescription(profileType, sourceName, profileID, takeover)
-
 			importStepName := "Step 1"
-			createReq := &blueprints.CreateBlueprintRequest{
-				Name:        name,
-				Description: &description,
-				Scope: blueprints.CreateScope{
-					DeviceGroups: scopeGroups,
-				},
-				Steps: []blueprints.BlueprintStep{
-					{
-						Name:       &importStepName,
-						Components: components,
+			send := func(p *importPlan) (string, error) {
+				description := profileconvert.ImportDescription(profileType, sourceName, profileID, p.takeover)
+				result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, &blueprints.CreateBlueprintRequest{
+					Name:        name,
+					Description: &description,
+					Scope: blueprints.CreateScope{
+						DeviceGroups: scopeGroups,
 					},
-				},
+					Steps: []blueprints.BlueprintStep{
+						{
+							Name:       &importStepName,
+							Components: p.components,
+						},
+					},
+				})
+				if err != nil {
+					return "", err
+				}
+				return result.ID, nil
 			}
 
 			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
 
-			result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, createReq)
+			plan, id, err := sendWithFallback(os.Stderr, plan, fallback, send)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", name, result.ID)
+			fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", name, id)
+			reportTakeover(os.Stderr, plan.takeover)
 
-			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, result.ID)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
-			warnDroppedKeys(os.Stderr, components, bp.Steps, takeover.Supported)
+			warnDroppedKeys(os.Stderr, plan.components, bp.Steps, plan.takeover.Supported)
 			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
 		},
 	}

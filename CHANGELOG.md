@@ -53,9 +53,18 @@ declaration) without reinstalling it. Nothing needs a flag.
 
 What a script can see change:
 
-- The blueprint **description** is set: `Imported from the computer
-  configuration profile "<name>" (ID <id>) using jamf-cli. Takeover is
-  supported: …` or `… Takeover is not supported: <reasons>. …`.
+- The blueprint **description** is set to one short line: `Imported from
+  computer profile "<name>" (ID <id>) by jamf-cli. Takeover supported.` or
+  `… Takeover not supported: <first reason> (+N more).`
+- A profile with a payload type jamf-cli lists as unsupported is **sent as
+  installed first**, with its types and payload count unchanged. If the API
+  accepts it, takeover works for that profile and the command notes that
+  `profileconvert.SupportedPayloadTypes` is out of date. Only when the API
+  refuses it (HTTP 400 `Failed to validate configuration.` on a component, and
+  nothing else) does the command retry with those types delivered as Custom
+  Settings (MCX), as before, with no takeover. Any other failure is returned
+  without a retry. So the same profile can produce a different blueprint on a
+  different server version.
 - A line on stderr before anything is created says either `Takeover supported`
   or `Warning: takeover is not supported`, with each reason. Takeover is
   unavailable when a payload has to be wrapped as MCX, skipped, removed as

@@ -317,6 +317,20 @@ var appleMetadataKeys = map[string]bool{
 // types are silently removed (with a warning). Otherwise they are included and
 // the API will validate them.
 func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, []string, error) {
+	return convertMobileconfig(data, filterUnsupported, false)
+}
+
+// ConvertMobileconfigVerbatim is ConvertMobileconfig without the two recoveries
+// that change a profile's shape: payload types outside SupportedPayloadTypes
+// are sent as themselves instead of being wrapped as Custom Settings (MCX), and
+// payloads with no settings are kept instead of removed. The result is what the
+// installed profile looks like, so a takeover is possible whenever the API
+// accepts it. The API may reject it; ConvertMobileconfig is the fallback.
+func ConvertMobileconfigVerbatim(data []byte, filterUnsupported bool) (json.RawMessage, []string, error) {
+	return convertMobileconfig(data, filterUnsupported, true)
+}
+
+func convertMobileconfig(data []byte, filterUnsupported, verbatim bool) (json.RawMessage, []string, error) {
 	var profile map[string]any
 	if _, err := plist.Unmarshal(data, &profile); err != nil {
 		return nil, nil, fmt.Errorf("parsing mobileconfig: %w", err)
@@ -365,7 +379,7 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 		// Payload types outside the component's registry are rejected as standalone
 		// payloads but accepted as Custom Settings, which is also their correct
 		// legacy delivery. Wrap rather than lose the settings.
-		if !SupportedPayloadTypes[payloadType] && !DisabledPayloadTypes[payloadType] {
+		if !verbatim && !SupportedPayloadTypes[payloadType] && !DisabledPayloadTypes[payloadType] {
 			settings := settingsFromEntry(entry)
 			if len(settings) == 0 {
 				warnings = append(warnings, fmt.Sprintf("removed empty payload %q — no settings after metadata stripping", payloadType))
@@ -793,4 +807,30 @@ func ConfigHasPayloads(config json.RawMessage) error {
 		return fmt.Errorf("no payloads remain after stripping defaults — the profile only contained keys at their Apple default values")
 	}
 	return nil
+}
+
+// UnlistedPayloadTypes returns, sorted, the payload types in a configuration
+// that SupportedPayloadTypes does not list. A configuration the API accepted
+// that still has some means the list is out of date.
+func UnlistedPayloadTypes(config json.RawMessage) []string {
+	_, content, ok := parsePayloadContent(config)
+	if !ok {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, item := range content {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		pt, _ := entry["payloadType"].(string)
+		if pt == "" || SupportedPayloadTypes[pt] || seen[pt] {
+			continue
+		}
+		seen[pt] = true
+		out = append(out, pt)
+	}
+	sort.Strings(out)
+	return out
 }
