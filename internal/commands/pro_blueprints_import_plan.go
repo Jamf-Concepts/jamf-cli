@@ -243,7 +243,12 @@ func printPlanMessages(w io.Writer, p *importPlan) {
 // timed-out or 5xx write may already have been applied.
 // With takeoverOnly the fallback is never sent: it cannot take over, so the
 // rejection ends the import with nothing created.
-func sendWithFallback(w io.Writer, plan, fallback *importPlan, takeoverOnly bool, send func(*importPlan) (string, error)) (*importPlan, string, error) {
+//
+// beforeFallback, when set, runs after the first attempt is rejected and before
+// the fallback is sent, so a gate that depended on the plan being sent (the
+// "installs alongside" confirmation) is evaluated against the fallback too. Its
+// error is returned as is: nothing was created.
+func sendWithFallback(w io.Writer, plan, fallback *importPlan, takeoverOnly bool, beforeFallback func(*importPlan) error, send func(*importPlan) (string, error)) (*importPlan, string, error) {
 	id, err := send(plan)
 	if err == nil {
 		if unlisted := unlistedPayloadTypes(plan.components); len(unlisted) > 0 && fallback != nil {
@@ -268,6 +273,11 @@ func sendWithFallback(w io.Writer, plan, fallback *importPlan, takeoverOnly bool
 		"which cannot take over the installed profile.")
 	for _, m := range fallback.messages {
 		_, _ = fmt.Fprintln(w, m)
+	}
+	if beforeFallback != nil {
+		if err := beforeFallback(fallback); err != nil {
+			return plan, "", err
+		}
 	}
 	id, retryErr := send(fallback)
 	if retryErr != nil {
@@ -364,4 +374,21 @@ func notImportedForTakeover(profileLabel string, reasons []string) error {
 	return &skipError{msg: fmt.Sprintf("profile %s was not imported: takeover is not supported for it (--takeover-only).\n  - %s\n"+
 		"Drop the flag to import it as a blueprint that installs alongside the Classic profile",
 		profileLabel, strings.Join(reasons, "\n  - "))}
+}
+
+// refuseExistingBlueprint skips the import when a blueprint already carries the
+// name, naming it so the operator can deploy or delete it. The list search also
+// matches descriptions, so only an exact name counts.
+func refuseExistingBlueprint(ctx context.Context, list func(context.Context, []string, string) ([]blueprints.BlueprintOverview, error), name string) error {
+	existing, err := list(ctx, nil, name)
+	if err != nil {
+		return err
+	}
+	for _, bp := range existing {
+		if bp.Name == name {
+			return &skipError{msg: fmt.Sprintf("a blueprint named %q already exists (id: %s), so nothing was created; "+
+				"deploy or delete it, or pass --blueprint-name to import this profile under another name", name, bp.ID)}
+		}
+	}
+	return nil
 }

@@ -118,7 +118,16 @@ What a script can see change:
   unwrapping of Application & Custom Settings (MCX) payloads, which both change a
   profile's payloads and so end takeover, moved behind the new `--convert` flag.
   Scripts that passed `--legacy` must drop it; scripts that relied on native
-  components must add `--convert`.
+  components must add `--convert`. A script still passing `--legacy` is told
+  `did you mean --convert?`.
+- **A blueprint name already in use is a skip, not a second blueprint.** Create is
+  not idempotent, and `--all` names blueprints after Classic display names, which
+  are not unique, so a re-run after a partial failure used to duplicate every
+  blueprint it had already made. The skip names the existing blueprint's ID.
+- When the API refuses the profile as installed and the converted fallback is sent
+  instead, the reported takeover verdict (and the `--all` table's `takeover`
+  column) is the fallback's, and `--deploy` asks for the "installs alongside"
+  confirmation before the fallback is created.
 - The converted blueprint (what `--convert` produces) is also the fallback. The
   profile as installed is sent first. If the API refuses it (HTTP 400 `Failed to
   validate configuration.` on a component, and nothing else), or takeover is not

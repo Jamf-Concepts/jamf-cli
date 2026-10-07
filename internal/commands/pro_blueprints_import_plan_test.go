@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
 	jamfplatform "github.com/jamf/jamfplatform-go-sdk/jamfplatform"
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
@@ -198,7 +200,7 @@ func TestSendWithFallback(t *testing.T) {
 		first, second := fallbackFixture(t)
 		var sent []*importPlan
 		var out bytes.Buffer
-		got, id, err := sendWithFallback(&out, first, second, false, func(p *importPlan) (string, error) {
+		got, id, err := sendWithFallback(&out, first, second, false, nil, func(p *importPlan) (string, error) {
 			sent = append(sent, p)
 			return "bp-1", nil
 		})
@@ -215,7 +217,7 @@ func TestSendWithFallback(t *testing.T) {
 		first, second := fallbackFixture(t)
 		var sent []*importPlan
 		var out bytes.Buffer
-		got, id, err := sendWithFallback(&out, first, second, false, func(p *importPlan) (string, error) {
+		got, id, err := sendWithFallback(&out, first, second, false, nil, func(p *importPlan) (string, error) {
 			sent = append(sent, p)
 			if p == first {
 				return "", rejection
@@ -233,9 +235,41 @@ func TestSendWithFallback(t *testing.T) {
 		}
 	})
 
+	t.Run("the hook runs against the fallback before it is sent", func(t *testing.T) {
+		first, second := fallbackFixture(t)
+		var gated *importPlan
+		var sent []*importPlan
+		_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, func(p *importPlan) error {
+			gated = p
+			return nil
+		}, func(p *importPlan) (string, error) {
+			sent = append(sent, p)
+			if p == first {
+				return "", rejection
+			}
+			return "bp-2", nil
+		})
+		if err != nil || gated != second || len(sent) != 2 {
+			t.Fatalf("gated=%v sent=%d err=%v", gated == second, len(sent), err)
+		}
+	})
+
+	t.Run("a declined hook sends no fallback and reports the decline untouched", func(t *testing.T) {
+		first, second := fallbackFixture(t)
+		declined := errors.New("declined")
+		var sent int
+		_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, func(*importPlan) error { return declined }, func(*importPlan) (string, error) {
+			sent++
+			return "", rejection
+		})
+		if !errors.Is(err, declined) || err.Error() != "declined" || sent != 1 {
+			t.Errorf("err=%v sent=%d, want the decline as is after one send", err, sent)
+		}
+	})
+
 	t.Run("both rejected reports both", func(t *testing.T) {
 		first, second := fallbackFixture(t)
-		_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, func(p *importPlan) (string, error) {
+		_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, nil, func(p *importPlan) (string, error) {
 			return "", rejection
 		})
 		if err == nil || !strings.Contains(err.Error(), "also rejected") {
@@ -251,7 +285,7 @@ func TestSendWithFallback(t *testing.T) {
 		} {
 			first, second := fallbackFixture(t)
 			calls := 0
-			_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, func(*importPlan) (string, error) {
+			_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, nil, func(*importPlan) (string, error) {
 				calls++
 				return "", e
 			})
@@ -264,7 +298,7 @@ func TestSendWithFallback(t *testing.T) {
 	t.Run("no fallback to send", func(t *testing.T) {
 		first, _ := fallbackFixture(t)
 		calls := 0
-		_, _, err := sendWithFallback(&bytes.Buffer{}, first, nil, false, func(*importPlan) (string, error) {
+		_, _, err := sendWithFallback(&bytes.Buffer{}, first, nil, false, nil, func(*importPlan) (string, error) {
 			calls++
 			return "", rejection
 		})
@@ -436,7 +470,7 @@ func TestSendWithFallback_TakeoverOnlyNeverSendsTheConvertedProfile(t *testing.T
 	}}
 	first, second := fallbackFixture(t)
 	calls := 0
-	_, id, err := sendWithFallback(&bytes.Buffer{}, first, second, true, func(*importPlan) (string, error) {
+	_, id, err := sendWithFallback(&bytes.Buffer{}, first, second, true, nil, func(*importPlan) (string, error) {
 		calls++
 		return "", rejection
 	})
@@ -449,7 +483,7 @@ func TestSendWithFallback_TakeoverOnlyNeverSendsTheConvertedProfile(t *testing.T
 
 	// An accepted profile is unaffected by the flag.
 	first, second = fallbackFixture(t)
-	if _, id, err := sendWithFallback(&bytes.Buffer{}, first, second, true, func(*importPlan) (string, error) { return "bp-1", nil }); err != nil || id != "bp-1" {
+	if _, id, err := sendWithFallback(&bytes.Buffer{}, first, second, true, nil, func(*importPlan) (string, error) { return "bp-1", nil }); err != nil || id != "bp-1" {
 		t.Errorf("accepted profile: id = %q err = %v", id, err)
 	}
 }
@@ -632,4 +666,110 @@ func TestNothingToImportIsASkip(t *testing.T) {
 	if nothingToImport(nil) != nil {
 		t.Error("nil stays nil")
 	}
+}
+
+func TestDeployCountsClassifyEveryOutcome(t *testing.T) {
+	var c deployCounts
+	for _, o := range []*importOutcome{
+		{Takeover: "supported"},
+		{Takeover: "supported"},
+		{Takeover: "supported", TakeoverUncertain: true},
+		{Takeover: "not supported"},
+		{Takeover: "not supported"},
+		{Takeover: "not supported"},
+		{Takeover: "supported", ScopeWidened: 2},
+		{Takeover: "not supported", ScopeWidened: 1},
+		{Takeover: "supported", TakeoverUncertain: true, ScopeWidened: 1},
+		{Takeover: "supported", ScopeWidened: 1},
+	} {
+		c.add(o)
+	}
+	if got, want := c, (deployCounts{takeOver: 2, uncertain: 1, alongside: 3, held: 4}); got != want {
+		t.Errorf("counts = %+v, want %+v", got, want)
+	}
+	if c.deployable() != 6 {
+		t.Errorf("deployable = %d, want 6: held blueprints are not deployed", c.deployable())
+	}
+	want := "take over the installed profile for 2; take it over for up to 1 more only if the API accepts payload types jamf-cli lists as unsupported " +
+		"(otherwise they install alongside); install alongside the Classic profile (both stay active) for 3; create but not deploy 4 whose scope would widen."
+	if !strings.Contains(c.summary(), want) {
+		t.Errorf("summary = %q, want it to contain %q", c.summary(), want)
+	}
+}
+
+func TestRunImportAllDeployConfirmationReportsTheCounts(t *testing.T) {
+	prevFormat := outputFmt
+	outputFmt = "json"
+	t.Cleanup(func() { outputFmt = prevFormat })
+	list := `<os_x_configuration_profiles>`
+	for _, id := range []string{"1", "2", "3", "4"} {
+		list += `<os_x_configuration_profile><id>` + id + `</id><name>P` + id + `</name></os_x_configuration_profile>`
+	}
+	list += `</os_x_configuration_profiles>`
+	var buf bytes.Buffer
+	cliCtx := newTestCtx(&buf, "json")
+	cliCtx.Client = &classicRouteMock{routes: map[string]string{"/JSSResource/osxconfigurationprofiles": list}}
+	outcomes := map[string]importOutcome{
+		"1": {Takeover: "supported"},
+		"2": {Takeover: "supported", ScopeWidened: 1},
+		"3": {Takeover: "supported", TakeoverUncertain: true},
+		"4": {Takeover: "not supported"},
+	}
+	importOne := func(_ context.Context, id string, _ io.Writer, _ importRun) (*importOutcome, error) {
+		o := outcomes[id]
+		o.ProfileID = id
+		return &o, nil
+	}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prevStderr := os.Stderr
+	os.Stderr = w
+	runErr := runImportAll(context.Background(), cliCtx, []string{"computer"}, true, true, importOne)
+	os.Stderr = prevStderr
+	_ = w.Close()
+	captured, _ := io.ReadAll(r)
+	if runErr != nil {
+		t.Fatal(runErr)
+	}
+	want := "take over the installed profile for 1; take it over for up to 1 more only if the API accepts payload types jamf-cli lists as unsupported " +
+		"(otherwise they install alongside); install alongside the Classic profile (both stay active) for 1; create but not deploy 1 whose scope would widen."
+	if !strings.Contains(string(captured), want) {
+		t.Errorf("stderr lacks the mixed counts %q:\n%s", want, captured)
+	}
+}
+
+func TestRefuseExistingBlueprint(t *testing.T) {
+	list := func(items ...blueprints.BlueprintOverview) func(context.Context, []string, string) ([]blueprints.BlueprintOverview, error) {
+		return func(_ context.Context, _ []string, search string) ([]blueprints.BlueprintOverview, error) {
+			if search != "WiFi" {
+				t.Errorf("searched for %q, want the blueprint name", search)
+			}
+			return items, nil
+		}
+	}
+	t.Run("an exact name is a skip that names the blueprint", func(t *testing.T) {
+		err := refuseExistingBlueprint(context.Background(), list(blueprints.BlueprintOverview{ID: "bp-9", Name: "WiFi"}), "WiFi")
+		var skip *skipError
+		if !errors.As(err, &skip) || !strings.Contains(err.Error(), "bp-9") {
+			t.Errorf("err = %v, want a skip naming bp-9", err)
+		}
+	})
+	t.Run("the search also matches descriptions, which are not a collision", func(t *testing.T) {
+		err := refuseExistingBlueprint(context.Background(), list(blueprints.BlueprintOverview{ID: "bp-1", Name: "WiFi (copy)"}), "WiFi")
+		if err != nil {
+			t.Errorf("err = %v, want none: only an exact name collides", err)
+		}
+	})
+	t.Run("a failed lookup stops the import rather than guessing", func(t *testing.T) {
+		boom := errors.New("boom")
+		err := refuseExistingBlueprint(context.Background(), func(context.Context, []string, string) ([]blueprints.BlueprintOverview, error) {
+			return nil, boom
+		}, "WiFi")
+		if !errors.Is(err, boom) {
+			t.Errorf("err = %v, want the lookup failure", err)
+		}
+	})
 }

@@ -84,3 +84,12 @@ func TestSuggestFlag_RenameIsScopedToCommandsThatHaveTheReplacement(t *testing.T
 		}
 	}
 }
+
+func TestSuggestFlag_LegacyPointsAtConvert(t *testing.T) {
+	if got := suggestFlag("legacy", []string{"all", "convert", "deploy"}); got != "convert" {
+		t.Errorf("suggestFlag(legacy) on import-profile = %q, want convert", got)
+	}
+	if got := suggestFlag("legacy", []string{"output", "quiet"}); got == "convert" {
+		t.Error("suggestFlag(legacy) hinted --convert on a command without it")
+	}
+}

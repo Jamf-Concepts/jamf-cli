@@ -128,6 +128,31 @@ func firstLine(err error) string {
 	return line
 }
 
+// deployCounts is what --all --deploy would do, tallied from the preview pass.
+type deployCounts struct{ takeOver, uncertain, alongside, held int }
+
+func (c *deployCounts) add(out *importOutcome) {
+	switch {
+	case out.ScopeWidened > 0:
+		c.held++
+	case out.TakeoverUncertain:
+		c.uncertain++
+	case out.Takeover == "supported":
+		c.takeOver++
+	default:
+		c.alongside++
+	}
+}
+
+// deployable is every blueprint the real pass would deploy, held ones excluded.
+func (c deployCounts) deployable() int { return c.takeOver + c.uncertain + c.alongside }
+
+func (c deployCounts) summary() string {
+	return fmt.Sprintf("Deploying would: take over the installed profile for %d; take it over for up to %d more only if the API "+
+		"accepts payload types jamf-cli lists as unsupported (otherwise they install alongside); install alongside the Classic profile "+
+		"(both stay active) for %d; create but not deploy %d whose scope would widen.", c.takeOver, c.uncertain, c.alongside, c.held)
+}
+
 // runImportAll imports every profile of the given types. A profile that fails or
 // is skipped does not stop the rest. Each profile's detail goes to a buffer that
 // is shown only when it fails, and the run ends with a table of the outcomes.
@@ -161,30 +186,19 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, types []stri
 		// what it would do first, with a pass that creates nothing, so the
 		// confirmation can say how many blueprints take over the installed profile,
 		// how many install beside it, and how many will not be deployed at all.
-		var takeOver, uncertain, alongside, held int
+		var counts deployCounts
 		for _, t := range targets {
 			out, err := importOne(ctx, t.ref.ID, io.Discard, importRun{preview: true, profileType: t.profileType})
 			if err != nil {
 				continue // skipped or failing: nothing will be created for it
 			}
-			switch {
-			case out.ScopeWidened > 0:
-				held++
-			case out.TakeoverUncertain:
-				uncertain++
-			case out.Takeover == "supported":
-				takeOver++
-			default:
-				alongside++
-			}
+			counts.add(out)
 		}
-		fmt.Fprintf(os.Stderr, "Deploying would: take over the installed profile for %d; take it over for up to %d more only if the API "+
-			"accepts payload types jamf-cli lists as unsupported (otherwise they install alongside); install alongside the Classic profile "+
-			"(both stay active) for %d; create but not deploy %d whose scope would widen.\n", takeOver, uncertain, alongside, held)
-		if takeOver+uncertain+alongside == 0 {
+		fmt.Fprintln(os.Stderr, counts.summary())
+		if counts.deployable() == 0 {
 			fmt.Fprintln(os.Stderr, "Nothing to deploy.")
 		}
-		if err := platform.ConfirmAction("deploy", fmt.Sprintf("up to %d blueprint(s)", takeOver+uncertain+alongside), yes); err != nil {
+		if err := platform.ConfirmAction("deploy", fmt.Sprintf("up to %d blueprint(s)", counts.deployable()), yes); err != nil {
 			return err
 		}
 	}

@@ -1444,6 +1444,13 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return result.ID, nil
 		}
 
+		// Create is not idempotent, and --all names blueprints after Classic display
+		// names, which are not unique. A re-run after a partial failure must not
+		// create the same blueprint twice, so a name already taken is a skip.
+		if err := refuseExistingBlueprint(ctx, blueprints.New(cliCtx.PlatformSDKClient).ListBlueprints, name); err != nil {
+			return out, err
+		}
+
 		if cliCtx.DryRun || run.preview {
 			_, _ = fmt.Fprintf(stderr, "[dry-run] Would create blueprint %q (takeover %s)\n", name, out.Takeover)
 			out.DryRun = true
@@ -1454,16 +1461,21 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		// profile excluded is created and left undeployed (below). One that takes
 		// over nothing installs beside the Classic profile and both stay active, so
 		// a single import asks first; --all asked once for the whole set.
-		if deploy && out.ScopeWidened == 0 && !plan.takeover.Supported && run.confirmAlongside {
-			if err := platform.ConfirmAction("deploy", "a blueprint that installs alongside the Classic profile (both stay active)", yes); err != nil {
-				return out, err
+		// Evaluated for the plan about to be sent, so it runs again for the fallback.
+		confirmAlongside := func(p *importPlan) error {
+			if deploy && out.ScopeWidened == 0 && !p.takeover.Supported && run.confirmAlongside {
+				return platform.ConfirmAction("deploy", "a blueprint that installs alongside the Classic profile (both stay active)", yes)
 			}
+			return nil
+		}
+		if err := confirmAlongside(plan); err != nil {
+			return out, err
 		}
 
 		_, _ = fmt.Fprintln(stderr, profileconvert.ConflictWarning)
 
 		var id string
-		plan, id, err = sendWithFallback(stderr, plan, fallback, takeoverOnly, send)
+		plan, id, err = sendWithFallback(stderr, plan, fallback, takeoverOnly, confirmAlongside, send)
 		if err != nil {
 			var refused *skipError
 			if errors.As(err, &refused) {
@@ -1471,6 +1483,9 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			return out, err
 		}
+		// The accepted plan may be the fallback, which cannot take over.
+		out.Takeover = takeoverLabel(plan.takeover)
+		out.TakeoverUncertain = plan.takeover.Supported && len(unlistedPayloadTypes(plan.components)) > 0
 		out.BlueprintID = id
 		_, _ = fmt.Fprintf(stderr, "Created blueprint %q (id: %s)\n", name, id)
 		reportTakeover(stderr, plan.takeover)
