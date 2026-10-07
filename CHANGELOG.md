@@ -109,6 +109,8 @@ Classic profile leaves it in place, and Jamf Pro logs a failed "Remove
 Configuration Profile" command, which is expected. Undeploying returns the
 profile to the Classic definition at the next recon, or removes it from the
 device if the Classic profile no longer exists.
+A takeover blueprint whose device leaves its target or joins an excluded group can stay
+failed once the device returns; undeploy it and deploy it again to clear that.
 
 ### Added — generated Jamf Pro writes take a body `--from-file`
 

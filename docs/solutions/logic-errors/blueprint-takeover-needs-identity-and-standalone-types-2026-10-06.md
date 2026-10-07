@@ -142,5 +142,27 @@ group "Excluded":
 
 An empty excluded group therefore activates normally, and the property updates within seconds of a
 membership change, faster than the "short delay" the documentation allows for. Not tested: a
-device that reports no group data at all, and whether the predicate disturbs a takeover.
+device that reports no group data at all.
+
+### With a takeover (2026-10-07)
+
+"Finder Takeover" with `Excluded` carried as an activation condition, deployed to a VM that already had the
+Classic profile:
+
+| Step | Result |
+|---|---|
+| Deploy | `succeeded:1`; a key only the blueprint sets (`ProhibitEject`) took the blueprint's value on the VM, so the predicate does not stop adoption |
+| VM added to the excluded group (the Classic profile excludes it too) | the profile and its preferences were removed from the VM |
+| VM removed from the group | the Classic profile was reinstalled within 5 s; the blueprint's declaration **stayed `failed:1`** and was not on the VM (Device Declarations empty) |
+| Redeploy, with or without a payload-order change | still `failed:1` |
+| Undeploy, then deploy | `succeeded:1`, adopted again |
+
+So a takeover blueprint that was active when its device left the target (or entered an excluded group) can
+stay failed after the device returns, and only an undeploy followed by a deploy clears it. Payload order is
+not the cause: the profile Jamf Pro installs lists its payloads in a different order and with its own display
+names ("Media Access: Finder Settings"), and the declaration was accepted with either order.
+
+Two profiles that set the same preference domain merge. A second profile in the same group set
+`ProhibitBurn` and won, which looked like a failed takeover until its Finder payload's UUID turned up in the
+managed preferences file.
 
