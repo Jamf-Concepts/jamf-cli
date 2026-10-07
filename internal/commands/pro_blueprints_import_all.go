@@ -29,7 +29,22 @@ type importOutcome struct {
 	BlueprintID string
 	Deployed    bool
 	DryRun      bool
+	// ScopeWidened counts the exclusions and limitations dropped from the scope,
+	// each one a way the blueprint reaches devices the profile did not.
+	ScopeWidened int
+	// NotDeployed says why a created blueprint was left undeployed under --deploy.
+	NotDeployed string
 	bp          *blueprints.BlueprintDetail
+}
+
+// importRun is how one import is run.
+type importRun struct {
+	// preview computes everything and creates nothing: the first pass of --all
+	// --deploy, which counts what the confirmation is about.
+	preview bool
+	// confirmAlongside asks before deploying a blueprint that installs beside the
+	// Classic profile. --all asks once for the whole set instead.
+	confirmAlongside bool
 }
 
 // skipError is a refusal that is the command working as asked, not a failure: a
@@ -111,7 +126,7 @@ func firstLine(err error) string {
 // skipped does not stop the rest. Each profile's detail goes to a buffer that is
 // shown only when it fails, and the run ends with a table of the outcomes.
 func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType string, deploy, yes bool,
-	importOne func(context.Context, string, io.Writer) (*importOutcome, error),
+	importOne func(context.Context, string, io.Writer, importRun) (*importOutcome, error),
 ) error {
 	profiles, err := listClassicProfiles(ctx, cliCtx.Client, profileType)
 	if err != nil {
@@ -122,9 +137,32 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType 
 		return nil
 	}
 	if deploy && !cliCtx.DryRun {
-		// Deploying is the part that reaches devices, and --all does it in bulk.
-		target := fmt.Sprintf("the blueprint made from each of %d %s profile(s)", len(profiles), profileType)
-		if err := platform.ConfirmAction("deploy", target, yes); err != nil {
+		// Deploying is the part that reaches devices, and --all does it in bulk. Count
+		// what it would do first, with a pass that creates nothing, so the
+		// confirmation can say how many blueprints take over the installed profile,
+		// how many install beside it, and how many will not be deployed at all.
+		var takeOver, alongside, held int
+		for _, p := range profiles {
+			out, err := importOne(ctx, p.ID, io.Discard, importRun{preview: true})
+			if err != nil {
+				continue // skipped or failing: nothing will be created for it
+			}
+			switch {
+			case out.ScopeWidened > 0:
+				held++
+			case out.Takeover == "supported":
+				takeOver++
+			default:
+				alongside++
+			}
+		}
+		fmt.Fprintf(os.Stderr, "Of %d %s profile(s): up to %d take over the installed profile (the API may still refuse some as installed), "+
+			"%d install alongside the Classic profile (both stay active), %d will be created but not deployed because their scope would widen.\n",
+			len(profiles), profileType, takeOver, alongside, held)
+		if takeOver+alongside == 0 {
+			fmt.Fprintln(os.Stderr, "Nothing to deploy.")
+		}
+		if err := platform.ConfirmAction("deploy", fmt.Sprintf("%d blueprint(s)", takeOver+alongside), yes); err != nil {
 			return err
 		}
 	}
@@ -135,7 +173,7 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType 
 	var firstErr error
 	for i, p := range profiles {
 		var log bytes.Buffer
-		out, err := importOne(ctx, p.ID, &log)
+		out, err := importOne(ctx, p.ID, &log, importRun{})
 		row := importRow{ID: p.ID, Profile: p.Name, Takeover: out.Takeover, Blueprint: out.BlueprintID, Deployed: "no"}
 		if out.Profile != "" {
 			row.Profile = out.Profile
@@ -161,6 +199,7 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType 
 			if out.Deployed {
 				row.Deployed = "yes"
 			}
+			row.Detail = out.NotDeployed
 		}
 		fmt.Fprintf(os.Stderr, "[%d/%d] %s (id %s): %s\n", i+1, len(profiles), row.Profile, p.ID, row.Result)
 		rows = append(rows, row)

@@ -90,8 +90,11 @@ What a script can see change:
   `--skip-exclusions`, `--skip-limitations`), one with no device-group scope, or one
   whose payloads are all types blueprints disables; skips do not fail the run, a
   failure beside a success exits 7. `--deploy` deploys each blueprint after it is
-  created (blueprints are created undeployed by default); `--all --deploy` asks for
-  confirmation unless `--yes` is given. `-n` previews the table without creating
+  created (blueprints are created undeployed by default), except one that would reach
+  devices the profile excludes, which is created and left undeployed. A blueprint that
+  installs beside the Classic profile asks for confirmation first; `--all --deploy` asks
+  once, after counting how many take over, how many install alongside and how many are
+  held back (`--yes` skips the question). `-n` previews the table without creating
   anything. `import-profile --all --type computer --takeover-only --skip-exclusions
   --skip-limitations --deploy` moves only the profiles that can take over.
 - `--takeover-only` imports a profile only if its blueprint can take over the

@@ -1262,7 +1262,7 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// importOne imports one profile and reports what happened. Its progress goes to
 	// stderr: the terminal for a single import, a buffer for --all that is shown
 	// only when a profile fails.
-	importOne := func(ctx context.Context, arg string, stderr io.Writer) (*importOutcome, error) {
+	importOne := func(ctx context.Context, arg string, stderr io.Writer, run importRun) (*importOutcome, error) {
 		out := &importOutcome{}
 		// Step 1: Resolve the identifier and download the Classic API profile
 		body, profileID, resolvedName, err := fetchClassicProfile(ctx, cliCtx, profileType, arg, profileName)
@@ -1383,6 +1383,7 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				_, _ = fmt.Fprintf(stderr, "Excluding %d device group(s) with an activation condition: %s\n", len(carried), activationPredicate)
 			}
 			scopeNote = scopeNarrowingNote(len(carried), notCarried.otherExclusions, notCarried.limitations)
+			out.ScopeWidened = notCarried.otherExclusions + notCarried.limitations
 		}
 
 		// Blueprints require a non-empty device-group scope. Fail fast with an
@@ -1433,10 +1434,20 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return result.ID, nil
 		}
 
-		if cliCtx.DryRun {
+		if cliCtx.DryRun || run.preview {
 			_, _ = fmt.Fprintf(stderr, "[dry-run] Would create blueprint %q (takeover %s)\n", name, out.Takeover)
 			out.DryRun = true
 			return out, nil
+		}
+
+		// --deploy puts the blueprint on devices. One that would reach devices the
+		// profile excluded is created and left undeployed (below). One that takes
+		// over nothing installs beside the Classic profile and both stay active, so
+		// a single import asks first; --all asked once for the whole set.
+		if deploy && out.ScopeWidened == 0 && !plan.takeover.Supported && run.confirmAlongside {
+			if err := platform.ConfirmAction("deploy", "a blueprint that installs alongside the Classic profile (both stay active)", yes); err != nil {
+				return out, err
+			}
 		}
 
 		_, _ = fmt.Fprintln(stderr, profileconvert.ConflictWarning)
@@ -1461,7 +1472,11 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		}
 		warnDroppedKeys(stderr, plan.components, bp.Steps, plan.takeover.Supported)
 		out.bp = bp
-		if deploy {
+		if deploy && out.ScopeWidened > 0 {
+			out.NotDeployed = fmt.Sprintf("not deployed: %d exclusion(s)/limitation(s) were dropped, so it would reach devices the profile excludes; "+
+				"review it, then deploy it with `jamf-cli pro blueprints deploy %s`", out.ScopeWidened, id)
+			_, _ = fmt.Fprintf(stderr, "Warning: blueprint %q was created but %s\n", name, out.NotDeployed)
+		} else if deploy {
 			if err := blueprints.New(cliCtx.PlatformSDKClient).DeployBlueprint(ctx, id); err != nil {
 				return out, fmt.Errorf("blueprint %s was created but not deployed: %w", id, err)
 			}
@@ -1580,8 +1595,12 @@ Importing every profile:
   --skip-limitations), it has no device-group scope, or every payload is a type
   blueprints disables. It cannot be combined with <id>, --name or --blueprint-name.
   Blueprints are created undeployed; --deploy deploys each one after it is created.
-  --all --deploy asks for confirmation first (--yes skips it), and a profile that was
-  skipped is never deployed. -n/--dry-run previews the table without creating anything;
+  A blueprint that would reach devices the profile excludes (it has exclusions or
+  limitations that could not be carried over) is created but never deployed: review
+  it, then deploy it yourself. One that takes over nothing installs beside the Classic
+  profile, so --deploy asks first (--yes skips it); --all --deploy asks once, after
+  counting how many take over, how many install alongside and how many are held back.
+  A profile that was skipped is never deployed. -n/--dry-run previews the table without creating anything;
   it cannot say whether the API will accept a profile as installed.
 
   The safe way to move the profiles that can be taken over, and only those, is:
@@ -1651,7 +1670,7 @@ Examples:
 			if len(args) > 0 {
 				arg = args[0]
 			}
-			out, err := importOne(ctx, arg, os.Stderr)
+			out, err := importOne(ctx, arg, os.Stderr, importRun{confirmAlongside: true})
 			if err != nil {
 				return err
 			}

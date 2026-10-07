@@ -506,14 +506,22 @@ func TestRunImportAll(t *testing.T) {
 		ctx.Client = &classicRouteMock{routes: map[string]string{"/JSSResource/osxconfigurationprofiles": list}}
 		return ctx
 	}
-	one := func(results map[string]error) func(context.Context, string, io.Writer) (*importOutcome, error) {
-		return func(_ context.Context, id string, w io.Writer) (*importOutcome, error) {
+	var calls []string
+	one := func(results map[string]error) func(context.Context, string, io.Writer, importRun) (*importOutcome, error) {
+		return func(_ context.Context, id string, w io.Writer, run importRun) (*importOutcome, error) {
+			calls = append(calls, fmt.Sprintf("%s/preview=%v", id, run.preview))
 			_, _ = io.WriteString(w, "detail for "+id+"\n")
 			err := results[id]
 			if err != nil {
 				return &importOutcome{ProfileID: id}, err
 			}
-			return &importOutcome{ProfileID: id, Profile: "Ok", Takeover: "supported", BlueprintID: "bp-" + id, Deployed: true}, nil
+			out := &importOutcome{ProfileID: id, Profile: "Ok", Takeover: "supported", BlueprintID: "bp-" + id, Deployed: !run.preview}
+			if id == "3" {
+				// Dropped exclusions: created, but not deployed.
+				out.ScopeWidened, out.Deployed = 2, false
+				out.NotDeployed = "not deployed: 2 exclusion(s)/limitation(s) were dropped"
+			}
+			return out, nil
 		}
 	}
 
@@ -525,10 +533,29 @@ func TestRunImportAll(t *testing.T) {
 			t.Fatalf("a skip must not fail the run: %v", err)
 		}
 		out := buf.String()
-		for _, want := range []string{`"result": "created"`, `"result": "skipped"`, `"detail": "takeover is not supported for it"`, `"deployed": "yes"`, `"blueprint": "bp-1"`} {
+		for _, want := range []string{`"result": "created"`, `"result": "skipped"`, `"detail": "takeover is not supported for it"`, `"deployed": "yes"`, `"blueprint": "bp-1"`, `not deployed: 2 exclusion(s)`} {
 			if !strings.Contains(out, want) {
 				t.Errorf("table lacks %s:\n%s", want, out)
 			}
+		}
+	})
+
+	t.Run("--deploy counts first with a pass that creates nothing", func(t *testing.T) {
+		calls = nil
+		var buf bytes.Buffer
+		if err := runImportAll(context.Background(), newCtx(&buf), "computer", true, true, one(nil)); err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"1/preview=true", "2/preview=true", "3/preview=true", "1/preview=false", "2/preview=false", "3/preview=false"}
+		if strings.Join(calls, " ") != strings.Join(want, " ") {
+			t.Errorf("calls = %v, want a preview pass then the real one: %v", calls, want)
+		}
+		calls = nil
+		if err := runImportAll(context.Background(), newCtx(&buf), "computer", false, true, one(nil)); err != nil {
+			t.Fatal(err)
+		}
+		if len(calls) != 3 {
+			t.Errorf("without --deploy there is no counting pass: %v", calls)
 		}
 	})
 
