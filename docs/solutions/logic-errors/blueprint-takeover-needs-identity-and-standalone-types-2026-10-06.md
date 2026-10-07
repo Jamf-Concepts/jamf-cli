@@ -122,3 +122,25 @@ takeover is impossible for it anyway.
 
 ## Not verified
 Whether a mobile (iOS) profile behaves the same way; the sandbox VM is macOS.
+
+## Excluded groups as an activation condition (2026-10-07)
+
+A profile's excluded computer and mobile device groups are carried over as the step's
+`activationPredicate`: `NONE @property(jamf.device.groups) IN {'<platform id>', ...}`. One `NONE`
+over the whole set excludes a device in any listed group, which is how a profile's exclusion of
+several groups works. Chaining one `NONE` per group with `OR` does not exclude, and Jamf Support
+records that as the usual mistake. The IDs are Platform group IDs.
+
+Tested on a macOS VM with a Dock payload scoped to a group the VM is in, excluding the empty static
+group "Excluded":
+
+| Step | VM result |
+|---|---|
+| Deploy, VM in no excluded group | managed Dock preferences appeared 14 s later |
+| VM added to the excluded group | preferences gone after 21 s |
+| VM removed from the group | preferences back after 14 s |
+
+An empty excluded group therefore activates normally, and the property updates within seconds of a
+membership change, faster than the "short delay" the documentation allows for. Not tested: a
+device that reports no group data at all, and whether the predicate disturbs a takeover.
+
