@@ -151,18 +151,22 @@ Classic profile:
 
 | Step | Result |
 |---|---|
-| Deploy | `succeeded:1`; a key only the blueprint sets (`ProhibitEject`) took the blueprint's value on the VM, so the predicate does not stop adoption |
+| Deploy | `succeeded:1` |
+| Blueprint edited (`ProhibitEject`) and redeployed | the new value reached the VM, so the blueprint acts on the profile with the predicate in place; the install date changed 5 s after the first content change, which is what a changed declaration does to the profile |
 | VM added to the excluded group (the Classic profile excludes it too) | the profile and its preferences were removed from the VM |
 | VM removed from the group | the Classic profile was reinstalled within 5 s; the blueprint's declaration **stayed `failed:1`** and was not on the VM (Device Declarations empty) |
-| Redeploy, with or without a payload-order change | still `failed:1` |
-| Undeploy, then deploy | `succeeded:1`, adopted again |
+| Plain redeploys, one with the payloads reordered | still `failed:1` |
+| Undeploy, then deploy | `succeeded:1`. Undeploying had removed the profile from the VM, and the declaration then **installed it fresh** with the blueprint's values (new install date) |
 
-So a takeover blueprint that was active when its device left the target (or entered an excluded group) can
-stay failed after the device returns, and only an undeploy followed by a deploy clears it. Payload order is
-not the cause: the profile Jamf Pro installs lists its payloads in a different order and with its own display
-names ("Media Access: Finder Settings"), and the declaration was accepted with either order.
+So a takeover blueprint that was active when its device left the target (or entered an excluded group) can stay
+failed after the device returns, and an undeploy followed by a deploy clears it by installing the profile from the
+blueprint. That is an install, not an adoption.
 
-Two profiles that set the same preference domain merge. A second profile in the same group set
-`ProhibitBurn` and won, which looked like a failed takeover until its Finder payload's UUID turned up in the
-managed preferences file.
+**Not established:** whether adopting an existing profile still works after that cycle, and whether payload order
+matters. The profile Jamf Pro installs lists its payloads in a different order from the Classic API and the
+blueprint, with its own display names ("Media Access: Finder Settings"). The only run with a reordered blueprint
+was a fresh install, so it says nothing about adoption.
 
+Two profiles that set the same preference domain merge. A second profile in the same group set `ProhibitBurn`
+and won, which looked like a failed takeover until its Finder payload's UUID turned up in the managed
+preferences file.
