@@ -84,6 +84,12 @@ What a script can see change:
   `PayloadIdentifier` (the blueprints API rewrites one to match the other, and
   a deployment that tried it on a device reported `failed`); or when the profile
   has no identifiers.
+- A profile with scope **exclusions or limitations** is now refused. Blueprints
+  can express neither, so the import used to drop them with a warning and
+  reach devices the profile was written to avoid. `--skip-exclusions` and
+  `--skip-limitations` import it anyway, without them, and the blueprint
+  description says how many were not carried over. They are not needed when
+  `--computer-group` or `--mobile-device-group` set the scope.
 - Identifiers are only carried over when takeover is supported. Carrying them
   over with a payload changed made the device reject the declaration as
   invalid, and nothing was applied at all.

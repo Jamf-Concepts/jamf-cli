@@ -1235,6 +1235,8 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		includeUnsupported bool
 		stripDefaults      bool
 		convertProfile     bool
+		skipExclusions     bool
+		skipLimitations    bool
 		computerGroups     []string
 		mobileDeviceGroups []string
 	)
@@ -1341,6 +1343,13 @@ Scope handling:
   limitations, and exclusions are NOT imported — blueprints only support device
   group scoping. You will be warned about any scope elements that are dropped.
 
+  Exclusions and limitations subtract devices from the target groups, so dropping
+  them makes the blueprint reach devices the profile was written to avoid. A profile
+  that has either is therefore refused unless you opt out: --skip-exclusions and
+  --skip-limitations import it without them, and the blueprint description says
+  what was not carried over. Neither is needed with --computer-group or
+  --mobile-device-group, which replace the profile's scope.
+
   Because blueprints require at least one device group, a profile whose scope has
   no groups (e.g. scoped to all computers or to individual devices) cannot be
   imported as-is: the command errors before calling the API. Use --computer-group
@@ -1356,6 +1365,7 @@ Examples:
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
   jamf-cli pro blueprints import-profile "Passcode Policy" --convert   # native DDM components instead of the profile as installed
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
+  jamf-cli pro blueprints import-profile "My Restrictions" --skip-exclusions   # profile has exclusions the blueprint cannot express
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1387,6 +1397,20 @@ Examples:
 			mobileconfig := extractPayloadsFromXML(string(body))
 			if mobileconfig == "" {
 				return fmt.Errorf("no <payloads> found in %s profile %s", profileType, profileLabel)
+			}
+
+			// Blueprints cannot express exclusions or limitations, so importing a
+			// profile that has them reaches devices the profile skipped. Say so and
+			// stop before doing any work, unless the caller has said that is
+			// acceptable or is setting the scope themselves. scopeNote goes into the
+			// blueprint description when they were skipped on request.
+			var scopeNote string
+			if len(computerGroups) == 0 && len(mobileDeviceGroups) == 0 {
+				exclusions, limitations := profileScopeNarrowing(body)
+				if err := refuseUnexpressibleScope(profileLabel, exclusions, limitations, skipExclusions, skipLimitations); err != nil {
+					return err
+				}
+				scopeNote = scopeNarrowingNote(exclusions, limitations, skipExclusions, skipLimitations)
 			}
 
 			// Step 3: Build the blueprint components. By default the profile is kept
@@ -1476,7 +1500,7 @@ Examples:
 			}
 			importStepName := "Step 1"
 			send := func(p *importPlan) (string, error) {
-				description := profileconvert.ImportDescription(profileType, sourceName, profileID, p.takeover)
+				description := profileconvert.ImportDescription(profileType, sourceName, profileID, p.takeover, scopeNote)
 				result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, &blueprints.CreateBlueprintRequest{
 					Name:        name,
 					Description: &description,
@@ -1517,6 +1541,8 @@ Examples:
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads, instead of keeping the profile as installed (a converted blueprint cannot take over the installed profile)")
+	cmd.Flags().BoolVar(&skipExclusions, "skip-exclusions", false, "Import a profile that has scope exclusions anyway, without them (the blueprint then reaches the excluded devices too)")
+	cmd.Flags().BoolVar(&skipLimitations, "skip-limitations", false, "Import a profile that has scope limitations anyway, without them (the blueprint then reaches the limited-out devices too)")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Set the blueprint scope to these computer group name(s), overriding the profile's scope (repeatable)")
@@ -1541,6 +1567,61 @@ type classicProfileScope struct {
 	Departments        scope.ScopeItemSlice  `xml:"departments"`
 	Limitations        *scope.LimitationsXML `xml:"limitations,omitempty"`
 	Exclusions         *scope.ExclusionsXML  `xml:"exclusions,omitempty"`
+}
+
+// narrowing counts what the profile's scope subtracts from its targets:
+// exclusions and limitations. Blueprints can express neither, so importing the
+// profile reaches every device in the target groups, including ones the profile
+// itself skipped.
+func (s *classicProfileScope) narrowing() (exclusions, limitations int) {
+	if s.Limitations != nil {
+		limitations = len(s.Limitations.Users.Items) + len(s.Limitations.UserGroups.Items) +
+			len(s.Limitations.NetworkSegments.Items) + len(s.Limitations.IBeacons.Items)
+	}
+	if s.Exclusions != nil {
+		exclusions = len(s.Exclusions.Computers.Items) + len(s.Exclusions.ComputerGroups.Items) +
+			len(s.Exclusions.MobileDevices.Items) + len(s.Exclusions.MobileDeviceGroups.Items) +
+			len(s.Exclusions.Buildings.Items) + len(s.Exclusions.Departments.Items) +
+			len(s.Exclusions.Users.Items) + len(s.Exclusions.UserGroups.Items) +
+			len(s.Exclusions.JSSUsers.Items) + len(s.Exclusions.JSSUserGroups.Items) +
+			len(s.Exclusions.NetworkSegments.Items) + len(s.Exclusions.IBeacons.Items)
+	}
+	return exclusions, limitations
+}
+
+// profileScopeNarrowing reads the exclusions and limitations out of a Classic
+// profile response. A profile with no readable scope has none to report.
+func profileScopeNarrowing(xmlBody []byte) (exclusions, limitations int) {
+	xmlStr := string(xmlBody)
+	start := strings.Index(xmlStr, "<scope>")
+	if start == -1 {
+		return 0, 0
+	}
+	end := strings.LastIndex(xmlStr[start:], "</scope>")
+	if end == -1 {
+		return 0, 0
+	}
+	var s classicProfileScope
+	if err := xml.Unmarshal([]byte(xmlStr[start:start+end+len("</scope>")]), &s); err != nil {
+		return 0, 0
+	}
+	return s.narrowing()
+}
+
+// scopeNarrowingNote is the sentence a blueprint description carries when the
+// profile's exclusions or limitations were skipped on request.
+func scopeNarrowingNote(exclusions, limitations int, skippedExclusions, skippedLimitations bool) string {
+	var parts []string
+	if skippedExclusions && exclusions > 0 {
+		parts = append(parts, fmt.Sprintf("%d exclusion(s)", exclusions))
+	}
+	if skippedLimitations && limitations > 0 {
+		parts = append(parts, fmt.Sprintf("%d limitation(s)", limitations))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " and ") + " not carried over."
 }
 
 // extractAndResolveScope parses the <scope> section from a Classic API profile
@@ -1592,23 +1673,12 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 	// limitations computer_groups field that no resource returns (so always
 	// zero) while omitting iBeacons from both sections, which under-reported
 	// what a conversion silently dropped.
-	if s.Limitations != nil {
-		total := len(s.Limitations.Users.Items) + len(s.Limitations.UserGroups.Items) +
-			len(s.Limitations.NetworkSegments.Items) + len(s.Limitations.IBeacons.Items)
-		if total > 0 {
-			warnings = append(warnings, fmt.Sprintf("%d scope limitation(s) dropped — not supported in blueprints", total))
-		}
+	exclusions, limitations := s.narrowing()
+	if limitations > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d scope limitation(s) dropped — not supported in blueprints", limitations))
 	}
-	if s.Exclusions != nil {
-		total := len(s.Exclusions.Computers.Items) + len(s.Exclusions.ComputerGroups.Items) +
-			len(s.Exclusions.MobileDevices.Items) + len(s.Exclusions.MobileDeviceGroups.Items) +
-			len(s.Exclusions.Buildings.Items) + len(s.Exclusions.Departments.Items) +
-			len(s.Exclusions.Users.Items) + len(s.Exclusions.UserGroups.Items) +
-			len(s.Exclusions.JSSUsers.Items) + len(s.Exclusions.JSSUserGroups.Items) +
-			len(s.Exclusions.NetworkSegments.Items) + len(s.Exclusions.IBeacons.Items)
-		if total > 0 {
-			warnings = append(warnings, fmt.Sprintf("%d scope exclusion(s) dropped — not supported in blueprints", total))
-		}
+	if exclusions > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d scope exclusion(s) dropped — not supported in blueprints", exclusions))
 	}
 
 	// Collect group names to resolve, tagged by type

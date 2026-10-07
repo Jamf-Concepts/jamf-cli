@@ -306,3 +306,79 @@ func (screensaverSchema) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{}}, nil
 }
+
+const scopeXMLWithNarrowing = `<os_x_configuration_profile><scope><all_computers>false</all_computers>
+<computer_groups><computer_group><id>1</id><name>Target</name></computer_group></computer_groups>
+<limitations><user_groups><user_group><id>7</id><name>Staff</name></user_group></user_groups></limitations>
+<exclusions><computer_groups><computer_group><id>2</id><name>Excluded</name></computer_group></computer_groups>
+<computers><computer><id>3</id><name>One</name></computer><computer><id>4</id><name>Two</name></computer></computers></exclusions>
+</scope></os_x_configuration_profile>`
+
+func TestProfileScopeNarrowing(t *testing.T) {
+	if e, l := profileScopeNarrowing([]byte(scopeXMLWithNarrowing)); e != 3 || l != 1 {
+		t.Errorf("got %d exclusions and %d limitations, want 3 and 1", e, l)
+	}
+	if e, l := profileScopeNarrowing([]byte(`<x><scope><all_computers>false</all_computers></scope></x>`)); e != 0 || l != 0 {
+		t.Errorf("a plain scope has neither, got %d and %d", e, l)
+	}
+	if e, l := profileScopeNarrowing([]byte(`<x/>`)); e != 0 || l != 0 {
+		t.Errorf("no scope at all, got %d and %d", e, l)
+	}
+}
+
+func TestRefuseUnexpressibleScope(t *testing.T) {
+	cases := []struct {
+		name                     string
+		excl, lim                int
+		skipExcl, skipLim        bool
+		wantErr                  bool
+		mustMention, mustNotName []string
+	}{
+		{name: "nothing to lose", excl: 0, lim: 0},
+		{name: "exclusions refused", excl: 2, wantErr: true, mustMention: []string{"2 scope exclusion(s)", "--skip-exclusions"}, mustNotName: []string{"--skip-limitations"}},
+		{name: "limitations refused", lim: 1, wantErr: true, mustMention: []string{"1 scope limitation(s)", "--skip-limitations"}, mustNotName: []string{"--skip-exclusions"}},
+		{name: "both named together", excl: 2, lim: 1, wantErr: true, mustMention: []string{"--skip-exclusions", "--skip-limitations"}},
+		{name: "exclusions skipped", excl: 2, skipExcl: true},
+		{name: "skipping one does not skip the other", excl: 2, lim: 1, skipExcl: true, wantErr: true, mustMention: []string{"--skip-limitations"}, mustNotName: []string{"--skip-exclusions"}},
+		{name: "both skipped", excl: 2, lim: 1, skipExcl: true, skipLim: true},
+		{name: "a flag with nothing to skip is harmless", skipExcl: true, skipLim: true},
+	}
+	for _, tc := range cases {
+		err := refuseUnexpressibleScope("id 1", tc.excl, tc.lim, tc.skipExcl, tc.skipLim)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("%s: err = %v, want error %v", tc.name, err, tc.wantErr)
+			continue
+		}
+		if err == nil {
+			continue
+		}
+		for _, m := range tc.mustMention {
+			if !strings.Contains(err.Error(), m) {
+				t.Errorf("%s: error lacks %q: %v", tc.name, m, err)
+			}
+		}
+		for _, m := range tc.mustNotName {
+			if strings.Contains(err.Error(), m) {
+				t.Errorf("%s: error names %q though it does not apply: %v", tc.name, m, err)
+			}
+		}
+	}
+}
+
+func TestScopeNarrowingNote(t *testing.T) {
+	for _, tc := range []struct {
+		excl, lim         int
+		skipExcl, skipLim bool
+		want              string
+	}{
+		{2, 1, true, true, "2 exclusion(s) and 1 limitation(s) not carried over."},
+		{2, 0, true, false, "2 exclusion(s) not carried over."},
+		{0, 1, false, true, "1 limitation(s) not carried over."},
+		{2, 1, false, false, ""},
+		{0, 0, true, true, ""},
+	} {
+		if got := scopeNarrowingNote(tc.excl, tc.lim, tc.skipExcl, tc.skipLim); got != tc.want {
+			t.Errorf("note(%d,%d,%v,%v) = %q, want %q", tc.excl, tc.lim, tc.skipExcl, tc.skipLim, got, tc.want)
+		}
+	}
+}

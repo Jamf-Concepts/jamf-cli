@@ -161,7 +161,7 @@ const maxDescriptionLength = 2000
 // where the blueprint came from and whether it can take over the installed
 // profile. It stays one short line: the full reasons are in the command's own
 // warning, and a description is read in a list.
-func ImportDescription(profileKind, profileName, profileID string, report TakeoverReport) string {
+func ImportDescription(profileKind, profileName, profileID string, report TakeoverReport, scopeNote string) string {
 	kind := "computer profile"
 	if profileKind == "mobile" {
 		kind = "mobile device profile"
@@ -170,6 +170,7 @@ func ImportDescription(profileKind, profileName, profileID string, report Takeov
 	fmt.Fprintf(&b, "Imported from %s %q (ID %s) by jamf-cli. ", kind, profileName, profileID)
 	if report.Supported {
 		b.WriteString("Takeover supported.")
+		writeScopeNote(&b, scopeNote)
 		return clipDescription(b.String())
 	}
 	b.WriteString("Takeover not supported")
@@ -183,7 +184,15 @@ func ImportDescription(profileKind, profileName, profileID string, report Takeov
 	if s := b.String(); !strings.HasSuffix(s, "…") {
 		b.WriteString(".")
 	}
+	writeScopeNote(&b, scopeNote)
 	return clipDescription(b.String())
+}
+
+func writeScopeNote(b *strings.Builder, note string) {
+	if note != "" {
+		b.WriteString(" ")
+		b.WriteString(note)
+	}
 }
 
 var (

@@ -217,7 +217,7 @@ func TestApplyTakeoverIdentity_AllReasonsAreReported(t *testing.T) {
 }
 
 func TestImportDescription(t *testing.T) {
-	supported := ImportDescription("computer", "Finder Takeover", "9696", TakeoverReport{Supported: true})
+	supported := ImportDescription("computer", "Finder Takeover", "9696", TakeoverReport{Supported: true}, "")
 	if want := `Imported from computer profile "Finder Takeover" (ID 9696) by jamf-cli. Takeover supported.`; supported != want {
 		t.Errorf("supported description = %q, want %q", supported, want)
 	}
@@ -225,7 +225,7 @@ func TestImportDescription(t *testing.T) {
 	unsupported := ImportDescription("mobile", "Passcode", "12", TakeoverReport{Reasons: []string{
 		"payload 1 (com.apple.MCX) is delivered as com.apple.ManagedClient.preferences",
 		"r2", "r3",
-	}})
+	}}, "")
 	want := `Imported from mobile device profile "Passcode" (ID 12) by jamf-cli. Takeover not supported: ` +
 		`payload 1 (com.apple.MCX) is delivered as com.apple.ManagedClient.preferences (+2 more).`
 	if unsupported != want {
@@ -239,7 +239,7 @@ func TestImportDescription_TrimsTheExplanatoryTail(t *testing.T) {
 		"payload 4 (com.apple.finder) has a PayloadUUID that differs from its PayloadIdentifier, and blueprints force them to match":  "payload 4 (com.apple.finder) has a PayloadUUID that differs from its PayloadIdentifier",
 		"the blueprint carries 12 payload(s) but the installed profile has 14 (payloads were skipped, removed as empty or unwrapped)": "the blueprint carries 12 payload(s) but the installed profile has 14",
 	} {
-		d := ImportDescription("computer", "n", "1", TakeoverReport{Reasons: []string{reason}})
+		d := ImportDescription("computer", "n", "1", TakeoverReport{Reasons: []string{reason}}, "")
 		if !strings.HasSuffix(d, "not supported: "+want+".") {
 			t.Errorf("description %q does not end with %q", d, want)
 		}
@@ -251,7 +251,7 @@ func TestImportDescription_TrimsTheExplanatoryTail(t *testing.T) {
 
 func TestImportDescription_RespectsTheAPILimit(t *testing.T) {
 	long := strings.Repeat("x", 1500)
-	d := ImportDescription("computer", "n", "1", TakeoverReport{Reasons: []string{long, long, long}})
+	d := ImportDescription("computer", "n", "1", TakeoverReport{Reasons: []string{long, long, long}}, "")
 	if len(d) > maxDescriptionLength {
 		t.Errorf("description is %d bytes, API limit is %d", len(d), maxDescriptionLength)
 	}
@@ -308,5 +308,21 @@ func TestConvertVerbatim_KeepsTheShapeOfTheInstalledProfile(t *testing.T) {
 	}
 	if got := UnlistedPayloadTypes(wrapped); len(got) != 0 {
 		t.Errorf("the fallback carries no unlisted standalone type, got %v", got)
+	}
+}
+
+func TestImportDescription_CarriesTheScopeNote(t *testing.T) {
+	note := "1 exclusion(s) and 2 limitation(s) not carried over."
+	for name, report := range map[string]TakeoverReport{
+		"supported":   {Supported: true},
+		"unsupported": {Reasons: []string{"payload 1 (x) is delivered as y"}},
+	} {
+		d := ImportDescription("computer", "n", "1", report, note)
+		if !strings.HasSuffix(d, " "+note) {
+			t.Errorf("%s: description %q does not end with the scope note", name, d)
+		}
+	}
+	if d := ImportDescription("computer", "n", "1", TakeoverReport{Supported: true}, ""); strings.HasSuffix(d, " ") {
+		t.Errorf("an empty note must add nothing: %q", d)
 	}
 }

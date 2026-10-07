@@ -264,3 +264,25 @@ func sendWithFallback(w io.Writer, plan, fallback *importPlan, send func(*import
 	}
 	return fallback, id, nil
 }
+
+// refuseUnexpressibleScope stops an import whose profile has scope exclusions or
+// limitations that were not explicitly skipped. A blueprint's scope is a list of
+// groups to include and nothing else, so the import would quietly widen the
+// reach of the configuration to the devices the profile was written to avoid.
+func refuseUnexpressibleScope(profileLabel string, exclusions, limitations int, skipExclusions, skipLimitations bool) error {
+	var found, flags []string
+	if exclusions > 0 && !skipExclusions {
+		found = append(found, fmt.Sprintf("%d scope exclusion(s)", exclusions))
+		flags = append(flags, "--skip-exclusions")
+	}
+	if limitations > 0 && !skipLimitations {
+		found = append(found, fmt.Sprintf("%d scope limitation(s)", limitations))
+		flags = append(flags, "--skip-limitations")
+	}
+	if len(found) == 0 {
+		return nil
+	}
+	return fmt.Errorf("profile %s has %s, which blueprints cannot express: the blueprint would reach devices the profile does not.\n"+
+		"Re-run with %s to import it without them, or set the scope yourself with --computer-group or --mobile-device-group",
+		profileLabel, strings.Join(found, " and "), strings.Join(flags, " and "))
+}
