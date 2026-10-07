@@ -1,6 +1,6 @@
 ### Legacy-to-DDM Payload Conversion
 
-When `import-profile` processes a mobileconfig, compatible legacy payloads auto-convert to native DDM blueprint components instead of wrapping in `com.jamf.ddm-configuration-profile`. `--legacy` skips all conversion. Unsupported payload types filtered by default; `--include-unsupported` overrides.
+`import-profile` keeps a mobileconfig as installed by default (one `com.jamf.ddm-configuration-profile` component, so it can take over the installed profile). With `--convert`, compatible legacy payloads become native DDM blueprint components and MCX payloads are unwrapped. Unsupported payload types filtered by default; `--include-unsupported` overrides.
 
 Converters live in `internal/profileconvert/ddm_*.go`. Registry orchestration in `ddm_converter.go` (`ConvertToDDMComponents()`); converters register in `init()`. Current: passcode, safari, software-update deferrals, RSR, SoftwareUpdate profile. Multiple converters targeting the same component ID (e.g. deferrals + RSR + SoftwareUpdate → `software-update-settings`) deep-merge; orchestrator backfills missing scaffold sections.
 
@@ -8,3 +8,8 @@ Partial converters return `remaining` keys (extracted from shared payload types 
 
 Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register via `newXxxConverter()` in `ddm_converter.go` `init()`, add tests in `ddm_converter_test.go`.
 
+### Takeover
+
+`takeover.go` decides whether a blueprint can adopt the profile already installed on devices. `ApplyTakeoverIdentity` judges the **converted output** against the original mobileconfig (payload count, type and order per index, identifier == UUID, top-level identity) and only then stamps the original identifiers on. It is called after all stripping and validation, so any change the converter made to the profile's shape shows up as a reason. When takeover is refused the configuration comes back untouched — **never preserve identity on a profile that cannot be adopted**: with identity kept but a payload changed the device reports the declaration invalid and applies nothing.
+
+The API rewrites each payload's `payloadUUID` to equal its `payloadIdentifier`, which is why a payload whose two differ can never match. Native conversion (`NativeConversionReport`) always refuses takeover, which is why it is behind `--convert`. `import-profile` builds two plans (`buildImportPlan`, `internal/commands/pro_blueprints_import_plan.go`): the profile as installed (`ConvertMobileconfigVerbatim`: no conversion, no MCX wrapping or unwrapping, empty payloads kept) and the converted profile. It sends the first, and the second only when the API answers HTTP 400 `Failed to validate configuration.` (`isConfigurationRejection`) or takeover is impossible for the first by `ApplyTakeoverIdentity`'s offline rules. That is how a payload type the API starts accepting is discovered, instead of trusting `SupportedPayloadTypes`. `ImportDescription` writes the one-line blueprint description (clipped to the API's 2000 bytes on a rune boundary); `DroppedKeys` diffs sent against stored to name keys the API discarded. Facts and lifecycle: `docs/solutions/logic-errors/blueprint-takeover-needs-identity-and-standalone-types-2026-10-06.md`.

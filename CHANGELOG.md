@@ -99,6 +99,110 @@ These now fail over MCP, with the reason in the error:
 The reads, `delete`, history notes and connection tests on these resources
 still run. Outside MCP, nothing changes.
 
+### Behaviour — `pro blueprints import-profile` takes over the installed profile where it can
+
+`import-profile` used to give every blueprint fresh, generated payload
+identifiers, so a blueprint made from a profile already installed on devices
+was a second profile beside the first, never a replacement for it. It now
+carries the profile's own identifiers and UUIDs onto the blueprint whenever
+that lets the blueprint adopt the installed copy (Apple's legacy-profile
+declaration) without reinstalling it. Nothing needs a flag.
+
+What a script can see change:
+
+- The blueprint **description** is set to one short line: `Imported from
+  computer profile "<name>" (ID <id>) by jamf-cli. Takeover supported.` or
+  `… Takeover not supported: <first reason> (+N more).`
+- **The profile is now kept as installed by default**, and `--legacy` is
+  removed. Native DDM conversion (passcode, Safari, software update) and the
+  unwrapping of Application & Custom Settings (MCX) payloads, which both change a
+  profile's payloads and so end takeover, moved behind the new `--convert` flag.
+  Scripts that passed `--legacy` must drop it; scripts that relied on native
+  components must add `--convert`. A script still passing `--legacy` is told
+  `did you mean --convert?`.
+- **A blueprint name already in use is a skip, not a second blueprint.** Create is
+  not idempotent, and `--all` names blueprints after Classic display names, which
+  are not unique, so a re-run after a partial failure used to duplicate every
+  blueprint it had already made. The skip names the existing blueprint's ID.
+- When the API refuses the profile as installed and the converted fallback is sent
+  instead, the reported takeover verdict (and the `--all` table's `takeover`
+  column) is the fallback's, and `--deploy` asks for the "installs alongside"
+  confirmation before the fallback is created.
+- The converted blueprint (what `--convert` produces) is also the fallback. The
+  profile as installed is sent first. If the API refuses it (HTTP 400 `Failed to
+  validate configuration.` on a component, and nothing else), or takeover is not
+  possible for it as installed anyway (a payload whose `PayloadUUID` differs from
+  its `PayloadIdentifier`), the converted profile is sent instead, with the
+  payload types the API does not take standalone delivered as Custom Settings
+  (MCX), and no takeover. If the API accepts a type jamf-cli lists as
+  unsupported, takeover works for that profile and the command notes that
+  `profileconvert.SupportedPayloadTypes` is out of date. Any other failure is
+  returned without a retry. So the same profile can produce a different
+  blueprint on a different server version.
+- Payloads are validated against Apple's schema in both forms: a payload missing
+  a required key (a screensaver with no `moduleName`) is dropped with a message,
+  where it used to make the API refuse the whole blueprint.
+- A line on stderr before anything is created says either `Takeover supported`
+  or `Warning: takeover is not supported`, with each reason. Takeover is
+  unavailable when a payload has to be wrapped as MCX, skipped, removed as
+  empty or unwrapped; when payloads were promoted to native DDM components
+  (`--convert`); when a payload's `PayloadUUID` differs from its
+  `PayloadIdentifier` (the blueprints API rewrites one to match the other, and
+  a deployment that tried it on a device reported `failed`); or when the profile
+  has no identifiers.
+- `--all` imports every configuration profile, computer and mobile, unless `--type`
+  narrows it to one, and ends with a table of the outcome for each: created, skipped or
+  failed. A skip is a profile the command was told to leave out (`--takeover-only`,
+  `--skip-exclusions`, `--skip-limitations`), one with no device-group scope, or one
+  whose payloads are all types blueprints disables; skips do not fail the run, a
+  failure beside a success exits 7. `--deploy` deploys each blueprint after it is
+  created (blueprints are created undeployed by default), except one that would reach
+  devices the profile excludes, which is created and left undeployed. A blueprint that
+  installs beside the Classic profile asks for confirmation first; `--all --deploy` asks
+  once, after counting how many take over, how many take over only if the API accepts
+  payload types jamf-cli lists as unsupported, how many install alongside and how many
+  are held back (`--yes` skips the question). `-n` previews the table without creating
+  anything. `import-profile --all --type computer --takeover-only --skip-exclusions
+  --skip-limitations --deploy` moves only the profiles that can take over.
+- `--takeover-only` imports a profile only if its blueprint can take over the
+  installed profile. Otherwise no blueprint is created and the command exits with
+  an error: the reasons when takeover is impossible offline, or the API's
+  rejection when it refuses the profile as installed (the converted profile is
+  never sent). It cannot be combined with `--convert`. Use it to sort a set of
+  profiles into those that can move to blueprints in place and those that cannot.
+- A profile's scope **exclusions** that name computer groups or mobile device
+  groups are carried over as an activation condition on the blueprint's step,
+  `NONE @property(jamf.device.groups) IN {...}`: a device in any excluded group
+  keeps the components inactive. This follows how a profile's exclusion of several
+  groups works. Other exclusions (individual devices, buildings, departments,
+  users, network segments) and all limitations cannot be expressed. They are
+  dropped with a warning, and the blueprint description says what was carried
+  over and what was not. `--skip-exclusions` and `--skip-limitations` turn that
+  warning into a refusal: the profile is not imported. Neither applies with
+  `--computer-group` or `--mobile-device-group`, which replace the profile's
+  scope. Group membership reaches the device through Jamf, so a change in
+  membership activates or deactivates the components after a short delay.
+- Identifiers are only carried over when takeover is supported. Carrying them
+  over with a payload changed made the device reject the declaration as
+  invalid, and nothing was applied at all.
+- After creating the blueprint the command reads it back and warns about keys
+  the API dropped because Apple's schema does not define them. Once a blueprint
+  has taken over a profile those keys stop being enforced on devices.
+
+Operating a takeover blueprint: while it is deployed it owns the profile on the
+device, so editing the blueprint changes the profile. Removing or unscoping the
+Classic profile leaves it in place, and Jamf Pro logs a failed "Remove
+Configuration Profile" command, which is expected. Undeploying returns the
+profile to the Classic definition at the next recon, or removes it from the
+device if the Classic profile no longer exists.
+When the blueprint carries excluded groups, remove the same exclusions from the Classic
+profile: while both exclude a group, Jamf Pro removes and reinstalls the Classic profile
+out-of-band and the blueprint can be left failed. With the exclusion on the blueprint
+alone, a device that leaves the group gets the profile back from the blueprint within
+seconds. A takeover blueprint whose device leaves its target or joins an excluded group can stay
+failed once the device returns. Undeploying it and deploying it again clears that: the
+undeploy removes the profile from the device and the deploy installs it from the blueprint.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body
