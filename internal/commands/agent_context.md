@@ -14,7 +14,8 @@ Environment variables (override profile config):
 - `JAMF_URL` — Jamf Pro instance URL
 - `JAMF_TOKEN` — pre-existing bearer token
 - `JAMF_CLIENT_ID` / `JAMF_CLIENT_SECRET` — OAuth2 client credentials
-- `JAMF_TENANT_ID` — tenant id for Platform gateway auth
+- `JAMF_ENVIRONMENT_ID` — platform environment id for Platform gateway auth (the preferred level)
+- `JAMF_TENANT_ID` — tenant id for Platform gateway auth (the legacy level; set at most one of the two, and neither for organization-scoped credentials)
 - `JAMFPROTECT_URL` / `JAMFPROTECT_CLIENT_ID` / `JAMFPROTECT_CLIENT_SECRET` — Jamf Protect
 
 Profiles: `-p <profile>` (or `JAMF_PROFILE`) selects a saved profile. Create one
@@ -117,7 +118,16 @@ api-integrations client-credentials`, `protect api-clients apply`), `pro
 cloud-distribution-point create` and `patch` (a CloudFront private key),
 the commands that set a Jamf Pro login password (`pro
 jamf-pro-user-account-settings change-password`, `pro accounts create`,
-`update`, `apply`), `protect downloads csr` and `websocket-auth` (they write a
+`update`, `apply`), the writes that change who can log in to a Jamf product
+(`create`, `update` and, where it exists, `apply` on `pro
+classic-account-users`, `classic-account-groups`, `classic-ldap-servers`,
+`cloud-ldap` and `cloud-azure`, and `cloud-ldap update-mappings`; `update` on
+`pro classic-smtp-server` and `smtp-server`; `pro sso-settings` `update`,
+`disable`, `cert create` and `cert update` and `oidc-broker-config update`,
+and `create` and `update` under `pro sso-settings-cert`; `platform
+sso-connections` `create` and `update`; `apply` on `protect users`, `groups`
+and `roles` and on `school users` and `groups`; and `protect restore`),
+`protect downloads csr` and `websocket-auth` (they write a
 .p12 into the server's directory), `protect action-configs export`, every
 `setup`, both `backup` commands and jcds `sync`; and `pro diff` against anything
 but the pinned profile. `config show` runs with every credential field shown as

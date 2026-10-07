@@ -147,17 +147,16 @@ Five tests hold the positional contract tree — each covers a surface the other
 
 ## Scope and Platform Infra Tests
 
-**`TestScopeFromParams`** / **`TestCheckScopeConflict`** — cover the mutual-exclusion of `--tenant-id` and `--environment-id` when both are supplied. Must fire on both the `pro`/`platform` and `security` product paths.
+**`TestCheckScopeConflict`** / **`TestCheckScopeConflictRefusesBothFlags`** — cover the mutual-exclusion of `--tenant-id` and `--environment-id` when both are supplied. Must fire on both the `pro`/`platform` and `security` product paths.
 
 **`TestGatewayUnservedNote`** — pins every direction of the response-side `gatewayUnservedNote` mechanism, including App Installers as the **served** case.
 
 **`TestEveryExampleInvocationNamesACommandThatExists`** — `TestEveryLeafRefusesAnUndocumentedPositional` reads only the leaf the `Example` sits on; this test reads every `jamf-cli` invocation on every `Example` line across all commands.
 
-## Guard Tests the Root CLAUDE.md Used to Name
+## Guard Tests Whose Reason Is Not in the Name
 
-These eight were named in the pre-restructure root `CLAUDE.md` and are the ones
-whose *reasoning* is not obvious from the test name. Each fails on a specific
-regression that shipped once.
+The reasoning behind these eight is not obvious from the test name. Each fails
+on a specific regression that shipped once.
 
 | Test | What regressing it costs |
 |---|---|

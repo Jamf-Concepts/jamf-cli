@@ -68,7 +68,8 @@ Anything else is rejected, including a value that carries whitespace.
 ## Option B: from a live instance's consolidated schema
 
 The public `/api/schema/` endpoint serves one consolidated OpenAPI document.
-`make sync-spec` splits it back into the per-resource layout under `specs/`.
+`make sync-spec` writes it as one normalised document, `specs/JamfProAPI.yaml`, and
+removes the per-resource files an earlier split left behind.
 
 ```bash
 # 1. Fetch (needs auth)
@@ -80,34 +81,28 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 curl -s -H "Authorization: Bearer $TOKEN" \
   https://<instance>/api/v1/jamf-pro-version
 
-# 3. Split and regenerate
+# 3. Normalise and regenerate
 make sync-spec JAMF_MONOLITH_SPEC=/tmp/monolith.json JAMF_PRO_VERSION=11.31.0
 ```
 
 `JAMF_MONOLITH_SPEC` also accepts an `http(s)://` URL directly.
 
-Splitter behaviour and its knobs live in `generator/monolith/`:
+Normalisation lives in `generator/monolith/`:
 
-- **Routing** — each path goes to the spec file that already owns it. Genuinely
-  new paths fall through to `TagFilenameOverrides[tag]` → the file that already
-  owns other paths with the same tag → `PascalSingular(tag).yaml`. Every
-  fall-through is reported as a `Warning:` line, so read the generator output.
-- **`DroppedTags`** — tags never emitted (legacy preview endpoints that shadow a
-  canonical resource).
-- **`PreservedSpecs`** — spec files sourced outside the public monolith. The
-  splitter leaves these files alone and treats their paths as invisible, so the
-  monolith cannot clobber them. Library files they `$ref` are auto-preserved.
-  The four `specs/AppInstaller*.yaml` are the current members: App Installers
-  sits under `hiddenapi/` in Jamf Pro's source, so no monolith carries it, and
-  those files are derived from the gateway's published Pro API spec by
-  `monolith.ExtractSubtree` — see `make sync-platform-specs-from-sdk`.
-- **Components** — a schema used by one spec file is inlined into it; a schema
-  shared by two or more is emitted to `specs/_MonolithLibrary.yaml` and
-  referenced by external `$ref`.
+- **`Normalise`** (`document.go`) — writes the document as sorted, deterministic
+  YAML, and puts back `example` values that the JSON round trip turned from
+  strings into numbers.
+- **`PruneStaleSpecs`** (`document.go`) — removes the per-resource `*.yaml` files
+  a previous split left in `specs/`. It runs only on a monolith ingest, and it
+  exempts every file in `AppInstallerSpecs`.
+- **`AppInstallerSpecs`** (`overrides.go`) — App Installers sit under
+  `hiddenapi/` in Jamf Pro's source, so no monolith carries them.
+  `specs/AppInstallers.yaml` is derived from the gateway's published Pro API spec
+  by `monolith.ExtractSubtree` — see `make sync-platform-specs-from-sdk`.
 
 The public monolith is a subset of the monorepo specs, so Option B legitimately
 produces fewer paths than Option A. Do not "fix" a missing private endpoint by
-hand-editing a generated spec — add it to `PreservedSpecs` instead.
+hand-editing `specs/JamfProAPI.yaml` — the next ingest overwrites it.
 
 ## After either route
 

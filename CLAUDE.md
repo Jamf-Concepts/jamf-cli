@@ -12,10 +12,8 @@
 **Never accept credentials (passwords, tokens, client secrets) via CLI flags or stdin.**
 
 The policy lives in one file, `.claude/rules/credentials-and-auth.md`, which is
-`@`-imported below so every session loads it. It is deliberately not duplicated
-here: five lines of it were byte-identical in both files, so the one policy
-flagged as never-optional had two copies that could drift — and did, the
-injected copy losing its section heading and leaving a table with no header.
+`@`-imported below so every session loads it. Keep it in that one file, so
+that a second copy cannot drift from it.
 
 ## CRITICAL: Generated Code Boundary
 
@@ -29,7 +27,7 @@ See the `dev-commands` skill (`.claude/skills/dev-commands/SKILL.md`).
 
 ## Architecture (overview)
 
-CLI for the Jamf platform. Root command holds shared infrastructure (config, auth, completion). Each Jamf product gets its own namespace — `pro` for Jamf Pro, `protect` for Jamf Protect. Platform API commands live under `pro`.
+CLI for the Jamf platform. Root command holds shared infrastructure (config, auth, completion). Each Jamf product gets its own namespace — `pro` (Jamf Pro), `protect` (Jamf Protect), `school` (Jamf School) and `security` (Jamf Security Cloud). `platform` holds the Jamf Account, AI Governance and audit commands; the other Platform API commands live under `pro`.
 
 For package layout, code generation, and product integrations, see the pointers below.
 

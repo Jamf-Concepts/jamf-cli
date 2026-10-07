@@ -2,7 +2,7 @@
 
 ```
 specs/*.yaml ──────────────► generator/parser/   ──► internal/commands/pro/generated/*.go
-                               ParseSpec()            + registry.go
+                               LoadDocuments()        + registry.go
                                Generator.Generate()
 
 specs/.platform-source/     ► generator/monolith/ ──► specs/AppInstaller*.yaml
