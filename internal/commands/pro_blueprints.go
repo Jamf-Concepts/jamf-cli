@@ -1343,12 +1343,16 @@ Scope handling:
   limitations, and exclusions are NOT imported — blueprints only support device
   group scoping. You will be warned about any scope elements that are dropped.
 
-  Exclusions and limitations subtract devices from the target groups, so dropping
-  them makes the blueprint reach devices the profile was written to avoid. A profile
-  that has either is therefore refused unless you opt out: --skip-exclusions and
-  --skip-limitations import it without them, and the blueprint description says
-  what was not carried over. Neither is needed with --computer-group or
-  --mobile-device-group, which replace the profile's scope.
+  Excluded computer groups and mobile device groups are carried over as an
+  activation condition on the blueprint's step, NONE @property(jamf.device.groups)
+  IN {...}: the blueprint is delivered to the target groups, and its components
+  stay inactive on a device that is in any excluded group. Other exclusions
+  (individual devices, buildings, departments, users, network segments, ...) and
+  all limitations cannot be expressed. They are dropped with a warning and the
+  blueprint description says how many. --skip-exclusions and --skip-limitations
+  turn that warning into a refusal: a profile with such exclusions or limitations
+  is not imported. Neither applies with --computer-group or --mobile-device-group,
+  which replace the profile's scope.
 
   Because blueprints require at least one device group, a profile whose scope has
   no groups (e.g. scoped to all computers or to individual devices) cannot be
@@ -1365,7 +1369,7 @@ Examples:
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
   jamf-cli pro blueprints import-profile "Passcode Policy" --convert   # native DDM components instead of the profile as installed
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
-  jamf-cli pro blueprints import-profile "My Restrictions" --skip-exclusions   # profile has exclusions the blueprint cannot express
+  jamf-cli pro blueprints import-profile "My Restrictions" --skip-exclusions   # refuse a profile with exclusions that cannot be carried over
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1399,18 +1403,20 @@ Examples:
 				return fmt.Errorf("no <payloads> found in %s profile %s", profileType, profileLabel)
 			}
 
-			// Blueprints cannot express exclusions or limitations, so importing a
-			// profile that has them reaches devices the profile skipped. Say so and
-			// stop before doing any work, unless the caller has said that is
-			// acceptable or is setting the scope themselves. scopeNote goes into the
-			// blueprint description when they were skipped on request.
-			var scopeNote string
-			if len(computerGroups) == 0 && len(mobileDeviceGroups) == 0 {
-				exclusions, limitations := profileScopeNarrowing(body)
-				if err := refuseUnexpressibleScope(profileLabel, exclusions, limitations, skipExclusions, skipLimitations); err != nil {
+			// A profile's exclusions and limitations subtract devices from its target
+			// groups. Excluded device groups are carried over as an activation
+			// condition; the rest cannot be expressed, and the import warns and says
+			// so in the description. --skip-exclusions and --skip-limitations make
+			// such a profile not import at all instead. Setting the scope with
+			// --computer-group or --mobile-device-group replaces the profile's scope,
+			// exclusions included.
+			var narrowing scopeNarrowing
+			overridesScope := len(computerGroups) > 0 || len(mobileDeviceGroups) > 0
+			if !overridesScope {
+				narrowing = profileScopeNarrowing(body)
+				if err := refuseUnexpressibleScope(profileLabel, narrowing, skipExclusions, skipLimitations); err != nil {
 					return err
 				}
-				scopeNote = scopeNarrowingNote(exclusions, limitations, skipExclusions, skipLimitations)
 			}
 
 			// Step 3: Build the blueprint components. By default the profile is kept
@@ -1456,7 +1462,10 @@ Examples:
 			// Step 4: Determine scope. --computer-group/--mobile-device-group override
 			// the profile's own scope; otherwise carry over the profile's target groups.
 			var scopeGroups []string
-			if len(computerGroups) > 0 || len(mobileDeviceGroups) > 0 {
+			// activationPredicate excludes the profile's excluded groups from the
+			// step; scopeNote says in the description what was and was not carried.
+			var activationPredicate, scopeNote string
+			if overridesScope {
 				scopeGroups, err = resolveAllGroupFlags(ctx, cliCtx.Client, nil, computerGroups, mobileDeviceGroups)
 				if err != nil {
 					return err
@@ -1471,6 +1480,22 @@ Examples:
 				if len(scopeGroups) > 0 {
 					fmt.Fprintf(os.Stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
 				}
+				var carried []string
+				var exclusionWarnings []string
+				carried, exclusionWarnings = resolveExcludedGroups(ctx, cliCtx.Client, narrowing.excludedGroups)
+				for _, w := range exclusionWarnings {
+					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+				}
+				notCarried := narrowing
+				notCarried.otherExclusions += len(narrowing.excludedGroups) - len(carried)
+				if err := refuseUnexpressibleScope(profileLabel, notCarried, skipExclusions, skipLimitations); err != nil {
+					return err
+				}
+				if len(carried) > 0 {
+					activationPredicate = exclusionPredicate(carried)
+					fmt.Fprintf(os.Stderr, "Excluding %d device group(s) with an activation condition: %s\n", len(carried), activationPredicate)
+				}
+				scopeNote = scopeNarrowingNote(len(carried), notCarried.otherExclusions, notCarried.limitations)
 			}
 
 			// Blueprints require a non-empty device-group scope. Fail fast with an
@@ -1509,8 +1534,9 @@ Examples:
 					},
 					Steps: []blueprints.BlueprintStep{
 						{
-							Name:       &importStepName,
-							Components: p.components,
+							Name:                &importStepName,
+							Components:          p.components,
+							ActivationPredicate: predicatePtr(activationPredicate),
 						},
 					},
 				})
@@ -1541,8 +1567,8 @@ Examples:
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads, instead of keeping the profile as installed (a converted blueprint cannot take over the installed profile)")
-	cmd.Flags().BoolVar(&skipExclusions, "skip-exclusions", false, "Import a profile that has scope exclusions anyway, without them (the blueprint then reaches the excluded devices too)")
-	cmd.Flags().BoolVar(&skipLimitations, "skip-limitations", false, "Import a profile that has scope limitations anyway, without them (the blueprint then reaches the limited-out devices too)")
+	cmd.Flags().BoolVar(&skipExclusions, "skip-exclusions", false, "Do not import a profile that has scope exclusions blueprints cannot express (excluded device groups are carried over, anything else is not)")
+	cmd.Flags().BoolVar(&skipLimitations, "skip-limitations", false, "Do not import a profile that has scope limitations (blueprints cannot express them)")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Set the blueprint scope to these computer group name(s), overriding the profile's scope (repeatable)")
@@ -1569,59 +1595,62 @@ type classicProfileScope struct {
 	Exclusions         *scope.ExclusionsXML  `xml:"exclusions,omitempty"`
 }
 
-// narrowing counts what the profile's scope subtracts from its targets:
-// exclusions and limitations. Blueprints can express neither, so importing the
-// profile reaches every device in the target groups, including ones the profile
-// itself skipped.
-func (s *classicProfileScope) narrowing() (exclusions, limitations int) {
+// excludedGroup is a computer or mobile device group a profile's scope excludes.
+type excludedGroup struct {
+	name      string
+	groupType string // "COMPUTER" or "MOBILE"
+}
+
+// scopeNarrowing is what a profile's scope subtracts from its targets. Blueprints
+// have no exclusions or limitations in their scope, but a step's activation
+// condition can name device groups the components must not activate for, so
+// excluded groups can be carried over. Everything else cannot.
+type scopeNarrowing struct {
+	excludedGroups  []excludedGroup
+	otherExclusions int // computers, devices, buildings, departments, users, network segments, ...
+	limitations     int
+}
+
+// narrowing classifies the scope's exclusions and counts its limitations.
+func (s *classicProfileScope) narrowing() scopeNarrowing {
+	var n scopeNarrowing
 	if s.Limitations != nil {
-		limitations = len(s.Limitations.Users.Items) + len(s.Limitations.UserGroups.Items) +
+		n.limitations = len(s.Limitations.Users.Items) + len(s.Limitations.UserGroups.Items) +
 			len(s.Limitations.NetworkSegments.Items) + len(s.Limitations.IBeacons.Items)
 	}
-	if s.Exclusions != nil {
-		exclusions = len(s.Exclusions.Computers.Items) + len(s.Exclusions.ComputerGroups.Items) +
-			len(s.Exclusions.MobileDevices.Items) + len(s.Exclusions.MobileDeviceGroups.Items) +
-			len(s.Exclusions.Buildings.Items) + len(s.Exclusions.Departments.Items) +
-			len(s.Exclusions.Users.Items) + len(s.Exclusions.UserGroups.Items) +
-			len(s.Exclusions.JSSUsers.Items) + len(s.Exclusions.JSSUserGroups.Items) +
-			len(s.Exclusions.NetworkSegments.Items) + len(s.Exclusions.IBeacons.Items)
+	if e := s.Exclusions; e != nil {
+		for _, g := range e.ComputerGroups.Items {
+			n.excludedGroups = append(n.excludedGroups, excludedGroup{g.Name, "COMPUTER"})
+		}
+		for _, g := range e.MobileDeviceGroups.Items {
+			n.excludedGroups = append(n.excludedGroups, excludedGroup{g.Name, "MOBILE"})
+		}
+		n.otherExclusions = len(e.Computers.Items) + len(e.MobileDevices.Items) +
+			len(e.Buildings.Items) + len(e.Departments.Items) +
+			len(e.Users.Items) + len(e.UserGroups.Items) +
+			len(e.JSSUsers.Items) + len(e.JSSUserGroups.Items) +
+			len(e.NetworkSegments.Items) + len(e.IBeacons.Items)
 	}
-	return exclusions, limitations
+	return n
 }
 
 // profileScopeNarrowing reads the exclusions and limitations out of a Classic
 // profile response. A profile with no readable scope has none to report.
-func profileScopeNarrowing(xmlBody []byte) (exclusions, limitations int) {
+func profileScopeNarrowing(xmlBody []byte) scopeNarrowing {
 	xmlStr := string(xmlBody)
 	start := strings.Index(xmlStr, "<scope>")
 	if start == -1 {
-		return 0, 0
+		return scopeNarrowing{}
 	}
 	end := strings.LastIndex(xmlStr[start:], "</scope>")
 	if end == -1 {
-		return 0, 0
+		return scopeNarrowing{}
 	}
 	var s classicProfileScope
 	if err := xml.Unmarshal([]byte(xmlStr[start:start+end+len("</scope>")]), &s); err != nil {
-		return 0, 0
+		return scopeNarrowing{}
 	}
 	return s.narrowing()
-}
-
-// scopeNarrowingNote is the sentence a blueprint description carries when the
-// profile's exclusions or limitations were skipped on request.
-func scopeNarrowingNote(exclusions, limitations int, skippedExclusions, skippedLimitations bool) string {
-	var parts []string
-	if skippedExclusions && exclusions > 0 {
-		parts = append(parts, fmt.Sprintf("%d exclusion(s)", exclusions))
-	}
-	if skippedLimitations && limitations > 0 {
-		parts = append(parts, fmt.Sprintf("%d limitation(s)", limitations))
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.Join(parts, " and ") + " not carried over."
 }
 
 // extractAndResolveScope parses the <scope> section from a Classic API profile
@@ -1673,12 +1702,14 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 	// limitations computer_groups field that no resource returns (so always
 	// zero) while omitting iBeacons from both sections, which under-reported
 	// what a conversion silently dropped.
-	exclusions, limitations := s.narrowing()
-	if limitations > 0 {
-		warnings = append(warnings, fmt.Sprintf("%d scope limitation(s) dropped — not supported in blueprints", limitations))
+	// Excluded groups are carried over as an activation condition (see
+	// exclusionPredicate), so only the rest is reported as dropped.
+	narrowing := s.narrowing()
+	if narrowing.limitations > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d scope limitation(s) dropped — not supported in blueprints", narrowing.limitations))
 	}
-	if exclusions > 0 {
-		warnings = append(warnings, fmt.Sprintf("%d scope exclusion(s) dropped — not supported in blueprints", exclusions))
+	if narrowing.otherExclusions > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d scope exclusion(s) dropped — blueprints can only exclude device groups", narrowing.otherExclusions))
 	}
 
 	// Collect group names to resolve, tagged by type

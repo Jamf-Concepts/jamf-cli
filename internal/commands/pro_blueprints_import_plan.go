@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // importPlan is one way of turning a Classic profile into blueprint components,
@@ -265,24 +267,85 @@ func sendWithFallback(w io.Writer, plan, fallback *importPlan, send func(*import
 	return fallback, id, nil
 }
 
-// refuseUnexpressibleScope stops an import whose profile has scope exclusions or
-// limitations that were not explicitly skipped. A blueprint's scope is a list of
-// groups to include and nothing else, so the import would quietly widen the
-// reach of the configuration to the devices the profile was written to avoid.
-func refuseUnexpressibleScope(profileLabel string, exclusions, limitations int, skipExclusions, skipLimitations bool) error {
+// refuseUnexpressibleScope is the strict mode of --skip-exclusions and
+// --skip-limitations: a profile whose scope has exclusions or limitations that a
+// blueprint cannot express is not imported. Without the flags it is imported and
+// the loss is warned about and written into the blueprint description.
+func refuseUnexpressibleScope(profileLabel string, n scopeNarrowing, skipExclusions, skipLimitations bool) error {
 	var found, flags []string
-	if exclusions > 0 && !skipExclusions {
-		found = append(found, fmt.Sprintf("%d scope exclusion(s)", exclusions))
+	if skipExclusions && n.otherExclusions > 0 {
+		found = append(found, fmt.Sprintf("%d scope exclusion(s)", n.otherExclusions))
 		flags = append(flags, "--skip-exclusions")
 	}
-	if limitations > 0 && !skipLimitations {
-		found = append(found, fmt.Sprintf("%d scope limitation(s)", limitations))
+	if skipLimitations && n.limitations > 0 {
+		found = append(found, fmt.Sprintf("%d scope limitation(s)", n.limitations))
 		flags = append(flags, "--skip-limitations")
 	}
 	if len(found) == 0 {
 		return nil
 	}
-	return fmt.Errorf("profile %s has %s, which blueprints cannot express: the blueprint would reach devices the profile does not.\n"+
-		"Re-run with %s to import it without them, or set the scope yourself with --computer-group or --mobile-device-group",
+	return fmt.Errorf("profile %s has %s that blueprints cannot express, so it was not imported (%s).\n"+
+		"Drop the flag to import it without them, or set the scope yourself with --computer-group or --mobile-device-group",
 		profileLabel, strings.Join(found, " and "), strings.Join(flags, " and "))
+}
+
+// scopeNarrowingNote is the sentence a blueprint description carries about the
+// profile's exclusions and limitations: what was carried over and what was not.
+func scopeNarrowingNote(carriedGroups, otherExclusions, limitations int) string {
+	var parts []string
+	if carriedGroups > 0 {
+		parts = append(parts, fmt.Sprintf("%d excluded group(s) carried over as an activation condition.", carriedGroups))
+	}
+	var lost []string
+	if otherExclusions > 0 {
+		lost = append(lost, fmt.Sprintf("%d exclusion(s)", otherExclusions))
+	}
+	if limitations > 0 {
+		lost = append(lost, fmt.Sprintf("%d limitation(s)", limitations))
+	}
+	if len(lost) > 0 {
+		parts = append(parts, strings.Join(lost, " and ")+" not carried over.")
+	}
+	return strings.Join(parts, " ")
+}
+
+// exclusionPredicate is the activation condition that keeps a step's components
+// off any device in one of the groups. One NONE over the whole set means "in any
+// of them"; chaining a NONE per group with OR does not exclude, which is the
+// mistake Jamf Support sees most. The IDs are Platform group IDs, which is what
+// the jamf.device.groups property carries.
+func exclusionPredicate(groupIDs []string) string {
+	quoted := make([]string, len(groupIDs))
+	for i, id := range groupIDs {
+		quoted[i] = "'" + id + "'"
+	}
+	return "NONE @property(jamf.device.groups) IN {" + strings.Join(quoted, ", ") + "}"
+}
+
+// predicatePtr is the step's ActivationPredicate: absent when there is none.
+func predicatePtr(p string) *string {
+	if p == "" {
+		return nil
+	}
+	return &p
+}
+
+// resolveExcludedGroups turns excluded group names into Platform group IDs, in
+// order and without duplicates. A group that cannot be resolved is reported and
+// left out, so it counts as an exclusion that was not carried over.
+func resolveExcludedGroups(ctx context.Context, client registry.HTTPClient, groups []excludedGroup) ([]string, []string) {
+	var ids, warnings []string
+	seen := make(map[string]bool)
+	for _, g := range groups {
+		id, err := resolveGroupPlatformID(ctx, client, g.name, g.groupType)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("could not resolve excluded group %q (%s) to a platform UUID, so it is not excluded: %v", g.name, g.groupType, err))
+			continue
+		}
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	return ids, warnings
 }

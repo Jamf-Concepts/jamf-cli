@@ -84,12 +84,18 @@ What a script can see change:
   `PayloadIdentifier` (the blueprints API rewrites one to match the other, and
   a deployment that tried it on a device reported `failed`); or when the profile
   has no identifiers.
-- A profile with scope **exclusions or limitations** is now refused. Blueprints
-  can express neither, so the import used to drop them with a warning and
-  reach devices the profile was written to avoid. `--skip-exclusions` and
-  `--skip-limitations` import it anyway, without them, and the blueprint
-  description says how many were not carried over. They are not needed when
-  `--computer-group` or `--mobile-device-group` set the scope.
+- A profile's scope **exclusions** that name computer groups or mobile device
+  groups are carried over as an activation condition on the blueprint's step,
+  `NONE @property(jamf.device.groups) IN {...}`: a device in any excluded group
+  keeps the components inactive. This follows how a profile's exclusion of several
+  groups works. Other exclusions (individual devices, buildings, departments,
+  users, network segments) and all limitations cannot be expressed. They are
+  dropped with a warning, and the blueprint description says what was carried
+  over and what was not. `--skip-exclusions` and `--skip-limitations` turn that
+  warning into a refusal: the profile is not imported. Neither applies with
+  `--computer-group` or `--mobile-device-group`, which replace the profile's
+  scope. Group membership reaches the device through Jamf, so a change in
+  membership activates or deactivates the components after a short delay.
 - Identifiers are only carried over when takeover is supported. Carrying them
   over with a payload changed made the device reject the declaration as
   invalid, and nothing was applied at all.

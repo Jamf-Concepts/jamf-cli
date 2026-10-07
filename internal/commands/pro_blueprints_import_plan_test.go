@@ -4,6 +4,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -310,41 +311,54 @@ func (screensaverSchema) RoundTrip(r *http.Request) (*http.Response, error) {
 const scopeXMLWithNarrowing = `<os_x_configuration_profile><scope><all_computers>false</all_computers>
 <computer_groups><computer_group><id>1</id><name>Target</name></computer_group></computer_groups>
 <limitations><user_groups><user_group><id>7</id><name>Staff</name></user_group></user_groups></limitations>
-<exclusions><computer_groups><computer_group><id>2</id><name>Excluded</name></computer_group></computer_groups>
+<exclusions><computer_groups><computer_group><id>2</id><name>Excluded</name></computer_group>
+<computer_group><id>5</id><name>Also Excluded</name></computer_group></computer_groups>
+<mobile_device_groups><mobile_device_group><id>9</id><name>iPads Out</name></mobile_device_group></mobile_device_groups>
 <computers><computer><id>3</id><name>One</name></computer><computer><id>4</id><name>Two</name></computer></computers></exclusions>
 </scope></os_x_configuration_profile>`
 
 func TestProfileScopeNarrowing(t *testing.T) {
-	if e, l := profileScopeNarrowing([]byte(scopeXMLWithNarrowing)); e != 3 || l != 1 {
-		t.Errorf("got %d exclusions and %d limitations, want 3 and 1", e, l)
+	n := profileScopeNarrowing([]byte(scopeXMLWithNarrowing))
+	// Excluded device groups can be carried over; individual computers cannot.
+	want := []excludedGroup{{"Excluded", "COMPUTER"}, {"Also Excluded", "COMPUTER"}, {"iPads Out", "MOBILE"}}
+	if len(n.excludedGroups) != len(want) {
+		t.Fatalf("excluded groups = %v, want %v", n.excludedGroups, want)
 	}
-	if e, l := profileScopeNarrowing([]byte(`<x><scope><all_computers>false</all_computers></scope></x>`)); e != 0 || l != 0 {
-		t.Errorf("a plain scope has neither, got %d and %d", e, l)
+	for i, g := range want {
+		if n.excludedGroups[i] != g {
+			t.Errorf("excluded group %d = %v, want %v", i, n.excludedGroups[i], g)
+		}
 	}
-	if e, l := profileScopeNarrowing([]byte(`<x/>`)); e != 0 || l != 0 {
-		t.Errorf("no scope at all, got %d and %d", e, l)
+	if n.otherExclusions != 2 || n.limitations != 1 {
+		t.Errorf("other exclusions = %d, limitations = %d; want 2 and 1", n.otherExclusions, n.limitations)
+	}
+	if n := profileScopeNarrowing([]byte(`<x><scope><all_computers>false</all_computers></scope></x>`)); len(n.excludedGroups)+n.otherExclusions+n.limitations != 0 {
+		t.Errorf("a plain scope subtracts nothing: %+v", n)
+	}
+	if n := profileScopeNarrowing([]byte(`<x/>`)); len(n.excludedGroups)+n.otherExclusions+n.limitations != 0 {
+		t.Errorf("no scope at all: %+v", n)
 	}
 }
 
 func TestRefuseUnexpressibleScope(t *testing.T) {
 	cases := []struct {
-		name                     string
-		excl, lim                int
-		skipExcl, skipLim        bool
-		wantErr                  bool
-		mustMention, mustNotName []string
+		name              string
+		n                 scopeNarrowing
+		skipExcl, skipLim bool
+		wantErr           bool
+		mustMention       []string
+		mustNotName       []string
 	}{
-		{name: "nothing to lose", excl: 0, lim: 0},
-		{name: "exclusions refused", excl: 2, wantErr: true, mustMention: []string{"2 scope exclusion(s)", "--skip-exclusions"}, mustNotName: []string{"--skip-limitations"}},
-		{name: "limitations refused", lim: 1, wantErr: true, mustMention: []string{"1 scope limitation(s)", "--skip-limitations"}, mustNotName: []string{"--skip-exclusions"}},
-		{name: "both named together", excl: 2, lim: 1, wantErr: true, mustMention: []string{"--skip-exclusions", "--skip-limitations"}},
-		{name: "exclusions skipped", excl: 2, skipExcl: true},
-		{name: "skipping one does not skip the other", excl: 2, lim: 1, skipExcl: true, wantErr: true, mustMention: []string{"--skip-limitations"}, mustNotName: []string{"--skip-exclusions"}},
-		{name: "both skipped", excl: 2, lim: 1, skipExcl: true, skipLim: true},
-		{name: "a flag with nothing to skip is harmless", skipExcl: true, skipLim: true},
+		{name: "imports by default, whatever it has", n: scopeNarrowing{otherExclusions: 2, limitations: 1}},
+		{name: "exclusions refused", n: scopeNarrowing{otherExclusions: 2}, skipExcl: true, wantErr: true, mustMention: []string{"2 scope exclusion(s)", "--skip-exclusions"}, mustNotName: []string{"--skip-limitations"}},
+		{name: "limitations refused", n: scopeNarrowing{limitations: 1}, skipLim: true, wantErr: true, mustMention: []string{"1 scope limitation(s)", "--skip-limitations"}, mustNotName: []string{"--skip-exclusions"}},
+		{name: "both named together", n: scopeNarrowing{otherExclusions: 2, limitations: 1}, skipExcl: true, skipLim: true, wantErr: true, mustMention: []string{"--skip-exclusions", "--skip-limitations"}},
+		{name: "a flag only judges its own kind", n: scopeNarrowing{limitations: 1}, skipExcl: true},
+		{name: "excluded groups are carried over, so they never refuse", n: scopeNarrowing{excludedGroups: []excludedGroup{{"G", "COMPUTER"}}}, skipExcl: true, skipLim: true},
+		{name: "nothing to refuse", skipExcl: true, skipLim: true},
 	}
 	for _, tc := range cases {
-		err := refuseUnexpressibleScope("id 1", tc.excl, tc.lim, tc.skipExcl, tc.skipLim)
+		err := refuseUnexpressibleScope("id 1", tc.n, tc.skipExcl, tc.skipLim)
 		if (err != nil) != tc.wantErr {
 			t.Errorf("%s: err = %v, want error %v", tc.name, err, tc.wantErr)
 			continue
@@ -367,18 +381,49 @@ func TestRefuseUnexpressibleScope(t *testing.T) {
 
 func TestScopeNarrowingNote(t *testing.T) {
 	for _, tc := range []struct {
-		excl, lim         int
-		skipExcl, skipLim bool
-		want              string
+		carried, other, lim int
+		want                string
 	}{
-		{2, 1, true, true, "2 exclusion(s) and 1 limitation(s) not carried over."},
-		{2, 0, true, false, "2 exclusion(s) not carried over."},
-		{0, 1, false, true, "1 limitation(s) not carried over."},
-		{2, 1, false, false, ""},
-		{0, 0, true, true, ""},
+		{2, 1, 3, "2 excluded group(s) carried over as an activation condition. 1 exclusion(s) and 3 limitation(s) not carried over."},
+		{2, 0, 0, "2 excluded group(s) carried over as an activation condition."},
+		{0, 1, 0, "1 exclusion(s) not carried over."},
+		{0, 0, 2, "2 limitation(s) not carried over."},
+		{0, 0, 0, ""},
 	} {
-		if got := scopeNarrowingNote(tc.excl, tc.lim, tc.skipExcl, tc.skipLim); got != tc.want {
-			t.Errorf("note(%d,%d,%v,%v) = %q, want %q", tc.excl, tc.lim, tc.skipExcl, tc.skipLim, got, tc.want)
+		if got := scopeNarrowingNote(tc.carried, tc.other, tc.lim); got != tc.want {
+			t.Errorf("note(%d,%d,%d) = %q, want %q", tc.carried, tc.other, tc.lim, got, tc.want)
 		}
+	}
+}
+
+// One NONE over the whole set excludes a device in any of the groups. A NONE per
+// group joined with OR does not, which is the mistake the form guards against.
+func TestExclusionPredicate(t *testing.T) {
+	got := exclusionPredicate([]string{"69db9494-d1dc-486a-9f90-5936c5bfa2a2", "266dd32e-8802-42e6-8f46-46d00e89ab91"})
+	want := "NONE @property(jamf.device.groups) IN {'69db9494-d1dc-486a-9f90-5936c5bfa2a2', '266dd32e-8802-42e6-8f46-46d00e89ab91'}"
+	if got != want {
+		t.Errorf("predicate = %q, want %q", got, want)
+	}
+	if strings.Contains(got, " OR ") || strings.Count(got, "NONE") != 1 {
+		t.Errorf("must be a single NONE over one set: %q", got)
+	}
+	if predicatePtr("") != nil {
+		t.Error("no exclusions means no predicate at all")
+	}
+	if p := predicatePtr(got); p == nil || *p != got {
+		t.Error("predicatePtr must carry the predicate")
+	}
+}
+
+func TestResolveExcludedGroups(t *testing.T) {
+	mock := &classicHTTPMock{statusCode: 200, body: `{"totalCount":1,"results":[{"groupPlatformId":"uuid-excl","groupName":"Excluded"}]}`}
+	ids, warnings := resolveExcludedGroups(context.Background(), mock, []excludedGroup{{"Excluded", "COMPUTER"}, {"Excluded", "COMPUTER"}})
+	if len(ids) != 1 || ids[0] != "uuid-excl" || len(warnings) != 0 {
+		t.Errorf("ids = %v warnings = %v, want one ID and no warning (duplicates collapse)", ids, warnings)
+	}
+
+	ids, warnings = resolveExcludedGroups(context.Background(), &classicHTTPMock{statusCode: 200, body: `{"totalCount":0,"results":[]}`}, []excludedGroup{{"Gone", "MOBILE"}})
+	if len(ids) != 0 || len(warnings) != 1 || !strings.Contains(warnings[0], `"Gone"`) {
+		t.Errorf("an unresolvable group is reported and left out: ids = %v warnings = %v", ids, warnings)
 	}
 }
