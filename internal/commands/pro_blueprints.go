@@ -1264,6 +1264,12 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// only when a profile fails.
 	importOne := func(ctx context.Context, arg string, stderr io.Writer, run importRun) (*importOutcome, error) {
 		out := &importOutcome{}
+		// --all runs both types in one go; a single import uses --type.
+		profileType := profileType
+		if run.profileType != "" {
+			profileType = run.profileType
+		}
+		out.Type = profileType
 		// Step 1: Resolve the identifier and download the Classic API profile
 		body, profileID, resolvedName, err := fetchClassicProfile(ctx, cliCtx, profileType, arg, profileName)
 		if err != nil {
@@ -1344,6 +1350,10 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return out, notImportedForTakeover(profileLabel, plan.takeover.Reasons)
 		}
 		out.Takeover = takeoverLabel(plan.takeover)
+		if plan.takeover.Supported && len(unlistedPayloadTypes(plan.components)) > 0 {
+			// Only the API can say whether it has started accepting these.
+			out.TakeoverUncertain = true
+		}
 		printPlanMessages(stderr, plan)
 
 		// Step 4: Determine scope. --computer-group/--mobile-device-group override
@@ -1588,9 +1598,9 @@ when the administrator only intended to manage a few settings. Default stripping
 applies only to the configuration-profile component, not native DDM components.
 
 Importing every profile:
-  --all imports every configuration profile of --type (computer by default, or
-  mobile), one blueprint each, and ends with a table of what happened to each
-  profile. A profile that fails or is skipped does not stop the others. Skipped means
+  --all imports every configuration profile, computer and mobile, one blueprint each,
+  unless --type narrows it to one of them, and ends with a table of what happened to
+  each profile. A profile that fails or is skipped does not stop the others. Skipped means
   the command was told to leave it out (--takeover-only, --skip-exclusions,
   --skip-limitations), it has no device-group scope, or every payload is a type
   blueprints disables. It cannot be combined with <id>, --name or --blueprint-name.
@@ -1652,7 +1662,7 @@ Examples:
 				return fmt.Errorf("--takeover-only cannot be combined with --convert: a converted blueprint cannot take over the installed profile")
 			}
 			if importAll && (len(args) > 0 || profileName != "" || blueprintName != "") {
-				return fmt.Errorf("--all imports every %s profile: it cannot be combined with <id>, --name or --blueprint-name", profileType)
+				return fmt.Errorf("--all imports every profile: it cannot be combined with <id>, --name or --blueprint-name")
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
@@ -1663,7 +1673,11 @@ Examples:
 			ctx := cmd.Context()
 
 			if importAll {
-				return runImportAll(ctx, cliCtx, profileType, deploy, yes, importOne)
+				types := []string{"computer", "mobile"}
+				if cmd.Flags().Changed("type") {
+					types = []string{profileType}
+				}
+				return runImportAll(ctx, cliCtx, types, deploy, yes, importOne)
 			}
 
 			var arg string
@@ -1684,7 +1698,7 @@ Examples:
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads, instead of keeping the profile as installed (a converted blueprint cannot take over the installed profile)")
-	cmd.Flags().BoolVar(&importAll, "all", false, "Import every configuration profile of --type (not with <id>, --name or --blueprint-name); prints a table of what happened")
+	cmd.Flags().BoolVar(&importAll, "all", false, "Import every configuration profile, computer and mobile unless --type narrows it (not with <id>, --name or --blueprint-name); prints a table of what happened")
 	cmd.Flags().BoolVar(&deploy, "deploy", false, "Deploy each blueprint after it is created (by default blueprints are created undeployed)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation for --all --deploy")
 	cmd.Flags().BoolVar(&takeoverOnly, "takeover-only", false, "Only import a profile whose blueprint can take over the installed profile; otherwise create nothing and exit with an error")

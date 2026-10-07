@@ -510,6 +510,9 @@ func TestRunImportAll(t *testing.T) {
 	one := func(results map[string]error) func(context.Context, string, io.Writer, importRun) (*importOutcome, error) {
 		return func(_ context.Context, id string, w io.Writer, run importRun) (*importOutcome, error) {
 			calls = append(calls, fmt.Sprintf("%s/preview=%v", id, run.preview))
+			if run.profileType != "" {
+				calls[len(calls)-1] += "/" + run.profileType
+			}
 			_, _ = io.WriteString(w, "detail for "+id+"\n")
 			err := results[id]
 			if err != nil {
@@ -527,7 +530,7 @@ func TestRunImportAll(t *testing.T) {
 
 	t.Run("a skipped profile is not a failure and the table lists every profile", func(t *testing.T) {
 		var buf bytes.Buffer
-		err := runImportAll(context.Background(), newCtx(&buf), "computer", true, true,
+		err := runImportAll(context.Background(), newCtx(&buf), []string{"computer"}, true, true,
 			one(map[string]error{"2": &skipError{msg: "takeover is not supported for it\nreasons"}, "3": nil}))
 		if err != nil {
 			t.Fatalf("a skip must not fail the run: %v", err)
@@ -543,15 +546,15 @@ func TestRunImportAll(t *testing.T) {
 	t.Run("--deploy counts first with a pass that creates nothing", func(t *testing.T) {
 		calls = nil
 		var buf bytes.Buffer
-		if err := runImportAll(context.Background(), newCtx(&buf), "computer", true, true, one(nil)); err != nil {
+		if err := runImportAll(context.Background(), newCtx(&buf), []string{"computer"}, true, true, one(nil)); err != nil {
 			t.Fatal(err)
 		}
-		want := []string{"1/preview=true", "2/preview=true", "3/preview=true", "1/preview=false", "2/preview=false", "3/preview=false"}
+		want := []string{"1/preview=true/computer", "2/preview=true/computer", "3/preview=true/computer", "1/preview=false/computer", "2/preview=false/computer", "3/preview=false/computer"}
 		if strings.Join(calls, " ") != strings.Join(want, " ") {
 			t.Errorf("calls = %v, want a preview pass then the real one: %v", calls, want)
 		}
 		calls = nil
-		if err := runImportAll(context.Background(), newCtx(&buf), "computer", false, true, one(nil)); err != nil {
+		if err := runImportAll(context.Background(), newCtx(&buf), []string{"computer"}, false, true, one(nil)); err != nil {
 			t.Fatal(err)
 		}
 		if len(calls) != 3 {
@@ -559,9 +562,30 @@ func TestRunImportAll(t *testing.T) {
 		}
 	})
 
+	t.Run("both types are imported and the table says which is which", func(t *testing.T) {
+		calls = nil
+		var buf bytes.Buffer
+		ctx := newCtx(&buf)
+		ctx.Client = &classicRouteMock{routes: map[string]string{
+			"/JSSResource/osxconfigurationprofiles":          `<os_x_configuration_profiles><os_x_configuration_profile><id>10</id><name>Mac</name></os_x_configuration_profile></os_x_configuration_profiles>`,
+			"/JSSResource/mobiledeviceconfigurationprofiles": `<configuration_profiles><configuration_profile><id>20</id><name>Phone</name></configuration_profile></configuration_profiles>`,
+		}}
+		if err := runImportAll(context.Background(), ctx, []string{"computer", "mobile"}, false, false, one(nil)); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(calls, " ") != "10/preview=false/computer 20/preview=false/mobile" {
+			t.Errorf("calls = %v, want the computer profile then the mobile one", calls)
+		}
+		for _, want := range []string{`"type": "computer"`, `"type": "mobile"`} {
+			if !strings.Contains(buf.String(), want) {
+				t.Errorf("table lacks %s:\n%s", want, buf.String())
+			}
+		}
+	})
+
 	t.Run("a failure beside a success is a partial failure", func(t *testing.T) {
 		var buf bytes.Buffer
-		err := runImportAll(context.Background(), newCtx(&buf), "computer", false, true,
+		err := runImportAll(context.Background(), newCtx(&buf), []string{"computer"}, false, true,
 			one(map[string]error{"3": errors.New("boom")}))
 		if err == nil || exitcode.CodeFrom(err) != exitcode.PartialFailure {
 			t.Errorf("want a partial-failure exit, got %v", err)
@@ -575,7 +599,7 @@ func TestRunImportAll(t *testing.T) {
 		var buf bytes.Buffer
 		ctx := newCtx(&buf)
 		ctx.Client = &classicRouteMock{routes: map[string]string{"/JSSResource/osxconfigurationprofiles": `<os_x_configuration_profiles><size>0</size></os_x_configuration_profiles>`}}
-		if err := runImportAll(context.Background(), ctx, "computer", false, false, one(nil)); err != nil {
+		if err := runImportAll(context.Background(), ctx, []string{"computer"}, false, false, one(nil)); err != nil {
 			t.Errorf("an empty list: %v", err)
 		}
 	})

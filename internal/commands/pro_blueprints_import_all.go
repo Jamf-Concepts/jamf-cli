@@ -23,12 +23,16 @@ import (
 // importOutcome is what importing one profile did, for the single-profile output
 // and for the --all table.
 type importOutcome struct {
-	ProfileID   string
-	Profile     string
-	Takeover    string // "supported", "not supported", or "" when it was not reached
-	BlueprintID string
-	Deployed    bool
-	DryRun      bool
+	Type      string // "computer" or "mobile"
+	ProfileID string
+	Profile   string
+	Takeover  string // "supported", "not supported", or "" when it was not reached
+	// TakeoverUncertain marks a profile that takes over only if the API accepts
+	// payload types jamf-cli lists as unsupported, which it has not so far.
+	TakeoverUncertain bool
+	BlueprintID       string
+	Deployed          bool
+	DryRun            bool
 	// ScopeWidened counts the exclusions and limitations dropped from the scope,
 	// each one a way the blueprint reaches devices the profile did not.
 	ScopeWidened int
@@ -39,6 +43,8 @@ type importOutcome struct {
 
 // importRun is how one import is run.
 type importRun struct {
+	// profileType is "computer" or "mobile"; empty means the command's --type.
+	profileType string
 	// preview computes everything and creates nothing: the first pass of --all
 	// --deploy, which counts what the confirmation is about.
 	preview bool
@@ -113,7 +119,7 @@ func parseClassicProfileList(body []byte) ([]classicProfileRef, error) {
 // importRow is one line of the --all table. Every key is always present: the
 // first row decides the table's columns.
 type importRow struct {
-	ID, Profile, Result, Takeover, Blueprint, Deployed, Detail string
+	ID, Type, Profile, Result, Takeover, Blueprint, Deployed, Detail string
 }
 
 // firstLine is the part of an error worth a table cell.
@@ -122,47 +128,63 @@ func firstLine(err error) string {
 	return line
 }
 
-// runImportAll imports every profile of a type. A profile that fails or is
-// skipped does not stop the rest. Each profile's detail goes to a buffer that is
-// shown only when it fails, and the run ends with a table of the outcomes.
-func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType string, deploy, yes bool,
+// runImportAll imports every profile of the given types. A profile that fails or
+// is skipped does not stop the rest. Each profile's detail goes to a buffer that
+// is shown only when it fails, and the run ends with a table of the outcomes.
+func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, types []string, deploy, yes bool,
 	importOne func(context.Context, string, io.Writer, importRun) (*importOutcome, error),
 ) error {
-	profiles, err := listClassicProfiles(ctx, cliCtx.Client, profileType)
-	if err != nil {
-		return err
+	type target struct {
+		profileType string
+		ref         classicProfileRef
 	}
-	if len(profiles) == 0 {
-		fmt.Fprintf(os.Stderr, "No %s configuration profiles found.\n", profileType)
+	var targets []target
+	var perType []string
+	for _, t := range types {
+		profiles, err := listClassicProfiles(ctx, cliCtx.Client, t)
+		if err != nil {
+			return err
+		}
+		perType = append(perType, fmt.Sprintf("%d %s", len(profiles), t))
+		for _, p := range profiles {
+			targets = append(targets, target{t, p})
+		}
+	}
+	if len(targets) == 0 {
+		fmt.Fprintf(os.Stderr, "No %s configuration profiles found.\n", strings.Join(types, " or "))
 		return nil
 	}
+	fmt.Fprintf(os.Stderr, "Found %d profile(s): %s.\n", len(targets), strings.Join(perType, ", "))
+
 	if deploy && !cliCtx.DryRun {
 		// Deploying is the part that reaches devices, and --all does it in bulk. Count
 		// what it would do first, with a pass that creates nothing, so the
 		// confirmation can say how many blueprints take over the installed profile,
 		// how many install beside it, and how many will not be deployed at all.
-		var takeOver, alongside, held int
-		for _, p := range profiles {
-			out, err := importOne(ctx, p.ID, io.Discard, importRun{preview: true})
+		var takeOver, uncertain, alongside, held int
+		for _, t := range targets {
+			out, err := importOne(ctx, t.ref.ID, io.Discard, importRun{preview: true, profileType: t.profileType})
 			if err != nil {
 				continue // skipped or failing: nothing will be created for it
 			}
 			switch {
 			case out.ScopeWidened > 0:
 				held++
+			case out.TakeoverUncertain:
+				uncertain++
 			case out.Takeover == "supported":
 				takeOver++
 			default:
 				alongside++
 			}
 		}
-		fmt.Fprintf(os.Stderr, "Of %d %s profile(s): up to %d take over the installed profile (the API may still refuse some as installed), "+
-			"%d install alongside the Classic profile (both stay active), %d will be created but not deployed because their scope would widen.\n",
-			len(profiles), profileType, takeOver, alongside, held)
-		if takeOver+alongside == 0 {
+		fmt.Fprintf(os.Stderr, "Deploying would: take over the installed profile for %d; take it over for up to %d more only if the API "+
+			"accepts payload types jamf-cli lists as unsupported (otherwise they install alongside); install alongside the Classic profile "+
+			"(both stay active) for %d; create but not deploy %d whose scope would widen.\n", takeOver, uncertain, alongside, held)
+		if takeOver+uncertain+alongside == 0 {
 			fmt.Fprintln(os.Stderr, "Nothing to deploy.")
 		}
-		if err := platform.ConfirmAction("deploy", fmt.Sprintf("%d blueprint(s)", takeOver+alongside), yes); err != nil {
+		if err := platform.ConfirmAction("deploy", fmt.Sprintf("up to %d blueprint(s)", takeOver+uncertain+alongside), yes); err != nil {
 			return err
 		}
 	}
@@ -171,10 +193,10 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType 
 	var rows []importRow
 	var created, skipped, failed int
 	var firstErr error
-	for i, p := range profiles {
+	for i, t := range targets {
 		var log bytes.Buffer
-		out, err := importOne(ctx, p.ID, &log, importRun{})
-		row := importRow{ID: p.ID, Profile: p.Name, Takeover: out.Takeover, Blueprint: out.BlueprintID, Deployed: "no"}
+		out, err := importOne(ctx, t.ref.ID, &log, importRun{profileType: t.profileType})
+		row := importRow{ID: t.ref.ID, Type: t.profileType, Profile: t.ref.Name, Takeover: out.Takeover, Blueprint: out.BlueprintID, Deployed: "no"}
 		if out.Profile != "" {
 			row.Profile = out.Profile
 		}
@@ -189,7 +211,7 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType 
 				firstErr = err
 			}
 			row.Result, row.Detail = "failed", firstLine(err)
-			fmt.Fprintf(os.Stderr, "--- %s (id %s)\n%s\n", row.Profile, p.ID, strings.TrimRight(log.String(), "\n"))
+			fmt.Fprintf(os.Stderr, "--- %s (%s id %s)\n%s\n", row.Profile, t.profileType, t.ref.ID, strings.TrimRight(log.String(), "\n"))
 		case out.DryRun:
 			created++
 			row.Result = "would create"
@@ -201,14 +223,14 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType 
 			}
 			row.Detail = out.NotDeployed
 		}
-		fmt.Fprintf(os.Stderr, "[%d/%d] %s (id %s): %s\n", i+1, len(profiles), row.Profile, p.ID, row.Result)
+		fmt.Fprintf(os.Stderr, "[%d/%d] %s %s (id %s): %s\n", i+1, len(targets), t.profileType, row.Profile, t.ref.ID, row.Result)
 		rows = append(rows, row)
 	}
 
 	table := make([]map[string]any, len(rows))
 	for i, r := range rows {
 		table[i] = map[string]any{
-			"id": r.ID, "profile": r.Profile, "result": r.Result, "takeover": r.Takeover,
+			"id": r.ID, "type": r.Type, "profile": r.Profile, "result": r.Result, "takeover": r.Takeover,
 			"blueprint": r.Blueprint, "deployed": r.Deployed, "detail": r.Detail,
 		}
 	}
@@ -221,7 +243,7 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, profileType 
 		verb = "would be created"
 		note = " (dry run: whether the API accepts each profile as installed is not tested)"
 	}
-	fmt.Fprintf(os.Stderr, "%d profile(s): %d %s, %d skipped, %d failed%s\n", len(profiles), created, verb, skipped, failed, note)
+	fmt.Fprintf(os.Stderr, "%d profile(s): %d %s, %d skipped, %d failed%s\n", len(targets), created, verb, skipped, failed, note)
 	return finishBatch(os.Stderr, "profiles", created, failed, firstErr)
 }
 

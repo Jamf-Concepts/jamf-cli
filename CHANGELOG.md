@@ -84,8 +84,8 @@ What a script can see change:
   `PayloadIdentifier` (the blueprints API rewrites one to match the other, and
   a deployment that tried it on a device reported `failed`); or when the profile
   has no identifiers.
-- `--all` imports every configuration profile of `--type` (computer by default, or
-  mobile) and ends with a table of the outcome for each: created, skipped or
+- `--all` imports every configuration profile, computer and mobile, unless `--type`
+  narrows it to one, and ends with a table of the outcome for each: created, skipped or
   failed. A skip is a profile the command was told to leave out (`--takeover-only`,
   `--skip-exclusions`, `--skip-limitations`), one with no device-group scope, or one
   whose payloads are all types blueprints disables; skips do not fail the run, a
@@ -93,8 +93,9 @@ What a script can see change:
   created (blueprints are created undeployed by default), except one that would reach
   devices the profile excludes, which is created and left undeployed. A blueprint that
   installs beside the Classic profile asks for confirmation first; `--all --deploy` asks
-  once, after counting how many take over, how many install alongside and how many are
-  held back (`--yes` skips the question). `-n` previews the table without creating
+  once, after counting how many take over, how many take over only if the API accepts
+  payload types jamf-cli lists as unsupported, how many install alongside and how many
+  are held back (`--yes` skips the question). `-n` previews the table without creating
   anything. `import-profile --all --type computer --takeover-only --skip-exclusions
   --skip-limitations --deploy` moves only the profiles that can take over.
 - `--takeover-only` imports a profile only if its blueprint can take over the
