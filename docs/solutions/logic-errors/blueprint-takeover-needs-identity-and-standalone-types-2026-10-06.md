@@ -70,6 +70,34 @@ A profile that fails any of that is not applied and its status is `invalid`.
 | Blueprint undeployed, Classic present | Classic | Classic reinstalls at the next recon |
 | Blueprint undeployed, Classic gone | Nobody | The profile is removed from the device entirely |
 
+## Fallback strategies tested (2026-10-07)
+
+"Restrictions Takeover": 14 payloads, every `PayloadUUID` equal to its `PayloadIdentifier`, 7 of
+the types (`com.apple.MCX`, `coremediaio.support`, `dashboard`, `systempreferences`,
+`preferences.users`, `systemuiserver`, `ShareKitHelper`) outside the standalone registry. Each
+variant was created against the same device group as the installed Classic profile and deployed
+to a live macOS VM.
+
+| Variant | Identity kept | Classic installed | Classic unscoped |
+|---|---|---|---|
+| As-is, 14 payloads | yes | API answers 400 `Failed to validate configuration.` | n/a |
+| Unsupported payloads stripped (7 left) | yes | created, `failed:1`, nothing applied, Classic untouched | deploys as a fresh install |
+| Unsupported payloads MCX-wrapped (14, types changed) | yes | created, `failed:1`, nothing applied, Classic untouched | deploys as a fresh install |
+
+Neither fallback gets takeover. Stripping breaks the payload count, wrapping breaks the payload
+type, and Apple needs both to match. The device logs show no legacy-declaration lines for either
+failure (`dmd` redacts its messages), so the rule is inferred from the `failed:1` report and the
+Apple documentation, not read from a device error. With the Classic profile gone the same
+blueprints deploy, because the identity then points at nothing and the profile installs fresh:
+that is a remove-then-install, not a takeover.
+
+So a fallback that keeps identity is strictly worse than one that drops it: while the Classic
+profile is installed it fails, where a blueprint with no identity installs alongside. This is why
+`import-profile` decides statically and offline and never preserves identity "where possible".
+
+An empty payload (the profile's `com.apple.desktop` here) is a second trap: the converter drops
+it, which changes the payload count, and the UI will not deploy a blueprint that carries one.
+
 ## The fix
 `ApplyTakeoverIdentity` judges the converted output against the original mobileconfig and
 stamps identity only when every rule holds; otherwise it returns the configuration
