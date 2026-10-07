@@ -59,12 +59,17 @@ func buildImportPlan(mobileconfig []byte, o importConvertOptions, verbatim bool,
 		for _, w := range warnings {
 			plan.logf("Warning: %s", w)
 		}
+		// Validate here as the DDM path does: a payload missing a key Apple's
+		// schema requires is refused by the API for the whole blueprint, so a
+		// legacy import of one failed outright where the default import dropped it.
+		var msgs []string
 		if o.stripDefaults {
-			var msgs []string
 			config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
-			for _, m := range msgs {
-				plan.logf("  %s", m)
-			}
+		} else {
+			config, msgs = profileconvert.ValidatePayloads(config, fetcher)
+		}
+		for _, m := range msgs {
+			plan.logf("  %s", m)
 		}
 		if err := profileconvert.ConfigHasPayloads(config); err != nil {
 			return nil, fmt.Errorf("no payloads remain after processing")

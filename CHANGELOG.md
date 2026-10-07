@@ -62,7 +62,10 @@ What a script can see change:
   `profileconvert.SupportedPayloadTypes` is out of date. Only when the API
   refuses it (HTTP 400 `Failed to validate configuration.` on a component, and
   nothing else) does the command retry with those types delivered as Custom
-  Settings (MCX), as before, with no takeover. Any other failure is returned
+  Settings (MCX), as before, with no takeover. `--legacy` now validates payloads
+  against Apple's schema as the default import does: a payload missing a required
+  key (a screensaver with no `moduleName`) is dropped with a message, where it
+  used to make the API refuse the whole blueprint. Any other failure is returned
   without a retry. So the same profile can produce a different blueprint on a
   different server version.
 - A line on stderr before anything is created says either `Takeover supported`

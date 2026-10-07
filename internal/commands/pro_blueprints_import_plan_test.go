@@ -250,3 +250,39 @@ func TestSendWithFallback(t *testing.T) {
 		}
 	})
 }
+
+// A screensaver payload with no moduleName is refused by the API for the whole
+// blueprint. --legacy used to send it anyway and fail; it now drops it, as the
+// default import does, and says so.
+func TestBuildImportPlan_LegacyValidatesLikeTheDefaultImport(t *testing.T) {
+	profile := planProfile(planFinderPayload, [3]string{"com.apple.screensaver", "FFFFFFFF-98B3-4ED1-8235-649E41003E36", `<key>idleTime</key><integer>600</integer>`})
+	fetcher := profileconvert.NewSchemaFetcher(&http.Client{Transport: screensaverSchema{}})
+
+	plan, err := buildImportPlan(profile, importConvertOptions{legacy: true}, true, fetcher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(plan.components[0].Configuration), "screensaver") {
+		t.Errorf("payload missing a required key was sent:\n%s", plan.components[0].Configuration)
+	}
+	if !strings.Contains(strings.Join(plan.messages, "\n"), "removed payload com.apple.screensaver") {
+		t.Errorf("the removal was not reported:\n%v", plan.messages)
+	}
+	if plan.takeover.Supported {
+		t.Error("a removed payload changes the count, so takeover must be refused")
+	}
+}
+
+type screensaverSchema struct{}
+
+func (screensaverSchema) RoundTrip(r *http.Request) (*http.Response, error) {
+	body := ""
+	if strings.Contains(r.URL.Path, "screensaver") {
+		body = "payload:\n  payloadtype: com.apple.screensaver\npayloadkeys:\n- key: moduleName\n  type: <string>\n  presence: required\n"
+	}
+	status := http.StatusNotFound
+	if body != "" {
+		status = http.StatusOK
+	}
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{}}, nil
+}
