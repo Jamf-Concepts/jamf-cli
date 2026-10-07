@@ -102,3 +102,28 @@ func TestWarnDroppedKeys(t *testing.T) {
 		}
 	})
 }
+
+func TestReportExclusionTakeoverNote(t *testing.T) {
+	var buf bytes.Buffer
+	reportExclusionTakeoverNote(&buf, profileconvert.TakeoverReport{Supported: true}, true)
+	for _, want := range []string{"activation condition", "Remove the same exclusions from the Classic profile", "undeploying and deploying"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("note lacks %q:\n%s", want, buf.String())
+		}
+	}
+	// Nothing to warn about without a takeover, or without carried exclusions.
+	for name, tc := range map[string]struct {
+		report  profileconvert.TakeoverReport
+		carried bool
+	}{
+		"no takeover":       {profileconvert.TakeoverReport{Reasons: []string{"r"}}, true},
+		"no exclusions":     {profileconvert.TakeoverReport{Supported: true}, false},
+		"neither of either": {profileconvert.TakeoverReport{}, false},
+	} {
+		buf.Reset()
+		reportExclusionTakeoverNote(&buf, tc.report, tc.carried)
+		if buf.Len() != 0 {
+			t.Errorf("%s: unexpected output:\n%s", name, buf.String())
+		}
+	}
+}

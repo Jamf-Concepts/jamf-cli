@@ -1175,6 +1175,21 @@ Examples:
 	return cmd
 }
 
+// reportExclusionTakeoverNote warns about the one way a takeover blueprint that
+// carries excluded groups goes wrong. While the Classic profile excludes the same
+// groups, Jamf Pro removes and reinstalls it on its own schedule as a device
+// enters and leaves them, and a blueprint deployed in that window was left
+// failed when the device came back. With the exclusion on the blueprint alone,
+// the blueprint removes and reinstalls the profile itself, within seconds.
+func reportExclusionTakeoverNote(w io.Writer, t profileconvert.TakeoverReport, carriedExclusions bool) {
+	if !t.Supported || !carriedExclusions {
+		return
+	}
+	_, _ = fmt.Fprintln(w, "Note: the profile's excluded groups are now an activation condition on the blueprint. "+
+		"Remove the same exclusions from the Classic profile, or a device that enters and leaves one of those groups "+
+		"can leave the blueprint failed; undeploying and deploying it again clears that.")
+}
+
 // reportTakeover tells the admin, before anything is created, whether the
 // blueprint will adopt the profile already installed on devices or install
 // beside it. The two are very different to operate, and the failure mode of
@@ -1554,6 +1569,7 @@ Examples:
 			}
 			fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", name, id)
 			reportTakeover(os.Stderr, plan.takeover)
+			reportExclusionTakeoverNote(os.Stderr, plan.takeover, activationPredicate != "")
 
 			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {

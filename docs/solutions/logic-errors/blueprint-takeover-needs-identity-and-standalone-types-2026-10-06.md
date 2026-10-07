@@ -170,3 +170,19 @@ was a fresh install, so it says nothing about adoption.
 Two profiles that set the same preference domain merge. A second profile in the same group set `ProhibitBurn`
 and won, which looked like a failed takeover until its Finder payload's UUID turned up in the managed
 preferences file.
+
+### The Classic profile must not exclude the group too (2026-10-07)
+
+Same blueprint, same VM, with the exclusion on the blueprint's predicate only and none on the Classic profile:
+
+| Step | Result |
+|---|---|
+| Deploy over the installed Classic profile (blueprint content identical) | `succeeded:1`; install date and values unchanged |
+| VM added to the excluded group | profile removed within 6 s |
+| VM removed from the group | profile back within 2 s, installed by the blueprint; `succeeded:1` throughout |
+
+So the failed state above came from the Classic profile excluding the same group: Jamf Pro removed and
+reinstalled it on its own schedule as the device entered and left. `import-profile` says to remove the same
+exclusions from the Classic profile when it carries excluded groups. A device in an excluded group does not keep the
+profile either way; the blueprint's condition removes it.
+
