@@ -1329,7 +1329,7 @@ func TestExtractAndResolveScope_ComputerGroups(t *testing.T) {
 		</scope>
 	</os_x_configuration_profile>`)
 
-	ids, warnings := extractAndResolveScope(context.Background(), mock, xmlBody)
+	ids, warnings := extractAndResolveScope(context.Background(), mock, xmlBody, io.Discard)
 	if len(ids) != 1 {
 		t.Fatalf("expected 1 resolved ID, got %d", len(ids))
 	}
@@ -1343,7 +1343,7 @@ func TestExtractAndResolveScope_ComputerGroups(t *testing.T) {
 
 func TestExtractAndResolveScope_NoScopeSection(t *testing.T) {
 	xmlBody := []byte(`<os_x_configuration_profile><general><name>Test</name></general></os_x_configuration_profile>`)
-	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody, io.Discard)
 	if len(ids) != 0 {
 		t.Errorf("expected no IDs, got %d", len(ids))
 	}
@@ -1354,7 +1354,7 @@ func TestExtractAndResolveScope_NoScopeSection(t *testing.T) {
 
 func TestExtractAndResolveScope_MalformedScope(t *testing.T) {
 	xmlBody := []byte(`<root><scope><all_computers>false</all_computers></root>`)
-	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody, io.Discard)
 	if len(ids) != 0 {
 		t.Errorf("expected no IDs, got %d", len(ids))
 	}
@@ -1365,7 +1365,7 @@ func TestExtractAndResolveScope_MalformedScope(t *testing.T) {
 
 func TestExtractAndResolveScope_AllComputers(t *testing.T) {
 	xmlBody := []byte(`<root><scope><all_computers>true</all_computers></scope></root>`)
-	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody, io.Discard)
 	if len(ids) != 0 {
 		t.Errorf("expected no IDs for all_computers scope, got %d", len(ids))
 	}
@@ -1388,7 +1388,7 @@ func TestExtractAndResolveScope_DropsUnsupportedElements(t *testing.T) {
 		<departments><department><id>1</id><name>IT</name></department></departments>
 	</scope></root>`)
 
-	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody, io.Discard)
 	if len(ids) != 0 {
 		t.Errorf("expected no IDs, got %d", len(ids))
 	}

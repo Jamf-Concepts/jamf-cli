@@ -1,0 +1,394 @@
+// Copyright 2026, Jamf Software LLC
+
+package commands
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"regexp"
+	"strings"
+
+	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+)
+
+// importPlan is one way of turning a Classic profile into blueprint components,
+// with the messages that explain it. import-profile builds two: the profile as
+// installed (preserved), and the converted profile, with compatible payloads
+// promoted to native DDM components, MCX payloads unwrapped and unsupported
+// payload types delivered as Custom Settings (MCX). A preserved profile can take
+// over the installed one. It is sent first and the converted profile is sent
+// only when the API rejects it (or takeover is impossible anyway), so a payload
+// type the API has started accepting is found by asking the API rather than by
+// trusting jamf-cli's list. --convert sends the converted profile alone.
+type importPlan struct {
+	components []blueprints.Component
+	takeover   profileconvert.TakeoverReport
+	// messages are the stderr lines for this plan, in order. They are held back
+	// so that a plan that is never sent says nothing.
+	messages []string
+}
+
+func (p *importPlan) logf(format string, a ...any) {
+	p.messages = append(p.messages, fmt.Sprintf(format, a...))
+}
+
+// importConvertOptions are the import-profile flags that shape the conversion.
+type importConvertOptions struct {
+	includeUnsupported bool
+	stripDefaults      bool
+}
+
+// buildImportPlan converts a mobileconfig. preserve keeps the profile as
+// installed, in one configuration-profile component: no native DDM components,
+// no MCX unwrapping or wrapping, empty payloads kept. Otherwise it is converted.
+func buildImportPlan(mobileconfig []byte, o importConvertOptions, preserve bool, fetcher *profileconvert.SchemaFetcher) (*importPlan, error) {
+	plan := &importPlan{}
+	if preserve {
+		config, warnings, err := profileconvert.ConvertMobileconfigVerbatim(mobileconfig, !o.includeUnsupported)
+		if err != nil {
+			return nil, fmt.Errorf("converting profile: %w", err)
+		}
+		for _, w := range warnings {
+			plan.logf("Warning: %s", w)
+		}
+		// Validate here as the DDM path does: a payload missing a key Apple's
+		// schema requires is refused by the API for the whole blueprint, so a
+		// preserved import of one failed outright where the converted import dropped it.
+		var msgs []string
+		if o.stripDefaults {
+			config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
+		} else {
+			config, msgs = profileconvert.ValidatePayloads(config, fetcher)
+		}
+		for _, m := range msgs {
+			plan.logf("  %s", m)
+		}
+		if err := profileconvert.ConfigHasPayloads(config); err != nil {
+			return nil, fmt.Errorf("no payloads remain after processing")
+		}
+		types := profileconvert.PayloadTypeSummary(mobileconfig)
+		plan.logf("Processed %d payload(s) (kept as installed)", len(types))
+		plan.messages = append(plan.messages, apiOnlyPayloadNote(config)...)
+		config, plan.takeover, err = profileconvert.ApplyTakeoverIdentity(config, mobileconfig, 0)
+		if err != nil {
+			return nil, fmt.Errorf("checking takeover: %w", err)
+		}
+		plan.components = append(plan.components, blueprints.Component{
+			Identifier:    "com.jamf.ddm-configuration-profile",
+			Configuration: config,
+		})
+		return plan, nil
+	}
+
+	// Convert: promote compatible payloads to native DDM components.
+	var defaultsFetcher *profileconvert.SchemaFetcher
+	if o.stripDefaults {
+		defaultsFetcher = fetcher
+	}
+	ddmResult, err := profileconvert.ConvertToDDMComponents(mobileconfig, !o.includeUnsupported, defaultsFetcher)
+	if err != nil {
+		return nil, fmt.Errorf("converting profile: %w", err)
+	}
+	for _, w := range ddmResult.Warnings {
+		plan.logf("Warning: %s", w)
+	}
+
+	// Validate/strip the configuration-profile component (if any)
+	if ddmResult.ProfileConfig != nil {
+		var msgs []string
+		if o.stripDefaults {
+			ddmResult.ProfileConfig, msgs = profileconvert.StripConfigDefaults(ddmResult.ProfileConfig, fetcher)
+		} else {
+			ddmResult.ProfileConfig, msgs = profileconvert.ValidatePayloads(ddmResult.ProfileConfig, fetcher)
+		}
+		for _, m := range msgs {
+			plan.logf("  %s", m)
+		}
+		if err := profileconvert.ConfigHasPayloads(ddmResult.ProfileConfig); err != nil {
+			ddmResult.ProfileConfig = nil
+		}
+	}
+
+	types := profileconvert.PayloadTypeSummary(mobileconfig)
+	plan.logf("Processed %d payload(s)", len(types))
+	for _, c := range ddmResult.Conversions {
+		plan.logf("  %s (native DDM)", c)
+	}
+	if ddmResult.ProfileConfig != nil {
+		plan.logf("  remaining payloads wrapped in configuration-profile component")
+		plan.messages = append(plan.messages, apiOnlyPayloadNote(ddmResult.ProfileConfig)...)
+		ddmResult.ProfileConfig, plan.takeover, err = profileconvert.ApplyTakeoverIdentity(ddmResult.ProfileConfig, mobileconfig, len(ddmResult.NativeComponents))
+		if err != nil {
+			return nil, fmt.Errorf("checking takeover: %w", err)
+		}
+	} else {
+		plan.takeover = profileconvert.NativeConversionReport(len(ddmResult.NativeComponents))
+	}
+
+	for _, nc := range ddmResult.NativeComponents {
+		plan.components = append(plan.components, blueprints.Component{
+			Identifier:    nc.Identifier,
+			Configuration: nc.Configuration,
+		})
+	}
+	if ddmResult.ProfileConfig != nil {
+		plan.components = append(plan.components, blueprints.Component{
+			Identifier:    "com.jamf.ddm-configuration-profile",
+			Configuration: ddmResult.ProfileConfig,
+		})
+	}
+	if len(plan.components) == 0 {
+		return nil, fmt.Errorf("no components produced — all payloads were stripped or unsupported")
+	}
+	return plan, nil
+}
+
+// sameComponents reports whether two plans would send the same blueprint, in
+// which case there is nothing to fall back to.
+func sameComponents(a, b *importPlan) bool {
+	ab, errA := json.Marshal(a.components)
+	bb, errB := json.Marshal(b.components)
+	return errA == nil && errB == nil && string(ab) == string(bb)
+}
+
+// unlistedPayloadTypes is the payload types an accepted plan carries as
+// standalone payloads that profileconvert.SupportedPayloadTypes does not list.
+func unlistedPayloadTypes(components []blueprints.Component) []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, c := range components {
+		if c.Identifier != "com.jamf.ddm-configuration-profile" {
+			continue
+		}
+		for _, t := range profileconvert.UnlistedPayloadTypes(c.Configuration) {
+			if !seen[t] {
+				seen[t] = true
+				out = append(out, t)
+			}
+		}
+	}
+	return out
+}
+
+// configurationRejectionField is the field the gateway names when a
+// configuration-profile component fails its validation, whichever component and
+// step it is.
+var configurationRejectionField = regexp.MustCompile(`^steps\[\d+\]\.components\[\d+\]\.configuration$`)
+
+// isConfigurationRejection reports whether err is the blueprints API refusing a
+// configuration-profile component's payloads: HTTP 400 whose every detail is
+// "Failed to validate configuration." on a component's configuration.
+//
+// This is deliberately narrow. The message does not name the payload, and the
+// same wording answers an unsupported payload type, which is the case the
+// fallback is for. Anything else, a timeout, a 5xx, a 401/403, a bad scope or a
+// name that is too long, must surface as it is: the fallback would only send the
+// same body again.
+func isConfigurationRejection(err error) bool {
+	var s statusCarrier
+	if !errors.As(err, &s) || !s.HasStatus(http.StatusBadRequest) {
+		return false
+	}
+	var d detailCarrier
+	if !errors.As(err, &d) {
+		return false
+	}
+	details := d.Details()
+	if len(details) == 0 {
+		return false
+	}
+	for _, detail := range details {
+		if !configurationRejectionField.MatchString(detail.Field) ||
+			!strings.HasPrefix(strings.ToLower(strings.TrimSpace(detail.Description)), "failed to validate configuration") {
+			return false
+		}
+	}
+	return true
+}
+
+// apiOnlyPayloadNote is warnAPIOnlyPayloads' text, as lines.
+func apiOnlyPayloadNote(config json.RawMessage) []string {
+	apiOnly := profileconvert.APIOnlyPayloadTypes(config)
+	if len(apiOnly) == 0 {
+		return nil
+	}
+	lines := []string{"Note: the following payload(s) can only be managed through the blueprints API — " +
+		"they show as read-only \"Legacy payload\" items in the Jamf Pro UI and cannot be edited there:"}
+	for _, pt := range apiOnly {
+		lines = append(lines, "  - "+pt)
+	}
+	return lines
+}
+
+// printPlanMessages writes a plan's explanation to stderr.
+func printPlanMessages(w io.Writer, p *importPlan) {
+	for _, m := range p.messages {
+		_, _ = fmt.Fprintln(w, m)
+	}
+}
+
+// sendWithFallback sends the plan as installed and, only when the API refuses
+// its payloads (isConfigurationRejection), sends the fallback instead. It
+// returns the plan that was accepted.
+//
+// A 400 creates nothing, so sending again cannot duplicate the blueprint. Every
+// other failure is returned untouched: the fallback would not change it, and a
+// timed-out or 5xx write may already have been applied.
+// With takeoverOnly the fallback is never sent: it cannot take over, so the
+// rejection ends the import with nothing created.
+//
+// beforeFallback, when set, runs after the first attempt is rejected and before
+// the fallback is sent, so a gate that depended on the plan being sent (the
+// "installs alongside" confirmation) is evaluated against the fallback too. Its
+// error is returned as is: nothing was created.
+func sendWithFallback(w io.Writer, plan, fallback *importPlan, takeoverOnly bool, beforeFallback func(*importPlan) error, send func(*importPlan) (string, error)) (*importPlan, string, error) {
+	id, err := send(plan)
+	if err == nil {
+		if unlisted := unlistedPayloadTypes(plan.components); len(unlisted) > 0 && fallback != nil {
+			_, _ = fmt.Fprintf(w, "Note: the API accepted %s as standalone payload type(s) that jamf-cli lists as unsupported; "+
+				"profileconvert.SupportedPayloadTypes may be out of date.\n", strings.Join(unlisted, ", "))
+		}
+		return plan, id, nil
+	}
+	if fallback == nil || !isConfigurationRejection(err) {
+		return plan, "", err
+	}
+	if takeoverOnly {
+		// The API's refusal is the answer to "can it take over", so under this flag
+		// it is a skip, not a failure.
+		return plan, "", &skipError{
+			msg: fmt.Sprintf("%v (not imported: the blueprints API rejected the profile as installed, so it cannot take over, and --takeover-only does not send the converted profile)", err),
+			err: err,
+		}
+	}
+	_, _ = fmt.Fprintln(w, "Warning: the blueprints API rejected the payloads as installed. "+
+		"Retrying with the payload types it does not accept standalone delivered as Custom Settings (MCX), "+
+		"which cannot take over the installed profile.")
+	for _, m := range fallback.messages {
+		_, _ = fmt.Fprintln(w, m)
+	}
+	if beforeFallback != nil {
+		if err := beforeFallback(fallback); err != nil {
+			return plan, "", err
+		}
+	}
+	id, retryErr := send(fallback)
+	if retryErr != nil {
+		return fallback, "", fmt.Errorf("%w (the profile as installed was also rejected: %v)", retryErr, err)
+	}
+	return fallback, id, nil
+}
+
+// refuseUnexpressibleScope is the strict mode of --skip-exclusions and
+// --skip-limitations: a profile whose scope has exclusions or limitations that a
+// blueprint cannot express is not imported. Without the flags it is imported and
+// the loss is warned about and written into the blueprint description.
+func refuseUnexpressibleScope(profileLabel string, n scopeNarrowing, skipExclusions, skipLimitations bool) error {
+	var found, flags []string
+	if skipExclusions && n.otherExclusions > 0 {
+		found = append(found, fmt.Sprintf("%d scope exclusion(s)", n.otherExclusions))
+		flags = append(flags, "--skip-exclusions")
+	}
+	if skipLimitations && n.limitations > 0 {
+		found = append(found, fmt.Sprintf("%d scope limitation(s)", n.limitations))
+		flags = append(flags, "--skip-limitations")
+	}
+	if len(found) == 0 {
+		return nil
+	}
+	return &skipError{msg: fmt.Sprintf("profile %s has %s that blueprints cannot express, so it was not imported (%s).\n"+
+		"Drop the flag to import it without them, or set the scope yourself with --computer-group or --mobile-device-group",
+		profileLabel, strings.Join(found, " and "), strings.Join(flags, " and "))}
+}
+
+// scopeNarrowingNote is the sentence a blueprint description carries about the
+// profile's exclusions and limitations: what was carried over and what was not.
+func scopeNarrowingNote(carriedGroups, otherExclusions, limitations int) string {
+	var parts []string
+	if carriedGroups > 0 {
+		parts = append(parts, fmt.Sprintf("%d excluded group(s) carried over as an activation condition.", carriedGroups))
+	}
+	var lost []string
+	if otherExclusions > 0 {
+		lost = append(lost, fmt.Sprintf("%d exclusion(s)", otherExclusions))
+	}
+	if limitations > 0 {
+		lost = append(lost, fmt.Sprintf("%d limitation(s)", limitations))
+	}
+	if len(lost) > 0 {
+		parts = append(parts, strings.Join(lost, " and ")+" not carried over.")
+	}
+	return strings.Join(parts, " ")
+}
+
+// exclusionPredicate is the activation condition that keeps a step's components
+// off any device in one of the groups. One NONE over the whole set means "in any
+// of them"; chaining a NONE per group with OR does not exclude, which is the
+// mistake Jamf Support sees most. The IDs are Platform group IDs, which is what
+// the jamf.device.groups property carries.
+func exclusionPredicate(groupIDs []string) string {
+	quoted := make([]string, len(groupIDs))
+	for i, id := range groupIDs {
+		quoted[i] = "'" + id + "'"
+	}
+	return "NONE @property(jamf.device.groups) IN {" + strings.Join(quoted, ", ") + "}"
+}
+
+// predicatePtr is the step's ActivationPredicate: absent when there is none.
+func predicatePtr(p string) *string {
+	if p == "" {
+		return nil
+	}
+	return &p
+}
+
+// resolveExcludedGroups turns excluded group names into Platform group IDs, in
+// order and without duplicates. A group that cannot be resolved is reported and
+// left out, so it counts as an exclusion that was not carried over.
+func resolveExcludedGroups(ctx context.Context, client registry.HTTPClient, groups []excludedGroup) ([]string, []string) {
+	var ids, warnings []string
+	seen := make(map[string]bool)
+	for _, g := range groups {
+		id, err := resolveGroupPlatformID(ctx, client, g.name, g.groupType)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("could not resolve excluded group %q (%s) to a platform UUID, so it is not excluded: %v", g.name, g.groupType, err))
+			continue
+		}
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	return ids, warnings
+}
+
+// notImportedForTakeover is the --takeover-only refusal: nothing is created.
+func notImportedForTakeover(profileLabel string, reasons []string) error {
+	return &skipError{msg: fmt.Sprintf("profile %s was not imported: takeover is not supported for it (--takeover-only).\n  - %s\n"+
+		"Drop the flag to import it as a blueprint that installs alongside the Classic profile",
+		profileLabel, strings.Join(reasons, "\n  - "))}
+}
+
+// refuseExistingBlueprint skips the import when a blueprint already carries the
+// name, naming it so the operator can deploy or delete it. The list search also
+// matches descriptions, so only an exact name counts.
+func refuseExistingBlueprint(ctx context.Context, list func(context.Context, []string, string) ([]blueprints.BlueprintOverview, error), name string) error {
+	existing, err := list(ctx, nil, name)
+	if err != nil {
+		return err
+	}
+	for _, bp := range existing {
+		if bp.Name == name {
+			return &skipError{msg: fmt.Sprintf("a blueprint named %q already exists (id: %s), so nothing was created; "+
+				"deploy or delete it, or pass --blueprint-name to import this profile under another name", name, bp.ID)}
+		}
+	}
+	return nil
+}

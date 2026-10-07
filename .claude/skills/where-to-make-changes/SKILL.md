@@ -44,7 +44,7 @@ description: Use when you know what to change but not where — a lookup table m
 | Add/change alternate lookup fields (--serial, --udid) — modern API | `generator/parser/parser.go` → `resourceLookupFields` map |
 | Add a CLI flag alias for a classic lookup (e.g. `--serial` → `--serialnumber`) | `generator/classic/generator.go` → `lookupFlagAliases` map |
 | Fix a resource name auto-pluralization issue | `generator/parser/parser.go` → `resourceNameOverrides` map |
-| Change which API version a resource ships | nothing — every version of an endpoint lands in one resource, and `deduplicateVersionedOps` (`generator/parser/parser.go`) keeps the highest version per version-stripped path shape. Check `resourceGetDetailPathOverrides` and `internal/commands/pro_device_actions.go` for hand-pinned versions of the same resource |
+| Change which API version a resource ships | nothing — `deduplicateVersionedOps` keeps the highest version per version-stripped path shape inside the resource, read from the paths and not from a name. Check `resourceGetDetailPathOverrides`, `resourceListDetailPathOverrides` and `internal/commands/pro_device_actions.go` for hand-pinned versions of the same resource |
 | Fix wrong RSQL filter field for --name lookup | `generator/parser/parser.go` → `resourceNameFieldOverrides` map |
 | Fix wrong ID field extracted from list response | `generator/parser/parser.go` → `resourceIDFieldOverrides` map |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
@@ -57,6 +57,7 @@ description: Use when you know what to change but not where — a lookup table m
 | Add server-side subset narrowing (`--subset`) to a classic `get` | `subsets:` list in `specs/classic/resources.yaml` (drives completion; non-id lookups auto-resolve to an id first for gateway compatibility) |
 | Add/modify DDM component scaffolds | `internal/blueprintcomponents/scaffolds.go` — SDK-typed components via `example*()` funcs; raw JSON fallback in `rawScaffolds` for components not yet in SDK |
 | Add a new legacy-to-DDM payload converter | `internal/profileconvert/ddm_<name>.go` (new converter + register in `ddm_converter.go` init) |
+| Change when `import-profile` can take over an installed profile (identity, reasons, description, dropped keys) | `internal/profileconvert/takeover.go` (`ApplyTakeoverIdentity`, `ImportDescription`, `DroppedKeys`); the output lines are `reportTakeover`/`warnDroppedKeys` in `internal/commands/pro_blueprints.go` |
 | Add/remove a resource in the `backup`/`diff` commands | `internal/commands/pro_resources.go` (curated allowlist; endpoints come from generated `backup_registry.go`). `TestBackupResourcePathsAreServed` fails if a key's list/get/scope path is refused by the gateway |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
 | Add a new Platform API endpoint (CRUD, actions, reports) | Drop/update spec in `specs/.platform-source/`, run `make sync-platform-specs && make generate`. Don't hand-write — generator owns CRUD/actions. |

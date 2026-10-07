@@ -17,7 +17,7 @@ import (
 )
 
 // The generated commands are covered: gatewayOps in generator/gateway/overrides_test.go
-// builds its operation list from parser.ParseSpec over specs/*.yaml, so every
+// builds its operation list from parser.LoadDocuments over specs/*.yaml, so every
 // path a generated command sends is checked against the coverage manifest, and
 // the generators stamp jamf:gateway on whatever the gateway does not publish.
 //

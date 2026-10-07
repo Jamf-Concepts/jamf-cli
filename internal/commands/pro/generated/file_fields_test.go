@@ -655,7 +655,7 @@ func TestInjectClassicFileFields_MalformedXML_LeafOpensWithoutClose(t *testing.T
 	if err == nil {
 		t.Fatal("expected error for unterminated leaf tag")
 	}
-	if !strings.Contains(err.Error(), "opens without close") {
+	if !strings.Contains(err.Error(), "parsing the XML body") || !strings.Contains(err.Error(), "<payloads>") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
@@ -690,21 +690,26 @@ func TestInjectClassicFileFields_NameFallback_NoneDoesNotInject(t *testing.T) {
 
 func TestHasClassicGeneralName(t *testing.T) {
 	cases := []struct {
-		desc string
-		body string
-		want bool
+		desc    string
+		body    string
+		want    bool
+		wantErr bool
 	}{
-		{"name inside general", `<x><general><name>foo</name></general></x>`, true},
-		{"name outside general", `<x><name>foo</name><general></general></x>`, false},
-		{"name in scope only", `<x><general></general><scope><name>g</name></scope></x>`, false},
-		{"no general at all", `<x><name>foo</name></x>`, false},
-		{"general without name", `<x><general><category><id>-1</id></category></general></x>`, false},
-		{"empty", ``, false},
+		{"name inside general", `<x><general><name>foo</name></general></x>`, true, false},
+		{"name outside general", `<x><name>foo</name><general></general></x>`, false, false},
+		{"name in scope only", `<x><general></general><scope><name>g</name></scope></x>`, false, false},
+		{"no general at all", `<x><name>foo</name></x>`, false, false},
+		{"general without name", `<x><general><category><id>-1</id></category></general></x>`, false, false},
+		{"empty", ``, false, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			if got := hasClassicGeneralName(tc.body); got != tc.want {
+			got, err := hasClassicGeneralName([]byte(tc.body))
+			if got != tc.want {
 				t.Errorf("got %v, want %v for %q", got, tc.want, tc.body)
+			}
+			if (err != nil) != tc.wantErr {
+				t.Errorf("err = %v, wantErr %v for %q", err, tc.wantErr, tc.body)
 			}
 		})
 	}

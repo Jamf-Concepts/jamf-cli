@@ -475,7 +475,10 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 				return err
 			}
 
-			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			bodyBytes, err = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			if err != nil {
+				return err
+			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
@@ -589,8 +592,13 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			}
 
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
-			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
-			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
+			var editErr error
+			if bodyBytes, editErr = injectClassicRedeployOnUpdate(bodyBytes); editErr != nil {
+				return editErr
+			}
+			if bodyBytes, editErr = normalizeClassicProfilePayloadsForSend(bodyBytes); editErr != nil {
+				return editErr
+			}
 
 			path := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
@@ -887,12 +895,15 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			if id == "" {
 				// Not found — create (not allowed for fetch-merge-put resources)
 
+				if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+					return err
+				}
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create configuration_profile %q\n", name)
 					return nil
 				}
 
-				data = normalizeClassicProfilePayloadsForSend(data)
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -909,6 +920,16 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 			}
 
 			// Found — replace
+			// Preserve existing PayloadUUID and PayloadIdentifier.
+			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", id)
+			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
+			if data, err = injectClassicRedeployOnUpdate(data); err != nil {
+				return err
+			}
+			if data, err = normalizeClassicProfilePayloadsForSend(data); err != nil {
+				return err
+			}
+
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "[dry-run] Would replace configuration_profile %q (id: %s)\n", name, id)
 				return nil
@@ -924,12 +945,6 @@ Credential fields (--from-file only, never --set): self_service.security.passwor
 					return fmt.Errorf("aborted")
 				}
 			}
-
-			// Preserve existing PayloadUUID and PayloadIdentifier.
-			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", id)
-			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
-			data = injectClassicRedeployOnUpdate(data)
-			data = normalizeClassicProfilePayloadsForSend(data)
 
 			updatePath := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))

@@ -2768,6 +2768,9 @@ var renamedFlags = map[string]string{
 	// each fires only where its destination is a real flag, and no command has
 	// both.
 	"from-file": "file",
+	// import-profile's --legacy became --convert when keeping the profile as
+	// installed became the default. Fires only on commands that have --convert.
+	"legacy": "convert",
 	// Device secrets that used to be flag values, where ps and shell history
 	// could read them. Each moved to a file flag on the same command.
 	"new-password": "new-password-file",
