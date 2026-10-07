@@ -128,7 +128,7 @@ func ApplyTakeoverIdentity(config json.RawMessage, original []byte, nativeCompon
 }
 
 func nativeConversionReason(n int) string {
-	return fmt.Sprintf("%d payload type(s) were converted to native DDM components, which splits the profile (re-run with --legacy to keep them as legacy payloads)", n)
+	return fmt.Sprintf("%d payload type(s) were converted to native DDM components, which splits the profile", n)
 }
 
 // NativeConversionReport is the takeover verdict for a profile every payload of
@@ -192,7 +192,7 @@ var (
 )
 
 // shortReason trims a takeover reason to its first clause: the explanatory tail
-// (", and blueprints force them to match", "(re-run with --legacy ...)") is for
+// (", and blueprints force them to match", "(payloads were skipped, ...)") is for
 // the warning on stderr, not for a description.
 func shortReason(r string) string {
 	r = reasonTrailingParen.ReplaceAllString(r, "")

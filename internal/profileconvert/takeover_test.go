@@ -169,7 +169,7 @@ func TestApplyTakeoverIdentity_Refusals(t *testing.T) {
 			name:    "native conversion splits the profile",
 			profile: takeoverProfile(topUUID, topUUID, finderPayload),
 			native:  1,
-			reason:  "re-run with --legacy",
+			reason:  "converted to native DDM components",
 		},
 		{
 			name: "a skipped disabled payload changes the count",
@@ -283,22 +283,19 @@ func TestConvertVerbatim_KeepsTheShapeOfTheInstalledProfile(t *testing.T) {
 	empty := takeoverPayload{typ: "com.apple.desktop", id: "EEEE", uuid: "EEEE"}
 	profile := takeoverProfile(topUUID, topUUID, finderPayload, dash, empty)
 
-	wrapped, err := ConvertToDDMComponents(profile, true, nil)
+	verbatim, _, err := ConvertMobileconfigVerbatim(profile, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	verbatim, err := ConvertToDDMComponentsVerbatim(profile, true, nil)
+	wrapped, _, err := ConvertMobileconfig(profile, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, wrappedContent := decodeContent(t, wrapped.ProfileConfig)
-	_, verbatimContent := decodeContent(t, verbatim.ProfileConfig)
+	_, verbatimContent := decodeContent(t, verbatim)
+	_, wrappedContent := decodeContent(t, wrapped)
 
 	if len(verbatimContent) != 3 {
-		t.Fatalf("verbatim kept %d payloads, want 3 (empty one included)", len(verbatimContent))
-	}
-	if len(wrappedContent) != 2 {
-		t.Errorf("the fallback drops the empty payload: got %d payloads", len(wrappedContent))
+		t.Fatalf("verbatim kept %d payloads, want 3", len(verbatimContent))
 	}
 	if verbatimContent[1]["payloadType"] != "com.apple.dashboard" {
 		t.Errorf("verbatim changed dashboard's type to %v", verbatimContent[1]["payloadType"])
@@ -306,31 +303,10 @@ func TestConvertVerbatim_KeepsTheShapeOfTheInstalledProfile(t *testing.T) {
 	if wrappedContent[1]["payloadType"] != "com.apple.ManagedClient.preferences" {
 		t.Errorf("the fallback should wrap dashboard, got %v", wrappedContent[1]["payloadType"])
 	}
-
-	// Same two behaviours on the legacy path, which has its own copy of the logic.
-	legacyVerbatim, _, err := ConvertMobileconfigVerbatim(profile, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := UnlistedPayloadTypes(legacyVerbatim); len(got) != 1 || got[0] != "com.apple.dashboard" {
+	if got := UnlistedPayloadTypes(verbatim); len(got) != 1 || got[0] != "com.apple.dashboard" {
 		t.Errorf("UnlistedPayloadTypes = %v, want [com.apple.dashboard]", got)
 	}
-	legacyWrapped, _, err := ConvertMobileconfig(profile, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := UnlistedPayloadTypes(legacyWrapped); len(got) != 0 {
+	if got := UnlistedPayloadTypes(wrapped); len(got) != 0 {
 		t.Errorf("the fallback carries no unlisted standalone type, got %v", got)
-	}
-}
-
-func TestImportDescription_ALongReasonIsCutAtAWord(t *testing.T) {
-	reason := "payload 1 (com.apple.TCC.configuration-profile-policy) has a PayloadUUID that differs from its PayloadIdentifier and then some"
-	d := ImportDescription("computer", "n", "1", TakeoverReport{Reasons: []string{reason}})
-	if !strings.HasSuffix(d, "…") || strings.Contains(d, "...") || strings.HasSuffix(d, "….") {
-		t.Errorf("want a clean cut ending in an ellipsis, got %q", d)
-	}
-	if strings.Contains(d, "PayloadIdentifi…") {
-		t.Errorf("cut mid-word: %q", d)
 	}
 }

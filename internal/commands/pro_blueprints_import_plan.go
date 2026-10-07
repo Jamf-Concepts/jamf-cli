@@ -19,10 +19,13 @@ import (
 
 // importPlan is one way of turning a Classic profile into blueprint components,
 // with the messages that explain it. import-profile builds two: the profile as
-// installed (verbatim) and the profile with unsupported payload types delivered
-// as Custom Settings (MCX). It sends the first and falls back to the second only
-// when the API rejects the first, so a payload type the API has started
-// accepting is found by asking the API rather than by trusting jamf-cli's list.
+// installed (preserved), and the converted profile, with compatible payloads
+// promoted to native DDM components, MCX payloads unwrapped and unsupported
+// payload types delivered as Custom Settings (MCX). A preserved profile can take
+// over the installed one. It is sent first and the converted profile is sent
+// only when the API rejects it (or takeover is impossible anyway), so a payload
+// type the API has started accepting is found by asking the API rather than by
+// trusting jamf-cli's list. --convert sends the converted profile alone.
 type importPlan struct {
 	components []blueprints.Component
 	takeover   profileconvert.TakeoverReport
@@ -37,22 +40,17 @@ func (p *importPlan) logf(format string, a ...any) {
 
 // importConvertOptions are the import-profile flags that shape the conversion.
 type importConvertOptions struct {
-	legacy             bool
 	includeUnsupported bool
 	stripDefaults      bool
 }
 
-// buildImportPlan converts a mobileconfig. verbatim sends payload types as
-// installed instead of wrapping the ones the API does not list as standalone,
-// and keeps empty payloads, so the result can take over the installed profile.
-func buildImportPlan(mobileconfig []byte, o importConvertOptions, verbatim bool, fetcher *profileconvert.SchemaFetcher) (*importPlan, error) {
+// buildImportPlan converts a mobileconfig. preserve keeps the profile as
+// installed, in one configuration-profile component: no native DDM components,
+// no MCX unwrapping or wrapping, empty payloads kept. Otherwise it is converted.
+func buildImportPlan(mobileconfig []byte, o importConvertOptions, preserve bool, fetcher *profileconvert.SchemaFetcher) (*importPlan, error) {
 	plan := &importPlan{}
-	if o.legacy {
-		convert := profileconvert.ConvertMobileconfig
-		if verbatim {
-			convert = profileconvert.ConvertMobileconfigVerbatim
-		}
-		config, warnings, err := convert(mobileconfig, !o.includeUnsupported)
+	if preserve {
+		config, warnings, err := profileconvert.ConvertMobileconfigVerbatim(mobileconfig, !o.includeUnsupported)
 		if err != nil {
 			return nil, fmt.Errorf("converting profile: %w", err)
 		}
@@ -61,7 +59,7 @@ func buildImportPlan(mobileconfig []byte, o importConvertOptions, verbatim bool,
 		}
 		// Validate here as the DDM path does: a payload missing a key Apple's
 		// schema requires is refused by the API for the whole blueprint, so a
-		// legacy import of one failed outright where the default import dropped it.
+		// preserved import of one failed outright where the converted import dropped it.
 		var msgs []string
 		if o.stripDefaults {
 			config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
@@ -75,7 +73,7 @@ func buildImportPlan(mobileconfig []byte, o importConvertOptions, verbatim bool,
 			return nil, fmt.Errorf("no payloads remain after processing")
 		}
 		types := profileconvert.PayloadTypeSummary(mobileconfig)
-		plan.logf("Processed %d payload(s) (legacy mode — no DDM conversion)", len(types))
+		plan.logf("Processed %d payload(s) (kept as installed)", len(types))
 		plan.messages = append(plan.messages, apiOnlyPayloadNote(config)...)
 		config, plan.takeover, err = profileconvert.ApplyTakeoverIdentity(config, mobileconfig, 0)
 		if err != nil {
@@ -88,16 +86,12 @@ func buildImportPlan(mobileconfig []byte, o importConvertOptions, verbatim bool,
 		return plan, nil
 	}
 
-	// DDM mode: promote compatible payloads to native DDM components.
+	// Convert: promote compatible payloads to native DDM components.
 	var defaultsFetcher *profileconvert.SchemaFetcher
 	if o.stripDefaults {
 		defaultsFetcher = fetcher
 	}
-	convert := profileconvert.ConvertToDDMComponents
-	if verbatim {
-		convert = profileconvert.ConvertToDDMComponentsVerbatim
-	}
-	ddmResult, err := convert(mobileconfig, !o.includeUnsupported, defaultsFetcher)
+	ddmResult, err := profileconvert.ConvertToDDMComponents(mobileconfig, !o.includeUnsupported, defaultsFetcher)
 	if err != nil {
 		return nil, fmt.Errorf("converting profile: %w", err)
 	}

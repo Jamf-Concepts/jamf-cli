@@ -56,59 +56,79 @@ var (
 	planDeskPayload   = [3]string{"com.apple.desktop", planDesk, ``}
 )
 
-func TestBuildImportPlan_AsInstalledCanTakeOverWhereTheWrappedPlanCannot(t *testing.T) {
+func TestBuildImportPlan_PreservedCanTakeOverWhereConvertedCannot(t *testing.T) {
 	profile := planProfile(planFinderPayload, planDashPayload)
-	for _, legacy := range []bool{true, false} {
-		t.Run(fmt.Sprintf("legacy=%v", legacy), func(t *testing.T) {
-			opts := importConvertOptions{legacy: legacy}
-			verbatim, err := buildImportPlan(profile, opts, true, offlineFetcher())
-			if err != nil {
-				t.Fatal(err)
-			}
-			wrapped, err := buildImportPlan(profile, opts, false, offlineFetcher())
-			if err != nil {
-				t.Fatal(err)
-			}
-			// A payload type jamf-cli does not list is still sent as itself first, so
-			// that the API gets to say whether it has started accepting it.
-			if !verbatim.takeover.Supported {
-				t.Errorf("as-installed plan should be able to take over: %v", verbatim.takeover.Reasons)
-			}
-			if wrapped.takeover.Supported {
-				t.Error("wrapped plan must not claim takeover")
-			}
-			if sameComponents(verbatim, wrapped) {
-				t.Error("the plans differ, so there is something to fall back to")
-			}
-			got := string(verbatim.components[0].Configuration)
-			if !strings.Contains(got, `"payloadType": "com.apple.dashboard"`) || strings.Contains(got, "ManagedClient") {
-				t.Errorf("as-installed plan changed a payload type:\n%s", got)
-			}
-			if !strings.Contains(string(wrapped.components[0].Configuration), "com.apple.ManagedClient.preferences") {
-				t.Error("fallback plan should deliver dashboard as Custom Settings")
-			}
-			if strings.Contains(string(wrapped.components[0].Configuration), planTopID) {
-				t.Error("identity kept on a plan that cannot take over")
-			}
-		})
+	preserved, err := buildImportPlan(profile, importConvertOptions{}, true, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	converted, err := buildImportPlan(profile, importConvertOptions{}, false, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A payload type jamf-cli does not list is still sent as itself first, so
+	// that the API gets to say whether it has started accepting it.
+	if !preserved.takeover.Supported {
+		t.Errorf("preserved plan should be able to take over: %v", preserved.takeover.Reasons)
+	}
+	if converted.takeover.Supported {
+		t.Error("converted plan must not claim takeover")
+	}
+	if sameComponents(preserved, converted) {
+		t.Error("the plans differ, so there is something to fall back to")
+	}
+	got := string(preserved.components[0].Configuration)
+	if !strings.Contains(got, `"payloadType": "com.apple.dashboard"`) || strings.Contains(got, "ManagedClient") {
+		t.Errorf("preserved plan changed a payload type:\n%s", got)
+	}
+	if !strings.Contains(string(converted.components[0].Configuration), "com.apple.ManagedClient.preferences") {
+		t.Error("converted plan should deliver dashboard as Custom Settings")
+	}
+	if strings.Contains(string(converted.components[0].Configuration), planTopID) {
+		t.Error("identity kept on a plan that cannot take over")
 	}
 }
 
-func TestBuildImportPlan_EmptyPayloadIsKeptAsInstalled(t *testing.T) {
+// An MCX payload wrapping a standalone domain is unwrapped by conversion, which
+// changes its type and so ends takeover. Preserving it keeps the type.
+func TestBuildImportPlan_PreservedKeepsAnMCXPayloadWrapped(t *testing.T) {
+	mcx := [3]string{
+		"com.apple.ManagedClient.preferences", planDash,
+		`<key>PayloadContent</key><dict><key>com.apple.finder</key><dict><key>Forced</key><array><dict>` +
+			`<key>mcx_preference_settings</key><dict><key>ProhibitBurn</key><true/></dict></dict></array></dict></dict>`,
+	}
+	profile := planProfile(mcx)
+	preserved, err := buildImportPlan(profile, importConvertOptions{}, true, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	converted, err := buildImportPlan(profile, importConvertOptions{}, false, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !preserved.takeover.Supported {
+		t.Errorf("a preserved MCX payload should take over: %v", preserved.takeover.Reasons)
+	}
+	if converted.takeover.Supported {
+		t.Error("unwrapping changes the payload type, so the converted plan cannot take over")
+	}
+}
+
+func TestBuildImportPlan_EmptyPayloadIsKeptWhenPreserved(t *testing.T) {
 	profile := planProfile(planFinderPayload, planDeskPayload)
-	verbatim, err := buildImportPlan(profile, importConvertOptions{}, true, offlineFetcher())
+	preserved, err := buildImportPlan(profile, importConvertOptions{}, true, offlineFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapped, err := buildImportPlan(profile, importConvertOptions{}, false, offlineFetcher())
+	converted, err := buildImportPlan(profile, importConvertOptions{}, false, offlineFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !verbatim.takeover.Supported {
-		t.Errorf("an empty payload no longer changes the count: %v", verbatim.takeover.Reasons)
+	if !preserved.takeover.Supported {
+		t.Errorf("an empty payload no longer changes the count: %v", preserved.takeover.Reasons)
 	}
-	if wrapped.takeover.Supported {
-		t.Error("dropping the empty payload changes the count, so the fallback cannot take over")
+	if converted.takeover.Supported {
+		t.Error("dropping the empty payload changes the count, so the converted plan cannot take over")
 	}
 }
 
@@ -252,13 +272,13 @@ func TestSendWithFallback(t *testing.T) {
 }
 
 // A screensaver payload with no moduleName is refused by the API for the whole
-// blueprint. --legacy used to send it anyway and fail; it now drops it, as the
-// default import does, and says so.
-func TestBuildImportPlan_LegacyValidatesLikeTheDefaultImport(t *testing.T) {
+// blueprint. Keeping the profile as installed used to send it anyway and fail;
+// it now drops it, as the converted import does, and says so.
+func TestBuildImportPlan_PreservedValidatesLikeTheConvertedImport(t *testing.T) {
 	profile := planProfile(planFinderPayload, [3]string{"com.apple.screensaver", "FFFFFFFF-98B3-4ED1-8235-649E41003E36", `<key>idleTime</key><integer>600</integer>`})
 	fetcher := profileconvert.NewSchemaFetcher(&http.Client{Transport: screensaverSchema{}})
 
-	plan, err := buildImportPlan(profile, importConvertOptions{legacy: true}, true, fetcher)
+	plan, err := buildImportPlan(profile, importConvertOptions{}, true, fetcher)
 	if err != nil {
 		t.Fatal(err)
 	}

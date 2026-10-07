@@ -95,6 +95,12 @@ So a fallback that keeps identity is strictly worse than one that drops it: whil
 profile is installed it fails, where a blueprint with no identity installs alongside. This is why
 `import-profile` never preserves identity "where possible". It sends the profile as installed first and falls back to the MCX-wrapped form (no identity) only when the API refuses it, so the decision to give up on takeover comes from the API's answer rather than jamf-cli's type list.
 
+A payload whose `PayloadUUID` differs from its `PayloadIdentifier` was also tried on a device
+("Notifications - Allow Jamf Connect Menu Bar App"): with the original identity forced, the API
+accepted it, stored `payloadUUID` = `payloadIdentifier`, and the deployment reported `failed:1`
+with the Classic profile installed. A cloned profile has regenerated, matching UUIDs and takes
+over normally, so the refusal is only for profiles whose own UUIDs differ.
+
 An empty payload (the profile's `com.apple.desktop` here) is a second trap: the converter drops
 it, which changes the payload count, and the UI will not deploy a blueprint that carries one.
 
@@ -103,8 +109,9 @@ it, which changes the payload count, and the UI will not deploy a blueprint that
 stamps identity only when every rule holds; otherwise it returns the configuration
 untouched with the reasons. `import-profile` reports the verdict before creating anything,
 writes it into the blueprint description, and warns about dropped keys after reading the
-blueprint back. Native DDM conversion always refuses takeover; `--legacy` keeps the
-payloads as legacy payloads and allows it.
+blueprint back. Native DDM conversion always refuses takeover, so it is behind `--convert`;
+by default the profile is kept as installed and converted only when the API refuses it or
+takeover is impossible for it anyway.
 
 ## Do not
 - Preserve identity "where possible" on a profile that cannot be adopted.

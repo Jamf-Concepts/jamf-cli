@@ -56,25 +56,34 @@ What a script can see change:
 - The blueprint **description** is set to one short line: `Imported from
   computer profile "<name>" (ID <id>) by jamf-cli. Takeover supported.` or
   `… Takeover not supported: <first reason> (+N more).`
-- A profile with a payload type jamf-cli lists as unsupported is **sent as
-  installed first**, with its types and payload count unchanged. If the API
-  accepts it, takeover works for that profile and the command notes that
-  `profileconvert.SupportedPayloadTypes` is out of date. Only when the API
-  refuses it (HTTP 400 `Failed to validate configuration.` on a component, and
-  nothing else) does the command retry with those types delivered as Custom
-  Settings (MCX), as before, with no takeover. `--legacy` now validates payloads
-  against Apple's schema as the default import does: a payload missing a required
-  key (a screensaver with no `moduleName`) is dropped with a message, where it
-  used to make the API refuse the whole blueprint. Any other failure is returned
-  without a retry. So the same profile can produce a different blueprint on a
-  different server version.
+- **The profile is now kept as installed by default**, and `--legacy` is
+  removed. Native DDM conversion (passcode, Safari, software update) and the
+  unwrapping of Application & Custom Settings (MCX) payloads, which both change a
+  profile's payloads and so end takeover, moved behind the new `--convert` flag.
+  Scripts that passed `--legacy` must drop it; scripts that relied on native
+  components must add `--convert`.
+- The converted blueprint (what `--convert` produces) is also the fallback. The
+  profile as installed is sent first. If the API refuses it (HTTP 400 `Failed to
+  validate configuration.` on a component, and nothing else), or takeover is not
+  possible for it as installed anyway (a payload whose `PayloadUUID` differs from
+  its `PayloadIdentifier`), the converted profile is sent instead, with the
+  payload types the API does not take standalone delivered as Custom Settings
+  (MCX), and no takeover. If the API accepts a type jamf-cli lists as
+  unsupported, takeover works for that profile and the command notes that
+  `profileconvert.SupportedPayloadTypes` is out of date. Any other failure is
+  returned without a retry. So the same profile can produce a different
+  blueprint on a different server version.
+- Payloads are validated against Apple's schema in both forms: a payload missing
+  a required key (a screensaver with no `moduleName`) is dropped with a message,
+  where it used to make the API refuse the whole blueprint.
 - A line on stderr before anything is created says either `Takeover supported`
   or `Warning: takeover is not supported`, with each reason. Takeover is
   unavailable when a payload has to be wrapped as MCX, skipped, removed as
   empty or unwrapped; when payloads were promoted to native DDM components
-  (`--legacy` keeps them as legacy payloads and allows takeover); when a
-  payload's `PayloadUUID` differs from its `PayloadIdentifier` (the blueprints
-  API rewrites one to match the other); or when the profile has no identifiers.
+  (`--convert`); when a payload's `PayloadUUID` differs from its
+  `PayloadIdentifier` (the blueprints API rewrites one to match the other, and
+  a deployment that tried it on a device reported `failed`); or when the profile
+  has no identifiers.
 - Identifiers are only carried over when takeover is supported. Carrying them
   over with a payload changed made the device reject the declaration as
   invalid, and nothing was applied at all.

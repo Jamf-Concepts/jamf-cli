@@ -1234,17 +1234,22 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		profileType        string
 		includeUnsupported bool
 		stripDefaults      bool
-		noConvert          bool
+		convertProfile     bool
 		computerGroups     []string
 		mobileDeviceGroups []string
 	)
 	cmd := &cobra.Command{
 		Use:   "import-profile [<id>]",
 		Short: "Import a Classic configuration profile as a blueprint",
-		Long: `Download a configuration profile from Jamf Pro, convert its payloads
-to native DDM blueprint components where possible, and create the blueprint.
+		Long: `Download a configuration profile from Jamf Pro and create a blueprint from it.
 
-Payloads are automatically promoted to native DDM components when a mapping
+By default the profile is kept as installed, so the blueprint can take over the
+copy already on devices (see Takeover). With --convert its payloads are instead
+converted to native DDM blueprint components where possible, and Application &
+Custom Settings (MCX) payloads are unwrapped; a converted blueprint cannot take
+over the installed profile.
+
+With --convert, payloads are promoted to native DDM components when a mapping
 exists. Currently supported:
 
   com.apple.mobiledevice.passwordpolicy  ->  passcode-settings
@@ -1253,8 +1258,8 @@ exists. Currently supported:
   com.apple.applicationaccess (RSR)      ->  software-update-settings (RapidSecurityResponse)
   com.apple.SoftwareUpdate               ->  software-update-settings (AutomaticActions, Beta, etc.)
 
-Payloads without a DDM mapping are wrapped in a com.jamf.ddm-configuration-profile
-component. A single profile with mixed payloads produces multiple components.
+Payloads kept as installed, and those without a DDM mapping, are placed in a
+com.jamf.ddm-configuration-profile component. A single profile with mixed payloads produces multiple components.
 Some of these configuration-profile ("legacy payload") components can only be
 managed through the blueprints API — they appear as read-only "Legacy payload"
 items in the Jamf Pro UI and cannot be edited there.
@@ -1296,26 +1301,26 @@ Takeover:
 
   Takeover needs the blueprint to mirror the installed profile exactly — the same
   payloads, types and order. It is therefore not available when:
-    - a payload type is outside the set the API takes standalone and has to be
+    - a payload type is outside the set the API takes standalone, so it has to be
       delivered as Application & Custom Settings (MCX) instead;
     - a payload is skipped, removed as empty, or unwrapped from MCX;
-    - payloads were promoted to native DDM components (re-run with --legacy to keep
-      them as legacy payloads and allow takeover);
+    - payloads were promoted to native DDM components (--convert);
     - a payload's PayloadUUID differs from its PayloadIdentifier (blueprints force
       the two to match);
     - the profile has no identifiers to carry over.
-  The profile is sent as installed first, without wrapping anything or removing empty
-  payloads. Only if the API rejects that (HTTP 400, "Failed to validate configuration.")
-  is it sent again with the types the API does not take standalone delivered as
-  Application & Custom Settings (MCX), which cannot take over. A type the API has
-  started accepting therefore takes over without a code change, and the command says
-  so. Any other failure is returned as it is, without a retry.
 
-  Such a profile still imports, with a warning naming the reasons. Its blueprint
-  installs alongside the Classic profile and both stay active, so deploying it can
-  produce conflicting settings. The identifiers are deliberately not carried over in
-  that case: with identity preserved but a payload changed, the declaration is
-  reported invalid and nothing is applied at all.
+  The profile is sent as installed first. If the API rejects that (HTTP 400, "Failed
+  to validate configuration.") or takeover is not possible for it anyway, the
+  converted profile is sent instead, with the types the API does not take standalone
+  delivered as Application & Custom Settings (MCX). A type the API has started
+  accepting therefore takes over without a code change, and the command says so. Any
+  other failure is returned as it is, without a retry.
+
+  A profile that cannot take over still imports, with a warning naming the reasons.
+  Its blueprint installs alongside the Classic profile and both stay active, so
+  deploying it can produce conflicting settings. The identifiers are deliberately not
+  carried over in that case: with identity preserved but a payload changed, the
+  declaration is reported invalid and nothing is applied at all.
 
   While a takeover blueprint is deployed it owns the profile. Editing the blueprint
   changes the profile on devices; removing or unscoping the Classic profile leaves it
@@ -1328,7 +1333,7 @@ Takeover:
 Use --strip-defaults to remove keys that are set to their Apple default values.
 This is useful for profiles created by Jamf Pro's UI which sets every key even
 when the administrator only intended to manage a few settings. Default stripping
-applies only to the configuration-profile wrapper, not native DDM components.
+applies only to the configuration-profile component, not native DDM components.
 
 Scope handling:
   Only target computer groups and mobile device groups are carried over to the
@@ -1349,7 +1354,7 @@ Examples:
   jamf-cli pro blueprints import-profile --name "Managed Restrictions" --type mobile
   jamf-cli pro blueprints import-profile 42 --blueprint-name "FV Blueprint"
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
-  jamf-cli pro blueprints import-profile "Passcode Policy" --legacy   # keep legacy payloads so the blueprint can take over
+  jamf-cli pro blueprints import-profile "Passcode Policy" --convert   # native DDM components instead of the profile as installed
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
 		Args: cobra.MaximumNArgs(1),
@@ -1384,21 +1389,43 @@ Examples:
 				return fmt.Errorf("no <payloads> found in %s profile %s", profileType, profileLabel)
 			}
 
-			// Step 3: Convert mobileconfig to blueprint components. Two plans: the
-			// profile as installed, sent first so that a payload type the API has
-			// started accepting is found by asking it, and the profile with the
-			// types jamf-cli lists as unsupported delivered as Custom Settings (MCX),
-			// which the API accepts but which cannot take over the installed profile.
+			// Step 3: Build the blueprint components. By default the profile is kept
+			// as installed, which is the only form that can take over the profile
+			// already on devices. It is sent first, and the converted profile (native
+			// DDM components, unwrapped MCX, unsupported types delivered as Custom
+			// Settings) only when the API rejects it or takeover is impossible for it
+			// anyway. --convert sends the converted profile alone.
 			displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
-			convertOpts := importConvertOptions{legacy: noConvert, includeUnsupported: includeUnsupported, stripDefaults: stripDefaults}
+			convertOpts := importConvertOptions{includeUnsupported: includeUnsupported, stripDefaults: stripDefaults}
 			schemaFetcher := profileconvert.NewSchemaFetcher(nil)
-			plan, err := buildImportPlan([]byte(mobileconfig), convertOpts, true, schemaFetcher)
-			if err != nil {
-				return err
-			}
-			var fallback *importPlan
-			if wrapped, err := buildImportPlan([]byte(mobileconfig), convertOpts, false, schemaFetcher); err == nil && !sameComponents(plan, wrapped) {
-				fallback = wrapped
+			converted, convErr := buildImportPlan([]byte(mobileconfig), convertOpts, false, schemaFetcher)
+			var plan, fallback *importPlan
+			if convertProfile {
+				if convErr != nil {
+					return convErr
+				}
+				plan = converted
+			} else {
+				preserved, preserveErr := buildImportPlan([]byte(mobileconfig), convertOpts, true, schemaFetcher)
+				switch {
+				case preserveErr == nil && preserved.takeover.Supported:
+					plan = preserved
+					if convErr == nil && !sameComponents(preserved, converted) {
+						fallback = converted
+					}
+				case convErr == nil:
+					// Taking over is not possible for the profile as installed, so
+					// sending it that way gains nothing: send the better blueprint.
+					plan = converted
+					if preserveErr == nil {
+						fmt.Fprintf(os.Stderr, "Note: converting the profile rather than keeping it as installed, "+
+							"because takeover is not possible for it as installed: %s\n", preserved.takeover.Reasons[0])
+					}
+				case preserveErr == nil:
+					plan = preserved
+				default:
+					return preserveErr
+				}
 			}
 			printPlanMessages(plan)
 
@@ -1489,7 +1516,7 @@ Examples:
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
-	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion (keeps the profile's structure, so it can take over the installed profile)")
+	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads, instead of keeping the profile as installed (a converted blueprint cannot take over the installed profile)")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Set the blueprint scope to these computer group name(s), overriding the profile's scope (repeatable)")
