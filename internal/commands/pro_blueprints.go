@@ -1250,6 +1250,7 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		includeUnsupported bool
 		stripDefaults      bool
 		convertProfile     bool
+		takeoverOnly       bool
 		skipExclusions     bool
 		skipLimitations    bool
 		computerGroups     []string
@@ -1333,6 +1334,10 @@ Takeover:
   accepting therefore takes over without a code change, and the command says so. Any
   other failure is returned as it is, without a retry.
 
+  --takeover-only imports only a profile that can take over: otherwise no blueprint is
+  created and the command exits with an error naming the reasons, which makes it
+  usable to sort a set of profiles (it cannot be combined with --convert).
+
   A profile that cannot take over still imports, with a warning naming the reasons.
   Its blueprint installs alongside the Classic profile and both stay active, so
   deploying it can produce conflicting settings. The identifiers are deliberately not
@@ -1383,6 +1388,7 @@ Examples:
   jamf-cli pro blueprints import-profile 42 --blueprint-name "FV Blueprint"
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
   jamf-cli pro blueprints import-profile "Passcode Policy" --convert   # native DDM components instead of the profile as installed
+  jamf-cli pro blueprints import-profile "My Restrictions" --takeover-only   # create nothing unless the blueprint can take over
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
   jamf-cli pro blueprints import-profile "My Restrictions" --skip-exclusions   # refuse a profile with exclusions that cannot be carried over
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
@@ -1390,6 +1396,9 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if profileType != "computer" && profileType != "mobile" {
 				return fmt.Errorf("--type must be 'computer' or 'mobile', got %q", profileType)
+			}
+			if takeoverOnly && convertProfile {
+				return fmt.Errorf("--takeover-only cannot be combined with --convert: a converted blueprint cannot take over the installed profile")
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
@@ -1458,6 +1467,8 @@ Examples:
 					if convErr == nil && !sameComponents(preserved, converted) {
 						fallback = converted
 					}
+				case takeoverOnly && preserveErr == nil:
+					return notImportedForTakeover(profileLabel, preserved.takeover.Reasons)
 				case convErr == nil:
 					// Taking over is not possible for the profile as installed, so
 					// sending it that way gains nothing: send the better blueprint.
@@ -1471,6 +1482,9 @@ Examples:
 				default:
 					return preserveErr
 				}
+			}
+			if takeoverOnly && !plan.takeover.Supported {
+				return notImportedForTakeover(profileLabel, plan.takeover.Reasons)
 			}
 			printPlanMessages(plan)
 
@@ -1563,7 +1577,7 @@ Examples:
 
 			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
 
-			plan, id, err := sendWithFallback(os.Stderr, plan, fallback, send)
+			plan, id, err := sendWithFallback(os.Stderr, plan, fallback, takeoverOnly, send)
 			if err != nil {
 				return err
 			}
@@ -1583,6 +1597,7 @@ Examples:
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads, instead of keeping the profile as installed (a converted blueprint cannot take over the installed profile)")
+	cmd.Flags().BoolVar(&takeoverOnly, "takeover-only", false, "Only import a profile whose blueprint can take over the installed profile; otherwise create nothing and exit with an error")
 	cmd.Flags().BoolVar(&skipExclusions, "skip-exclusions", false, "Do not import a profile that has scope exclusions blueprints cannot express (excluded device groups are carried over, anything else is not)")
 	cmd.Flags().BoolVar(&skipLimitations, "skip-limitations", false, "Do not import a profile that has scope limitations (blueprints cannot express them)")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")

@@ -242,7 +242,9 @@ func printPlanMessages(p *importPlan) {
 // A 400 creates nothing, so sending again cannot duplicate the blueprint. Every
 // other failure is returned untouched: the fallback would not change it, and a
 // timed-out or 5xx write may already have been applied.
-func sendWithFallback(w io.Writer, plan, fallback *importPlan, send func(*importPlan) (string, error)) (*importPlan, string, error) {
+// With takeoverOnly the fallback is never sent: it cannot take over, so the
+// rejection ends the import with nothing created.
+func sendWithFallback(w io.Writer, plan, fallback *importPlan, takeoverOnly bool, send func(*importPlan) (string, error)) (*importPlan, string, error) {
 	id, err := send(plan)
 	if err == nil {
 		if unlisted := unlistedPayloadTypes(plan.components); len(unlisted) > 0 && fallback != nil {
@@ -253,6 +255,9 @@ func sendWithFallback(w io.Writer, plan, fallback *importPlan, send func(*import
 	}
 	if fallback == nil || !isConfigurationRejection(err) {
 		return plan, "", err
+	}
+	if takeoverOnly {
+		return plan, "", fmt.Errorf("%w (not imported: the blueprints API rejected the profile as installed, so it cannot take over, and --takeover-only does not send the converted profile)", err)
 	}
 	_, _ = fmt.Fprintln(w, "Warning: the blueprints API rejected the payloads as installed. "+
 		"Retrying with the payload types it does not accept standalone delivered as Custom Settings (MCX), "+
@@ -348,4 +353,11 @@ func resolveExcludedGroups(ctx context.Context, client registry.HTTPClient, grou
 		}
 	}
 	return ids, warnings
+}
+
+// notImportedForTakeover is the --takeover-only refusal: nothing is created.
+func notImportedForTakeover(profileLabel string, reasons []string) error {
+	return fmt.Errorf("profile %s was not imported: takeover is not supported for it (--takeover-only).\n  - %s\n"+
+		"Drop the flag to import it as a blueprint that installs alongside the Classic profile",
+		profileLabel, strings.Join(reasons, "\n  - "))
 }

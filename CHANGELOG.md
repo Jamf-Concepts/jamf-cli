@@ -84,6 +84,12 @@ What a script can see change:
   `PayloadIdentifier` (the blueprints API rewrites one to match the other, and
   a deployment that tried it on a device reported `failed`); or when the profile
   has no identifiers.
+- `--takeover-only` imports a profile only if its blueprint can take over the
+  installed profile. Otherwise no blueprint is created and the command exits with
+  an error: the reasons when takeover is impossible offline, or the API's
+  rejection when it refuses the profile as installed (the converted profile is
+  never sent). It cannot be combined with `--convert`. Use it to sort a set of
+  profiles into those that can move to blueprints in place and those that cannot.
 - A profile's scope **exclusions** that name computer groups or mobile device
   groups are carried over as an activation condition on the blueprint's step,
   `NONE @property(jamf.device.groups) IN {...}`: a device in any excluded group

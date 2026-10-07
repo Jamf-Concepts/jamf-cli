@@ -196,7 +196,7 @@ func TestSendWithFallback(t *testing.T) {
 		first, second := fallbackFixture(t)
 		var sent []*importPlan
 		var out bytes.Buffer
-		got, id, err := sendWithFallback(&out, first, second, func(p *importPlan) (string, error) {
+		got, id, err := sendWithFallback(&out, first, second, false, func(p *importPlan) (string, error) {
 			sent = append(sent, p)
 			return "bp-1", nil
 		})
@@ -213,7 +213,7 @@ func TestSendWithFallback(t *testing.T) {
 		first, second := fallbackFixture(t)
 		var sent []*importPlan
 		var out bytes.Buffer
-		got, id, err := sendWithFallback(&out, first, second, func(p *importPlan) (string, error) {
+		got, id, err := sendWithFallback(&out, first, second, false, func(p *importPlan) (string, error) {
 			sent = append(sent, p)
 			if p == first {
 				return "", rejection
@@ -233,7 +233,7 @@ func TestSendWithFallback(t *testing.T) {
 
 	t.Run("both rejected reports both", func(t *testing.T) {
 		first, second := fallbackFixture(t)
-		_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, func(p *importPlan) (string, error) {
+		_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, func(p *importPlan) (string, error) {
 			return "", rejection
 		})
 		if err == nil || !strings.Contains(err.Error(), "also rejected") {
@@ -249,7 +249,7 @@ func TestSendWithFallback(t *testing.T) {
 		} {
 			first, second := fallbackFixture(t)
 			calls := 0
-			_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, func(*importPlan) (string, error) {
+			_, _, err := sendWithFallback(&bytes.Buffer{}, first, second, false, func(*importPlan) (string, error) {
 				calls++
 				return "", e
 			})
@@ -262,7 +262,7 @@ func TestSendWithFallback(t *testing.T) {
 	t.Run("no fallback to send", func(t *testing.T) {
 		first, _ := fallbackFixture(t)
 		calls := 0
-		_, _, err := sendWithFallback(&bytes.Buffer{}, first, nil, func(*importPlan) (string, error) {
+		_, _, err := sendWithFallback(&bytes.Buffer{}, first, nil, false, func(*importPlan) (string, error) {
 			calls++
 			return "", rejection
 		})
@@ -425,5 +425,38 @@ func TestResolveExcludedGroups(t *testing.T) {
 	ids, warnings = resolveExcludedGroups(context.Background(), &classicHTTPMock{statusCode: 200, body: `{"totalCount":0,"results":[]}`}, []excludedGroup{{"Gone", "MOBILE"}})
 	if len(ids) != 0 || len(warnings) != 1 || !strings.Contains(warnings[0], `"Gone"`) {
 		t.Errorf("an unresolvable group is reported and left out: ids = %v warnings = %v", ids, warnings)
+	}
+}
+
+func TestSendWithFallback_TakeoverOnlyNeverSendsTheConvertedProfile(t *testing.T) {
+	rejection := &fakePlatformAPIError{status: 400, details: []jamfplatform.ErrorDetail{
+		{Field: "steps[0].components[0].configuration", Description: "Failed to validate configuration."},
+	}}
+	first, second := fallbackFixture(t)
+	calls := 0
+	_, id, err := sendWithFallback(&bytes.Buffer{}, first, second, true, func(*importPlan) (string, error) {
+		calls++
+		return "", rejection
+	})
+	if calls != 1 || id != "" {
+		t.Errorf("calls = %d id = %q, want one send and nothing created", calls, id)
+	}
+	if err == nil || !strings.Contains(err.Error(), "--takeover-only") || !errors.Is(err, rejection) {
+		t.Errorf("want the rejection wrapped with the reason, got %v", err)
+	}
+
+	// An accepted profile is unaffected by the flag.
+	first, second = fallbackFixture(t)
+	if _, id, err := sendWithFallback(&bytes.Buffer{}, first, second, true, func(*importPlan) (string, error) { return "bp-1", nil }); err != nil || id != "bp-1" {
+		t.Errorf("accepted profile: id = %q err = %v", id, err)
+	}
+}
+
+func TestNotImportedForTakeover(t *testing.T) {
+	err := notImportedForTakeover("id 9", []string{"payload 1 (x) is delivered as y", "r2"})
+	for _, want := range []string{"id 9 was not imported", "--takeover-only", "payload 1 (x) is delivered as y", "r2", "Drop the flag"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error lacks %q: %v", want, err)
+		}
 	}
 }
