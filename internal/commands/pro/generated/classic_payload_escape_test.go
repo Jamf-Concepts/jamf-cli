@@ -19,6 +19,15 @@ import (
 // (escape stores them byte-exact); other payload types keep the extra
 // layer, which verifyClassicProfileStored surfaces as a warning.
 
+func normalizeForSend(t *testing.T, body []byte) []byte {
+	t.Helper()
+	out, err := normalizeClassicProfilePayloadsForSend(body)
+	if err != nil {
+		t.Fatalf("normalizeClassicProfilePayloadsForSend: %v", err)
+	}
+	return out
+}
+
 func cdataContent(t *testing.T, body string) string {
 	t.Helper()
 	const openMark = "<payloads><![CDATA["
@@ -46,7 +55,7 @@ func TestNormalizePayloads_CDATA_EscapedOnce(t *testing.T) {
 	}
 	for _, p := range plists {
 		body := `<os_x_configuration_profile><general><payloads><![CDATA[` + p + `]]></payloads></general></os_x_configuration_profile>`
-		escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+		escaped := cdataContent(t, string(normalizeForSend(t, []byte(body))))
 		want := strings.ReplaceAll(minimizeClassicPlistSourceEscaping(p), "]]>", "]]&gt;")
 		if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != want {
 			t.Errorf("server-side decode would store %q, want %q", decoded, want)
@@ -96,8 +105,8 @@ func TestNormalizePayloads_CRReferencesReachServerBare(t *testing.T) {
 	// an actual CR — escaping it would store the reference as literal text.
 	for _, ref := range []string{"&#13;", "&#xD;", "&#xd;", "&#013;"} {
 		plist := `<string>Welcome to` + ref + ref + `[CUSTOMER NAME]</string>`
-		body := `<general><payloads><![CDATA[` + plist + `]]></payloads></general>`
-		escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+		body := `<os_x_configuration_profile><general><payloads><![CDATA[` + plist + `]]></payloads></general></os_x_configuration_profile>`
+		escaped := cdataContent(t, string(normalizeForSend(t, []byte(body))))
 		if !strings.Contains(escaped, ref) {
 			t.Errorf("%s: CR reference not left bare on the wire: %q", ref, escaped)
 		}
@@ -107,8 +116,8 @@ func TestNormalizePayloads_CRReferencesReachServerBare(t *testing.T) {
 func TestNormalizePayloads_OnlyCRReferencesLeftBare(t *testing.T) {
 	// The CR exemption must not generalise: "&#38;" left bare would decode to
 	// a bare "&" and the server rejects the write with 409.
-	body := `<general><payloads><![CDATA[<string>R&amp;D&#13;&#38;&#x26;</string>]]></payloads></general>`
-	escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+	body := `<os_x_configuration_profile><general><payloads><![CDATA[<string>R&amp;D&#13;&#38;&#x26;</string>]]></payloads></general></os_x_configuration_profile>`
+	escaped := cdataContent(t, string(normalizeForSend(t, []byte(body))))
 	if !strings.Contains(escaped, "&#13;") {
 		t.Errorf("CR reference was escaped: %q", escaped)
 	}
@@ -154,7 +163,7 @@ func TestNormalizePayloads_TextForm_ConvertedToCDATA(t *testing.T) {
 	truePlist := `<?xml version="1.0"?><plist><dict><key>k</key><string>R&amp;D > 'x'</string></dict></plist>`
 	escapedOnce := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(truePlist)
 	body := `<os_x_configuration_profile><general><payloads>` + escapedOnce + `</payloads></general></os_x_configuration_profile>`
-	escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+	escaped := cdataContent(t, string(normalizeForSend(t, []byte(body))))
 	want := minimizeClassicPlistSourceEscaping(truePlist)
 	if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != want {
 		t.Errorf("text-form round-trip: server would store %q, want %q", decoded, want)
@@ -162,8 +171,8 @@ func TestNormalizePayloads_TextForm_ConvertedToCDATA(t *testing.T) {
 }
 
 func TestNormalizePayloads_TextForm_NumericEntities(t *testing.T) {
-	body := `<general><payloads>&lt;string&gt;A &#38; B &#x26; C&lt;/string&gt;</payloads></general>`
-	escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+	body := `<os_x_configuration_profile><general><payloads>&lt;string&gt;A &#38; B &#x26; C&lt;/string&gt;</payloads></general></os_x_configuration_profile>`
+	escaped := cdataContent(t, string(normalizeForSend(t, []byte(body))))
 	want := `<string>A & B & C</string>`
 	if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != want {
 		t.Errorf("server would store %q, want %q", decoded, want)
@@ -171,16 +180,16 @@ func TestNormalizePayloads_TextForm_NumericEntities(t *testing.T) {
 }
 
 func TestNormalizePayloads_CDATATerminatorGuarded(t *testing.T) {
-	body := `<general><payloads><![CDATA[<string>a]]&gt;b</string>]]></payloads></general>`
-	escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+	body := `<os_x_configuration_profile><general><payloads><![CDATA[<string>a]]&gt;b</string>]]></payloads></general></os_x_configuration_profile>`
+	escaped := cdataContent(t, string(normalizeForSend(t, []byte(body))))
 	if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != `<string>a]]&gt;b</string>` {
 		t.Errorf("server would store %q", decoded)
 	}
 }
 
 func TestNormalizePayloads_OutsideContentUntouched(t *testing.T) {
-	body := `<general><name>R&amp;D Profile</name><payloads><![CDATA[x & y]]></payloads><description>a &amp; b</description></general>`
-	got := string(normalizeClassicProfilePayloadsForSend([]byte(body)))
+	body := `<os_x_configuration_profile><general><name>R&amp;D Profile</name><payloads><![CDATA[x & y]]></payloads><description>a &amp; b</description></general></os_x_configuration_profile>`
+	got := string(normalizeForSend(t, []byte(body)))
 	if !strings.Contains(got, `<name>R&amp;D Profile</name>`) || !strings.Contains(got, `<description>a &amp; b</description>`) {
 		t.Errorf("content outside payloads was modified: %s", got)
 	}
@@ -191,22 +200,22 @@ func TestNormalizePayloads_OutsideContentUntouched(t *testing.T) {
 
 func TestNormalizePayloads_NoPayloads(t *testing.T) {
 	body := `<webhook><name>a &amp; b</name></webhook>`
-	if got := string(normalizeClassicProfilePayloadsForSend([]byte(body))); got != body {
+	if got := string(normalizeForSend(t, []byte(body))); got != body {
 		t.Errorf("body without payloads changed: got %s", got)
 	}
 }
 
 func TestNormalizePayloads_EmptyPayloads(t *testing.T) {
-	body := `<general><payloads></payloads></general>`
-	if got := string(normalizeClassicProfilePayloadsForSend([]byte(body))); got != body {
+	body := `<os_x_configuration_profile><general><payloads></payloads></general></os_x_configuration_profile>`
+	if got := string(normalizeForSend(t, []byte(body))); got != body {
 		t.Errorf("empty payloads changed: got %s", got)
 	}
 }
 
 func TestNormalizePayloads_UnterminatedCDATA(t *testing.T) {
-	body := `<general><payloads><![CDATA[broken`
-	if got := string(normalizeClassicProfilePayloadsForSend([]byte(body))); got != body {
-		t.Errorf("unterminated CDATA changed: got %s", got)
+	body := `<os_x_configuration_profile><general><payloads><![CDATA[broken`
+	if got, err := normalizeClassicProfilePayloadsForSend([]byte(body)); err == nil {
+		t.Errorf("unterminated CDATA was not refused: got %s", got)
 	}
 }
 
@@ -215,11 +224,11 @@ func TestNormalizePayloads_UnterminatedCDATA(t *testing.T) {
 func TestClassicProfilePayloadFromBody(t *testing.T) {
 	// The body carries the normalizer's escaped form; extraction undoes the
 	// single escape to recover the submitted plist.
-	body := `<general><payloads><![CDATA[<plist><string>R&amp;amp;D</string></plist>]]></payloads></general>`
+	body := `<os_x_configuration_profile><general><payloads><![CDATA[<plist><string>R&amp;amp;D</string></plist>]]></payloads></general></os_x_configuration_profile>`
 	if got := string(classicProfilePayloadFromBody([]byte(body))); got != "<plist><string>R&amp;D</string></plist>" {
 		t.Errorf("got %q", got)
 	}
-	if got := classicProfilePayloadFromBody([]byte(`<general><payloads>text</payloads></general>`)); got != nil {
+	if got := classicProfilePayloadFromBody([]byte(`<os_x_configuration_profile><general><payloads>text</payloads></general></os_x_configuration_profile>`)); got != nil {
 		t.Errorf("text-form should return nil, got %q", got)
 	}
 }

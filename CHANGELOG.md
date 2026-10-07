@@ -11,6 +11,36 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — Classic profile and app writes edit the element the server reads
+
+`--mobileconfig-file`, `--custom-payload-file`, `--appconfig-file` and
+`apply --name` put the operator's value into the `--from-file` document. They
+used to find the target by the first matching text. So a `<payloads>` or
+`<name>` inside a comment, inside CDATA, or under another parent (such as
+`<general><category><name>`) took the value, and Jamf Pro stored the
+document's own element. A shared or vendor document could keep its own payload,
+or make `apply --name` overwrite a different existing profile.
+
+These commands now parse the document and edit only `<general><payloads>`,
+`<app_configuration><preferences>` or `<general><name>`. The rest of the
+document is sent byte for byte. `apply --name` looks the record up by the name
+it was given, not by a `<name>` elsewhere in the document.
+
+Visible changes, all before any write is sent, and the same under `--dry-run`:
+
+- Every configuration-profile `create`, `update` and `apply`, and an app write
+  with `--appconfig-file`, fails on a document the XML parser cannot read, with
+  the parser's error. That includes a document that declares an encoding other
+  than UTF-8.
+- Those writes refuse a document with more than one `<general><payloads>` or
+  `<app_configuration><preferences>`, because the CLI cannot know which one the
+  server reads. A profile `update`, an `apply` that replaces a profile, and
+  `apply --name` also refuse a second `<general>`, and `apply --name` a second
+  `<general><name>`.
+- Every Classic `apply` refuses a document that carries two different names,
+  root-level `<name>` or `<general><name>`, because the record lookup and the
+  server could read different ones.
+
 ### Breaking — MCP `run_command` refuses the writes that change who can log in to a Jamf product
 
 `run_command` refused `pro accounts create`, `update` and `apply`, because they
