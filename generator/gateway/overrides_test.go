@@ -23,22 +23,19 @@ type gatewayOp struct{ method, path string }
 
 // gatewayOps is every request this CLI can send, modern and Classic.
 //
-// The consolidation passes have to run, not just ParseSpec. Three spec files
-// declare computers-inventory at v2, v3 and v4 and only one of them becomes a
-// command; parsing alone counts all three, so a version this CLI cannot send is
-// weighed as heavily as one it does — and the withdrawn versions are exactly
-// what a gateway spec drop removes. Left out, the refusal count read 105 of 811
-// where the shipped surface accounts for 46, and the ratio guard below fired on
-// resources that are not commands.
+// The list has to be what the generator ships, not every path the specs
+// declare: a superseded version is what a gateway spec drop withdraws, so
+// counting one weighs a request this CLI never sends, and the ratio guard below
+// fires on endpoints that are not commands. LoadDocuments already runs
+// deduplicateVersionedOps inside each resource. Of the later passes, only the
+// two that rewrite a path are replayed, after ApplyNameOverrides because both
+// key on the overridden name. The passes that set columns and lookup fields are
+// skipped, since no verdict reads them.
 //
-// Only the passes that decide which resource survives or rewrite a path are
-// replayed, in generator/main.go's order. The rest set names, columns and
-// lookup fields, none of which a verdict reads.
-// Built once per test binary. Three tests in this file need the same fixture and
-// each rebuild parsed all 165 specs again — four fifths of this package's wall
-// time was that redundancy, multiplied by the race detector's bookkeeping over
-// allocation-heavy YAML. The memoized value is plain value data and gatewayOps
-// hands out a copy, so one test cannot contaminate another's view.
+// Built once per test binary, because several tests in this file share the
+// fixture and parsing the specs is the expensive part. The memoized value is
+// plain value data and gatewayOps hands out a copy, so one test cannot
+// contaminate another's view.
 var buildGatewayOps = sync.OnceValues(func() ([]gatewayOp, error) {
 	var out []gatewayOp
 
