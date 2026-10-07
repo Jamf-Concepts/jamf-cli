@@ -14,7 +14,9 @@ import (
 
 	jamfplatform "github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 const (
@@ -458,5 +460,125 @@ func TestNotImportedForTakeover(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error lacks %q: %v", want, err)
 		}
+	}
+}
+
+func TestParseClassicProfileList(t *testing.T) {
+	computer := `<os_x_configuration_profiles><size>2</size>
+<os_x_configuration_profile><id>9696</id><name>Finder Takeover</name></os_x_configuration_profile>
+<os_x_configuration_profile><id>9697</id><name>Energy Saver Takeover</name></os_x_configuration_profile></os_x_configuration_profiles>`
+	mobile := `<configuration_profiles><size>1</size><configuration_profile><id>1006</id><name>Passcode - 1:1</name></configuration_profile></configuration_profiles>`
+	for name, tc := range map[string]struct {
+		body string
+		want []classicProfileRef
+	}{
+		"computer": {computer, []classicProfileRef{{"9696", "Finder Takeover"}, {"9697", "Energy Saver Takeover"}}},
+		"mobile":   {mobile, []classicProfileRef{{"1006", "Passcode - 1:1"}}},
+		"empty":    {`<os_x_configuration_profiles><size>0</size></os_x_configuration_profiles>`, []classicProfileRef{}},
+	} {
+		got, err := parseClassicProfileList([]byte(tc.body))
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if len(got) != len(tc.want) {
+			t.Errorf("%s: got %v, want %v", name, got, tc.want)
+			continue
+		}
+		for i := range tc.want {
+			if got[i] != tc.want[i] {
+				t.Errorf("%s: entry %d = %v, want %v", name, i, got[i], tc.want[i])
+			}
+		}
+	}
+}
+
+func TestRunImportAll(t *testing.T) {
+	// printRows renders in the global -o format.
+	prevFormat := outputFmt
+	outputFmt = "json"
+	t.Cleanup(func() { outputFmt = prevFormat })
+	list := `<os_x_configuration_profiles><os_x_configuration_profile><id>1</id><name>Ok</name></os_x_configuration_profile>` +
+		`<os_x_configuration_profile><id>2</id><name>Refused</name></os_x_configuration_profile>` +
+		`<os_x_configuration_profile><id>3</id><name>Broken</name></os_x_configuration_profile></os_x_configuration_profiles>`
+	newCtx := func(buf *bytes.Buffer) *registry.CLIContext {
+		ctx := newTestCtx(buf, "json")
+		ctx.Client = &classicRouteMock{routes: map[string]string{"/JSSResource/osxconfigurationprofiles": list}}
+		return ctx
+	}
+	one := func(results map[string]error) func(context.Context, string, io.Writer) (*importOutcome, error) {
+		return func(_ context.Context, id string, w io.Writer) (*importOutcome, error) {
+			_, _ = io.WriteString(w, "detail for "+id+"\n")
+			err := results[id]
+			if err != nil {
+				return &importOutcome{ProfileID: id}, err
+			}
+			return &importOutcome{ProfileID: id, Profile: "Ok", Takeover: "supported", BlueprintID: "bp-" + id, Deployed: true}, nil
+		}
+	}
+
+	t.Run("a skipped profile is not a failure and the table lists every profile", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := runImportAll(context.Background(), newCtx(&buf), "computer", true, true,
+			one(map[string]error{"2": &skipError{msg: "takeover is not supported for it\nreasons"}, "3": nil}))
+		if err != nil {
+			t.Fatalf("a skip must not fail the run: %v", err)
+		}
+		out := buf.String()
+		for _, want := range []string{`"result": "created"`, `"result": "skipped"`, `"detail": "takeover is not supported for it"`, `"deployed": "yes"`, `"blueprint": "bp-1"`} {
+			if !strings.Contains(out, want) {
+				t.Errorf("table lacks %s:\n%s", want, out)
+			}
+		}
+	})
+
+	t.Run("a failure beside a success is a partial failure", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := runImportAll(context.Background(), newCtx(&buf), "computer", false, true,
+			one(map[string]error{"3": errors.New("boom")}))
+		if err == nil || exitcode.CodeFrom(err) != exitcode.PartialFailure {
+			t.Errorf("want a partial-failure exit, got %v", err)
+		}
+		if !strings.Contains(buf.String(), `"result": "failed"`) {
+			t.Errorf("table lacks the failure:\n%s", buf.String())
+		}
+	})
+
+	t.Run("nothing to import is not an error", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := newCtx(&buf)
+		ctx.Client = &classicRouteMock{routes: map[string]string{"/JSSResource/osxconfigurationprofiles": `<os_x_configuration_profiles><size>0</size></os_x_configuration_profiles>`}}
+		if err := runImportAll(context.Background(), ctx, "computer", false, false, one(nil)); err != nil {
+			t.Errorf("an empty list: %v", err)
+		}
+	})
+}
+
+func TestSkipRefusalsAreSkipErrors(t *testing.T) {
+	var skip *skipError
+	if err := notImportedForTakeover("id 9", []string{"r"}); !errors.As(err, &skip) {
+		t.Errorf("--takeover-only refusal is not a skip: %v", err)
+	}
+	if err := refuseUnexpressibleScope("id 9", scopeNarrowing{limitations: 1}, false, true); !errors.As(err, &skip) {
+		t.Errorf("--skip-limitations refusal is not a skip: %v", err)
+	}
+}
+
+func TestNothingToImportIsASkip(t *testing.T) {
+	var skip *skipError
+	for _, msg := range []string{
+		"converting profile: no payloads remain after skipping types blueprints does not support",
+		"no components produced — all payloads were stripped or unsupported",
+	} {
+		if err := nothingToImport(errors.New(msg)); !errors.As(err, &skip) {
+			t.Errorf("%q should be a skip, got %v", msg, err)
+		}
+	}
+	boom := errors.New("connection reset")
+	if got := nothingToImport(boom); got != boom {
+		t.Errorf("another error must pass through unchanged, got %v", got)
+	}
+	if nothingToImport(nil) != nil {
+		t.Error("nil stays nil")
 	}
 }

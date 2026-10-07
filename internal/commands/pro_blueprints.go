@@ -1255,7 +1255,222 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		skipLimitations    bool
 		computerGroups     []string
 		mobileDeviceGroups []string
+		importAll          bool
+		deploy             bool
+		yes                bool
 	)
+	// importOne imports one profile and reports what happened. Its progress goes to
+	// stderr: the terminal for a single import, a buffer for --all that is shown
+	// only when a profile fails.
+	importOne := func(ctx context.Context, arg string, stderr io.Writer) (*importOutcome, error) {
+		out := &importOutcome{}
+		// Step 1: Resolve the identifier and download the Classic API profile
+		body, profileID, resolvedName, err := fetchClassicProfile(ctx, cliCtx, profileType, arg, profileName)
+		if err != nil {
+			return out, err
+		}
+		profileLabel := classicProfileLabel(profileID, resolvedName)
+		out.ProfileID, out.Profile = profileID, resolvedName
+		_, _ = fmt.Fprintf(stderr, "Downloaded %s profile %s from Jamf Pro\n", profileType, profileLabel)
+
+		// Step 2: Extract mobileconfig from <payloads>
+		mobileconfig := extractPayloadsFromXML(string(body))
+		if mobileconfig == "" {
+			return out, fmt.Errorf("no <payloads> found in %s profile %s", profileType, profileLabel)
+		}
+
+		// A profile's exclusions and limitations subtract devices from its target
+		// groups. Excluded device groups are carried over as an activation
+		// condition; the rest cannot be expressed, and the import warns and says
+		// so in the description. --skip-exclusions and --skip-limitations make
+		// such a profile not import at all instead. Setting the scope with
+		// --computer-group or --mobile-device-group replaces the profile's scope,
+		// exclusions included.
+		var narrowing scopeNarrowing
+		overridesScope := len(computerGroups) > 0 || len(mobileDeviceGroups) > 0
+		if !overridesScope {
+			narrowing = profileScopeNarrowing(body)
+			if err := refuseUnexpressibleScope(profileLabel, narrowing, skipExclusions, skipLimitations); err != nil {
+				return out, err
+			}
+		}
+
+		// Step 3: Build the blueprint components. By default the profile is kept
+		// as installed, which is the only form that can take over the profile
+		// already on devices. It is sent first, and the converted profile (native
+		// DDM components, unwrapped MCX, unsupported types delivered as Custom
+		// Settings) only when the API rejects it or takeover is impossible for it
+		// anyway. --convert sends the converted profile alone.
+		displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
+		if out.Profile == "" {
+			out.Profile = displayName
+		}
+		convertOpts := importConvertOptions{includeUnsupported: includeUnsupported, stripDefaults: stripDefaults}
+		schemaFetcher := profileconvert.NewSchemaFetcher(nil)
+		converted, convErr := buildImportPlan([]byte(mobileconfig), convertOpts, false, schemaFetcher)
+		var plan, fallback *importPlan
+		if convertProfile {
+			if convErr != nil {
+				return out, nothingToImport(convErr)
+			}
+			plan = converted
+		} else {
+			preserved, preserveErr := buildImportPlan([]byte(mobileconfig), convertOpts, true, schemaFetcher)
+			switch {
+			case preserveErr == nil && preserved.takeover.Supported:
+				plan = preserved
+				if convErr == nil && !sameComponents(preserved, converted) {
+					fallback = converted
+				}
+			case takeoverOnly && preserveErr == nil:
+				out.Takeover = "not supported"
+				return out, notImportedForTakeover(profileLabel, preserved.takeover.Reasons)
+			case convErr == nil:
+				// Taking over is not possible for the profile as installed, so
+				// sending it that way gains nothing: send the better blueprint.
+				plan = converted
+				if preserveErr == nil {
+					_, _ = fmt.Fprintf(stderr, "Note: converting the profile rather than keeping it as installed, "+
+						"because takeover is not possible for it as installed: %s\n", preserved.takeover.Reasons[0])
+				}
+			case preserveErr == nil:
+				plan = preserved
+			default:
+				return out, nothingToImport(preserveErr)
+			}
+		}
+		if takeoverOnly && !plan.takeover.Supported {
+			out.Takeover = "not supported"
+			return out, notImportedForTakeover(profileLabel, plan.takeover.Reasons)
+		}
+		out.Takeover = takeoverLabel(plan.takeover)
+		printPlanMessages(stderr, plan)
+
+		// Step 4: Determine scope. --computer-group/--mobile-device-group override
+		// the profile's own scope; otherwise carry over the profile's target groups.
+		var scopeGroups []string
+		// activationPredicate excludes the profile's excluded groups from the
+		// step; scopeNote says in the description what was and was not carried.
+		var activationPredicate, scopeNote string
+		if overridesScope {
+			scopeGroups, err = resolveAllGroupFlags(ctx, cliCtx.Client, nil, computerGroups, mobileDeviceGroups)
+			if err != nil {
+				return out, err
+			}
+			_, _ = fmt.Fprintf(stderr, "Scope overridden with %d group(s) from flags\n", len(scopeGroups))
+		} else {
+			var scopeWarnings []string
+			scopeGroups, scopeWarnings = extractAndResolveScope(ctx, cliCtx.Client, body, stderr)
+			for _, w := range scopeWarnings {
+				_, _ = fmt.Fprintf(stderr, "Warning: %s\n", w)
+			}
+			if len(scopeGroups) > 0 {
+				_, _ = fmt.Fprintf(stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
+			}
+			var carried []string
+			var exclusionWarnings []string
+			carried, exclusionWarnings = resolveExcludedGroups(ctx, cliCtx.Client, narrowing.excludedGroups)
+			for _, w := range exclusionWarnings {
+				_, _ = fmt.Fprintf(stderr, "Warning: %s\n", w)
+			}
+			notCarried := narrowing
+			notCarried.otherExclusions += len(narrowing.excludedGroups) - len(carried)
+			if err := refuseUnexpressibleScope(profileLabel, notCarried, skipExclusions, skipLimitations); err != nil {
+				return out, err
+			}
+			if len(carried) > 0 {
+				activationPredicate = exclusionPredicate(carried)
+				_, _ = fmt.Fprintf(stderr, "Excluding %d device group(s) with an activation condition: %s\n", len(carried), activationPredicate)
+			}
+			scopeNote = scopeNarrowingNote(len(carried), notCarried.otherExclusions, notCarried.limitations)
+		}
+
+		// Blueprints require a non-empty device-group scope. Fail fast with an
+		// actionable message instead of letting CreateBlueprint 400.
+		if len(scopeGroups) == 0 {
+			return out, &skipError{msg: fmt.Sprintf("%s profile %s has no device-group scope that blueprints can use — "+
+				"re-run with --computer-group \"<name>\" (or --mobile-device-group) to set the scope.\n"+
+				"Blueprints only support device-group scoping; all-computers, individual-device, "+
+				"building, and department scopes are not carried over", profileType, profileLabel)}
+		}
+
+		// Step 5: Build and create the blueprint
+		name := blueprintName
+		if name == "" {
+			name = displayName
+		}
+		if name == "" {
+			name = resolvedName
+		}
+		if name == "" {
+			name = "Imported profile " + profileID
+		}
+
+		sourceName := resolvedName
+		if sourceName == "" {
+			sourceName = displayName
+		}
+		importStepName := "Step 1"
+		send := func(p *importPlan) (string, error) {
+			description := profileconvert.ImportDescription(profileType, sourceName, profileID, p.takeover, scopeNote)
+			result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, &blueprints.CreateBlueprintRequest{
+				Name:        name,
+				Description: &description,
+				Scope: blueprints.CreateScope{
+					DeviceGroups: scopeGroups,
+				},
+				Steps: []blueprints.BlueprintStep{
+					{
+						Name:                &importStepName,
+						Components:          p.components,
+						ActivationPredicate: predicatePtr(activationPredicate),
+					},
+				},
+			})
+			if err != nil {
+				return "", err
+			}
+			return result.ID, nil
+		}
+
+		if cliCtx.DryRun {
+			_, _ = fmt.Fprintf(stderr, "[dry-run] Would create blueprint %q (takeover %s)\n", name, out.Takeover)
+			out.DryRun = true
+			return out, nil
+		}
+
+		_, _ = fmt.Fprintln(stderr, profileconvert.ConflictWarning)
+
+		var id string
+		plan, id, err = sendWithFallback(stderr, plan, fallback, takeoverOnly, send)
+		if err != nil {
+			var refused *skipError
+			if errors.As(err, &refused) {
+				out.Takeover = "not supported" // the API refused the profile as installed
+			}
+			return out, err
+		}
+		out.BlueprintID = id
+		_, _ = fmt.Fprintf(stderr, "Created blueprint %q (id: %s)\n", name, id)
+		reportTakeover(stderr, plan.takeover)
+		reportExclusionTakeoverNote(stderr, plan.takeover, activationPredicate != "")
+
+		bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
+		if err != nil {
+			return out, err
+		}
+		warnDroppedKeys(stderr, plan.components, bp.Steps, plan.takeover.Supported)
+		out.bp = bp
+		if deploy {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).DeployBlueprint(ctx, id); err != nil {
+				return out, fmt.Errorf("blueprint %s was created but not deployed: %w", id, err)
+			}
+			out.Deployed = true
+			_, _ = fmt.Fprintf(stderr, "Deployed blueprint %q\n", name)
+		}
+		return out, nil
+	}
+
 	cmd := &cobra.Command{
 		Use:   "import-profile [<id>]",
 		Short: "Import a Classic configuration profile as a blueprint",
@@ -1357,6 +1572,22 @@ This is useful for profiles created by Jamf Pro's UI which sets every key even
 when the administrator only intended to manage a few settings. Default stripping
 applies only to the configuration-profile component, not native DDM components.
 
+Importing every profile:
+  --all imports every configuration profile of --type (computer by default, or
+  mobile), one blueprint each, and ends with a table of what happened to each
+  profile. A profile that fails or is skipped does not stop the others. Skipped means
+  the command was told to leave it out (--takeover-only, --skip-exclusions,
+  --skip-limitations), it has no device-group scope, or every payload is a type
+  blueprints disables. It cannot be combined with <id>, --name or --blueprint-name.
+  Blueprints are created undeployed; --deploy deploys each one after it is created.
+  --all --deploy asks for confirmation first (--yes skips it), and a profile that was
+  skipped is never deployed. -n/--dry-run previews the table without creating anything;
+  it cannot say whether the API will accept a profile as installed.
+
+  The safe way to move the profiles that can be taken over, and only those, is:
+    jamf-cli pro blueprints import-profile --all --type computer --takeover-only \
+      --skip-exclusions --skip-limitations --deploy
+
 Scope handling:
   Only target computer groups and mobile device groups are carried over to the
   blueprint scope. Individual computer/device assignments, buildings, departments,
@@ -1389,6 +1620,7 @@ Examples:
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
   jamf-cli pro blueprints import-profile "Passcode Policy" --convert   # native DDM components instead of the profile as installed
   jamf-cli pro blueprints import-profile "My Restrictions" --takeover-only   # create nothing unless the blueprint can take over
+  jamf-cli pro blueprints import-profile --all --type mobile --takeover-only   # every mobile profile that can take over, undeployed
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
   jamf-cli pro blueprints import-profile "My Restrictions" --skip-exclusions   # refuse a profile with exclusions that cannot be carried over
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
@@ -1400,6 +1632,9 @@ Examples:
 			if takeoverOnly && convertProfile {
 				return fmt.Errorf("--takeover-only cannot be combined with --convert: a converted blueprint cannot take over the installed profile")
 			}
+			if importAll && (len(args) > 0 || profileName != "" || blueprintName != "") {
+				return fmt.Errorf("--all imports every %s profile: it cannot be combined with <id>, --name or --blueprint-name", profileType)
+			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
@@ -1408,195 +1643,31 @@ Examples:
 			}
 			ctx := cmd.Context()
 
+			if importAll {
+				return runImportAll(ctx, cliCtx, profileType, deploy, yes, importOne)
+			}
+
 			var arg string
 			if len(args) > 0 {
 				arg = args[0]
 			}
-
-			// Step 1: Resolve the identifier and download the Classic API profile
-			body, profileID, resolvedName, err := fetchClassicProfile(ctx, cliCtx, profileType, arg, profileName)
+			out, err := importOne(ctx, arg, os.Stderr)
 			if err != nil {
 				return err
 			}
-			profileLabel := classicProfileLabel(profileID, resolvedName)
-			fmt.Fprintf(os.Stderr, "Downloaded %s profile %s from Jamf Pro\n", profileType, profileLabel)
-
-			// Step 2: Extract mobileconfig from <payloads>
-			mobileconfig := extractPayloadsFromXML(string(body))
-			if mobileconfig == "" {
-				return fmt.Errorf("no <payloads> found in %s profile %s", profileType, profileLabel)
+			if out.bp == nil {
+				return nil // dry run: nothing was created
 			}
-
-			// A profile's exclusions and limitations subtract devices from its target
-			// groups. Excluded device groups are carried over as an activation
-			// condition; the rest cannot be expressed, and the import warns and says
-			// so in the description. --skip-exclusions and --skip-limitations make
-			// such a profile not import at all instead. Setting the scope with
-			// --computer-group or --mobile-device-group replaces the profile's scope,
-			// exclusions included.
-			var narrowing scopeNarrowing
-			overridesScope := len(computerGroups) > 0 || len(mobileDeviceGroups) > 0
-			if !overridesScope {
-				narrowing = profileScopeNarrowing(body)
-				if err := refuseUnexpressibleScope(profileLabel, narrowing, skipExclusions, skipLimitations); err != nil {
-					return err
-				}
-			}
-
-			// Step 3: Build the blueprint components. By default the profile is kept
-			// as installed, which is the only form that can take over the profile
-			// already on devices. It is sent first, and the converted profile (native
-			// DDM components, unwrapped MCX, unsupported types delivered as Custom
-			// Settings) only when the API rejects it or takeover is impossible for it
-			// anyway. --convert sends the converted profile alone.
-			displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
-			convertOpts := importConvertOptions{includeUnsupported: includeUnsupported, stripDefaults: stripDefaults}
-			schemaFetcher := profileconvert.NewSchemaFetcher(nil)
-			converted, convErr := buildImportPlan([]byte(mobileconfig), convertOpts, false, schemaFetcher)
-			var plan, fallback *importPlan
-			if convertProfile {
-				if convErr != nil {
-					return convErr
-				}
-				plan = converted
-			} else {
-				preserved, preserveErr := buildImportPlan([]byte(mobileconfig), convertOpts, true, schemaFetcher)
-				switch {
-				case preserveErr == nil && preserved.takeover.Supported:
-					plan = preserved
-					if convErr == nil && !sameComponents(preserved, converted) {
-						fallback = converted
-					}
-				case takeoverOnly && preserveErr == nil:
-					return notImportedForTakeover(profileLabel, preserved.takeover.Reasons)
-				case convErr == nil:
-					// Taking over is not possible for the profile as installed, so
-					// sending it that way gains nothing: send the better blueprint.
-					plan = converted
-					if preserveErr == nil {
-						fmt.Fprintf(os.Stderr, "Note: converting the profile rather than keeping it as installed, "+
-							"because takeover is not possible for it as installed: %s\n", preserved.takeover.Reasons[0])
-					}
-				case preserveErr == nil:
-					plan = preserved
-				default:
-					return preserveErr
-				}
-			}
-			if takeoverOnly && !plan.takeover.Supported {
-				return notImportedForTakeover(profileLabel, plan.takeover.Reasons)
-			}
-			printPlanMessages(plan)
-
-			// Step 4: Determine scope. --computer-group/--mobile-device-group override
-			// the profile's own scope; otherwise carry over the profile's target groups.
-			var scopeGroups []string
-			// activationPredicate excludes the profile's excluded groups from the
-			// step; scopeNote says in the description what was and was not carried.
-			var activationPredicate, scopeNote string
-			if overridesScope {
-				scopeGroups, err = resolveAllGroupFlags(ctx, cliCtx.Client, nil, computerGroups, mobileDeviceGroups)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(os.Stderr, "Scope overridden with %d group(s) from flags\n", len(scopeGroups))
-			} else {
-				var scopeWarnings []string
-				scopeGroups, scopeWarnings = extractAndResolveScope(ctx, cliCtx.Client, body)
-				for _, w := range scopeWarnings {
-					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-				}
-				if len(scopeGroups) > 0 {
-					fmt.Fprintf(os.Stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
-				}
-				var carried []string
-				var exclusionWarnings []string
-				carried, exclusionWarnings = resolveExcludedGroups(ctx, cliCtx.Client, narrowing.excludedGroups)
-				for _, w := range exclusionWarnings {
-					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-				}
-				notCarried := narrowing
-				notCarried.otherExclusions += len(narrowing.excludedGroups) - len(carried)
-				if err := refuseUnexpressibleScope(profileLabel, notCarried, skipExclusions, skipLimitations); err != nil {
-					return err
-				}
-				if len(carried) > 0 {
-					activationPredicate = exclusionPredicate(carried)
-					fmt.Fprintf(os.Stderr, "Excluding %d device group(s) with an activation condition: %s\n", len(carried), activationPredicate)
-				}
-				scopeNote = scopeNarrowingNote(len(carried), notCarried.otherExclusions, notCarried.limitations)
-			}
-
-			// Blueprints require a non-empty device-group scope. Fail fast with an
-			// actionable message instead of letting CreateBlueprint 400.
-			if len(scopeGroups) == 0 {
-				return fmt.Errorf("%s profile %s has no device-group scope that blueprints can use — "+
-					"re-run with --computer-group \"<name>\" (or --mobile-device-group) to set the scope.\n"+
-					"Blueprints only support device-group scoping; all-computers, individual-device, "+
-					"building, and department scopes are not carried over", profileType, profileLabel)
-			}
-
-			// Step 5: Build and create the blueprint
-			name := blueprintName
-			if name == "" {
-				name = displayName
-			}
-			if name == "" {
-				name = resolvedName
-			}
-			if name == "" {
-				name = "Imported profile " + profileID
-			}
-
-			sourceName := resolvedName
-			if sourceName == "" {
-				sourceName = displayName
-			}
-			importStepName := "Step 1"
-			send := func(p *importPlan) (string, error) {
-				description := profileconvert.ImportDescription(profileType, sourceName, profileID, p.takeover, scopeNote)
-				result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, &blueprints.CreateBlueprintRequest{
-					Name:        name,
-					Description: &description,
-					Scope: blueprints.CreateScope{
-						DeviceGroups: scopeGroups,
-					},
-					Steps: []blueprints.BlueprintStep{
-						{
-							Name:                &importStepName,
-							Components:          p.components,
-							ActivationPredicate: predicatePtr(activationPredicate),
-						},
-					},
-				})
-				if err != nil {
-					return "", err
-				}
-				return result.ID, nil
-			}
-
-			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
-
-			plan, id, err := sendWithFallback(os.Stderr, plan, fallback, takeoverOnly, send)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", name, id)
-			reportTakeover(os.Stderr, plan.takeover)
-			reportExclusionTakeoverNote(os.Stderr, plan.takeover, activationPredicate != "")
-
-			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
-			if err != nil {
-				return err
-			}
-			warnDroppedKeys(os.Stderr, plan.components, bp.Steps, plan.takeover.Supported)
-			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
+			return printResult(cliCtx.Output, out.bp, flattenBlueprintDetail(*out.bp))
 		},
 	}
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads, instead of keeping the profile as installed (a converted blueprint cannot take over the installed profile)")
+	cmd.Flags().BoolVar(&importAll, "all", false, "Import every configuration profile of --type (not with <id>, --name or --blueprint-name); prints a table of what happened")
+	cmd.Flags().BoolVar(&deploy, "deploy", false, "Deploy each blueprint after it is created (by default blueprints are created undeployed)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation for --all --deploy")
 	cmd.Flags().BoolVar(&takeoverOnly, "takeover-only", false, "Only import a profile whose blueprint can take over the installed profile; otherwise create nothing and exit with an error")
 	cmd.Flags().BoolVar(&skipExclusions, "skip-exclusions", false, "Do not import a profile that has scope exclusions blueprints cannot express (excluded device groups are carried over, anything else is not)")
 	cmd.Flags().BoolVar(&skipLimitations, "skip-limitations", false, "Do not import a profile that has scope limitations (blueprints cannot express them)")
@@ -1687,7 +1758,7 @@ func profileScopeNarrowing(xmlBody []byte) scopeNarrowing {
 // extractAndResolveScope parses the <scope> section from a Classic API profile
 // response, resolves target computer/mobile device group names to platform UUIDs,
 // and returns warnings for any scope elements that can't be imported.
-func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xmlBody []byte) ([]string, []string) {
+func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xmlBody []byte, log io.Writer) ([]string, []string) {
 	var warnings []string
 
 	// Find and parse the <scope> section
@@ -1769,7 +1840,7 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 			continue
 		}
 		platformIDs = append(platformIDs, id)
-		fmt.Fprintf(os.Stderr, "  Resolved group %q (%s) → %s\n", ref.name, ref.groupType, id)
+		_, _ = fmt.Fprintf(log, "  Resolved group %q (%s) → %s\n", ref.name, ref.groupType, id)
 	}
 
 	return platformIDs, warnings

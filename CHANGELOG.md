@@ -84,6 +84,16 @@ What a script can see change:
   `PayloadIdentifier` (the blueprints API rewrites one to match the other, and
   a deployment that tried it on a device reported `failed`); or when the profile
   has no identifiers.
+- `--all` imports every configuration profile of `--type` (computer by default, or
+  mobile) and ends with a table of the outcome for each: created, skipped or
+  failed. A skip is a profile the command was told to leave out (`--takeover-only`,
+  `--skip-exclusions`, `--skip-limitations`), one with no device-group scope, or one
+  whose payloads are all types blueprints disables; skips do not fail the run, a
+  failure beside a success exits 7. `--deploy` deploys each blueprint after it is
+  created (blueprints are created undeployed by default); `--all --deploy` asks for
+  confirmation unless `--yes` is given. `-n` previews the table without creating
+  anything. `import-profile --all --type computer --takeover-only --skip-exclusions
+  --skip-limitations --deploy` moves only the profiles that can take over.
 - `--takeover-only` imports a profile only if its blueprint can take over the
   installed profile. Otherwise no blueprint is created and the command exits with
   an error: the reasons when takeover is impossible offline, or the API's

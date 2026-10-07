@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 
@@ -229,9 +228,9 @@ func apiOnlyPayloadNote(config json.RawMessage) []string {
 }
 
 // printPlanMessages writes a plan's explanation to stderr.
-func printPlanMessages(p *importPlan) {
+func printPlanMessages(w io.Writer, p *importPlan) {
 	for _, m := range p.messages {
-		fmt.Fprintln(os.Stderr, m)
+		_, _ = fmt.Fprintln(w, m)
 	}
 }
 
@@ -257,7 +256,12 @@ func sendWithFallback(w io.Writer, plan, fallback *importPlan, takeoverOnly bool
 		return plan, "", err
 	}
 	if takeoverOnly {
-		return plan, "", fmt.Errorf("%w (not imported: the blueprints API rejected the profile as installed, so it cannot take over, and --takeover-only does not send the converted profile)", err)
+		// The API's refusal is the answer to "can it take over", so under this flag
+		// it is a skip, not a failure.
+		return plan, "", &skipError{
+			msg: fmt.Sprintf("%v (not imported: the blueprints API rejected the profile as installed, so it cannot take over, and --takeover-only does not send the converted profile)", err),
+			err: err,
+		}
 	}
 	_, _ = fmt.Fprintln(w, "Warning: the blueprints API rejected the payloads as installed. "+
 		"Retrying with the payload types it does not accept standalone delivered as Custom Settings (MCX), "+
@@ -289,9 +293,9 @@ func refuseUnexpressibleScope(profileLabel string, n scopeNarrowing, skipExclusi
 	if len(found) == 0 {
 		return nil
 	}
-	return fmt.Errorf("profile %s has %s that blueprints cannot express, so it was not imported (%s).\n"+
+	return &skipError{msg: fmt.Sprintf("profile %s has %s that blueprints cannot express, so it was not imported (%s).\n"+
 		"Drop the flag to import it without them, or set the scope yourself with --computer-group or --mobile-device-group",
-		profileLabel, strings.Join(found, " and "), strings.Join(flags, " and "))
+		profileLabel, strings.Join(found, " and "), strings.Join(flags, " and "))}
 }
 
 // scopeNarrowingNote is the sentence a blueprint description carries about the
@@ -357,7 +361,7 @@ func resolveExcludedGroups(ctx context.Context, client registry.HTTPClient, grou
 
 // notImportedForTakeover is the --takeover-only refusal: nothing is created.
 func notImportedForTakeover(profileLabel string, reasons []string) error {
-	return fmt.Errorf("profile %s was not imported: takeover is not supported for it (--takeover-only).\n  - %s\n"+
+	return &skipError{msg: fmt.Sprintf("profile %s was not imported: takeover is not supported for it (--takeover-only).\n  - %s\n"+
 		"Drop the flag to import it as a blueprint that installs alongside the Classic profile",
-		profileLabel, strings.Join(reasons, "\n  - "))
+		profileLabel, strings.Join(reasons, "\n  - "))}
 }
