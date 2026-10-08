@@ -704,7 +704,13 @@ func protectResources() []protectResource {
 				for _, i := range items {
 					byUUID[i.UUID] = i
 				}
-				want := make(map[string]bool, len(doc.Enabled)+len(doc.Disabled))
+				enabledCount := len(doc.Enabled)
+				disabledCount := len(doc.Disabled)
+				maxInt := int(^uint(0) >> 1)
+				if enabledCount > maxInt-disabledCount {
+					return "", fmt.Errorf("insights document too large")
+				}
+				want := make(map[string]bool, enabledCount+disabledCount)
 				for _, l := range doc.Enabled {
 					want[l] = true
 				}
