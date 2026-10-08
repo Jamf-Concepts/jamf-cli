@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -75,7 +76,11 @@ func normaliseTenantURL(u string) string {
 // an older version still contributes its tenant.
 func (m protectBackupMeta) tenantURLs() []string {
 	seen := map[string]bool{}
-	out := make([]string, 0, len(m.Tenants)+1)
+	capHint := len(m.Tenants)
+	if capHint < math.MaxInt {
+		capHint++
+	}
+	out := make([]string, 0, capHint)
 	for _, t := range append([]string{m.TenantURL}, m.Tenants...) {
 		n := normaliseTenantURL(t)
 		if n == "" || seen[n] {
