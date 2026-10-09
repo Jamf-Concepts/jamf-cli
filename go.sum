@@ -42,6 +42,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jamf/jamfplatform-go-sdk v1.2.0 h1:t0XYcs4sUAzRU/4zBUu0FLhqSfn6R0znqyWvx8Nu3R4=
 github.com/jamf/jamfplatform-go-sdk v1.2.0/go.mod h1:QqbUlIakbYVvJlcqa6JEDA6dLxl9Tr9m9pQdBZ1wvKk=
+github.com/jamf/jamfplatform-go-sdk v1.3.0 h1:ujahgCizZDbAYefDBRel7GY0s3dnmVIPrz9HuZIXAcg=
+github.com/jamf/jamfplatform-go-sdk v1.3.0/go.mod h1:LWxyRJPcmTvmuek5A7Xk6whuj6B/k44GAh+SO+MKelY=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
