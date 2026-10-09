@@ -154,12 +154,6 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	if c.verboseLevel >= 1 {
 		fmt.Fprintf(os.Stderr, "--> %s %s\n", method, redact.URL(req.URL))
 	}
-	if c.verboseLevel >= 2 {
-		logHeaders(os.Stderr, req.Header, true)
-	}
-	if c.verboseLevel >= 3 {
-		logBody(os.Stderr, redact.Body(bodyData))
-	}
 
 	resp, err := c.doWithRetry(ctx, req, bodyData)
 	if err != nil {
@@ -167,10 +161,10 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	if c.verboseLevel >= 1 {
-		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
 	}
 	if c.verboseLevel >= 2 {
-		logHeaders(os.Stderr, resp.Header, false)
+		logHeaders(os.Stderr, responseWireHeaders(resp), false)
 	}
 
 	// Map HTTP error status codes to structured exit codes, unless the caller
@@ -198,6 +192,15 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 // and Content-Length. The body is never buffered, so multi-GB files stream
 // straight through.
 //
+// On the platform gateway the request goes out over HTTP/1.1 as a chunked body
+// with no declared Content-Length, and contentLength is only reported in
+// verbose output. Both halves are measured against the GA gateway, as the
+// jamfplatform-go-sdk does for its own uploads (v1.3.0): CloudFront advertises a
+// 64 KiB per-stream HTTP/2 window, so one h2 upload is capped near 4 MiB/s where
+// HTTP/1.1 runs at the uplink, and a declared length was refused with a 502 at
+// about 1.04 GiB where the same 1.43 GiB file uploaded whole without one. A
+// direct instance connection is unmeasured and keeps h2 and the declared length.
+//
 // 429 retry: when body implements io.Seeker (e.g. *os.File, *bytes.Reader, or
 // the seekable multipart body from NewMultipartFileUpload), Upload retries up
 // to 3 times on HTTP 429, honoring Retry-After. Non-seekable bodies surface
@@ -214,6 +217,15 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 	maxAttempts := 1
 	if seeker != nil {
 		maxAttempts = 3
+	}
+
+	httpClient := c.httpClient
+	wireLength := contentLength
+	if c.gateway {
+		httpClient, wireLength = c.gatewayUploadClient(), -1
+		if httpClient != c.httpClient {
+			defer httpClient.CloseIdleConnections()
+		}
 	}
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -238,23 +250,31 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		c.setScopeHeader(req)
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
-		req.ContentLength = contentLength
+		// -1 declares the length unknown, so net/http chunks without probing
+		// the body first.
+		req.ContentLength = wireLength
 
 		if c.verboseLevel >= 1 {
+			framing := fmt.Sprintf("%d bytes", contentLength)
+			if wireLength < 0 {
+				framing += ", chunked"
+			}
 			if maxAttempts > 1 {
-				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes, attempt %d/%d)\n", redact.URL(req.URL), contentLength, attempt+1, maxAttempts)
+				fmt.Fprintf(os.Stderr, "--> POST %s (%s, attempt %d/%d)\n", redact.URL(req.URL), framing, attempt+1, maxAttempts)
 			} else {
-				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes)\n", redact.URL(req.URL), contentLength)
+				fmt.Fprintf(os.Stderr, "--> POST %s (%s)\n", redact.URL(req.URL), framing)
 			}
 		}
+		reqCtx := ctx
 		if c.verboseLevel >= 2 {
-			logHeaders(os.Stderr, req.Header, true)
-		}
-		if c.verboseLevel >= 3 {
-			fmt.Fprintf(os.Stderr, "    [streaming body: %d bytes, %s]\n", contentLength, contentType)
+			reqCtx = traceWireHeaders(ctx, os.Stderr, func() {
+				if c.verboseLevel >= 3 {
+					fmt.Fprintf(os.Stderr, "    [streaming body: %d bytes, %s]\n", contentLength, contentType)
+				}
+			})
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := httpClient.Do(req.WithContext(reqCtx))
 		if err != nil {
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))
 		}
@@ -273,10 +293,10 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		}
 
 		if c.verboseLevel >= 1 {
-			fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+			fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
 		}
 		if c.verboseLevel >= 2 {
-			logHeaders(os.Stderr, resp.Header, false)
+			logHeaders(os.Stderr, responseWireHeaders(resp), false)
 		}
 
 		if resp.StatusCode >= 400 {
@@ -301,6 +321,23 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 	}
 
 	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited: server returned HTTP 429 on all %d attempts", maxAttempts))
+}
+
+// gatewayUploadClient returns an HTTP client for one gateway upload: the
+// client's own, with its transport pinned to HTTP/1.1 and its cookie jar kept.
+// A caller-supplied transport that is not an *http.Transport is left alone,
+// since it is not ours to rewrite.
+func (c *Client) gatewayUploadClient() *http.Client {
+	t, ok := c.httpClient.Transport.(*http.Transport)
+	if !ok {
+		return c.httpClient
+	}
+	return &http.Client{
+		Transport:     httptransport.HTTP1Only(t),
+		Jar:           c.httpClient.Jar,
+		CheckRedirect: c.httpClient.CheckRedirect,
+		Timeout:       c.httpClient.Timeout,
+	}
 }
 
 // parseRetryAfter returns the delay from a Retry-After header value.
@@ -347,9 +384,17 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 	var lastErr error
 	for i := range maxRetries {
 		var sent atomic.Bool
-		attempt := req.WithContext(httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{
+		attemptCtx := httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{
 			WroteHeaders: func() { sent.Store(true) },
-		}))
+		})
+		if c.verboseLevel >= 2 {
+			attemptCtx = traceWireHeaders(attemptCtx, os.Stderr, func() {
+				if c.verboseLevel >= 3 {
+					logBody(os.Stderr, redact.Body(bodyData))
+				}
+			})
+		}
+		attempt := req.WithContext(attemptCtx)
 		// Reset body for each attempt so retries send the full payload.
 		if bodyData != nil {
 			attempt.Body = io.NopCloser(bytes.NewReader(bodyData))
@@ -454,6 +499,17 @@ func LogHeaders(w io.Writer, h http.Header, redactAuth bool) {
 	logHeaders(w, h, redactAuth)
 }
 
+// TraceWireHeaders and ResponseWireHeaders are the exported aliases of
+// traceWireHeaders and responseWireHeaders, for the same wrapped transports.
+func TraceWireHeaders(ctx context.Context, w io.Writer, afterHeaders func()) context.Context {
+	return traceWireHeaders(ctx, w, afterHeaders)
+}
+
+// ResponseWireHeaders is responseWireHeaders.
+func ResponseWireHeaders(resp *http.Response) http.Header {
+	return responseWireHeaders(resp)
+}
+
 // LogBody is the exported alias of logBody.
 func LogBody(w io.Writer, data []byte) {
 	logBody(w, data)
@@ -481,12 +537,46 @@ func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		v := strings.Join(h[k], ", ")
-		if redactAuth && strings.EqualFold(k, "Authorization") || strings.EqualFold(k, "Cookie") || strings.EqualFold(k, "Set-Cookie") {
-			v = "[redacted]"
-		}
-		_, _ = fmt.Fprintf(w, "    %s: %s\n", k, v)
+		_, _ = fmt.Fprintf(w, "    %s: %s\n", k, headerLogValue(k, strings.Join(h[k], ", "), redactAuth))
 	}
+}
+
+// headerLogValue is v, or "[redacted]" where k carries a credential.
+func headerLogValue(k, v string, redactAuth bool) string {
+	if redactAuth && strings.EqualFold(k, "Authorization") || strings.EqualFold(k, "Cookie") || strings.EqualFold(k, "Set-Cookie") {
+		return "[redacted]"
+	}
+	return v
+}
+
+// traceWireHeaders returns ctx with a trace that prints every request header as
+// the transport writes it, in wire order, then calls afterHeaders.
+//
+// req.Header is not the wire: net/http adds Host, Content-Length or
+// Transfer-Encoding: chunked, and Accept-Encoding itself, and HTTP/2 reports its
+// pseudo-headers (:authority, :method, ...), so a dump of the map shows none of
+// the framing or protocol a request actually went out with. A trace sees what
+// was written. Authorization and cookies are redacted as in logHeaders.
+func traceWireHeaders(ctx context.Context, w io.Writer, afterHeaders func()) context.Context {
+	return httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
+		WroteHeaderField: func(key string, value []string) {
+			_, _ = fmt.Fprintf(w, "    %s: %s\n", key, headerLogValue(key, strings.Join(value, ", "), true))
+		},
+		WroteHeaders: afterHeaders,
+	})
+}
+
+// responseWireHeaders is resp.Header plus the framing net/http lifts out of it:
+// a chunked response's Transfer-Encoding is moved to resp.TransferEncoding.
+func responseWireHeaders(resp *http.Response) http.Header {
+	h := resp.Header.Clone()
+	if h == nil {
+		h = http.Header{}
+	}
+	if len(resp.TransferEncoding) > 0 && h.Get("Transfer-Encoding") == "" {
+		h.Set("Transfer-Encoding", strings.Join(resp.TransferEncoding, ", "))
+	}
+	return h
 }
 
 // StatusError maps an HTTP error response to the same structured exit error Do

@@ -17,6 +17,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
 )
 
 func TestDo_ModernAPIPathPrefix(t *testing.T) {
@@ -1091,5 +1092,133 @@ Request blocked.</BODY></HTML>`
 	// vocabulary rather than a Jamf Pro API role — see forbiddenHint.
 	if !strings.Contains(je.Hint, "categories:read") || !strings.Contains(je.Hint, "Jamf Account") {
 		t.Errorf("a real Jamf 403 lost its privilege hint: %q", je.Hint)
+	}
+}
+
+// uploadFraming reports what a TLS server that offers h2 saw of one Upload.
+type uploadFraming struct {
+	protoMajor    int
+	contentLength int64
+	chunked       bool
+	header        string
+}
+
+func uploadFramingOf(t *testing.T, opts ...Option) uploadFraming {
+	t.Helper()
+	var got uploadFraming
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		got = uploadFraming{
+			protoMajor:    r.ProtoMajor,
+			contentLength: r.ContentLength,
+			chunked:       len(r.TransferEncoding) == 1 && r.TransferEncoding[0] == "chunked",
+			header:        r.Header.Get("Content-Length"),
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	srv.EnableHTTP2 = true
+	srv.StartTLS()
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), opts...)
+	c.httpClient.Transport = srv.Client().Transport
+	body := strings.NewReader("payload")
+	if _, err := c.Upload(context.Background(), "/v1/packages/1/upload", body, "application/octet-stream", int64(body.Len())); err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	return got
+}
+
+// TestUpload_GatewayIsHTTP1Chunked pins the framing jamfplatform-go-sdk v1.3.0
+// measured against the GA gateway: HTTP/1.1, chunked, no declared length. The
+// server here offers h2, so a request that stayed on h2 would show ProtoMajor 2.
+func TestUpload_GatewayIsHTTP1Chunked(t *testing.T) {
+	got := uploadFramingOf(t, WithGatewayScope(auth.TenantScope("abc-123")))
+	if got.protoMajor != 1 {
+		t.Errorf("ProtoMajor = %d, want 1", got.protoMajor)
+	}
+	if !got.chunked || got.contentLength != -1 || got.header != "" {
+		t.Errorf("framing = %+v, want chunked with no Content-Length", got)
+	}
+}
+
+// TestUpload_DirectInstanceKeepsH2AndLength: the h1/chunked finding was measured
+// on the gateway only, so a direct instance connection is unchanged.
+func TestUpload_DirectInstanceKeepsH2AndLength(t *testing.T) {
+	got := uploadFramingOf(t)
+	if got.protoMajor != 2 {
+		t.Errorf("ProtoMajor = %d, want 2", got.protoMajor)
+	}
+	if got.chunked || got.contentLength != int64(len("payload")) {
+		t.Errorf("framing = %+v, want Content-Length %d", got, len("payload"))
+	}
+}
+
+// TestTraceWireHeaders_ShowsFramingAndProtocol: the -vv dump has to show what
+// went on the wire, which req.Header does not hold — Content-Length, chunked
+// Transfer-Encoding, and HTTP/2's pseudo-headers.
+func TestTraceWireHeaders_ShowsFramingAndProtocol(t *testing.T) {
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	srv.EnableHTTP2 = true
+	srv.StartTLS()
+	defer srv.Close()
+
+	trace := func(t *testing.T, tr *http.Transport, length int64) string {
+		t.Helper()
+		var buf strings.Builder
+		ctx := traceWireHeaders(context.Background(), &buf, nil)
+		req, err := http.NewRequestWithContext(ctx, "POST", srv.URL, strings.NewReader("payload"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.ContentLength = length
+		req.Header.Set("Authorization", "Bearer secret-token")
+		resp, err := (&http.Client{Transport: tr}).Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		return buf.String()
+	}
+
+	base := srv.Client().Transport.(*http.Transport)
+
+	h2 := trace(t, base, int64(len("payload")))
+	for _, want := range []string{":authority:", ":method: POST", "content-length: 7"} {
+		if !strings.Contains(h2, want) {
+			t.Errorf("h2 trace lacks %q:\n%s", want, h2)
+		}
+	}
+
+	h1 := trace(t, httptransport.HTTP1Only(base), -1)
+	for _, want := range []string{"Host:", "Transfer-Encoding: chunked"} {
+		if !strings.Contains(h1, want) {
+			t.Errorf("h1 trace lacks %q:\n%s", want, h1)
+		}
+	}
+	if strings.Contains(h1, ":authority") || strings.Contains(h1, "Content-Length") {
+		t.Errorf("h1 chunked trace shows h2 or a declared length:\n%s", h1)
+	}
+
+	for _, out := range []string{h1, h2} {
+		if strings.Contains(out, "secret-token") {
+			t.Errorf("trace prints the bearer token:\n%s", out)
+		}
+		if !strings.Contains(out, "[redacted]") {
+			t.Errorf("trace does not show Authorization as redacted:\n%s", out)
+		}
+	}
+}
+
+func TestResponseWireHeaders_ShowsChunkedEncoding(t *testing.T) {
+	resp := &http.Response{Header: http.Header{"X-A": {"1"}}, TransferEncoding: []string{"chunked"}}
+	if got := responseWireHeaders(resp).Get("Transfer-Encoding"); got != "chunked" {
+		t.Errorf("Transfer-Encoding = %q, want chunked", got)
+	}
+	if resp.Header.Get("Transfer-Encoding") != "" {
+		t.Error("responseWireHeaders mutated the response's header map")
 	}
 }

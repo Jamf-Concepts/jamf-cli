@@ -95,7 +95,7 @@ Two specs may tag a resource with the same name. `platformResourceNameOverrides`
 
 **Never hand the platform SDK a retry client.** `jamfplatform.WithHTTPClient` assigns whatever is given to the SDK's `retry.HTTPClient`, so an injected retryablehttp client becomes an inner retry loop whose policy wins. Pass a plain `*http.Client` carrying only the timeout, jar and the verbose/spinner transports.
 
-`platformVerboseTransport` wraps the `http.RoundTripper` **inside** retryablehttp's loop, so `-v` shows every attempt. It counts consecutive identical requests and renders `(retry 2, waited 4.3s)`. Two guards: a repeat is only a retry when the previous attempt failed (a poll or `--name` lookup reissuing the same collection is not a retry); the rendered wait is wall-clock since the previous attempt.
+`verboseTransport` wraps the `http.RoundTripper` **inside** retryablehttp's loop, so `-v` shows every attempt. Protect, School and Security Cloud take the same transport through `verboseRoundTripper` (Protect with `plainRetries`, since GraphQL is one URL). At `-vv` request headers are traced from the wire (`client.TraceWireHeaders`), not dumped from `req.Header`. It counts consecutive identical requests and renders `(retry 2, waited 4.3s)`. Two guards: a repeat is only a retry when the previous attempt failed (a poll or `--name` lookup reissuing the same collection is not a retry); the rendered wait is wall-clock since the previous attempt.
 
 ## App Installers
 

@@ -64,7 +64,7 @@ func mustRoundTrip(t *testing.T, tr http.RoundTripper, method, url string) {
 // while the SDK's own RequestLogHook can carry neither the attempt number nor
 // the wait through the Logger interface it emits on.
 func TestPlatformVerboseTransportLabelsRetries(t *testing.T) {
-	tr := &platformVerboseTransport{inner: &stubRoundTripper{status: 502}, level: 1}
+	tr := &verboseTransport{inner: &stubRoundTripper{status: 502}, level: 1}
 
 	out := captureStderr(t, func() {
 		for range 3 {
@@ -95,7 +95,7 @@ func TestPlatformVerboseTransportLabelsRetries(t *testing.T) {
 // command that legitimately re-issues one request (a poll, or a --name lookup
 // followed by a list of the same collection) reported "(retry 1, waited 0s)".
 func TestPlatformVerboseTransportDoesNotLabelRepeatAfterSuccess(t *testing.T) {
-	tr := &platformVerboseTransport{inner: &stubRoundTripper{status: 200}, level: 1}
+	tr := &verboseTransport{inner: &stubRoundTripper{status: 200}, level: 1}
 	out := captureStderr(t, func() {
 		for range 3 {
 			mustRoundTrip(t, tr, http.MethodGet, "https://us.api.jamfcloud.com/sso/v1/domains")
@@ -111,7 +111,7 @@ func TestPlatformVerboseTransportDoesNotLabelRepeatAfterSuccess(t *testing.T) {
 // means the repeat is a fresh call even when the earlier one failed.
 func TestPlatformVerboseTransportResetsOnDifferentRequest(t *testing.T) {
 	// 502 throughout, so only the consecutive guard can suppress the label.
-	tr := &platformVerboseTransport{inner: &stubRoundTripper{status: 502}, level: 1}
+	tr := &verboseTransport{inner: &stubRoundTripper{status: 502}, level: 1}
 
 	out := captureStderr(t, func() {
 		mustRoundTrip(t, tr, http.MethodGet, "https://us.api.jamfcloud.com/sso/v1/domains")
@@ -123,7 +123,7 @@ func TestPlatformVerboseTransportResetsOnDifferentRequest(t *testing.T) {
 	}
 
 	// A differing method on the same URL is also a different request.
-	tr = &platformVerboseTransport{inner: &stubRoundTripper{status: 502}, level: 1}
+	tr = &verboseTransport{inner: &stubRoundTripper{status: 502}, level: 1}
 	out = captureStderr(t, func() {
 		mustRoundTrip(t, tr, http.MethodGet, "https://us.api.jamfcloud.com/sso/v1/domains")
 		mustRoundTrip(t, tr, http.MethodDelete, "https://us.api.jamfcloud.com/sso/v1/domains")
@@ -136,7 +136,7 @@ func TestPlatformVerboseTransportResetsOnDifferentRequest(t *testing.T) {
 // At -v off, the transport must stay silent — and must not accumulate retry
 // state either, since the counter lives behind the same level check.
 func TestPlatformVerboseTransportSilentAtLevelZero(t *testing.T) {
-	tr := &platformVerboseTransport{inner: &stubRoundTripper{status: 502}, level: 0}
+	tr := &verboseTransport{inner: &stubRoundTripper{status: 502}, level: 0}
 	out := captureStderr(t, func() {
 		for range 3 {
 			mustRoundTrip(t, tr, http.MethodGet, "https://us.api.jamfcloud.com/sso/v1/connections")
@@ -144,5 +144,42 @@ func TestPlatformVerboseTransportSilentAtLevelZero(t *testing.T) {
 	})
 	if out != "" {
 		t.Errorf("level 0 must log nothing, got:\n%s", out)
+	}
+}
+
+// -vv has to show what went on the wire, not req.Header: the map holds neither
+// Host nor the framing net/http adds. The trace is installed on the request
+// context, so it fires at the real transport below this one.
+func TestPlatformVerboseTransportShowsWireHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	tr := &verboseTransport{inner: http.DefaultTransport, level: 3}
+	out := captureStderr(t, func() {
+		req, err := http.NewRequest(http.MethodPost, srv.URL+"/x", strings.NewReader(`{"a":1}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer secret-token")
+		resp, err := tr.RoundTrip(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+	})
+
+	for _, want := range []string{"Host: ", "Content-Length: 7", "Accept-Encoding: gzip", "<-- HTTP/1.1 201 Created"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "secret-token") {
+		t.Errorf("bearer token printed:\n%s", out)
+	}
+	if h, b := strings.Index(out, "Host: "), strings.Index(out, `{"a":1}`); h < 0 || b < h {
+		t.Errorf("request body must follow the request headers:\n%s", out)
 	}
 }

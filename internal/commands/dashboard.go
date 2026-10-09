@@ -691,6 +691,7 @@ func buildProtectClient(cfg *config.Config, profileName string) (registry.Protec
 	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
 	rc.HTTPClient.Timeout = 60 * time.Second
 	rc.HTTPClient.Jar = jar
+	rc.HTTPClient.Transport = verboseRoundTripper(rc.HTTPClient.Transport, true)
 
 	protectOpts := []jamfprotect.Option{
 		jamfprotect.WithUserAgent("jamf-cli/" + cliVersion),

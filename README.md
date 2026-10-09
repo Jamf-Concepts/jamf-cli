@@ -22,7 +22,7 @@ Download from [GitHub Releases](https://github.com/Jamf-Concepts/jamf-cli/releas
 
 ### From source
 
-Requires Go 1.27 or newer — `go.mod` declares `go 1.27.0`, and the default
+Requires Go 1.27 or newer — `go.mod` declares `go 1.27.2`, and the default
 `GOTOOLCHAIN=auto` fetches that toolchain if your local one is older.
 
 ```bash

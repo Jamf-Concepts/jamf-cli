@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -27,11 +28,12 @@ import (
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
-// platformVerboseTransport wraps an http.RoundTripper to mirror the verbose
+// verboseTransport wraps an http.RoundTripper to mirror the verbose
 // logging the Pro HTTP client (internal/client) emits — request/response
 // lines at -v, headers at -vv, bodies at -vvv. Plumbed into the SDK via
 // WithHTTPClient so spec-generated commands log the same way as hand-written
-// Pro commands.
+// Pro commands. Protect, School and Security Cloud take it too, through
+// verboseRoundTripper.
 //
 // It also labels retries, which nothing else can. This transport sits *below*
 // retryablehttp, so it already sees every attempt — but a retry sequence came
@@ -43,9 +45,15 @@ import (
 // hook exists for consumers that log *only* via that interface (the Terraform
 // provider's tflog, which is not a RoundTripper) and would merely duplicate
 // every line for this CLI.
-type platformVerboseTransport struct {
+type verboseTransport struct {
 	inner http.RoundTripper
 	level int
+
+	// plainRetries turns the retry labelling off. It keys on method and URL,
+	// which names a request only where the URL does: Protect is GraphQL, so
+	// every call is a POST to one URL, and a different query after a failed one
+	// would be reported as its retry.
+	plainRetries bool
 
 	// lastKey, lastFailed and attempt track consecutive identical requests so a
 	// retry can be named as one. Two conditions, both needed:
@@ -68,10 +76,27 @@ type platformVerboseTransport struct {
 	lastSent   time.Time
 }
 
-func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+// verboseRoundTripper wraps rt in a verboseTransport at the -v level the user
+// asked for, and returns rt itself when they asked for none. A nil rt is
+// http.DefaultTransport, which is what a nil http.Client.Transport means.
+//
+// For a retryablehttp client, wrap the client's inner transport rather than the
+// StandardClient built over it: that wrapper sits below the retry loop, so every
+// attempt is logged rather than only the call.
+func verboseRoundTripper(rt http.RoundTripper, plainRetries bool) http.RoundTripper {
+	if verboseLevel == 0 {
+		return rt
+	}
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+	return &verboseTransport{inner: rt, level: verboseLevel, plainRetries: plainRetries}
+}
+
+func (t *verboseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.level >= 1 {
 		key := req.Method + " " + req.URL.String()
-		if key == t.lastKey && t.lastFailed {
+		if !t.plainRetries && key == t.lastKey && t.lastFailed {
 			t.attempt++
 			fmt.Fprintf(os.Stderr, "--> %s %s (retry %d, waited %s)\n",
 				req.Method, redact.URL(req.URL), t.attempt, time.Since(t.lastSent).Round(100*time.Millisecond))
@@ -81,8 +106,23 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 		}
 		t.lastSent = time.Now()
 	}
+	// Headers are traced where the bottom transport writes them rather than
+	// dumped from req.Header, which holds neither Host, Content-Length,
+	// Transfer-Encoding nor, on h2, the pseudo-headers. The trace rides the
+	// request context, so it fires for the request that is actually sent, below
+	// the SDK's own transports. The body is logged after the headers, or after
+	// the round trip when nothing was written (a dial failure, a stub).
+	var loggedBody []byte
+	var bodyOnce sync.Once
+	logRequestBody := func() {
+		bodyOnce.Do(func() {
+			if loggedBody != nil {
+				jamfclient.LogBody(os.Stderr, loggedBody)
+			}
+		})
+	}
 	if t.level >= 2 {
-		jamfclient.LogHeaders(os.Stderr, req.Header, true)
+		req = req.WithContext(jamfclient.TraceWireHeaders(req.Context(), os.Stderr, logRequestBody))
 	}
 	if t.level >= 3 && req.Body != nil && req.Body != http.NoBody {
 		raw, err := io.ReadAll(io.LimitReader(req.Body, jamfclient.BodyLogLimit))
@@ -96,13 +136,14 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 			// first-attempt error — so a rotated secret, the WAF 403 or a 5xx
 			// is followed by an attempt whose form body carries client_secret
 			// in plaintext.
-			jamfclient.LogBody(os.Stderr, jamfclient.RedactBodyForLog(raw))
+			loggedBody = jamfclient.RedactBodyForLog(raw)
 			req.Body = io.NopCloser(bytes.NewReader(raw))
 			req.ContentLength = int64(len(raw))
 		}
 	}
 
 	resp, err := t.inner.RoundTrip(req)
+	logRequestBody()
 	if err != nil {
 		// A transport-level error is retryable, so the next identical request
 		// is a retry.
@@ -112,10 +153,10 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 	t.lastFailed = resp.StatusCode >= 400
 
 	if t.level >= 1 {
-		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
 	}
 	if t.level >= 2 {
-		jamfclient.LogHeaders(os.Stderr, resp.Header, false)
+		jamfclient.LogHeaders(os.Stderr, jamfclient.ResponseWireHeaders(resp), false)
 	}
 	if t.level >= 3 && resp.Body != nil {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, jamfclient.BodyLogLimit))
@@ -275,7 +316,7 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 		stdClient.Transport = &dryRunGuardTransport{inner: stdClient.Transport}
 	}
 	if verboseLevel > 0 {
-		stdClient.Transport = &platformVerboseTransport{inner: stdClient.Transport, level: verboseLevel}
+		stdClient.Transport = &verboseTransport{inner: stdClient.Transport, level: verboseLevel}
 	}
 	if showSpinner {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}

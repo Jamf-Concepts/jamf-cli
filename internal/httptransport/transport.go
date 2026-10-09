@@ -61,3 +61,20 @@ func New() *http.Transport {
 		ReadBufferSize:  1 << 16,
 	}
 }
+
+// HTTP1Only returns a copy of t that negotiates HTTP/1.1 and never HTTP/2.
+// The copy has its own connection pool, so closing its idle connections cannot
+// disturb t's.
+func HTTP1Only(t *http.Transport) *http.Transport {
+	c := t.Clone()
+	c.ForceAttemptHTTP2 = false
+	c.Protocols = new(http.Protocols)
+	c.Protocols.SetHTTP1(true)
+	// A TLS config the caller supplied can still offer h2 in ALPN, and the
+	// server would then answer h2 to a transport that only speaks HTTP/1.1.
+	if c.TLSClientConfig != nil {
+		c.TLSClientConfig = c.TLSClientConfig.Clone()
+		c.TLSClientConfig.NextProtos = []string{"http/1.1"}
+	}
+	return c
+}

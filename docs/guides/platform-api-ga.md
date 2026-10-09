@@ -794,6 +794,6 @@ profile.
 
 ### Building from source needs Go 1.27
 
-`go.mod` declares `go 1.27.0`, up from `1.26.6`. With the default `GOTOOLCHAIN=auto` an
+`go.mod` declares `go 1.27.2`, up from `1.26.6`. With the default `GOTOOLCHAIN=auto` an
 older local toolchain downloads it, so `go install` keeps working; a pinned
 `GOTOOLCHAIN=go1.26.x` does not. Binary releases and the Homebrew formula are unaffected.

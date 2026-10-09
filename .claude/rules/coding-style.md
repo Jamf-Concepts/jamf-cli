@@ -61,7 +61,7 @@ The slices are initialised empty in `generator/platform/template.go`, `generator
 
 ## Go Toolchain Pin
 
-**The Go toolchain is pinned in three places so an artifact cannot depend on which `go` a developer happens to have.** go.mod declares **1.27.0**, CI reads `go-version-file: go.mod`, and `make generate` / `make fmt` export `GOTOOLCHAIN=$(GO_PINNED_TOOLCHAIN)` derived from that same line.
+**The Go toolchain is pinned in three places so an artifact cannot depend on which `go` a developer happens to have.** go.mod declares **1.27.2**, CI reads `go-version-file: go.mod`, and `make generate` / `make fmt` export `GOTOOLCHAIN=$(GO_PINNED_TOOLCHAIN)` derived from that same line.
 
 `GOTOOLCHAIN=auto` treats go.mod's version as a minimum, so a newer local toolchain is used silently — and gofmt's alignment rules move between releases. Go 1.26 breaks a map literal's alignment group at a long key where 1.27 keeps one group; on 1.26 a single gofmt pass over generator output was not even a fixed point. It failed in CI on a pure-whitespace diff in a file nobody had touched.
 
