@@ -43,7 +43,7 @@ var resourceNameOverrides = map[string]string{
 // (and a 401/404) as boilerplate error responses, so "declares a 403" cannot
 // distinguish a check endpoint whose 403 body is the answer from a normal
 // endpoint whose 403 means "your token is not allowed". Hence an explicit map,
-// the same way TagFilenameOverrides and resourceNameFieldOverrides handle what
+// the same way resourceNameOverrides and resourceNameFieldOverrides handle what
 // the specs can't express.
 //
 // The generated command carries these through registry.WithAllowedStatuses, so
@@ -573,14 +573,13 @@ func singularize(name string) string {
 // collection paths (e.g. /v1/foo/macos and /v1/foo/ios in the same file)
 // produce one resource per family. Returns nil when the file should be skipped.
 // specLoader is shared by every ParseSpec call so that a document is read and
-// unmarshalled once per process rather than once per referring spec. 126 of the
-// 165 committed specs external-$ref specs/_MonolithLibrary.yaml, 100 KB of YAML,
-// and a per-call loader re-parsed it for each of them.
+// unmarshalled once per process rather than once per referring spec, so a file
+// that several specs external-$ref is parsed once.
 //
 // Sharing is sound because the loader hands back parsed documents that nothing
 // here writes to: ParseSpec reads doc.Paths and doc.Components.Schemas and
 // builds its own Resource and Schema values from them. Two specs that both
-// $ref the library therefore receive the same *openapi3.T for it, and a single
+// $ref one file therefore receive the same *openapi3.T for it, and a single
 // in-place edit would cross-contaminate every other spec's parse. The standing
 // proof is make verify-generated, which regenerates all three command trees and
 // diffs them byte for byte.

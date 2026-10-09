@@ -61,9 +61,9 @@ func main() {
 		gatewaySource string
 		gatewaySDKRev string
 	)
-	flag.StringVar(&specsDir, "specs", "./specs", "Directory containing per-resource OpenAPI spec files")
+	flag.StringVar(&specsDir, "specs", "./specs", "Directory containing the Jamf Pro OpenAPI spec documents (JamfProAPI.yaml, AppInstallers.yaml)")
 	flag.StringVar(&outputDir, "output", "./internal/commands/pro/generated", "Directory to write generated Go files into")
-	flag.StringVar(&monolithPath, "monolith", "", "Optional consolidated OpenAPI document to split into per-resource spec files before generation. Accepts a local path or http(s):// URL")
+	flag.StringVar(&monolithPath, "monolith", "", "Optional consolidated OpenAPI document to normalise into <specs>/JamfProAPI.yaml before generation. Accepts a local path or http(s):// URL")
 	// One flag rather than two, because both artifacts derive from the same
 	// drop directory and the same two SDK specs. A second flag that must always
 	// carry the same value is a code path nothing exercises independently, which
@@ -141,7 +141,9 @@ func main() {
 	// that has to be refreshed alongside another one is not a second flag.
 	//
 	// Before the spec glob below, so the files this writes are the ones parsed.
-	if gatewaySource != "" {
+	// An empty AppInstallerSpecs turns the derivation off rather than failing,
+	// so the instance's document can take the subtree over (docs/sync-specs.md).
+	if gatewaySource != "" && len(monolith.AppInstallerSpecs) > 0 {
 		fmt.Println("Deriving App Installer specs")
 		fmt.Println("----------------------------")
 		written, warnings, err := monolith.ExtractSubtree(
@@ -193,7 +195,7 @@ func main() {
 
 	if len(specs) == 0 {
 		fmt.Println("No OpenAPI specs found in", specsDir)
-		fmt.Println("Run 'make sync-specs' to fetch specs from jamf-pro-server")
+		fmt.Println("Run 'make sync-spec' to ingest the Jamf Pro API spec from an instance")
 		os.Exit(0)
 	}
 

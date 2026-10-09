@@ -113,7 +113,8 @@ Specs live in three locations depending on the command namespace:
 
 | Command namespace | Spec location | Naming convention | Example |
 |---|---|---|---|
-| `pro <resource>` (modern API) | `specs/JamfProAPI.yaml` | one document for every resource | find the operation by its path |
+| `pro <resource>` (modern API) | `specs/JamfProAPI.yaml` | one 1.6 MB document for every resource — read one operation with Bash (step 2), not WebFetch | `POST /v1/categories` |
+| `pro app-installers*` (modern API) | `specs/AppInstallers.yaml` | one document for every App Installer command | `POST /v1/app-installers/deployments` |
 | `pro classic-<resource>` (Classic API) | `specs/classic/schemas.json` | request-body schemas, one per resource | `specs/classic/resources.yaml` lists resources and paths only |
 | `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/` (see mapping below) | abbreviated, **not** derivable from the command name | `compliance-benchmarks` → `compliance_benchmark_engine.json` |
 
@@ -133,8 +134,14 @@ If the command's `--help` lists `--scaffold`, run it first: it prints the body t
 
 1. Determine which namespace the command belongs to (shown in `--help` under "Platform:" vs other groups). Pick the correct spec location from the table above.
 
-2. Fetch the raw spec via WebFetch using the appropriate URL:
-   - Pro modern: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml` — one large document; ask for the request schema of the one operation you need
+2. Load the spec for that namespace:
+   - Pro modern: for required fields or enums beyond what `--scaffold` prints, do **not** WebFetch `specs/JamfProAPI.yaml`: it is 1.6 MB and WebFetch truncates it before `paths:`. Use Bash to print one block from it instead:
+     - find the path key first: `curl -fsSL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | grep '^  /.*smart-groups'`. The command name does not always appear in the path: it joins segments with `-` and sometimes renames them (`computer-groups-smart-groups` is `/v3/computer-groups/smart-groups`, `sso-settings` is `/v3/sso`, `computer-inventory` is `/v4/computers-inventory`). So grep for its most distinctive word, and try another word if nothing prints.
+     - pick the key: when several `/vN` versions of the same path are listed, the CLI sends the highest. `create` uses the collection key (`/v1/categories:`). `get`, `update`, `patch` and `delete` use the key with a path parameter (`/v1/categories/{id}:`) when one is listed. A settings resource has only the collection key, and its PUT is there. `apply` sends the collection key's POST to create and the parameter key's PUT to update.
+     - the operation, with the key copied exactly as `grep` printed it: `curl -fsSL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | awk '$0=="  /v1/categories/{id}:"{p=1;print;next} p&&/^([^ ]|  [^ ])/{p=0} p'`
+     - a schema its `$ref` names: `curl -fsSL https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/JamfProAPI.yaml | awk '$0=="    Category:"{p=1;print;next} p&&/^([^ ]|  [^ ]|    [^ ])/{p=0} p'`
+     - if a command prints nothing, read stderr first. A `curl:` error means the fetch failed (network, proxy or HTTP status), not the key; say so to the user rather than retrying the grep. Empty output with no error means the key or schema name did not match exactly; go back to the `grep`.
+   - App Installers (`pro app-installers*`): `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/AppInstallers.yaml` is small enough to WebFetch.
    - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/schemas.json`
    - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `compliance_benchmark_engine.json`), do not assume `<resource>-api.json`
 

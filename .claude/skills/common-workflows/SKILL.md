@@ -13,18 +13,17 @@ description: Use when adding a feature, syncing Jamf Pro/Platform/Security specs
 
 ## Syncing specs for a new Jamf Pro version
 
-Both routes require `JAMF_PRO_VERSION` — it is written to `specs/.spec-version`, which the Makefile bakes into the binary as `specProVersion`. Full walkthrough in `docs/sync-specs.md`.
+One route: an instance's consolidated `/api/schema/` document. `JAMF_PRO_VERSION` is required — it is written to `specs/.spec-version`, which the Makefile bakes into the binary as `specProVersion`. Full walkthrough in `docs/sync-specs.md`.
 
-**A. Monorepo checkout:** `make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=11.31.0` → review `git diff --stat -- internal/commands/pro/generated/` → `make test`. This route deletes every `specs/*.yaml`, `JamfProAPI.yaml` and `AppInstallers.yaml` included, and copies per-resource files back without normalising them. The shipped `jamf-cli` skill fetches `specs/JamfProAPI.yaml` from `main`, so a route A sync breaks that fetch.
-
-**B. Consolidated `/api/schema/` monolith:**
 1. Fetch (needs auth): `curl -H "Authorization: Bearer $JAMF_TOKEN" https://<instance>/api/schema/ -o monolith.json`
-2. `make sync-spec JAMF_MONOLITH_SPEC=./monolith.json JAMF_PRO_VERSION=11.31.0`
+2. `make sync-spec JAMF_MONOLITH_SPEC=./monolith.json JAMF_PRO_VERSION=11.32.0`
 3. Review `git diff --stat -- specs/ internal/commands/pro/generated/` → `make test`.
 
-The public monolith is a **subset** of the monorepo specs — route B legitimately drops private endpoints.
+`monolith.Normalise` writes the document to `specs/JamfProAPI.yaml` as sorted YAML. `specs/AppInstallers.yaml` is the one other spec: App Installers sits under `hiddenapi/` in jamf/jss, so no `/api/schema/` carries it, and `make sync-platform-specs-from-sdk` derives it from the gateway's Pro API spec (`monolith.ExtractSubtree`, routed by `monolith.AppInstallerSpecs`). `PruneStaleSpecs` exempts every `AppInstallerSpecs` filename, and `TestCommittedSpecsAreTheNormalisedLayout` fails if `specs/*.yaml` is anything other than those two files.
 
-Route B writes one normalised document, `specs/JamfProAPI.yaml` (`monolith.Normalise`, `generator/monolith/document.go`), and `PruneStaleSpecs` removes the per-resource files an earlier split left behind. App Installers are the one Jamf Pro surface no monolith carries: they are derived from the SDK's `pro_api.json` through `AppInstallerSpecs` (`generator/monolith/overrides.go`), and `PruneStaleSpecs` exempts them.
+**The jamf/jss route (`make sync-specs`) is retired** and the target refuses. It ran `rm -f specs/*.yaml`, so it deleted both files and every `pro app-installers*` command, and the shipped `jamf-cli` skill fetches `specs/JamfProAPI.yaml` from main. It carried no endpoint `/api/schema/` lacks (checked at 11.32.0-t1787580540993). Do not bring back a per-resource layout for an endpoint the instance does not serve — derive it from the gateway spec the way App Installers is.
+
+Resource identity comes from URL paths (`parser.ParseMonolith`), not filenames. Naming knobs are `resourceNameOverrides` and `readOnlySingletonPaths` in `generator/parser/parser.go`.
 
 After ingest, any **new tag** surfaces as a new resource command and trips `TestApplyProGroups_AllCommandsGrouped` — wire into the correct `proGroupMap` entry in `internal/commands/groups.go`.
 

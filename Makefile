@@ -46,16 +46,7 @@ clean:
 	rm -rf bin/
 	rm -f coverage.out coverage.html
 
-# Path to jamf-pro-server repo (override with: make sync-specs JAMF_SERVER_PATH=/path/to/repo)
-# Specs are scattered across module directories under jamf-pro-server/.
-JAMF_SERVER_PATH ?= ../jamf-pro-server
-# The directory actually scanned for specs. Derived from JAMF_SERVER_PATH for a
-# normal side-by-side checkout; override it directly when the server tree is not
-# nested under a jamf-pro-server/ directory — .github/workflows/sync-specs.yaml
-# does this, since actions/checkout puts the tree straight into jss/.
-JAMF_SERVER_ROOT ?= $(JAMF_SERVER_PATH)/jamf-pro-server
-
-# The sync targets write JAMF_PRO_VERSION into specs/.spec-version and echo it.
+# sync-spec writes JAMF_PRO_VERSION into specs/.spec-version and echoes it.
 # Export it so the recipes below can read it from the environment as
 # $$JAMF_PRO_VERSION. Make substitutes $(JAMF_PRO_VERSION) textually, so a value
 # that contains a double quote closes the string and the rest runs as a command.
@@ -94,72 +85,20 @@ esac
 }
 endef
 
-# Sync OpenAPI specs from jamf-pro-server repo and regenerate commands
-sync-specs:
-	@if [ ! -d "$(JAMF_SERVER_ROOT)" ]; then \
-		echo "Error: jamf-pro-server spec tree not found at $(JAMF_SERVER_ROOT)"; \
-		echo "Set JAMF_SERVER_PATH to the repo's parent, or JAMF_SERVER_ROOT to the tree itself."; \
-		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
-		exit 1; \
-	fi
-	$(call check_jamf_pro_version,Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version> (e.g. JAMF_PRO_VERSION=11.31.0))
-	@echo "Syncing OpenAPI specs from $(JAMF_SERVER_ROOT)..."
-	@# Duplicate basenames are checked against the SOURCE tree, before anything
-	@# is copied: two upstream modules shipping the same filename collapse into
-	@# one file the moment cp runs, so a post-copy `ls specs/ | uniq -d` can
-	@# never see them. Validating first also means a rejected sync leaves the
-	@# committed specs/ untouched.
-	@# One find pass covers what used to be two (all uapi/**.yaml except
-	@# hiddenapi, which includes common/) so the check sees the same set that
-	@# gets copied.
-	@set -e; \
-	sources=$$(find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/*.yaml" \
-		-not -path "*/uapi/hiddenapi/*"); \
-	if [ -z "$$sources" ]; then \
-		echo "Error: no specs found under $(JAMF_SERVER_ROOT)/**/swagger_docs/uapi/"; \
-		exit 1; \
-	fi; \
-	dupes=$$(printf '%s\n' "$$sources" | xargs -n1 basename | sort | uniq -d); \
-	if [ -n "$$dupes" ]; then \
-		echo "Error: duplicate spec filenames in $(JAMF_SERVER_ROOT) (last-write-wins risk):"; \
-		printf '%s\n' "$$dupes" | sed 's/^/  /'; \
-		exit 1; \
-	fi; \
-	rm -f specs/*.yaml; \
-	printf '%s\n' "$$sources" | while IFS= read -r spec; do cp "$$spec" specs/; done
-	@# Normalise upstream naming where the spec filename doesn't match its paths.
-	@# MobileDeviceExtensionAttribute.yaml upstream holds only the legacy preview
-	@# endpoint (/devices/extensionAttributes — tag mobile-device-extension-attributes-preview)
-	@# which returns just names and is redundant with the full /v1 CRUD. Drop it
-	@# and rename DeviceExtensionAttribute.yaml (which actually contains the
-	@# /v1/mobile-device-extension-attributes CRUD) into its place so the parser
-	@# derives the correct resource name from the filename.
-	@if [ -f specs/DeviceExtensionAttribute.yaml ]; then \
-		rm -f specs/MobileDeviceExtensionAttribute.yaml; \
-		mv specs/DeviceExtensionAttribute.yaml specs/MobileDeviceExtensionAttribute.yaml; \
-		echo "  Renamed DeviceExtensionAttribute.yaml → MobileDeviceExtensionAttribute.yaml (legacy preview dropped)"; \
-	fi
-	@echo "Copied specs:"
-	@ls specs/*.yaml | wc -l | xargs echo "  Total files:"
-	@echo "Regenerating commands..."
-	@$(MAKE) generate
-	@# Stamped last: a mid-run failure must not leave .spec-version (and hence
-	@# the version baked into the next build) claiming a sync that didn't finish.
-	@printf '%s\n' "$$JAMF_PRO_VERSION" > specs/.spec-version
-	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
-	@echo "Done! Review changes with: git diff"
-
 # Path to, or URL of, a consolidated Jamf Pro OpenAPI document (e.g.
-# https://<instance>/api/schema/). When set, sync-spec splits it into per-
-# resource spec files under specs/ before regenerating.
+# https://<instance>/api/schema/). When set, generate writes it into
+# specs/JamfProAPI.yaml as one normalised document before regenerating.
 JAMF_MONOLITH_SPEC ?=
 
-# Sync OpenAPI specs from a single consolidated document and regenerate commands.
+# Sync the Jamf Pro API spec from a consolidated document and regenerate
+# commands. This is the only Jamf Pro spec route: at 11.32.0-t1787580540993 a
+# jamf/jss checkout carried no endpoint (by method and path) that the
+# instance's own /api/schema/ lacked.
 # JAMF_MONOLITH_SPEC accepts a local path or an http(s):// URL, e.g.:
 #   make sync-spec JAMF_MONOLITH_SPEC=/path/to/monolith-schema.json
 #   make sync-spec JAMF_MONOLITH_SPEC=https://<instance>/api/schema/
-# Preserved spec files (see generator/monolith/overrides.go PreservedSpecs) and
-# the classic/ subdirectory is left untouched.
+# specs/AppInstallers.yaml (see monolith.AppInstallerSpecs) and the
+# subdirectories of specs/ are left untouched.
 sync-spec:
 	@if [ -z "$(JAMF_MONOLITH_SPEC)" ]; then \
 		echo "Error: JAMF_MONOLITH_SPEC is not set."; \
@@ -178,10 +117,19 @@ sync-spec:
 	esac
 	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
 	@$(MAKE) generate JAMF_MONOLITH_SPEC="$(JAMF_MONOLITH_SPEC)"
-	@# Stamped after generate, not before — see sync-specs.
+	@# Stamped last: a mid-run failure must not leave .spec-version (and hence
+	@# the version baked into the next build) claiming a sync that didn't finish.
 	@printf '%s\n' "$$JAMF_PRO_VERSION" > specs/.spec-version
 	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
+
+# The retired jamf/jss route. It deleted specs/JamfProAPI.yaml and
+# specs/AppInstallers.yaml, so it refuses rather than disappearing silently.
+sync-specs:
+	@echo "Error: 'make sync-specs' (copy specs from a jamf/jss checkout) is retired."
+	@echo "Use: make sync-spec JAMF_MONOLITH_SPEC=<url-or-file> JAMF_PRO_VERSION=<version>"
+	@echo "See docs/sync-specs.md."
+	@exit 1
 
 # PLATFORM_SDK_SPECS is the set of Platform Gateway specs this CLI generates
 # from, and it is authoritative: sync-platform-specs copies exactly these and
@@ -516,8 +464,8 @@ verify-classic-schemas:
 	@echo "Classic schema artifact is up to date."
 
 # Generate CLI commands from OpenAPI specs and Classic API manifest.
-# If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec
-# files before parsing, preserving the existing filename layout.
+# If JAMF_MONOLITH_SPEC is set, the monolith is written into
+# specs/JamfProAPI.yaml before parsing.
 # Generated code is formatted by the toolchain go.mod declares, not by whatever
 # `go` happens to be on PATH, because gofmt's alignment rules move between
 # releases. Go 1.26 breaks a map literal's alignment group at a long key where

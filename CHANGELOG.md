@@ -203,6 +203,31 @@ seconds. A takeover blueprint whose device leaves its target or joins an exclude
 failed once the device returns. Undeploying it and deploying it again clears that: the
 undeploy removes the profile from the device and the deploy installs it from the blueprint.
 
+### Removed — `make sync-specs` and the Sync Specs workflow
+
+The route that copied Jamf Pro specs out of a `jamf/jss` checkout is retired.
+It ran `rm -f specs/*.yaml`, so a run deleted `specs/JamfProAPI.yaml` and
+`specs/AppInstallers.yaml`, and with them every `pro app-installers*` command.
+It also carried no endpoint that an instance's `/api/schema/` lacks, by method
+and path at build `11.32.0-t1787580540993`. The only
+Jamf Pro route is now `make sync-spec JAMF_MONOLITH_SPEC=<url-or-file>
+JAMF_PRO_VERSION=<version>`. `make sync-specs` refuses and names it, and
+`.github/workflows/sync-specs.yaml` is deleted.
+
+### Fixed — the `jamf-cli` skill and hook name spec files that exist
+
+The `jamf-cli` skill and its pre-mutation hook told models to fetch
+`specs/<ResourceName>.yaml` and Platform files such as `blueprints-api.json`.
+None of those exist on `main`. They now name `specs/JamfProAPI.yaml`,
+`specs/AppInstallers.yaml` and the real `specs/platform/` filenames. For a Pro
+resource the skill shows how to find the path key in `JamfProAPI.yaml` and print
+that one operation, since WebFetch truncates the file.
+
+The hook printed its guidance to stderr and exited 0, which Claude Code sends
+only to the debug log, so no model ever read it. It now returns the guidance as
+`hookSpecificOutput.additionalContext` on stdout. It still exits 0 and sets no
+permission decision, so it never blocks or approves a command.
+
 ### Added — generated Jamf Pro writes take a body `--from-file`
 
 Every generated Pro `create`, `update` and body-carrying action read its body

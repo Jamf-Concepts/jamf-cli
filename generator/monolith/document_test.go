@@ -161,3 +161,30 @@ func TestPruneStaleSpecs(t *testing.T) {
 		t.Errorf("the classic/ subdirectory was touched: %v", err)
 	}
 }
+
+// A `make sync-spec` run with no gateway source writes JamfProAPI.yaml and
+// nothing else, so keep never names the App Installer specs. They must survive
+// anyway: no monolith carries them, and losing them drops four commands.
+func TestPruneStaleSpecs_KeepsAppInstallerSpecsOnAMonolithOnlyRun(t *testing.T) {
+	if len(AppInstallerSpecs) == 0 {
+		t.Fatal("no App Installer specs registered, so this test would assert nothing")
+	}
+	specsDir := t.TempDir()
+	writeFile(t, specsDir, NormalisedSpecFile, "openapi: 3.0.1\n")
+	for _, s := range AppInstallerSpecs {
+		writeFile(t, specsDir, s.Filename, "openapi: 3.0.1\n")
+	}
+
+	removed, err := PruneStaleSpecs(specsDir, []string{filepath.Join(specsDir, NormalisedSpecFile)})
+	if err != nil {
+		t.Fatalf("PruneStaleSpecs() error = %v", err)
+	}
+	if len(removed) != 0 {
+		t.Errorf("removed %v, want nothing", removed)
+	}
+	for _, s := range AppInstallerSpecs {
+		if _, err := os.Stat(filepath.Join(specsDir, s.Filename)); err != nil {
+			t.Errorf("%s was pruned on a run that could not have rewritten it: %v", s.Filename, err)
+		}
+	}
+}

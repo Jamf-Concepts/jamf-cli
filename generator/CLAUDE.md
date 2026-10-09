@@ -5,7 +5,7 @@ specs/*.yaml ──────────────► generator/parser/   �
                                LoadDocuments()        + registry.go
                                Generator.Generate()
 
-specs/.platform-source/     ► generator/monolith/ ──► specs/AppInstaller*.yaml
+specs/.platform-source/     ► generator/monolith/ ──► specs/AppInstallers.yaml
   pro_api.json                 ExtractSubtree()       (the only published spec that
                                                         describes App Installers; runs
                                                         before the glob above, so one
