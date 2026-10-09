@@ -1888,6 +1888,8 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
 	rc.HTTPClient.Timeout = 60 * time.Second
 	rc.HTTPClient.Jar = jar
+	// GraphQL: every call is a POST to one URL, so no retry labels.
+	rc.HTTPClient.Transport = verboseRoundTripper(rc.HTTPClient.Transport, true)
 
 	stdClient := rc.StandardClient()
 	if shouldShowSpinner() {
@@ -2015,6 +2017,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
 	rc.HTTPClient.Timeout = 60 * time.Second
 	rc.HTTPClient.Jar = jar
+	rc.HTTPClient.Transport = verboseRoundTripper(rc.HTTPClient.Transport, false)
 
 	stdClient := rc.StandardClient()
 	if shouldShowSpinner() {
@@ -2151,6 +2154,7 @@ func buildSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext, transp
 		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
 	}
 
+	transport = verboseRoundTripper(transport, false)
 	stdClient := &http.Client{Timeout: 60 * time.Second, Transport: transport}
 	if shouldShowSpinner() {
 		stdClient.Transport = &spinnerTransport{inner: transport}

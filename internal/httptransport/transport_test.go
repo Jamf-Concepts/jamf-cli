@@ -3,6 +3,7 @@
 package httptransport
 
 import (
+	"crypto/tls"
 	"testing"
 	"time"
 )
@@ -49,5 +50,22 @@ func TestResponseHeaderTimeout_OutlastsTheGatewayEdge(t *testing.T) {
 	const gatewayEdge = 90 * time.Second
 	if ResponseHeaderTimeout <= gatewayEdge {
 		t.Errorf("ResponseHeaderTimeout = %v, want more than the gateway edge's %v", ResponseHeaderTimeout, gatewayEdge)
+	}
+}
+
+func TestHTTP1Only_DoesNotShareOrMutateTheOriginal(t *testing.T) {
+	orig := New()
+	orig.TLSClientConfig = &tls.Config{NextProtos: []string{"h2", "http/1.1"}}
+
+	h1 := HTTP1Only(orig)
+
+	if h1.ForceAttemptHTTP2 || h1.Protocols == nil || h1.Protocols.HTTP2() || !h1.Protocols.HTTP1() {
+		t.Errorf("copy is not HTTP/1.1 only: ForceAttemptHTTP2=%v Protocols=%v", h1.ForceAttemptHTTP2, h1.Protocols)
+	}
+	if got := h1.TLSClientConfig.NextProtos; len(got) != 1 || got[0] != "http/1.1" {
+		t.Errorf("copy NextProtos = %v, want [http/1.1]", got)
+	}
+	if !orig.ForceAttemptHTTP2 || orig.Protocols != nil || len(orig.TLSClientConfig.NextProtos) != 2 {
+		t.Error("HTTP1Only mutated the original transport")
 	}
 }
