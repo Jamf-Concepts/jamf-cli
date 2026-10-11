@@ -1,5 +1,5 @@
-github.com/Jamf-Concepts/jamfprotect-go-sdk v0.8.0 h1:AiP8KiPpTMLnAEY4E9T8PtBOihVMjeQ3/lnLcpbR/yc=
-github.com/Jamf-Concepts/jamfprotect-go-sdk v0.8.0/go.mod h1:IoRB8uP1p0XxxFr/ZbP4+HSmoYd66LES1l0xev0GaxM=
+github.com/Jamf-Concepts/jamfprotect-go-sdk v0.9.0 h1:Ke0erdft0c3wZQv4iScsRz85w23TqNoCdvIHdT2fmHs=
+github.com/Jamf-Concepts/jamfprotect-go-sdk v0.9.0/go.mod h1:FiEgFj5Y5Ah6NUFKgM2yW7sH6/Lnkt+ifwOy2XRK3qc=
 github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2 h1:+YHY9leMdyP6oEDJtqIrLNTLnVVuyRW+kN5tZBvwmQY=
 github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2/go.mod h1:AgDnQLjef9nqymlaolGUiE1Hc0xqB9CxZjPTBK7Mr4Y=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
@@ -40,8 +40,6 @@ github.com/iancoleman/strcase v0.3.0 h1:nTXanmYxhfFAMjZL34Ov6gkzEsSJZ5DbhxWjvSAS
 github.com/iancoleman/strcase v0.3.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/jamf/jamfplatform-go-sdk v1.2.0 h1:t0XYcs4sUAzRU/4zBUu0FLhqSfn6R0znqyWvx8Nu3R4=
-github.com/jamf/jamfplatform-go-sdk v1.2.0/go.mod h1:QqbUlIakbYVvJlcqa6JEDA6dLxl9Tr9m9pQdBZ1wvKk=
 github.com/jamf/jamfplatform-go-sdk v1.3.0 h1:ujahgCizZDbAYefDBRel7GY0s3dnmVIPrz9HuZIXAcg=
 github.com/jamf/jamfplatform-go-sdk v1.3.0/go.mod h1:LWxyRJPcmTvmuek5A7Xk6whuj6B/k44GAh+SO+MKelY=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
