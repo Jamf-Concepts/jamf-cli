@@ -649,6 +649,7 @@ var modernMDMRefusedCommands = [][]string{
 	{"pro", "computers-inventory", "set-recovery-lock"},
 	{"pro", "computers-inventory", "set-auto-admin-password"},
 	{"pro", "computers-inventory", "settings"},
+	{"pro", "computers-inventory", "unlock-user-account"},
 	{"pro", "mobile-devices", "lock"},
 	{"pro", "mobile-devices", "clear-passcode"},
 	{"pro", "mobile-devices", "enable-lost-mode"},

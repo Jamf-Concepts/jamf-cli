@@ -131,6 +131,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRestartCmd(cliCtx))
 	addSubcommand(cmd, []string{"computer-inventory"}, newComputerShutdownCmd(cliCtx))
 	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSetRecoveryLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerUnlockUserAccountCmd(cliCtx))
 	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSettingsCmd(cliCtx))
 	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
 
