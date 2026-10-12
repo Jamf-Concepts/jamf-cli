@@ -54,7 +54,7 @@ func (s *duplicateNameClassicServer) Do(_ context.Context, method, path string, 
 	case method == "GET" && strings.HasPrefix(path, base+"/name/"):
 		return reply(200, s.record(s.serverPick))
 	case method == "GET" && strings.HasPrefix(path, base+"/id/"):
-		id := strings.SplitN(strings.TrimPrefix(path, base+"/id/"), "/", 2)[0]
+		id, _, _ := strings.Cut(strings.TrimPrefix(path, base+"/id/"), "/")
 		if !slices.Contains(s.ids, id) {
 			return reply(404, "not found")
 		}

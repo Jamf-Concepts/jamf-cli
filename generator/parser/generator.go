@@ -1666,11 +1666,11 @@ func getPipeBlock(r *Resource, bin, comment, jq, write string) string {
 	if op == nil {
 		return ""
 	}
-	ids := ""
+	var ids strings.Builder
 	for i := range pathParams(op.Parameters) {
-		ids += fmt.Sprintf(" %d", i+1)
+		fmt.Fprintf(&ids, " %d", i+1)
 	}
-	return fmt.Sprintf("  # %s\n  %s %s get%s -o json | jq '%s' | %s", comment, bin, r.CmdPath(), ids, jq, write)
+	return fmt.Sprintf("  # %s\n  %s %s get%s -o json | jq '%s' | %s", comment, bin, r.CmdPath(), ids.String(), jq, write)
 }
 
 // resourceNameField is the body field holding a resource's name: "name"

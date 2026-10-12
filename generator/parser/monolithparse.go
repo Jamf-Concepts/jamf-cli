@@ -5,6 +5,7 @@ package parser
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -525,11 +526,11 @@ func addRefName(ref string, out map[string]bool) bool {
 	// An external reference (`Other.yaml#/components/schemas/Name`) resolves to
 	// the same component in a merged document, so match on the fragment rather
 	// than requiring the reference to be local.
-	i := strings.Index(ref, prefix)
-	if i < 0 {
+	_, after, ok := strings.Cut(ref, prefix)
+	if !ok {
 		return false
 	}
-	name := ref[i+len(prefix):]
+	name := after
 	if name == "" || strings.Contains(name, "/") {
 		return false
 	}
@@ -737,10 +738,5 @@ func soleBaseTagOf(path string, tags []string) (string, error) {
 
 // slicesContainsString reports whether xs holds x.
 func slicesContainsString(xs []string, x string) bool {
-	for _, v := range xs {
-		if v == x {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(xs, x)
 }

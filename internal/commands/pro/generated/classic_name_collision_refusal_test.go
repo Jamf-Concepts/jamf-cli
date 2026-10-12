@@ -60,8 +60,7 @@ func TestClassicNameCollisionRefusalIsAUsageErrorWithAHint(t *testing.T) {
 }
 
 func hintOf(err error) string {
-	var e *exitcode.Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*exitcode.Error](err); ok {
 		return e.Hint
 	}
 	return ""
