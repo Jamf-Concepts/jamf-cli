@@ -21,6 +21,17 @@ Secrets in config use prefixed references: `env:VAR`, `file:/path`, `keychain:se
 
 **Both `checkAPIMatch` directions key on the resolved auth method, not on a profile**, so env-var credentials behave identically to profiles. The credential source is named in error messages from `credentialSource`, not `resolvedProfile`, because `resolveAuth`'s precedence is env-then-profile while `resolvedProfile` stays whatever `-p` or `default-profile` names.
 
+## macOS Keychain Items Trust jamf-cli, Not `/usr/bin/security`
+
+**On macOS a keychain item is written in-process through Security.framework, never through `/usr/bin/security`** (#430). An item trusts the program that created it. go-keyring shells out to `security`, so every item it wrote trusted Apple's tool, and any process running as the user could read the secret back through that tool with no prompt. An item written in-process trusts the Developer ID designated requirement (identifier `com.jamf.concepts.jamf-cli`, team `483DWKW443`), so each signed release keeps reading it silently. An ad-hoc `go build` binary is trusted by cdhash only, so a rebuild sees a prompt. Wire-checked with `security dump-keychain -a`: a legacy item has partition `apple-tool:`, and an item written by an ad-hoc build has partition `cdhash:…` and no `/usr/bin/security` entry.
+
+- `securityFramework` (`internal/keychain/security_darwin.go`) calls the framework through **purego, not cgo**. The release pipeline builds `CGO_ENABLED=0` and cross-compiles amd64 on an arm64 VM, and cgo would break both.
+- Each new item carries `kSecAttrDescription = "jamf-cli credential"`. That marker is how an in-process item is told from a legacy one **without decrypting anything**, so the check never shows a prompt.
+- `migratingStore` (`internal/keychain/migrate.go`) re-creates a legacy `jamf-cli`-service item the first time it is read. It reads and deletes the item **through `/usr/bin/security`**, because that is the program the item trusts (reading it in-process would prompt once per item), and then adds the item in-process. When the add fails it restores the legacy item and warns, so a failed migration loses nothing. Items under any other service are the user's own and are never rewritten.
+- **A migrated item is not silently readable by an older jamf-cli.** That release reads through `security`, which now gets the system prompt. "Always Allow" there puts `security` back on that item's access list.
+- Deleting an item is **not** gated by its access list: `security delete-generic-password` removed a migrated item with no prompt. Anyone who can delete the item can deny service, but cannot read the secret.
+- Linux and Windows still use go-keyring (`zalandoStore`), unchanged.
+
 ## Auth Bypass Mechanisms
 
 `root.go` bypasses auth by four mechanisms:

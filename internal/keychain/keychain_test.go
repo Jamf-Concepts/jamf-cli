@@ -59,12 +59,12 @@ func TestKeychainRef(t *testing.T) {
 	}
 }
 
-// --- Store (systemStore) tests using go-keyring mock backend ---
+// --- zalandoStore tests using go-keyring mock backend ---
 
-func TestSystemStore_SetAndGet(t *testing.T) {
+func TestZalandoStore_SetAndGet(t *testing.T) {
 	gokeyring.MockInit()
 
-	store := New()
+	store := zalandoStore{}
 	if err := store.Set("test-service", "test-account", "s3cret"); err != nil {
 		t.Fatalf("Set error: %v", err)
 	}
@@ -78,30 +78,30 @@ func TestSystemStore_SetAndGet(t *testing.T) {
 	}
 }
 
-func TestSystemStore_GetNotFound(t *testing.T) {
+func TestZalandoStore_GetNotFound(t *testing.T) {
 	gokeyring.MockInit()
 
-	store := New()
+	store := zalandoStore{}
 	_, err := store.Get("test-service", "nonexistent")
 	if err != ErrNotFound {
 		t.Errorf("Get error = %v, want ErrNotFound", err)
 	}
 }
 
-func TestSystemStore_DeleteNotFound(t *testing.T) {
+func TestZalandoStore_DeleteNotFound(t *testing.T) {
 	gokeyring.MockInit()
 
-	store := New()
+	store := zalandoStore{}
 	err := store.Delete("test-service", "nonexistent")
 	if err != ErrNotFound {
 		t.Errorf("Delete error = %v, want ErrNotFound", err)
 	}
 }
 
-func TestSystemStore_DeleteSuccess(t *testing.T) {
+func TestZalandoStore_DeleteSuccess(t *testing.T) {
 	gokeyring.MockInit()
 
-	store := New()
+	store := zalandoStore{}
 	if err := store.Set("test-service", "del-account", "value"); err != nil {
 		t.Fatalf("Set error: %v", err)
 	}
