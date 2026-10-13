@@ -11,32 +11,25 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
-### Breaking — `pro setup --scope standard` no longer grants privileges that change privileges or logins
+### Behaviour — `unlock-user-account` exits non-zero when Jamf Pro queued no unlock
 
-The `standard` tier withheld deletes, wipes, locks and audit flushes, and
-granted every other privilege. That included `Create` and `Update` on API
-Roles, API Integrations and Accounts. So a `standard` client could rewrite its
-own role to hold every privilege the tier withholds, attach a broader role, or
-create an administrator account.
+Jamf Pro holds one pending `UNLOCK_USER_ACCOUNT` command per device. While one
+is pending, a send naming any account answers 201 with the pending command's
+UUID and queues nothing. A script saw success for an unlock that never happened.
 
-The tier now also withholds these privileges:
+`pro computers unlock-user-account` (new) and `pro mobile-devices
+unlock-user-account` now read the returned command back and **exit 1** when it
+predates the request, naming it. Jamf Pro does not say which account the pending
+command names, so a retry for the same account is refused too. Wait for it to
+complete, or run `flush-commands --status pending`, which removes every
+undelivered command on the device.
 
-- `Create` and `Update` on API Roles, API Integrations, Accounts and Account
-  Groups, and LDAP Servers (which also governs cloud identity providers).
-- `Update SSO Settings` and `Update SMTP Server`.
-- Unmanaging a computer or a mobile device (`Send Computer Unmanage Command`,
-  `Unmanage Mobile Devices`), and the delete-user device command.
-- `Update Retention Policy`, which alone is enough to queue a log flushing
-  task (`pro log-flushing-task create`).
+The mobile command also changes in two ways. It previously exited 0 in both:
 
-Their `Read` privileges stay. A `jamf-cli-standard` role that an earlier setup
-created keeps its old privileges. To rewrite it, run
-`pro setup --credentials create --scope standard` again. Every
-`jamf-cli [<user>]` integration on the instance shares that one role, so the
-re-run narrows it for all of them. The re-run changes only that role: review
-the instance's API roles, API integrations and accounts for any that a
-`standard` client created. To manage roles, accounts or sign-in from the CLI,
-use `--scope full-admin`.
+- A blank `--user-name` (empty or whitespace) exits **2** before anything is sent.
+- When the read-back fails (an API role that can POST MDM commands but cannot
+  read them, for one), the command still exits 0 and prints a stderr warning
+  that the pending-command check was skipped.
 
 ### Behaviour — Classic profile and app writes edit the element the server reads
 

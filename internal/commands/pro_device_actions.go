@@ -960,7 +960,13 @@ func newComputerUnlockUserAccountCmd(cliCtx *registry.CLIContext) *cobra.Command
 attempts. It clears the lockout only: it does not change or reset the account's
 password, and it does not touch FileVault.
 
---user-name is the account's short name, as in /Users/<name>.`,
+--user-name is the account's short name, as in /Users/<name>.
+
+Jamf Pro keeps one pending unlock per device. A second send returns the pending
+command's UUID and queues nothing, so this command reads the returned command
+back. If it was sent before this request, the command exits 1 and names it. If
+the read-back fails (an API role that cannot read MDM commands, for example),
+the command warns on stderr and exits 0.`,
 		Example: `  jamf-cli pro comp unlock-user-account --serial C02X1234 --user-name jsmith
   jamf-cli pro comp unlock-user-account --group "Lab Macs" --user-name labadmin --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1016,11 +1022,25 @@ func sendUnlockUserAccount(cmd *cobra.Command, cliCtx *registry.CLIContext, d *r
 
 	if pending, sent := existingMDMCommand(cmd, cliCtx, body, resp.Header.Get("Date")); pending != "" {
 		return exitcode.New(exitcode.General, fmt.Sprintf(
-			"%s %s already has a pending unlock-user-account command (%s, sent %s); Jamf Pro returned it instead of queuing one for %q",
+			"%s %s already has a pending unlock-user-account command (%s, sent %s). It may name an account other than %q; Jamf Pro does not say which.",
 			deviceType, resolve.FormatDeviceDesc(d), pending, sent, userName)).
-			WithHint("Jamf Pro keeps one pending unlock per device and does not say which account it names. Wait for it to complete, or clear it with flush-commands --status pending and send again.")
+			WithHint(fmt.Sprintf("Jamf Pro keeps one pending unlock per device and does not say which account it names. "+
+				"If it was sent for this account, wait for it to complete. "+
+				"Otherwise clear the queue with %s and send again. "+
+				"That clears the whole pending queue: profiles, apps and updates as well as the unlock.",
+				flushPendingCommand(deviceType, d)))
 	}
 	return cliCtx.Output.PrintRaw(body)
+}
+
+// flushPendingCommand spells the command that clears one device's pending MDM
+// queue, so a hint can name it in full.
+func flushPendingCommand(deviceType string, d *resolve.DeviceIdentifiers) string {
+	noun := "computers"
+	if deviceType == "mobile device" {
+		noun = "mobile-devices"
+	}
+	return fmt.Sprintf("`jamf-cli pro %s flush-commands --id %s --status pending`", noun, d.ID)
 }
 
 // mdmCommandSkew absorbs the Date header's one-second resolution and clock
@@ -1029,22 +1049,28 @@ const mdmCommandSkew = 2 * time.Second
 
 // existingMDMCommand returns the UUID and dateSent of the command a POST
 // /v2/mdm/commands answered with, when that command predates the request.
-// Anything it cannot read answers "", so a check that cannot be made never
-// turns a successful send into a failure.
+// A check that cannot be made never turns a successful send into a failure,
+// but it is not silent either: each exit that skips it says so on stderr.
 func existingMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContext, postBody []byte, dateHeader string) (uuid, sent string) {
+	skipped := func(why string, args ...any) (string, string) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+			"warning: unlock sent, but the pending-command check was skipped (%s). Jamf Pro may have queued nothing.\n",
+			fmt.Sprintf(why, args...))
+		return "", ""
+	}
 	var created []struct {
 		ID string `json:"id"`
 	}
 	if json.Unmarshal(postBody, &created) != nil || len(created) != 1 || created[0].ID == "" {
-		return "", ""
+		return skipped("the response did not name exactly one command")
 	}
 	requested, err := http.ParseTime(dateHeader)
 	if err != nil {
-		return "", ""
+		return skipped("the response carried no usable Date header")
 	}
 	resp, err := cliCtx.Client.Do(cmd.Context(), "GET", mdmCommandsPath+"?filter="+url.QueryEscape("uuid=="+created[0].ID), nil)
 	if err != nil {
-		return "", ""
+		return skipped("reading command %s back failed: %v", created[0].ID, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var page struct {
@@ -1053,11 +1079,17 @@ func existingMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContext, postBod
 			DateSent string `json:"dateSent"`
 		} `json:"results"`
 	}
-	if json.NewDecoder(resp.Body).Decode(&page) != nil || len(page.Results) != 1 {
-		return "", ""
+	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+		return skipped("command %s could not be decoded: %v", created[0].ID, err)
+	}
+	if len(page.Results) != 1 {
+		return skipped("command %s read back %d results, want 1", created[0].ID, len(page.Results))
 	}
 	at, err := time.Parse(time.RFC3339Nano, page.Results[0].DateSent)
-	if err != nil || !at.Before(requested.Add(-mdmCommandSkew)) {
+	if err != nil {
+		return skipped("command %s has no usable dateSent", created[0].ID)
+	}
+	if !at.Before(requested.Add(-mdmCommandSkew)) {
 		return "", ""
 	}
 	return page.Results[0].UUID, page.Results[0].DateSent
@@ -1744,9 +1776,15 @@ func newMobileUnlockUserAccountCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		userName string
 	)
 	cmd := &cobra.Command{
-		Use:     "unlock-user-account",
-		Short:   "Unlock a user account on a Shared iPad",
-		Long:    "Unlock a locked user account on a Shared iPad.",
+		Use:   "unlock-user-account",
+		Short: "Unlock a user account on a Shared iPad",
+		Long: `Unlock a locked user account on a Shared iPad.
+
+Jamf Pro keeps one pending unlock per device. A second send returns the pending
+command's UUID and queues nothing, so this command reads the returned command
+back. If it was sent before this request, the command exits 1 and names it. If
+the read-back fails (an API role that cannot read MDM commands, for example),
+the command warns on stderr and exits 0.`,
 		Example: `  jamf-cli pro md unlock-user-account --serial F4GH5678 --user-name "student01"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireUserName(userName); err != nil {
