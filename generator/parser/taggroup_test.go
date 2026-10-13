@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -168,10 +169,5 @@ func sortedSet(m map[string]bool) []string {
 }
 
 func containsString(xs []string, x string) bool {
-	for _, v := range xs {
-		if v == x {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(xs, x)
 }

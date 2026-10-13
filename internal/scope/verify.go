@@ -5,6 +5,7 @@ package scope
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -121,12 +122,7 @@ func targetPresent(items *ScopeItemSlice, t ScopeTarget) bool {
 	if items == nil || (t.Device == nil && t.Name == "") {
 		return false
 	}
-	for _, item := range items.Items {
-		if t.matches(item) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(items.Items, t.matches)
 }
 
 // describeDrops renders the dropped members for the error message.

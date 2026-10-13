@@ -87,7 +87,7 @@ func malformedSetKey(key string) bool {
 	if strings.Contains(key, "[") {
 		return true
 	}
-	for _, seg := range strings.Split(key, ".") {
+	for seg := range strings.SplitSeq(key, ".") {
 		if seg == "" || seg != strings.TrimSpace(seg) {
 			return true
 		}

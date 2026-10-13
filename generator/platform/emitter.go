@@ -986,7 +986,7 @@ func firstParagraph(s string) string {
 // empty ones.
 func splitParagraphs(s string) []string {
 	var out []string
-	for _, para := range strings.Split(strings.TrimSpace(s), "\n\n") {
+	for para := range strings.SplitSeq(strings.TrimSpace(s), "\n\n") {
 		if p := strings.TrimSpace(para); p != "" {
 			out = append(out, p)
 		}

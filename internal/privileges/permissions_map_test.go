@@ -85,8 +85,8 @@ func parsePublishedMap(t *testing.T) map[string]publishedRow {
 	rows := map[string]publishedRow{}
 	var section string
 	for line := range strings.SplitSeq(before, "\n") {
-		if strings.HasPrefix(line, "### ") {
-			section = strings.TrimSpace(strings.TrimPrefix(line, "### "))
+		if after0, ok := strings.CutPrefix(line, "### "); ok {
+			section = strings.TrimSpace(after0)
 			continue
 		}
 		m := mapCapabilityRow.FindStringSubmatch(strings.TrimSpace(line))

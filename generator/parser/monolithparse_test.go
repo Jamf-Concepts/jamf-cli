@@ -73,7 +73,7 @@ func readBaseline(t *testing.T) []baselineEndpoint {
 		t.Fatalf("reading %s: %v\n\nIt is a committed artifact: the endpoint set the path-derived naming must not shrink.", baselineFile, err)
 	}
 	var out []baselineEndpoint
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}

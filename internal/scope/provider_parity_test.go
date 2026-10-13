@@ -75,9 +75,8 @@ func xmlElements(t *testing.T, v any) map[string]bool {
 	for rt.Kind() == reflect.Pointer {
 		rt = rt.Elem()
 	}
-	for i := 0; i < rt.NumField(); i++ {
-		f := rt.Field(i)
-		if f.Type == reflect.TypeOf(xml.Name{}) {
+	for f := range rt.Fields() {
+		if f.Type == reflect.TypeFor[xml.Name]() {
 			continue
 		}
 		name, _, _ := cutTag(f.Tag.Get("xml"))
