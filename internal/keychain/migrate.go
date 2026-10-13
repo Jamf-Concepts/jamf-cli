@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -13,6 +14,12 @@ import (
 // processLock serializes keychain writes and migrations inside one process;
 // lockFile does the same across processes.
 var processLock sync.Mutex
+
+// warned is set once any migratingStore has printed a "still trusts
+// /usr/bin/security" warning. It is per process, not per store: a profile's
+// client ID and secret are read through separate stores and fail for the same
+// reason.
+var warned atomic.Bool
 
 // lockItem blocks until this process holds the right to change an item's
 // storage. One lock covers every item: a migration is two keychain calls, and
@@ -61,8 +68,6 @@ type migratingStore struct {
 
 	// lock serializes migration and writes. nil means lockItem.
 	lock func() func()
-
-	warned atomic.Bool
 }
 
 func (m *migratingStore) acquire() func() {
@@ -73,8 +78,13 @@ func (m *migratingStore) acquire() func() {
 }
 
 func (m *migratingStore) Get(service, account string) (string, error) {
-	secret, err := m.native.Get(service, account)
+	secret, err := m.nativeGet(service, account)
 	if !errors.Is(err, ErrNotFound) {
+		return secret, err
+	}
+	if service != DefaultService {
+		// Never migrated, so nothing to serialize against.
+		secret, _, err = m.readLegacy(service, account)
 		return secret, err
 	}
 
@@ -83,32 +93,74 @@ func (m *migratingStore) Get(service, account string) (string, error) {
 	// Take the lock, then look again, so that process finishes first.
 	unlock := m.acquire()
 	defer unlock()
-	secret, err = m.native.Get(service, account)
+	secret, err = m.nativeGet(service, account)
 	if !errors.Is(err, ErrNotFound) {
 		return secret, err
 	}
 
-	exists, err := m.native.Exists(service, account)
+	secret, fromLegacy, err := m.readLegacy(service, account)
 	if err != nil {
 		return "", err
 	}
-	if !exists {
-		return "", ErrNotFound
+	if fromLegacy {
+		m.migrate(service, account, secret)
 	}
+	return secret, nil
+}
 
+// nativeGet reads an item written in-process. An item the running binary is
+// not trusted to read comes back as a framework status that names neither the
+// cause nor a remedy, so that one is wrapped.
+func (m *migratingStore) nativeGet(service, account string) (string, error) {
+	secret, err := m.native.Get(service, account)
+	if isAccessRefusal(err) {
+		return "", fmt.Errorf("%w\n\nThis item was written by a different jamf-cli build (for example a rebuilt `go install` binary), "+
+			"and its access rule does not trust this one.\n"+
+			"Store the credential again with this binary (the product's setup command, for profile %q), "+
+			"or use an env: or file: reference", err, profileOf(account))
+	}
+	return secret, err
+}
+
+// accessRefusal is implemented by a keychain error that means the item's access
+// rule refused the read (a prompt that cannot be shown, a failed authorisation,
+// or a dismissed dialog).
+type accessRefusal interface{ AccessRefused() bool }
+
+func isAccessRefusal(err error) bool {
+	var r accessRefusal
+	return errors.As(err, &r) && r.AccessRefused()
+}
+
+// profileOf returns the profile an account names: the part before the first
+// slash, as in "prod/client-secret".
+func profileOf(account string) string {
+	profile, _, _ := strings.Cut(account, "/")
+	return profile
+}
+
+// readLegacy reads an item that is not stored natively, through
+// /usr/bin/security. fromLegacy is false when the item turned out to be native
+// after all, which leaves nothing to migrate.
+func (m *migratingStore) readLegacy(service, account string) (secret string, fromLegacy bool, err error) {
+	exists, err := m.native.Exists(service, account)
+	if err != nil {
+		return "", false, err
+	}
+	if !exists {
+		return "", false, ErrNotFound
+	}
 	secret, err = m.legacy.Get(service, account)
 	if errors.Is(err, ErrNotFound) {
 		// Exists said yes and the legacy read says no: an earlier jamf-cli,
 		// which takes no lock, migrated it in between.
-		return m.native.Get(service, account)
+		secret, err = m.native.Get(service, account)
+		return secret, false, err
 	}
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	if service == DefaultService {
-		m.migrate(service, account, secret)
-	}
-	return secret, nil
+	return secret, true, nil
 }
 
 // migrate re-creates a legacy item in-process. A failure is reported and
@@ -132,7 +184,7 @@ func (m *migratingStore) migrate(service, account, secret string) {
 	// The item is gone and the new one was not written. Put the old one back,
 	// so a migration that fails but is not interrupted loses nothing.
 	if rerr := m.legacy.Set(service, account, secret); rerr != nil {
-		m.warnf("Warning: keychain item %s/%s was removed for re-creation and could not be written again (%v; restoring it failed: %v). Store the credential again with jamf-cli config add-profile or the product's setup command.\n", service, account, err, rerr)
+		m.warnf("Warning: keychain item %s/%s was removed for re-creation and could not be written again (%v; restoring it failed: %v). Store the credential again: run the setup command of the product that owns profile %q.\n", service, account, err, rerr, profileOf(account))
 		return
 	}
 	m.warnOnce("Warning: keychain item %s/%s still trusts /usr/bin/security; re-creating it failed: %v\n", service, account, err)
@@ -143,8 +195,11 @@ func (m *migratingStore) migrate(service, account, secret string) {
 func (m *migratingStore) Set(service, account, secret string) error {
 	unlock := m.acquire()
 	defer unlock()
-	rerr := m.removeAll(service, account)
+	removed, rerr := m.removeAll(service, account)
 	if rerr != nil && !errors.Is(rerr, ErrNotFound) {
+		if removed {
+			return fmt.Errorf("%w (the previous value was removed; store the credential again)", rerr)
+		}
 		return rerr
 	}
 	err := m.native.Add(service, account, secret)
@@ -158,35 +213,38 @@ func (m *migratingStore) Set(service, account, secret string) error {
 func (m *migratingStore) Delete(service, account string) error {
 	unlock := m.acquire()
 	defer unlock()
-	return m.removeAll(service, account)
+	_, err := m.removeAll(service, account)
+	return err
 }
 
 // removeAll deletes the native item and then any legacy one, answering
-// ErrNotFound only when there was neither.
-func (m *migratingStore) removeAll(service, account string) error {
+// ErrNotFound only when there was neither. removed reports whether the native
+// item was deleted, which stays true if a later step fails.
+func (m *migratingStore) removeAll(service, account string) (removed bool, err error) {
 	nerr := m.native.Delete(service, account)
 	if nerr != nil && !errors.Is(nerr, ErrNotFound) {
-		return nerr
+		return false, nerr
 	}
+	removed = nerr == nil
 
 	exists, err := m.native.Exists(service, account)
 	if err != nil {
-		return err
+		return removed, err
 	}
 	if !exists {
-		return nerr
+		return removed, nerr
 	}
 	if err := m.legacy.Delete(service, account); err != nil && !errors.Is(err, ErrNotFound) {
-		return err
+		return removed, err
 	}
-	return nil
+	return removed, nil
 }
 
 // warnOnce prints the first of the "still trusts /usr/bin/security" warnings in
 // a process. A client ID and a client secret that both fail say the same thing
 // twice, and the next read tries again.
 func (m *migratingStore) warnOnce(format string, args ...any) {
-	if m.warned.CompareAndSwap(false, true) {
+	if warned.CompareAndSwap(false, true) {
 		m.warnf(format, args...)
 	}
 }

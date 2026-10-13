@@ -88,3 +88,17 @@ func TestIntegration_GetMigratesALegacyItem(t *testing.T) {
 		t.Errorf("migrated value = %q, want it stored without go-keyring's prefix", native)
 	}
 }
+
+func TestOSStatusError_AccessRefused(t *testing.T) {
+	for status, want := range map[int32]bool{
+		errSecInteractionNotAllowed: true,
+		errSecAuthFailed:            true,
+		errSecUserCanceled:          true,
+		-25299:                      false, // duplicate item
+		-34018:                      false, // missing entitlement
+	} {
+		if got := (&osStatusError{status: status}).AccessRefused(); got != want {
+			t.Errorf("status %d: AccessRefused = %v, want %v", status, got, want)
+		}
+	}
+}

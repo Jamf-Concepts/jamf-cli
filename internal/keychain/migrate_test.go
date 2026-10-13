@@ -21,6 +21,13 @@ type fakeKeychain struct {
 	addErr         error
 	legacyDelErr   error
 	legacySetErr   error
+	existsErr      error
+	getErr         error
+
+	// staleLegacyReads counts /usr/bin/security reads or deletes that landed on
+	// an item already re-created natively. On a real keychain that item no
+	// longer trusts the tool, so each one is a prompt or a failure.
+	staleLegacyReads int
 }
 
 func newFakeKeychain() *fakeKeychain {
@@ -35,6 +42,9 @@ func (f fakeNative) Get(s, a string) (string, error) {
 	f.kc.mu.Lock()
 	defer f.kc.mu.Unlock()
 	runtime.Gosched()
+	if f.kc.getErr != nil {
+		return "", f.kc.getErr
+	}
 	v, ok := f.kc.native[key(s, a)]
 	if !ok {
 		return "", ErrNotFound
@@ -46,6 +56,9 @@ func (f fakeNative) Exists(s, a string) (bool, error) {
 	f.kc.mu.Lock()
 	defer f.kc.mu.Unlock()
 	runtime.Gosched()
+	if f.kc.existsErr != nil {
+		return false, f.kc.existsErr
+	}
 	_, n := f.kc.native[key(s, a)]
 	_, l := f.kc.legacy[key(s, a)]
 	return n || l, nil
@@ -92,6 +105,7 @@ func (f fakeLegacy) Get(s, a string) (string, error) {
 		return v, nil
 	}
 	if v, ok := f.kc.native[key(s, a)]; ok {
+		f.kc.staleLegacyReads++
 		return v, nil
 	}
 	return "", ErrNotFound
@@ -122,6 +136,7 @@ func (f fakeLegacy) Delete(s, a string) error {
 		return nil
 	}
 	if _, ok := f.kc.native[key(s, a)]; ok {
+		f.kc.staleLegacyReads++
 		delete(f.kc.native, key(s, a))
 		return nil
 	}
@@ -130,6 +145,7 @@ func (f fakeLegacy) Delete(s, a string) error {
 
 func newTestStore(kc *fakeKeychain) (*migratingStore, *bytes.Buffer) {
 	var warn bytes.Buffer
+	warned.Store(false)
 	return &migratingStore{native: fakeNative{kc}, legacy: fakeLegacy{kc}, warn: &warn}, &warn
 }
 
@@ -224,7 +240,7 @@ func TestMigratingStore_LostItemNamesTheRemedy(t *testing.T) {
 	if got, err := store.Get(DefaultService, acct); err != nil || got != "legacy" {
 		t.Fatalf("Get = %q, %v", got, err)
 	}
-	if !strings.Contains(warn.String(), "config add-profile") {
+	if !strings.Contains(warn.String(), "setup command") || !strings.Contains(warn.String(), `"prod"`) {
 		t.Errorf("warning does not say how to store the credential again: %q", warn)
 	}
 }
@@ -339,6 +355,9 @@ func TestMigratingStore_ConcurrentGetsOfALegacyItem(t *testing.T) {
 	if warn.Len() != 0 {
 		t.Errorf("unexpected warning: %s", warn)
 	}
+	if kc.staleLegacyReads != 0 {
+		t.Errorf("%d reads went to /usr/bin/security for an item already re-created natively", kc.staleLegacyReads)
+	}
 }
 
 func errString(err error) string {
@@ -357,11 +376,14 @@ func TestMigratingStore_RepeatedMigrationFailuresWarnOnce(t *testing.T) {
 	kc.legacy[key(DefaultService, "prod/client-secret")] = "secret"
 	kc.legacyDelErr = errors.New("delete failed")
 	store, warn := newTestStore(kc)
+	// ResolveSecret builds a store per secret, so the flag cannot live on one.
+	other := &migratingStore{native: fakeNative{kc}, legacy: fakeLegacy{kc}, warn: warn}
 
-	for _, a := range []string{"prod/client-id", "prod/client-secret"} {
-		if _, err := store.Get(DefaultService, a); err != nil {
-			t.Fatalf("Get %s: %v", a, err)
-		}
+	if _, err := store.Get(DefaultService, "prod/client-id"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Get(DefaultService, "prod/client-secret"); err != nil {
+		t.Fatal(err)
 	}
 	if n := strings.Count(warn.String(), "Warning:"); n != 1 {
 		t.Errorf("%d warnings, want 1: %s", n, warn)
@@ -381,5 +403,78 @@ func TestMigratingStore_FailedSetSaysTheOldValueWasRemoved(t *testing.T) {
 	err := store.Set(DefaultService, acct, "new")
 	if err == nil || !strings.Contains(err.Error(), "removed") {
 		t.Errorf("Set error = %v, want one saying the old value was removed", err)
+	}
+}
+
+// A first-time Set that fails removed nothing, and must not claim it did.
+func TestMigratingStore_FailedFirstSetDoesNotClaimARemoval(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	kc := newFakeKeychain()
+	kc.addErr = errors.New("User interaction is not allowed")
+	store, _ := newTestStore(kc)
+
+	err := store.Set(DefaultService, acct, "new")
+	if err == nil || strings.Contains(err.Error(), "removed") {
+		t.Errorf("Set error = %v, want the bare failure", err)
+	}
+}
+
+// removeAll deletes the native item and then fails to look for a legacy one.
+// The credential is gone, and the error has to say so.
+func TestMigratingStore_SetSaysTheOldValueWasRemovedWhenTheLookupFails(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	kc := newFakeKeychain()
+	kc.native[key(DefaultService, acct)] = "old"
+	kc.existsErr = errors.New("lookup failed")
+	store, _ := newTestStore(kc)
+
+	err := store.Set(DefaultService, acct, "new")
+	if err == nil || !strings.Contains(err.Error(), "previous value was removed") {
+		t.Errorf("Set error = %v, want one saying the old value was removed", err)
+	}
+	if len(kc.native) != 0 {
+		t.Errorf("native item still present: %v", kc.native)
+	}
+}
+
+type refusedErr struct{}
+
+func (refusedErr) Error() string       { return "User interaction is not allowed. (OSStatus -25308)" }
+func (refusedErr) AccessRefused() bool { return true }
+
+// A read the item's access rule refuses names the other-build cause and both
+// remedies; any other failure stays bare.
+func TestMigratingStore_RefusedReadNamesTheCauseAndRemedies(t *testing.T) {
+	kc := newFakeKeychain()
+	kc.getErr = refusedErr{}
+	store, _ := newTestStore(kc)
+
+	_, err := store.Get(DefaultService, acct)
+	if !errors.Is(err, kc.getErr) {
+		t.Fatalf("Get error %v does not wrap the framework error", err)
+	}
+	for _, want := range []string{"OSStatus -25308", "different jamf-cli build", `"prod"`, "setup command", "env: or file:"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error lacks %q: %v", want, err)
+		}
+	}
+
+	kc.getErr = errors.New("something else")
+	if _, err := store.Get(DefaultService, acct); err == nil || strings.Contains(err.Error(), "different jamf-cli build") {
+		t.Errorf("an unrelated failure was wrapped: %v", err)
+	}
+}
+
+// An item under another service is never migrated, so reading it takes no lock.
+func TestMigratingStore_AnotherServiceReadsWithoutTheLock(t *testing.T) {
+	kc := newFakeKeychain()
+	kc.legacy[key("corp", acct)] = "mine"
+	store, _ := newTestStore(kc)
+	store.lock = func() func() { t.Error("lock taken for a service that never migrates"); return func() {} }
+
+	if got, err := store.Get("corp", acct); err != nil || got != "mine" {
+		t.Fatalf("Get = %q, %v", got, err)
 	}
 }

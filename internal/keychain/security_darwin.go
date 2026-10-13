@@ -36,6 +36,10 @@ const itemMarker = "jamf-cli credential"
 const (
 	errSecSuccess      = 0
 	errSecItemNotFound = -25300
+
+	errSecUserCanceled          = -128
+	errSecAuthFailed            = -25293
+	errSecInteractionNotAllowed = -25308
 )
 
 const kCFStringEncodingUTF8 = 0x08000100
@@ -158,6 +162,16 @@ func (e *osStatusError) Error() string {
 		return fmt.Sprintf("Security.framework error %d", e.status)
 	}
 	return fmt.Sprintf("%s (OSStatus %d)", e.message, e.status)
+}
+
+// AccessRefused reports a status that means the item's access rule refused the
+// read: the prompt it needs cannot be shown, failed, or was dismissed.
+func (e *osStatusError) AccessRefused() bool {
+	switch e.status {
+	case errSecInteractionNotAllowed, errSecAuthFailed, errSecUserCanceled:
+		return true
+	}
+	return false
 }
 
 func statusError(status int32) error {
