@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
@@ -347,10 +348,8 @@ func AddTargetToScope(s *ScopeXML, section string, t ScopeTarget) bool {
 		return false
 	}
 
-	for _, item := range items.Items {
-		if t.matches(item) {
-			return false
-		}
+	if slices.ContainsFunc(items.Items, t.matches) {
+		return false
 	}
 
 	if items.ElemName == "" {
