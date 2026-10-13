@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-
-	gokeyring "github.com/zalando/go-keyring"
 )
 
 // DefaultService is the keychain service name used by jamf-cli.
@@ -24,35 +22,10 @@ type Store interface {
 	Delete(service, account string) error
 }
 
-// New returns a Store backed by the system keychain.
+// New returns a Store backed by the system keychain: Security.framework,
+// called in-process, on macOS, and go-keyring everywhere else.
 func New() Store {
-	return &systemStore{}
-}
-
-// systemStore implements Store using go-keyring.
-type systemStore struct{}
-
-func (s *systemStore) Get(service, account string) (string, error) {
-	secret, err := gokeyring.Get(service, account)
-	if err != nil {
-		if errors.Is(err, gokeyring.ErrNotFound) {
-			return "", ErrNotFound
-		}
-		return "", err
-	}
-	return secret, nil
-}
-
-func (s *systemStore) Set(service, account, secret string) error {
-	return gokeyring.Set(service, account, secret)
-}
-
-func (s *systemStore) Delete(service, account string) error {
-	err := gokeyring.Delete(service, account)
-	if err != nil && errors.Is(err, gokeyring.ErrNotFound) {
-		return ErrNotFound
-	}
-	return err
+	return newSystemStore()
 }
 
 // ParseRef parses a keychain reference value into service and account.
@@ -83,10 +56,9 @@ func ParseRef(value string) (service, account string) {
 }
 
 // WriteError wraps a failed keychain write (Store.Set) with actionable,
-// OS-specific guidance. The underlying go-keyring backends shell out to the
-// system credential store and surface only the process exit code (e.g. macOS
-// "exit status 154"), discarding the descriptive message — so on its own the
-// raw error tells the user nothing about how to fix it. item is a short,
+// OS-specific guidance. The Linux backend surfaces little more than a D-Bus
+// failure, and even the macOS Security.framework message ("User interaction
+// is not allowed") does not say what to do about it. item is a short,
 // human-readable label for what was being stored (e.g. "client ID").
 func WriteError(item string, err error) error {
 	// The guidance body is built separately and passed as a trailing %s so the
@@ -100,8 +72,8 @@ func WriteError(item string, err error) error {
 			"default keychain, or unavailable in this session (e.g. over SSH).\n\n" +
 			"Try unlocking it:\n" +
 			"  security unlock-keychain ~/Library/Keychains/login.keychain-db\n\n" +
-			"To see the underlying error directly:\n" +
-			"  security add-generic-password -U -s " + DefaultService + " -a jamf-cli-test -w test\n\n" +
+			"To check that it is reachable and unlocked:\n" +
+			"  security show-keychain-info ~/Library/Keychains/login.keychain-db\n\n" +
 			"Alternatively, store secrets without the keychain using env: or file:\n" +
 			"secret references in your config profile."
 	case "linux":

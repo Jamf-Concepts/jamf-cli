@@ -11,6 +11,31 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — macOS keychain items trust jamf-cli, not `/usr/bin/security`
+
+jamf-cli writes keychain items through Security.framework in its own process, so an item's
+access rule trusts the signed jamf-cli binary. Earlier releases wrote through
+`/usr/bin/security`, and any process running as you could read the credential with that tool
+while the login keychain was unlocked, with no prompt (#430). The first read of each
+`jamf-cli` item written by an earlier release re-creates it. Items under another service
+name, from `keychain:<service>/…` references, are read as before and left as they are.
+
+What changes for you:
+
+- **Downgrading to jamf-cli 1.33 or earlier** after the migration: those releases read the
+  item through `/usr/bin/security`, which it no longer trusts. They ask for the login
+  keychain password and fail where no dialog can show, such as SSH or CI.
+- **A binary built from source** (`go install …@latest`) is trusted by its hash alone. Each
+  rebuild prompts once per item and fails headless. Use a signed release, or store the
+  secret as an `env:` or `file:` reference. A refused read names a locked keychain (with the unlock
+  command) and the other-build cause, and both remedies.
+- **A migration killed midway** (a cancelled `jamf-cli mcp` tool call, for example) can lose
+  the item, because Security.framework refuses a second item while the old one exists, so
+  the old one has to go first. Store the credential again with the `setup` command of the
+  product that owns the profile (`pro setup`, `platform setup` and so on).
+- **Concurrent jamf-cli processes** take a lock on `<user cache dir>/jamf-cli/keychain.lock`
+  during migration, so a process that reads mid-migration waits for the result.
+
 ### Breaking — `pro setup --scope standard` no longer grants privileges that change privileges or logins
 
 The `standard` tier withheld deletes, wipes, locks and audit flushes, and
