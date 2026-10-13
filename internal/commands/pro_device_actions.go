@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -945,6 +947,164 @@ lock a user out of their machine.`,
 	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
+func newComputerUnlockUserAccountCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt       deviceTarget
+		yes      bool
+		userName string
+	)
+	cmd := &cobra.Command{
+		Use:   "unlock-user-account",
+		Short: "Unlock a local user account on a computer",
+		Long: `Unlock a local user account that macOS locked after too many failed login
+attempts. It clears the lockout only: it does not change or reset the account's
+password, and it does not touch FileVault.
+
+--user-name is the account's short name, as in /Users/<name>.
+
+Jamf Pro keeps one pending unlock per device. A second send returns the pending
+command's UUID and queues nothing, so this command reads the returned command
+back. If it was sent before this request, the command exits 1 and names it. If
+the read-back fails (an API role that cannot read MDM commands, for example),
+the command warns on stderr and exits 0.`,
+		Example: `  jamf-cli pro comp unlock-user-account --serial C02X1234 --user-name jsmith
+  jamf-cli pro comp unlock-user-account --group "Lab Macs" --user-name labadmin --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireUserName(userName); err != nil {
+				return err
+			}
+			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "unlock-user-account",
+				deviceType: "computer",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendUnlockUserAccount(cmd, cliCtx, d, "computer", userName)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&userName, "user-name", "", "short name of the local account to unlock (required)")
+	_ = cmd.MarkFlagRequired("user-name")
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
+}
+
+// sendUnlockUserAccount queues UNLOCK_USER_ACCOUNT and refuses to report
+// success when Jamf Pro queued nothing.
+//
+// Jamf Pro holds one pending UNLOCK_USER_ACCOUNT per device. While one is
+// pending, a POST naming any account answers 201 with that command's UUID and
+// queues nothing (wire-checked on 11.31, 2026-10-12: three sends naming two
+// accounts all returned the first UUID). The API never reports which account
+// the pending command names, so an unlock for a second account would read as
+// sent and never happen. The returned command is fetched, and a dateSent
+// earlier than the POST's own Date header means it was already there.
+func sendUnlockUserAccount(cmd *cobra.Command, cliCtx *registry.CLIContext, d *resolve.DeviceIdentifiers, deviceType, userName string) error {
+	if d.ManagementID == "" {
+		return fmt.Errorf("%s %s has no managementId — cannot send MDM command", deviceType, resolve.FormatDeviceDesc(d))
+	}
+	data, err := json.Marshal(map[string]any{
+		"clientData":  []map[string]any{{"managementId": d.ManagementID}},
+		"commandData": map[string]any{"commandType": "UNLOCK_USER_ACCOUNT", "userName": userName},
+	})
+	if err != nil {
+		return err
+	}
+	resp, err := cliCtx.Client.Do(cmd.Context(), "POST", mdmCommandsPath, strings.NewReader(string(data)))
+	if err != nil {
+		return err
+	}
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		return err
+	}
+
+	if pending, sent := existingMDMCommand(cmd, cliCtx, body, resp.Header.Get("Date")); pending != "" {
+		return exitcode.New(exitcode.General, fmt.Sprintf(
+			"%s %s already has a pending unlock-user-account command (%s, sent %s). It may name an account other than %q; Jamf Pro does not say which.",
+			deviceType, resolve.FormatDeviceDesc(d), pending, sent, userName)).
+			WithHint(fmt.Sprintf("Jamf Pro keeps one pending unlock per device and does not say which account it names. "+
+				"If it was sent for this account, wait for it to complete. "+
+				"Otherwise clear the queue with %s and send again. "+
+				"That clears the whole pending queue: profiles, apps and updates as well as the unlock.",
+				flushPendingCommand(deviceType, d)))
+	}
+	return cliCtx.Output.PrintRaw(body)
+}
+
+// flushPendingCommand spells the command that clears one device's pending MDM
+// queue, so a hint can name it in full.
+func flushPendingCommand(deviceType string, d *resolve.DeviceIdentifiers) string {
+	noun := "computers"
+	if deviceType == "mobile device" {
+		noun = "mobile-devices"
+	}
+	return fmt.Sprintf("`jamf-cli pro %s flush-commands --id %s --status pending`", noun, d.ID)
+}
+
+// mdmCommandSkew absorbs the Date header's one-second resolution and clock
+// drift between the node that answered and the one that stamped dateSent.
+const mdmCommandSkew = 2 * time.Second
+
+// existingMDMCommand returns the UUID and dateSent of the command a POST
+// /v2/mdm/commands answered with, when that command predates the request.
+// A check that cannot be made never turns a successful send into a failure,
+// but it is not silent either: each exit that skips it says so on stderr.
+func existingMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContext, postBody []byte, dateHeader string) (uuid, sent string) {
+	skipped := func(why string, args ...any) (string, string) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+			"warning: unlock sent, but the pending-command check was skipped (%s). Jamf Pro may have queued nothing.\n",
+			fmt.Sprintf(why, args...))
+		return "", ""
+	}
+	var created []struct {
+		ID string `json:"id"`
+	}
+	if json.Unmarshal(postBody, &created) != nil || len(created) != 1 || created[0].ID == "" {
+		return skipped("the response did not name exactly one command")
+	}
+	requested, err := http.ParseTime(dateHeader)
+	if err != nil {
+		return skipped("the response carried no usable Date header")
+	}
+	resp, err := cliCtx.Client.Do(cmd.Context(), "GET", mdmCommandsPath+"?filter="+url.QueryEscape("uuid=="+created[0].ID), nil)
+	if err != nil {
+		return skipped("reading command %s back failed: %v", created[0].ID, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var page struct {
+		Results []struct {
+			UUID     string `json:"uuid"`
+			DateSent string `json:"dateSent"`
+		} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+		return skipped("command %s could not be decoded: %v", created[0].ID, err)
+	}
+	if len(page.Results) != 1 {
+		return skipped("command %s read back %d results, want 1", created[0].ID, len(page.Results))
+	}
+	at, err := time.Parse(time.RFC3339Nano, page.Results[0].DateSent)
+	if err != nil {
+		return skipped("command %s has no usable dateSent", created[0].ID)
+	}
+	if !at.Before(requested.Add(-mdmCommandSkew)) {
+		return "", ""
+	}
+	return page.Results[0].UUID, page.Results[0].DateSent
+}
+
+// requireUserName refuses a blank --user-name. MarkFlagRequired only checks
+// that the flag was passed, so --user-name "$USER_NAME" with the variable
+// unset would otherwise queue a command naming no account.
+func requireUserName(userName string) error {
+	if strings.TrimSpace(userName) == "" {
+		return exitcode.New(exitcode.Usage, "--user-name is empty; pass the short name of the account to unlock")
+	}
+	return nil
+}
+
 // --- Modern API mobile device MDM commands ---
 
 // sendMobileModernMDMCommand sends a single MDM command to a mobile device via
@@ -1616,19 +1776,25 @@ func newMobileUnlockUserAccountCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		userName string
 	)
 	cmd := &cobra.Command{
-		Use:     "unlock-user-account",
-		Short:   "Unlock a user account on a Shared iPad",
-		Long:    "Unlock a locked user account on a Shared iPad.",
+		Use:   "unlock-user-account",
+		Short: "Unlock a user account on a Shared iPad",
+		Long: `Unlock a locked user account on a Shared iPad.
+
+Jamf Pro keeps one pending unlock per device. A second send returns the pending
+command's UUID and queues nothing, so this command reads the returned command
+back. If it was sent before this request, the command exits 1 and names it. If
+the read-back fails (an API role that cannot read MDM commands, for example),
+the command warns on stderr and exits 0.`,
 		Example: `  jamf-cli pro md unlock-user-account --serial F4GH5678 --user-name "student01"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireUserName(userName); err != nil {
+				return err
+			}
 			return runMobileAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
 				actionName: "unlock-user-account",
 				deviceType: "mobile device",
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
-						"commandType": "UNLOCK_USER_ACCOUNT",
-						"userName":    userName,
-					})
+					return sendUnlockUserAccount(cmd, cliCtx, d, "mobile device", userName)
 				},
 			})
 		},

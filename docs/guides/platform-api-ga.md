@@ -302,7 +302,7 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | Command group | Refused | Why |
 |---|---|---|
 | `pro mobile-devices` | 14 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock` and lost mode |
-| `pro computer-inventory` | 4 | as above — `lock`, `set-recovery-lock`, `set-auto-admin-password`, `settings` |
+| `pro computer-inventory` | 5 | as above — `lock`, `set-recovery-lock`, `set-auto-admin-password`, `settings`, `unlock-user-account` |
 | `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
 | `pro api-authentication` | 6 | outside the published API |
@@ -314,7 +314,7 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | `pro mdm commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro sso-oauth-session-tokens` | 1 | outside the published API |
 
-53 commands in total (a wholly-refused resource contributes its group node too).
+54 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
@@ -328,13 +328,13 @@ served. The other two were `pro policy-properties`, whose unversioned legacy twi
 Two groups also merged into `pro jamf-pro-initialization`, which is why the table has 12
 rows where it had 15 and still counts the same endpoints.
 
-**18 of the 53 are MDM device actions, and that is the refusal most likely to be felt.**
+**19 of the 54 are MDM device actions, and that is the refusal most likely to be felt.**
 `pro mobile-devices` loses `lock`, `enable-lost-mode`,
 `disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
 `delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
 `refresh-cellular-plans`, `request-mirroring`, `stop-mirroring` and `settings`;
-`pro computer-inventory` loses `lock`, `set-recovery-lock`, `set-auto-admin-password` and
-`settings`. The
+`pro computer-inventory` loses `lock`, `set-recovery-lock`, `set-auto-admin-password`,
+`settings` and `unlock-user-account`. The
 published API declares GET on those paths but not POST, so the refusal is **per method**: the
 inventory reads on both resources are unaffected, and so is everything else under them.
 `pro comp erase` and `pro comp remove-mdm` are hand-written against a different path and are

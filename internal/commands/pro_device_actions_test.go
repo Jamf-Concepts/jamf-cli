@@ -69,7 +69,7 @@ func TestComputerActionSubcommands_Exist(t *testing.T) {
 		"erase", "remove-mdm", "redeploy-framework",
 		"blank-push", "ddm-sync", "renew-mdm",
 		"lock", "enable-remote-desktop", "disable-remote-desktop",
-		"restart", "shutdown", "set-recovery-lock",
+		"restart", "shutdown", "set-recovery-lock", "unlock-user-account",
 		"settings", "set-auto-admin-password",
 		"flush-commands",
 	}

@@ -38,6 +38,26 @@ the instance's API roles, API integrations and accounts for any that a
 `standard` client created. To manage roles, accounts or sign-in from the CLI,
 use `--scope full-admin`.
 
+### Behaviour — `unlock-user-account` exits non-zero when Jamf Pro queued no unlock
+
+Jamf Pro holds one pending `UNLOCK_USER_ACCOUNT` command per device. While one
+is pending, a send naming any account answers 201 with the pending command's
+UUID and queues nothing. A script saw success for an unlock that never happened.
+
+`pro computers unlock-user-account` (new) and `pro mobile-devices
+unlock-user-account` now read the returned command back and **exit 1** when it
+predates the request, naming it. Jamf Pro does not say which account the pending
+command names, so a retry for the same account is refused too. Wait for it to
+complete, or run `flush-commands --status pending`, which removes every
+undelivered command on the device.
+
+The mobile command also changes in two ways. It previously exited 0 in both:
+
+- A blank `--user-name` (empty or whitespace) exits **2** before anything is sent.
+- When the read-back fails (an API role that can POST MDM commands but cannot
+  read them, for one), the command still exits 0 and prints a stderr warning
+  that the pending-command check was skipped.
+
 ### Behaviour — Classic profile and app writes edit the element the server reads
 
 `--mobileconfig-file`, `--custom-payload-file`, `--appconfig-file` and
