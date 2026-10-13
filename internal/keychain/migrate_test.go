@@ -23,6 +23,8 @@ type fakeKeychain struct {
 	legacySetErr   error
 	existsErr      error
 	getErr         error
+	getErrOnCall   int // fail only this native Get call (1-based); 0 fails all
+	getCalls       int
 
 	// staleLegacyReads counts /usr/bin/security reads or deletes that landed on
 	// an item already re-created natively. On a real keychain that item no
@@ -42,7 +44,8 @@ func (f fakeNative) Get(s, a string) (string, error) {
 	f.kc.mu.Lock()
 	defer f.kc.mu.Unlock()
 	runtime.Gosched()
-	if f.kc.getErr != nil {
+	f.kc.getCalls++
+	if f.kc.getErr != nil && (f.kc.getErrOnCall == 0 || f.kc.getErrOnCall == f.kc.getCalls) {
 		return "", f.kc.getErr
 	}
 	v, ok := f.kc.native[key(s, a)]
@@ -455,7 +458,7 @@ func TestMigratingStore_RefusedReadNamesTheCauseAndRemedies(t *testing.T) {
 	if !errors.Is(err, kc.getErr) {
 		t.Fatalf("Get error %v does not wrap the framework error", err)
 	}
-	for _, want := range []string{"OSStatus -25308", "different jamf-cli build", `"prod"`, "setup command", "env: or file:"} {
+	for _, want := range []string{"OSStatus -25308", "login keychain is locked", "security unlock-keychain", "different jamf-cli build", `"prod"`, "setup command", "env: or file:"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error lacks %q: %v", want, err)
 		}
@@ -476,5 +479,54 @@ func TestMigratingStore_AnotherServiceReadsWithoutTheLock(t *testing.T) {
 
 	if got, err := store.Get("corp", acct); err != nil || got != "mine" {
 		t.Fatalf("Get = %q, %v", got, err)
+	}
+}
+
+// The refusal can arrive on the read made under the lock, after the first one
+// found nothing; it gets the same wording.
+func TestMigratingStore_RefusedReadUnderTheLockNamesTheCause(t *testing.T) {
+	kc := newFakeKeychain()
+	kc.getErr = refusedErr{}
+	kc.getErrOnCall = 2
+	store, _ := newTestStore(kc)
+	store.lock = func() func() { return func() {} }
+
+	_, err := store.Get(DefaultService, acct)
+	if err == nil || !errors.Is(err, kc.getErr) || !strings.Contains(err.Error(), "different jamf-cli build") {
+		t.Errorf("Get error = %v, want the refusal wrapped with its causes", err)
+	}
+	if kc.getCalls != 2 {
+		t.Errorf("native Get called %d times, want 2", kc.getCalls)
+	}
+}
+
+// Only a legacy item exists and removing it fails: nothing was removed, and the
+// error must not say it was.
+func TestMigratingStore_SetFailingToRemoveALegacyItemClaimsNoRemoval(t *testing.T) {
+	kc := newFakeKeychain()
+	kc.legacy[key(DefaultService, acct)] = "old"
+	kc.legacyDelErr = errors.New("delete failed")
+	store, _ := newTestStore(kc)
+	store.lock = func() func() { return func() {} }
+
+	err := store.Set(DefaultService, acct, "new")
+	if err == nil || strings.Contains(err.Error(), "removed") {
+		t.Errorf("Set error = %v, want the bare failure", err)
+	}
+}
+
+// The native item is deleted and the legacy one then cannot be: the credential
+// is partly gone, and the error says so.
+func TestMigratingStore_SetFailingAfterTheNativeDeleteSaysItWasRemoved(t *testing.T) {
+	kc := newFakeKeychain()
+	kc.native[key(DefaultService, acct)] = "old"
+	kc.legacy[key(DefaultService, acct)] = "older"
+	kc.legacyDelErr = errors.New("delete failed")
+	store, _ := newTestStore(kc)
+	store.lock = func() func() { return func() {} }
+
+	err := store.Set(DefaultService, acct, "new")
+	if err == nil || !strings.Contains(err.Error(), "previous value was removed") {
+		t.Errorf("Set error = %v, want one saying the old value was removed", err)
 	}
 }

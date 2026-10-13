@@ -27,8 +27,8 @@ What changes for you:
   keychain password and fail where no dialog can show, such as SSH or CI.
 - **A binary built from source** (`go install …@latest`) is trusted by its hash alone. Each
   rebuild prompts once per item and fails headless. Use a signed release, or store the
-  secret as an `env:` or `file:` reference. The error names the other-build cause and both
-  remedies.
+  secret as an `env:` or `file:` reference. A refused read names a locked keychain (with the unlock
+  command) and the other-build cause, and both remedies.
 - **A migration killed midway** (a cancelled `jamf-cli mcp` tool call, for example) can lose
   the item, because Security.framework refuses a second item while the old one exists, so
   the old one has to go first. Store the credential again with the `setup` command of the

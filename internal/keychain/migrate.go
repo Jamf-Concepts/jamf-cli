@@ -109,15 +109,17 @@ func (m *migratingStore) Get(service, account string) (string, error) {
 }
 
 // nativeGet reads an item written in-process. An item the running binary is
-// not trusted to read comes back as a framework status that names neither the
-// cause nor a remedy, so that one is wrapped.
+// not trusted to read, or one the session cannot unlock a dialog for, comes
+// back as a framework status that names neither the cause nor a remedy, so that
+// one is wrapped with both candidate causes.
 func (m *migratingStore) nativeGet(service, account string) (string, error) {
 	secret, err := m.native.Get(service, account)
 	if isAccessRefusal(err) {
-		return "", fmt.Errorf("%w\n\nThis item was written by a different jamf-cli build (for example a rebuilt `go install` binary), "+
-			"and its access rule does not trust this one.\n"+
-			"Store the credential again with this binary (the product's setup command, for profile %q), "+
-			"or use an env: or file: reference", err, profileOf(account))
+		return "", fmt.Errorf("%w\n\nThe keychain refused this read. Either the login keychain is locked or cannot show a dialog "+
+			"in this session (SSH, CI): unlock it with `security unlock-keychain ~/Library/Keychains/login.keychain-db`.\n"+
+			"Or the item was written by a different jamf-cli build (for example a rebuilt `go install` binary), "+
+			"and its access rule does not trust this one: store the credential again with this binary "+
+			"(the product's setup command, for profile %q), or use an env: or file: reference", err, profileOf(account))
 	}
 	return secret, err
 }
