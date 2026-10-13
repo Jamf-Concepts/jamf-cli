@@ -45,7 +45,7 @@ func TestDryRunPreviewIsEmittedBeforeTheConfirmation(t *testing.T) {
 		}
 		// One chunk per generated constructor, so an ordering fault in one
 		// command cannot be masked by a correctly ordered sibling above it.
-		for _, fn := range strings.Split(string(b), "\nfunc new") {
+		for fn := range strings.SplitSeq(string(b), "\nfunc new") {
 			confirm := strings.Index(fn, "platform.ConfirmAction(")
 			if confirm < 0 {
 				continue

@@ -3112,11 +3112,11 @@ func owningSegment(path, rootPath string) string {
 		return ""
 	}
 	segs := splitPathSegments(p)
-	for i := len(segs) - 1; i >= 0; i-- {
-		if strings.HasPrefix(segs[i], "{") {
+	for i, seg := range slices.Backward(segs) {
+		if strings.HasPrefix(seg, "{") {
 			continue
 		}
-		seg := strcase.ToKebab(segs[i])
+		seg := strcase.ToKebab(seg)
 		if "/"+strings.Join(segs[:i+1], "/") == rootPath {
 			return ""
 		}

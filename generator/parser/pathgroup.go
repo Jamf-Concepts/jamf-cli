@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -176,7 +177,7 @@ func apiVersionSegment(seg string) (int, bool) {
 // splitPathSegments splits a URL path into its non-empty segments.
 func splitPathSegments(path string) []string {
 	var out []string
-	for _, s := range strings.Split(path, "/") {
+	for s := range strings.SplitSeq(path, "/") {
 		if s != "" {
 			out = append(out, s)
 		}
@@ -190,12 +191,7 @@ func isPathParam(seg string) bool {
 }
 
 func containsInt(xs []int, x int) bool {
-	for _, v := range xs {
-		if v == x {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(xs, x)
 }
 
 // groupName turns a root into a command name, applying an override when the

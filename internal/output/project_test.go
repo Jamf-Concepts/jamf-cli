@@ -498,7 +498,7 @@ func TestNoSelectKeepsRowZeroAsTheColumnSet(t *testing.T) {
 	if err := f.Print(rows); err != nil {
 		t.Fatalf("Print: %v", err)
 	}
-	header := strings.SplitN(buf.String(), "\n", 2)[0]
+	header, _, _ := strings.Cut(buf.String(), "\n")
 	if header != "name" {
 		t.Errorf("header = %q, want %q. Row 0 must still decide without --select", header, "name")
 	}
