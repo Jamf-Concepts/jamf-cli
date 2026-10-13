@@ -320,14 +320,12 @@ func TestMigratingStore_ConcurrentGetsOfALegacyItem(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, readers)
 	for range readers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			got, err := store.Get(DefaultService, acct)
 			if err != nil || got != "legacy" {
 				errs <- errors.New("Get = " + got + ": " + errString(err))
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
