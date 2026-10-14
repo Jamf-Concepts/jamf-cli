@@ -1335,8 +1335,6 @@ func detectVersionLock(ops []*Operation) bool {
 // existing startup-status / ddm-status / apns-client-push-status commands from
 // `list` to `get`, which is a user-visible break that belongs in its own PR.
 var readOnlySingletonPaths = map[string]bool{
-	// Reports the one cloud-services environment this instance talks to.
-	"/v2/environment-type": true,
 	// Reports whether App Installers is available and which features the
 	// Cloud Services Connection enables. One object, no collection: it is the
 	// feature probe the rest of the surface depends on, not a list of anything.

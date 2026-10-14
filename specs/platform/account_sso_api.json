@@ -1611,7 +1611,7 @@
     },
     "description": "Verified domains and identity provider connections for single sign-on to Jamf products",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Jamf Account SSO API",
+    "title": "Jamf Account SSO",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",

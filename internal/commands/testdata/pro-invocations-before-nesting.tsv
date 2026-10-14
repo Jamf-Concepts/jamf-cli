@@ -814,8 +814,8 @@ pro enrollment-settings history-export	leaf	leaf
 pro enrollment-settings list	leaf	refused
 pro enrollment-settings update	leaf	leaf
 pro enrollment-settings update-enrollment	leaf	refused
-pro environment-type	group	group
-pro environment-type get	leaf	leaf
+pro environment-type	group	leaf
+pro environment-type get	leaf	gone
 pro group-tools	group	group
 pro group-tools analyze	leaf	leaf
 pro group-tools export	leaf	leaf

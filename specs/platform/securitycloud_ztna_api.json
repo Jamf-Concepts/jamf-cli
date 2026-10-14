@@ -79,6 +79,20 @@
         "content": {
           "application/json": {
             "examples": {
+              "emptyAvailabilityZones": {
+                "summary": "Attempt to empty the availability zone list",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "EMPTY_AVAILABILITY_ZONES_NOT_SUPPORTED",
+                      "description": "availabilityZones must contain at least one address.",
+                      "field": "availabilityZones"
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
               "invalidField": {
                 "summary": "Schema validation failure",
                 "value": {
@@ -127,7 +141,7 @@
             }
           }
         },
-        "description": "Bad request — validation error. Common codes: `INVALID_FIELD` (schema or constraint violation), `IPSEC_SECRET_CLEAR_NOT_SUPPORTED` (explicit `null` sent for `ipsec.left.secret`), `IPSEC_REMOVAL_NOT_SUPPORTED` (explicit `null` sent for `ipsec` on a gateway that has IPSec configured).\n"
+        "description": "Bad request — validation error. Common codes: `INVALID_FIELD` (schema or constraint violation), `IPSEC_SECRET_CLEAR_NOT_SUPPORTED` (explicit `null` sent for `ipsec.left.secret`), `IPSEC_REMOVAL_NOT_SUPPORTED` (explicit `null` sent for `ipsec` on a gateway that has IPSec configured), `EMPTY_AVAILABILITY_ZONES_NOT_SUPPORTED` (patch empties `availabilityZones` on a gateway that currently has zones).\n"
       },
       "conflict": {
         "content": {
@@ -1356,7 +1370,7 @@
             "$ref": "#/components/schemas/GatewayContact"
           },
           "datacenter": {
-            "description": "Datacenter this gateway is deployed to (e.g. `eu-west-1`). Can be changed on PATCH — triggers re-provisioning; `availabilityZones` must match the new datacenter prefix (returns `400` on mismatch).\n",
+            "description": "Datacenter this gateway is deployed to (e.g. `eu-west-1`). Can be changed on PATCH — triggers re-provisioning; `availabilityZones` must be valid IPs for the new datacenter (returns `400` on mismatch).\n",
             "enum": [
               "af-south-1",
               "ap-east-1",
@@ -1452,7 +1466,7 @@
         "description": "Flat request body for creating a dedicated Gateway.",
         "properties": {
           "availabilityZones": {
-            "description": "Public IPv4 addresses of the availability zone nodes to deploy into\n(e.g. `18.202.42.169`). Must belong to the gateway's datacenter region.\nMust be empty when `dedicatedIps.enabled: true`.\nNote: despite the field name, values are IPv4 addresses — not zone identifier strings.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
+            "description": "Public IPv4 addresses of the availability zone nodes to deploy into\n(e.g. `18.202.42.169`). Must belong to the gateway's datacenter region.\nMust be empty when `dedicatedIps.enabled: true`. Required (at least one address)\nwhen `ipsec` is set — an `ipsec` gateway with no zones is rejected.\nNote: despite the field name, values are IPv4 addresses — not zone identifier strings.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
             "example": [
               "18.202.42.169"
             ],
@@ -1498,7 +1512,7 @@
           },
           "ipsec": {
             "$ref": "#/components/schemas/GatewayIpSecRequest",
-            "description": "IPSec tunnel configuration. Optional — omit for non-tunnelled gateways. Mutually exclusive with `dedicatedIps.enabled: true`.\n"
+            "description": "IPSec tunnel configuration. Exactly one of `ipsec` or `dedicatedIps.enabled: true` must be set — a plain gateway (neither) is rejected. Mutually exclusive with `dedicatedIps.enabled: true`.\n"
           },
           "name": {
             "description": "Human-readable name.",
@@ -1640,10 +1654,10 @@
       },
       "GatewayPatchRequest": {
         "additionalProperties": false,
-        "description": "Flat merge-patch body (`application/merge-patch+json`). All fields optional. When `datacenter` is omitted, the existing value is preserved. When `datacenter` changes, `availabilityZones` must match the new datacenter prefix (e.g. `eu-central-1a` for `eu-central-1`) — returns `400` on mismatch.\n",
+        "description": "Flat merge-patch body (`application/merge-patch+json`). All fields optional. When `datacenter` is omitted, the existing value is preserved. When `datacenter` changes, `availabilityZones` must be valid IPs for the new datacenter (e.g. `3.66.107.208` for `eu-central-1`) — returns `400` on mismatch.\n",
         "properties": {
           "availabilityZones": {
-            "description": "Replaces the availability zone node list. Accepts public IPv4 addresses\n(e.g. `18.202.42.169`). Zones must belong to the (new or existing) datacenter.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
+            "description": "Replaces the availability zone node list. Accepts public IPv4 addresses\n(e.g. `18.202.42.169`). Zones must belong to the (new or existing) datacenter.\nCannot be emptied once set — sending `[]` or `null` returns\n`400 EMPTY_AVAILABILITY_ZONES_NOT_SUPPORTED`. The list can still be replaced.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
             "example": [
               "18.202.42.169"
             ],
@@ -1658,7 +1672,7 @@
             "$ref": "#/components/schemas/GatewayContact"
           },
           "datacenter": {
-            "description": "New datacenter for this deployment (e.g. `eu-central-1`). When changed, `availabilityZones` must match the new datacenter prefix — returns `400` on mismatch. **Destructive:** triggers re-provisioning, connectivity outage, and immediate `status.state` reset to `PENDING`. `dedicatedIps.ips` remain stale until VSC completes provisioning in the new datacenter.\n",
+            "description": "New datacenter for this deployment (e.g. `eu-central-1`). When changed, `availabilityZones` must be valid IPs for the new datacenter — returns `400` on mismatch. **Destructive:** triggers re-provisioning, connectivity outage, and immediate `status.state` reset to `PENDING`. `dedicatedIps.ips` remain stale until VSC completes provisioning in the new datacenter.\n",
             "enum": [
               "af-south-1",
               "ap-east-1",
@@ -2188,7 +2202,7 @@
     },
     "description": "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Jamf ZTNA Public API",
+    "title": "Jamf ZTNA Public",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",
@@ -2552,7 +2566,7 @@
     },
     "/v1/ztna/gateways": {
       "get": {
-        "description": "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.\n\n\n**Required Permissions:** `ztna:read`",
+        "description": "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status. A gateway with `availabilityZones` and no `ipsec` is a legacy shape predating the current create rules — no longer creatable, but still readable and patchable.\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "listGateways",
         "parameters": [
           {
@@ -2721,7 +2735,7 @@
         ]
       },
       "post": {
-        "description": "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — returns **400** if any\ntenant ID is not resolvable within the caller's organization.\n\n**Constraints:**\n- `dedicatedIps.enabled: true` and `ipsec` are mutually exclusive → `400`\n- `dedicatedIps.enabled: true` and non-empty `availabilityZones` are mutually exclusive → `400`\n- Only **one** gateway with `dedicatedIps.enabled: true` is permitted per tenant (quota = 1).\n  A second attempt returns `409 DEDICATED_IPS_LIMIT`. Contact your Jamf account team to increase this limit.\n- Sending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n\n**No idempotency key.** Gateway `name` is not unique-enforced — a timed-out POST that\nsucceeded server-side may create a duplicate gateway if retried. Verify via\n`GET /ztna/gateways` before retrying a failed create.\n\n\n**Required Permissions:** `ztna:create`",
+        "description": "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — returns **400** if any\ntenant ID is not resolvable within the caller's organization.\n\n**Constraints:**\n- Exactly one of `dedicatedIps.enabled: true` or `ipsec` must be set — a plain gateway (neither)\n  or an availability-zones-only gateway (zones with no `ipsec`) is rejected → `400`.\n- `dedicatedIps.enabled: true` and non-empty `availabilityZones` are mutually exclusive → `400`\n- An `ipsec` gateway requires at least one `availabilityZones` address → `400`\n- Only **one** gateway with `dedicatedIps.enabled: true` is permitted per tenant (quota = 1).\n  A second attempt returns `409 DEDICATED_IPS_LIMIT`. Contact your Jamf account team to increase this limit.\n- Sending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n\nThe three rejected shapes above all return `400 INVALID_FIELD`; `field` is the only way to\ntell them apart:\n\n| Request shape | `field` |\n|---|---|\n| Neither `dedicatedIps.enabled: true` nor `ipsec` | `dedicatedIps` |\n| `availabilityZones` with no `ipsec` | `ipsec` — the fix is to add a tunnel, not remove the zones |\n| `ipsec` with no `availabilityZones` | `availabilityZones` |\n\n**No idempotency key.** Gateway `name` is not unique-enforced — a timed-out POST that\nsucceeded server-side may create a duplicate gateway if retried. Verify via\n`GET /ztna/gateways` before retrying a failed create.\n\n\n**Required Permissions:** `ztna:create`",
         "operationId": "createGateway",
         "parameters": [
           {
@@ -3015,7 +3029,7 @@
                     }
                   },
                   "plainGateway": {
-                    "summary": "Plain gateway with availability zones",
+                    "summary": "Legacy plain gateway with availability zones — no longer creatable",
                     "value": {
                       "availabilityZones": [
                         "18.202.42.169",
@@ -3078,7 +3092,7 @@
         }
       ],
       "patch": {
-        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\nSending `ipsec: null` explicitly returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`\n— IPSec configuration cannot be removed from a gateway that has it.\n\n**Partial IPSec update:** When `ipsec` is present in the patch, sub-fields are\ndeep-merged — you may supply only `left.secret` to rotate the PSK without replacing\nthe rest of the configuration, or supply the full `ipsec` block to replace cipher\nsuites and endpoint addresses simultaneously.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** Concurrent modifications to the same gateway may overwrite each\nother — no optimistic locking is in place for this release.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `ztna:update`",
+        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must be valid IPs for the new datacenter\n(see the table on `GatewayPatchRequest.availabilityZones`) — returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\nSending `ipsec: null` explicitly returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`\n— IPSec configuration cannot be removed from a gateway that has it.\nOnce a gateway has `availabilityZones`, the list can be replaced but not emptied — sending `[]`\nor `null` returns `400 EMPTY_AVAILABILITY_ZONES_NOT_SUPPORTED`.\n\n**Partial IPSec update:** When `ipsec` is present in the patch, sub-fields are\ndeep-merged — you may supply only `left.secret` to rotate the PSK without replacing\nthe rest of the configuration, or supply the full `ipsec` block to replace cipher\nsuites and endpoint addresses simultaneously.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** Concurrent modifications to the same gateway may overwrite each\nother — no optimistic locking is in place for this release.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchGateway",
         "parameters": [
           {

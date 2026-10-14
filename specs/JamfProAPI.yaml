@@ -8955,19 +8955,6 @@ components:
           default: ""
           type: string
       type: object
-    EnvironmentType:
-      properties:
-        environment:
-          description: The cloud services environment type
-          enum:
-            - staging
-            - production
-            - sandbox
-          example: production
-          type: string
-      required:
-        - environment
-      type: object
     EraseDeviceCommand:
       allOf:
         - $ref: '#/components/schemas/MdmCommandBase'
@@ -9187,6 +9174,48 @@ components:
       required:
         - email
         - name
+      type: object
+    FedRampBrokerInitializeV1:
+      description: FedRAMP broker initialization data
+      properties:
+        activationCode:
+          example: VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB
+          maxLength: 39
+          minLength: 39
+          type: string
+        configUuid:
+          description: UUID selecting the tenant's OIDC broker config in the remote oidc-authentication-service
+          example: 11111111-2222-3333-4444-555555555555
+          pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+          type: string
+        email:
+          description: Federated user OIDC email to create
+          example: ITBob@jamf.com
+          type: string
+        eulaAccepted:
+          example: true
+          type: boolean
+        institutionName:
+          example: Jamf
+          minLength: 1
+          type: string
+        jssUrl:
+          example: https://jamf.jamfcloud.com
+          minLength: 1
+          type: string
+        username:
+          description: Federated user OIDC username to create
+          example: admin
+          minLength: 1
+          type: string
+      required:
+        - activationCode
+        - configUuid
+        - email
+        - eulaAccepted
+        - institutionName
+        - jssUrl
+        - username
       type: object
     FileAttachmentV2:
       properties:
@@ -10392,33 +10421,6 @@ components:
           nullable: false
           type: integer
       type: object
-    InventoryPreloadCsvError:
-      properties:
-        code:
-          example: SIZE_EXCEEDED
-          type: string
-        description:
-          example: Field 'vendor' exceeds max size 60
-          type: string
-        deviceType:
-          example: Computer
-          type: string
-        field:
-          example: vendor
-          type: string
-        fieldSize:
-          example: 60
-          type: integer
-        line:
-          example: 5
-          type: integer
-        serialNumber:
-          example: R7QFDE2YCFN4
-          type: string
-        value:
-          example: abcdefghijklmnopqrstuwxyzabcdefghijklmnopqrstuwxyzabcdefghijklmnopqrstuwxyz
-          type: string
-      type: object
     InventoryPreloadCsvValidationError:
       properties:
         errors:
@@ -10481,114 +10483,6 @@ components:
         results:
           items:
             $ref: '#/components/schemas/InventoryPreloadExtensionAttributeColumn'
-          type: array
-        totalCount:
-          example: 10
-          minimum: 0
-          type: integer
-      type: object
-    InventoryPreloadInvalidCsvResponse:
-      properties:
-        errors:
-          items:
-            $ref: '#/components/schemas/InventoryPreloadCsvError'
-          type: array
-        httpsStatus:
-          example: 400
-          type: integer
-      type: object
-    InventoryPreloadRecord:
-      properties:
-        appleCareId:
-          example: "5678"
-          type: string
-        assetTag:
-          example: ABCDEFG12345
-          type: string
-        barCode1:
-          example: "123456789"
-          type: string
-        barCode2:
-          example: "123456789"
-          type: string
-        building:
-          example: Eau Claire
-          type: string
-        department:
-          example: IT
-          type: string
-        deviceType:
-          enum:
-            - Computer
-            - Mobile Device
-            - Unknown
-          example: Computer
-          type: string
-        emailAddress:
-          example: ITBob@jamf.com
-          type: string
-        extensionAttributes:
-          items:
-            $ref: '#/components/schemas/InventoryPreloadExtensionAttribute'
-          type: array
-        fullName:
-          example: Name
-          type: string
-        id:
-          example: 1
-          readOnly: true
-          type: integer
-        leaseExpiration:
-          example: "2015-06-19"
-          type: string
-        lifeExpectancy:
-          example: 5 years
-          type: string
-        phoneNumber:
-          example: 555-555-5555
-          type: string
-        poDate:
-          example: "2019-02-04T21:09:31.661Z"
-          type: string
-        poNumber:
-          example: "8675309"
-          type: string
-        position:
-          example: IT Team Lead
-          type: string
-        purchasePrice:
-          example: $399
-          type: string
-        purchasingAccount:
-          example: IT Budget
-          type: string
-        purchasingContact:
-          example: Nick in IT
-          type: string
-        room:
-          example: 4th Floor - Quad 3
-          type: string
-        serialNumber:
-          example: C02L29ECF8J1
-          type: string
-        username:
-          example: admin
-          type: string
-        vendor:
-          example: Apple
-          type: string
-        warrantyExpiration:
-          example: "2012-07-21"
-          type: string
-      required:
-        - deviceType
-        - serialNumber
-      type: object
-    InventoryPreloadRecordSearchResults:
-      properties:
-        results:
-          items:
-            $ref: '#/components/schemas/InventoryPreloadRecord'
           type: array
         totalCount:
           example: 10
@@ -18986,7 +18880,9 @@ components:
       properties:
         accessLevel:
           default: FullAccess
-          description: Access level for the account
+          description: |
+            Access level for the account. Omitting this field applies the default of FullAccess,
+            which the requesting account may only grant if it has full access itself.
           enum:
             - FullAccess
             - SiteAccess
@@ -19043,7 +18939,10 @@ components:
           writeOnly: true
         privilegeLevel:
           default: ADMINISTRATOR
-          description: Privilege level for the account
+          description: |
+            Privilege level for the account. Omitting this field applies the default of
+            ADMINISTRATOR; ADMINISTRATOR, AUDITOR and ENROLLMENT expand to fixed privilege sets
+            and may only be granted by an administrator.
           enum:
             - ADMINISTRATOR
             - AUDITOR
@@ -19055,6 +18954,11 @@ components:
           type: string
         siteId:
           default: -1
+          description: |
+            Site the account is scoped to, or -1 for no site. Omitting this field on an update
+            applies the default of -1 and therefore clears any site already set, so send the
+            current value to keep it. Changing it requires the requesting account to have full
+            access.
           example: -1
           type: integer
         username:
@@ -19901,325 +19805,6 @@ paths:
         - mobile-device-extension-attributes-preview
       x-required-privileges:
         - Read Mobile Device Extension Attributes
-  /inventory-preload:
-    delete:
-      deprecated: true
-      description: Deletes all Inventory Preload records.
-      responses:
-        204:
-          description: OK
-      summary: |
-        Delete all Inventory Preload records
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Delete Inventory Preload Records
-    get:
-      deprecated: true
-      description: Returns all Inventory Preload records.
-      parameters:
-        - $ref: '#/components/parameters/page'
-        - $ref: '#/components/parameters/pagesize'
-        - explode: true
-          in: query
-          name: sort
-          required: false
-          schema:
-            default: ASC
-            enum:
-              - ASC
-              - DESC
-            type: string
-          style: form
-        - explode: true
-          in: query
-          name: sortBy
-          required: false
-          schema:
-            default: id
-            type: string
-          style: form
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/InventoryPreloadRecordSearchResults'
-                type: array
-            text/csv:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecordSearchResults'
-          description: OK
-      summary: |
-        Return all Inventory Preload records
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Read Inventory Preload Records
-    post:
-      deprecated: true
-      description: |
-        Create a new Inventory Preload record using JSON or CSV.
-        A CSV template can be downloaded from /api/inventory-preload/csv-template.
-        Serial number and device type are required. All other fields are optional.
-        When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data.
-        If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro.
-        If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro.
-        Full Name,
-        Email Address,
-        Phone Number,
-        Position.
-        This endpoint does not do full validation of each record in the CSV data.
-        To do full validation, use the /inventory-preload/validate-csv endpoint first.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InventoryPreloadRecord'
-          text/csv:
-            schema:
-              $ref: '#/components/schemas/InventoryPreloadRecord'
-        description: Inventory Preload record or records to be created
-        required: true
-      responses:
-        201:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecord'
-          description: Created
-        400:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Bad Request
-      summary: |
-        Create a new Inventory Preload record using JSON or CSV
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Create Inventory Preload Records
-  /inventory-preload/csv-template:
-    get:
-      deprecated: true
-      description: Retrieves the Inventory Preload CSV template.
-      responses:
-        200:
-          content:
-            text/csv:
-              schema:
-                type: object
-          description: OK
-      summary: |
-        Get the Inventory Preload CSV template
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Read Inventory Preload Records
-  /inventory-preload/history:
-    get:
-      deprecated: true
-      description: Gets Inventory Preload history entries.
-      parameters:
-        - $ref: '#/components/parameters/page'
-        - $ref: '#/components/parameters/size'
-        - $ref: '#/components/parameters/pagesize'
-        - $ref: '#/components/parameters/page-size'
-        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
-          explode: true
-          in: query
-          name: sort
-          required: false
-          schema:
-            default: date:desc
-            type: string
-          style: form
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HistorySearchResults'
-          description: OK
-      summary: |
-        Get Inventory Preload history entries
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Read Inventory Preload Records
-  /inventory-preload/history/notes:
-    post:
-      deprecated: true
-      description: Adds Inventory Preload history object notes.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ObjectHistoryNote'
-        description: History notes to create
-        required: true
-      responses:
-        201:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ObjectHistory'
-          description: Notes of Inventory Preload history were added
-        503:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload history can not be saved
-      summary: |
-        Add Inventory Preload history object notes
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Update Inventory Preload Records
-  /inventory-preload/validate-csv:
-    post:
-      deprecated: true
-      description: |
-        Validate a given CSV file.
-        Serial number and device type are required. All other fields are optional.
-        A CSV template can be downloaded from /api/inventory-preload/csv-template.
-      requestBody:
-        content:
-          text/csv:
-            schema:
-              type: object
-        description: Inventory Preload records to be validated. A CSV template can be downloaded from /api/inventory-preload/csv-template
-        required: true
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadCsvValidationSuccess'
-          description: Ok
-        412:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadInvalidCsvResponse'
-          description: Precondition Failed
-      summary: |
-        Validate a given CSV file
-      tags:
-        - inventory-preload
-      x-action: true
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Create Inventory Preload Records
-  /inventory-preload/{id}:
-    delete:
-      deprecated: true
-      description: Deletes an Inventory Preload record.
-      parameters:
-        - description: Inventory Preload identifier
-          explode: false
-          in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-          style: simple
-      responses:
-        204:
-          description: OK
-        404:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload record with specified id does not exist
-      summary: |
-        Delete an Inventory Preload record
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Delete Inventory Preload Records
-    get:
-      deprecated: true
-      description: Retrieves an Inventory Preload record.
-      parameters:
-        - description: Inventory Preload identifier
-          explode: false
-          in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-          style: simple
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecord'
-          description: OK
-        404:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload record with specified id does not exist
-      summary: |
-        Get an Inventory Preload record
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Read Inventory Preload Records
-    put:
-      deprecated: true
-      description: Updates an Inventory Preload record.
-      parameters:
-        - description: Inventory Preload identifier
-          explode: false
-          in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-          style: simple
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InventoryPreloadRecord'
-        description: Inventory Preload record to update
-        required: true
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecord'
-          description: OK
-        404:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload record with specified id does not exist
-      summary: |
-        Update an Inventory Preload record
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-01-01"
-      x-required-privileges:
-        - Update Inventory Preload Records
   /ldap/groups:
     get:
       description: Retrieves the configured access groups that contain the text in the searchParam.
@@ -21004,6 +20589,9 @@ paths:
     post:
       description: |
         Adds the user account provided.
+
+        The requesting account cannot grant a privilege level, access level or site it does not
+        itself hold.
       requestBody:
         content:
           application/json:
@@ -21017,6 +20605,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserAccount'
           description: Successful response - Jamf Pro user account added
+        403:
+          description: Forbidden - the requesting account cannot grant the requested authority
       summary: |
         Adds new account.
       tags:
@@ -21078,6 +20668,10 @@ paths:
     put:
       description: |
         Updates the user account for the given id.
+
+        The requesting account cannot grant a privilege level, access level or site it does not
+        itself hold, and cannot change its own. Fields whose value is unchanged are not restricted,
+        so an account may be sent back in full to edit an unrelated field.
       parameters:
         - description: id of target account
           explode: false
@@ -21102,6 +20696,8 @@ paths:
           description: Successful response - Jamf Pro user account updated
         400:
           description: Bad Request - validation failure
+        403:
+          description: Forbidden - the requesting account cannot grant the requested authority
         404:
           description: Not Found - user account does not exist
       summary: |
@@ -24227,6 +23823,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: Cloud Identity Provider does not exist or is not active.
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The membership lookup could not be completed (directory service unavailable or errored).
       summary: Get membership test search
       tags:
         - cloud-idp
@@ -24993,6 +24595,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/HrefResponse'
           description: Successful response - Computer Inventory record created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, macAddress and altMacAddress match, or the specified site does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, altMacAddress, or serialNumber is already assigned to another computer.
       summary: Create Computer Inventory record
       tags:
         - computer-inventory
@@ -25056,12 +24670,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ComputerInventory'
           description: Details of computer were found
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, or macAddress and altMacAddress match.
         404:
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: Specified computer object does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, or altMacAddress is already assigned to another computer.
       summary: Update specific fields on a computer
       tags:
         - computer-inventory
@@ -28422,314 +28048,6 @@ paths:
       tags:
         - inventory-information
       x-authentication-required: true
-  /v1/inventory-preload:
-    delete:
-      deprecated: true
-      description: Deletes all Inventory Preload records.
-      responses:
-        204:
-          description: OK
-      summary: |
-        Delete all Inventory Preload records
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-24"
-      x-required-privileges:
-        - Delete Inventory Preload Records
-    get:
-      deprecated: true
-      description: Returns all Inventory Preload records.
-      parameters:
-        - $ref: '#/components/parameters/page'
-        - $ref: '#/components/parameters/size'
-        - $ref: '#/components/parameters/pagesize'
-        - $ref: '#/components/parameters/page-size'
-        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
-          explode: true
-          in: query
-          name: sort
-          required: false
-          schema:
-            default: id:asc
-            type: string
-          style: form
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecordSearchResults'
-            text/csv:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecordSearchResults'
-          description: OK
-      summary: |
-        Return all Inventory Preload records
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-22"
-      x-required-privileges:
-        - Read Inventory Preload Records
-    post:
-      deprecated: true
-      description: |
-        Create a new Inventory Preload record using JSON or CSV.
-        A CSV template can be downloaded from /api/inventory-preload/csv-template.
-        Serial number and device type are required. All other fields are optional.
-        When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data.
-        If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro.
-        If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro.
-        Full Name,
-        Email Address,
-        Phone Number,
-        Position.
-        This endpoint does not do full validation of each record in the CSV data.
-        To do full validation, use the /inventory-preload/validate-csv endpoint first.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InventoryPreloadRecord'
-          text/csv:
-            schema:
-              $ref: '#/components/schemas/InventoryPreloadRecord'
-        description: Inventory Preload record or records to be created
-        required: true
-      responses:
-        201:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecord'
-          description: Created
-        400:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Bad Request
-      summary: |
-        Create a new Inventory Preload record using JSON or CSV
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-21"
-      x-required-privileges:
-        - Create Inventory Preload Records
-  /v1/inventory-preload/csv-template:
-    get:
-      deprecated: true
-      description: Retrieves the Inventory Preload CSV template.
-      responses:
-        200:
-          content:
-            text/csv:
-              schema:
-                type: object
-          description: OK
-      summary: |
-        Retrieve the Inventory Preload CSV template
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-21"
-      x-required-privileges:
-        - Read Inventory Preload Records
-  /v1/inventory-preload/history:
-    get:
-      deprecated: true
-      description: Gets Inventory Preload history entries.
-      parameters:
-        - $ref: '#/components/parameters/page'
-        - $ref: '#/components/parameters/size'
-        - $ref: '#/components/parameters/pagesize'
-        - $ref: '#/components/parameters/page-size'
-        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
-          explode: true
-          in: query
-          name: sort
-          required: false
-          schema:
-            default: date:desc
-            type: string
-          style: form
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HistorySearchResults'
-          description: OK
-      summary: |
-        Get Inventory Preload history entries
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-24"
-      x-required-privileges:
-        - Read Inventory Preload Records
-    post:
-      deprecated: true
-      description: Adds Inventory Preload history object notes.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ObjectHistoryNote'
-        description: History notes to create
-        required: true
-      responses:
-        201:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ObjectHistory'
-          description: Notes of Inventory Preload history were added
-        503:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload history can not be saved
-      summary: |
-        Add Inventory Preload history object notes
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-24"
-      x-required-privileges:
-        - Update Inventory Preload Records
-  /v1/inventory-preload/validate-csv:
-    post:
-      deprecated: true
-      description: |
-        Validate a given CSV file.
-        Serial number and device type are required. All other fields are optional.
-        A CSV template can be downloaded from /api/inventory-preload/csv-template.
-      requestBody:
-        content:
-          text/csv:
-            schema:
-              type: object
-        description: Inventory Preload records to be validated. A CSV template can be downloaded from /api/inventory-preload/csv-template
-        required: true
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadCsvValidationSuccess'
-          description: Ok
-        412:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadInvalidCsvResponse'
-          description: Precondition Failed
-      summary: |
-        Validate a given CSV file
-      tags:
-        - inventory-preload
-      x-action: true
-      x-deprecation-date: "2020-04-21"
-      x-required-privileges:
-        - Create Inventory Preload Records
-  /v1/inventory-preload/{id}:
-    delete:
-      deprecated: true
-      description: Deletes an Inventory Preload record.
-      parameters:
-        - description: Inventory Preload identifier
-          explode: false
-          in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-          style: simple
-      responses:
-        204:
-          description: OK
-        404:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload record with specified id does not exist
-      summary: |
-        Delete an Inventory Preload record
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-24"
-      x-required-privileges:
-        - Delete Inventory Preload Records
-    get:
-      deprecated: true
-      description: Retrieves an Inventory Preload record.
-      parameters:
-        - description: Inventory Preload identifier
-          explode: false
-          in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-          style: simple
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecord'
-          description: OK
-        404:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload record with specified id does not exist
-      summary: |
-        Get an Inventory Preload record
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-23"
-      x-required-privileges:
-        - Read Inventory Preload Records
-    put:
-      deprecated: true
-      description: Updates an Inventory Preload record.
-      parameters:
-        - description: Inventory Preload identifier
-          explode: false
-          in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-          style: simple
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InventoryPreloadRecord'
-        description: Inventory Preload record to update
-        required: true
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryPreloadRecord'
-          description: OK
-        404:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-          description: Inventory Preload record with specified id does not exist
-      summary: |
-        Update an Inventory Preload record
-      tags:
-        - inventory-preload
-      x-deprecation-date: "2020-04-23"
-      x-required-privileges:
-        - Update Inventory Preload Records
   /v1/jamf-connect:
     get:
       description: Get the Jamf Connect settings that you have access to see.
@@ -31870,6 +31188,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: Email address or original URL parameter is invalid
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: OIDC is disabled, or OIDC login dispatch is unavailable because the OIDC broker is enabled
         500:
           content:
             application/json:
@@ -35907,6 +35231,41 @@ paths:
         - supervision-identities-preview
       x-required-privileges:
         - Read Apple Configurator Enrollment
+  /v1/system/fedramp-initialize:
+    post:
+      description: |
+        Performs the fresh-install initialization of a FedRAMP instance: creates the initial federated
+        account, records the activation code and Jamf Pro URL, acknowledges the EULA, persists the tenant's
+        OIDC broker (Keycloak) configuration UUID, and enables FedRAMP SSO.
+        Run-once operation: allowed only on a FedRAMP instance, while no JSS users exist, the broker is
+        enabled, and no broker UUID is already stored. Gated by the activation code, matching the sibling
+        init endpoints. Non-FedRAMP instances are rejected with INVALID_STATE.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FedRampBrokerInitializeV1'
+        required: true
+      responses:
+        202:
+          description: Broker configuration UUID has been stored
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: |
+            The following are codes returned by this call:
+            INVALID_ACTIVATION_CODE - activation code provided is not valid or is expired
+            INVALID_STATE - The system is in an invalid state to initialize the broker configuration.
+            INVALID_FIELD - A field failed validation. The field name will be provided on the response.
+            FIELD_REQUIRED - A required field was not provided. The field name will be provided on the response.
+      summary: |
+        Set up a fresh installed Jamf Pro Server for FedRAMP
+      tags:
+        - jamf-pro-initialization
+      x-action: true
+      x-authentication-required: false
   /v1/system/initialize:
     post:
       description: |
@@ -38471,6 +37830,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/HrefResponse'
           description: Successful response - Computer Inventory record created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, macAddress and altMacAddress match, or the specified site does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, altMacAddress, or serialNumber is already assigned to another computer.
       summary: Create Computer Inventory record
       tags:
         - computer-inventory
@@ -38530,12 +37901,24 @@ paths:
       responses:
         204:
           description: Details of computer were updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, or macAddress and altMacAddress match.
         404:
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: Specified computer object does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, or altMacAddress is already assigned to another computer.
       summary: Update specific fields on a computer
       tags:
         - computer-inventory
@@ -39287,22 +38670,6 @@ paths:
       x-action: true
       x-required-privileges:
         - Read User-Initiated Enrollment
-  /v2/environment-type:
-    get:
-      description: |
-        Returns the cloud services environment type (staging or production) that this Jamf Pro instance is configured to communicate with.
-      responses:
-        200:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvironmentType'
-          description: Successful response
-      summary: |
-        Get the cloud services environment type
-      tags:
-        - environment-type
-      x-authentication-required: true
   /v2/groups:
     get:
       description: Returns group information for all Mobile Device and Computer groups. The type of groups returned will be dependent upon the corresponding group type READ privileges. Results can be sorted by name, description, group type, or isSmart. Default sorting is by group name in ascending order.
@@ -42589,6 +41956,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: Email address or original URL parameter is invalid
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: OIDC is disabled, or OIDC login dispatch is unavailable because the OIDC broker is enabled
         500:
           content:
             application/json:
@@ -44738,6 +44111,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/HrefResponse'
           description: Successful response - Computer Inventory record created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, macAddress and altMacAddress match, or the specified site does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, altMacAddress, or serialNumber is already assigned to another computer.
       summary: Create Computer Inventory record
       tags:
         - computer-inventory
@@ -44797,12 +44182,24 @@ paths:
       responses:
         204:
           description: Details of computer were updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, or macAddress and altMacAddress match.
         404:
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: Specified computer object does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, or altMacAddress is already assigned to another computer.
       summary: Update specific fields on a computer
       tags:
         - computer-inventory
@@ -46800,6 +46197,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/HrefResponse'
           description: Successful response - Computer Inventory record created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, macAddress and altMacAddress match, or the specified site does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, altMacAddress, or serialNumber is already assigned to another computer.
       summary: Create Computer Inventory record
       tags:
         - computer-inventory
@@ -46855,12 +46264,24 @@ paths:
       responses:
         204:
           description: Details of computer were updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The request is invalid. A field failed validation, or macAddress and altMacAddress match.
         404:
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: Specified computer object does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: The submitted udid, macAddress, or altMacAddress is already assigned to another computer.
       summary: Update specific fields on a computer
       tags:
         - computer-inventory

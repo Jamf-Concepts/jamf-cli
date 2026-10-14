@@ -6,9 +6,9 @@
   },
   "x-jamf-source": {
     "spec": "classic_api_resource_documentation.json",
-    "title": "Classic API",
+    "title": "Jamf Pro Classic",
     "version": "11.32.0",
-    "sdkCommit": "9f9835d",
+    "sdkCommit": "04c3916",
     "schemas": 165,
     "resources": 44,
     "unresolved": 1

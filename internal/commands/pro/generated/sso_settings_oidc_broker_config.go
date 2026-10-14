@@ -41,7 +41,7 @@ func newSsoSettingsOidcBrokerConfigGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get sso-settings oidc-broker-config and output as YAML
   jamf-cli pro sso-settings oidc-broker-config get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro 11.33.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -87,7 +87,7 @@ func newSsoSettingsOidcBrokerConfigUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Update from a file
   jamf-cli pro sso-settings oidc-broker-config update --from-file sso-settings-oidc-broker-config.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro 11.33.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

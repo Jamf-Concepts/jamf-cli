@@ -27,6 +27,8 @@ func NewDealRegistrationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDealRegistrationsListCmd(cliCtx))
+	cmd.AddCommand(newDealRegistrationsCreateCmd(cliCtx))
+	cmd.AddCommand(newDealRegistrationsGetCmd(cliCtx))
 	return cmd
 }
 
@@ -72,6 +74,130 @@ func newDealRegistrationsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	return cmd
+}
+
+func newDealRegistrationsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	cmd := &cobra.Command{
+		Use:         "create",
+		Short:       "Create Deal Registration",
+		Long:        "Submits a new deal registration for the partner organization resolved from the access token, against a prospective end customer. The registration is created in `PENDING` status and awaits Jamf review.\n\nAllowed values:\n  businessType: Commercial, Government, Education-K12, Education-High Ed, Education-Intl Ed",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
+				fmt.Println("{\n  \"additionalNotes\": \"Evaluating a fleet-wide rollout for the next fiscal year.\",\n  \"additionalSupports\": [\n    \"Onboarding assistance\"\n  ],\n  \"address\": {\n    \"addressLine1\": \"100 Washington Ave S\",\n    \"addressLine2\": \"Suite 1100\",\n    \"city\": \"Minneapolis\",\n    \"country\": \"United States\",\n    \"postalCode\": \"55401\",\n    \"stateProvince\": \"MN\"\n  },\n  \"budgetApproved\": true,\n  \"businessType\": \"Commercial\",\n  \"deviceCntRange\": \"1000-2499\",\n  \"email\": \"alex.rivera@example.com\",\n  \"employeeStudentCnt\": 1200,\n  \"expectedCloseDate\": \"2026-12-31\",\n  \"firstName\": \"Alex\",\n  \"jobTitle\": \"IT Director\",\n  \"lastName\": \"Rivera\",\n  \"newCustomer\": true,\n  \"newProductLine\": false,\n  \"organizationName\": \"Example Manufacturing Co\",\n  \"phone\": \"+1-555-0142\",\n  \"primaryDistributorAccountId\": \"d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f\",\n  \"productInterests\": [\n    \"Jamf Pro\",\n    \"Jamf Connect\"\n  ],\n  \"secondaryDistributorAccountId\": \"e2f3a4b5-c6d7-4e8f-9012-2b3c4d5e6f70\",\n  \"website\": \"https://www.example.com\"\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			path := "/partners/v1/deal-registrations"
+			q := url.Values{}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			var result any
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
+				return fmt.Errorf("create: %w", err)
+			}
+			if result == nil {
+				return nil
+			}
+			b, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(b)
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
+	return cmd
+}
+
+func newDealRegistrationsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag string
+	cmd := &cobra.Command{
+		Use:         "get <partnerRegistrationId>",
+		Short:       "Get Deal Registration",
+		Long:        "Returns a single deal registration belonging to the partner organization resolved from the access token, including its current status and, once approved, its expiry.",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			var resolvedID string
+			if nameFlag != "" {
+				listPath := "/partners/v1/deal-registrations"
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				if err != nil {
+					return err
+				}
+				resolvedID = id
+			} else if len(args) == 1 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide a positional ID or --name")
+			}
+			path := "/partners/v1/deal-registrations/{partnerRegistrationId}"
+			path = strings.Replace(path, "{partnerRegistrationId}", url.PathEscape(resolvedID), 1)
+			q := url.Values{}
+			var body any
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			var result any
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+				return fmt.Errorf("get: %w", err)
+			}
+			if result == nil {
+				return nil
+			}
+			b, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(b)
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	return cmd
 }
 

@@ -11,6 +11,16 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Removed — `pro environment-type`; `pro sso-settings oidc-broker-config` refused on a gateway profile
+
+Jamf Pro 11.33.0 no longer serves `/v2/environment-type`, so `pro environment-type` is gone. It now
+answers with a withdrawal message and exits non-zero. There is no replacement.
+
+The gateway's Jamf Pro API spec no longer declares `/pro/v3/sso/oidc-broker-config`, so
+`pro sso-settings oidc-broker-config get` and `update` are refused with exit code 8 on a gateway
+profile. They still work on an instance profile. 11.33.0 also adds `pro jamf-pro-initialization
+fedramp-initialize`, refused on a gateway profile like the rest of that group.
+
 ### Breaking — macOS keychain items trust jamf-cli, not `/usr/bin/security`
 
 jamf-cli writes keychain items through Security.framework in its own process, so an item's

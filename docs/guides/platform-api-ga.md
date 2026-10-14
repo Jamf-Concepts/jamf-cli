@@ -307,14 +307,14 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
 | `pro api-authentication` | 6 | outside the published API |
 | `pro api-roles` | 6 | as `pro api-integrations` |
-| `pro jamf-pro-initialization` | 3 | `initialize`, `platform-initialize` and `initialize-database-connection`, withdrawn upstream |
+| `pro jamf-pro-initialization` | 4 | `initialize`, `platform-initialize`, `initialize-database-connection` and `fedramp-initialize`, withdrawn upstream |
 | `pro api-role-privileges` | 2 | as `pro api-integrations` |
-| `pro environment-type` | 1 | outside the published API |
+| `pro sso-settings oidc-broker-config` | 2 | `get` and `update` — the gateway no longer declares `/pro/v3/sso/oidc-broker-config` |
 | `pro macos-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
 | `pro mdm commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro sso-oauth-session-tokens` | 1 | outside the published API |
 
-54 commands in total (a wholly-refused resource contributes its group node too).
+56 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
