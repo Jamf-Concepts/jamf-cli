@@ -11,6 +11,27 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — `config validate` reports credentials as `set`
+
+`config validate` reported `pass` for a credential once its `keychain:`, `env:` or `file:`
+reference resolved. It never sent the credential to the server. If you rotated a secret in
+Jamf Pro and left the old one in the keychain, validate reported `pass` and your next command
+failed with `invalid client credentials` (#439).
+
+- The `client-id`, `client-secret` and `token` rows, and a Security Cloud profile's
+  `credentials` row, now report **`set`**. If a script matches `"status": "pass"` on those
+  rows, make it accept `set` as well. `fail` rows and the exit code stay the same: any
+  `fail` row makes validate exit non-zero.
+- **`--auth`** (new) exchanges each `oauth2` and `platform` profile's client credentials for
+  a token and reports the result on an `auth` row: `pass`, or `fail` with the server's
+  answer. It skips the token cache, so a cached token can't hide a rotated secret. When the
+  gateway refuses a platform profile, the row names the usual causes, including a profile
+  that points at the wrong region. Token and Security Cloud profiles get no `auth` row.
+- Table, CSV and plain output now include a `MESSAGE` column. The formatter takes its
+  columns from the first row, which never has a message, so a `fail` row in a table never
+  said why it failed. JSON and YAML output stays the same: a row with no message has no
+  `message` key.
+
 ### Breaking — macOS keychain items trust jamf-cli, not `/usr/bin/security`
 
 jamf-cli writes keychain items through Security.framework in its own process, so an item's

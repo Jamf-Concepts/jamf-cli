@@ -367,6 +367,10 @@
     {
       "description": "Validate and test server reachability",
       "command": "jamf-cli config validate --connectivity"
+    },
+    {
+      "description": "Validate and check each profile's client credentials with a token exchange",
+      "command": "jamf-cli config validate --auth"
     }
   ],
   "config path": [

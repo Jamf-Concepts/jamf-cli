@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -374,7 +375,7 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return "", 0, fmt.Errorf("OAuth2 token exchange failed: invalid client credentials, verify your client-id and client-secret are correct")
+		return "", 0, fmt.Errorf("OAuth2 token exchange failed: %w", ErrInvalidClientCredentials)
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -523,7 +524,7 @@ func (p *PlatformOAuth2Provider) exchangeToken(ctx context.Context) (string, int
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return "", 0, fmt.Errorf("platform token exchange failed: invalid client credentials, verify your client-id and client-secret are correct")
+		return "", 0, fmt.Errorf("platform token exchange failed: %w", ErrInvalidClientCredentials)
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -594,6 +595,11 @@ func (p *PlatformOAuth2Provider) Refresh(ctx context.Context) (string, error) {
 func (p *PlatformOAuth2Provider) Name() string {
 	return "platform"
 }
+
+// ErrInvalidClientCredentials is the token endpoint refusing the client ID and
+// secret (401). A sentinel so a caller can attach a remedy that depends on
+// where the pair came from without matching the message.
+var ErrInvalidClientCredentials = errors.New("invalid client credentials, verify your client-id and client-secret are correct")
 
 // VerifyOAuth2Credentials performs a one-shot client-credentials exchange
 // against a Jamf Pro instance and reports whether the pair is usable.

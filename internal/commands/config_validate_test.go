@@ -4,6 +4,11 @@ package commands
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +21,13 @@ import (
 // runValidateCmd executes "config validate" with a temp config file and returns
 // the combined output and any error.
 func runValidateCmd(t *testing.T, yamlContent string) (string, error) {
+	t.Helper()
+	return runValidateCmdWith(t, yamlContent, "json")
+}
+
+// runValidateCmdWith is runValidateCmd with an output format and flags, each
+// flag given as name=value.
+func runValidateCmdWith(t *testing.T, yamlContent, format string, flags ...string) (string, error) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -41,9 +53,16 @@ func runValidateCmd(t *testing.T, yamlContent string) (string, error) {
 	}
 
 	buf := &bytes.Buffer{}
-	cmd := newConfigValidateCmd(newTestCtx(buf, "json"))
+	cmd := newConfigValidateCmd(newTestCtx(buf, format))
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
+	cmd.SetContext(context.Background())
+	for _, f := range flags {
+		name, value, _ := strings.Cut(f, "=")
+		if err := cmd.Flags().Set(name, value); err != nil {
+			t.Fatalf("setting --%s: %v", name, err)
+		}
+	}
 
 	err := cmd.RunE(cmd, nil)
 	return buf.String(), err
@@ -233,8 +252,9 @@ profiles:
 	if err != nil {
 		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, `"name": "token"`) || !strings.Contains(out, `"pass"`) {
-		t.Errorf("expected token pass in output:\n%s", out)
+	if !strings.Contains(out, `"name": "token",
+    "status": "set"`) {
+		t.Errorf("expected the token reported set in output:\n%s", out)
 	}
 }
 
@@ -433,5 +453,232 @@ profiles:
 	// And the GA profile must not be swept up in it.
 	if strings.Count(out, "retired Jamf Platform gateway") != 1 {
 		t.Errorf("expected exactly one profile flagged, got:\n%s", out)
+	}
+}
+
+// validateRows decodes config validate's JSON output.
+func validateRows(t *testing.T, out string) []validateCheck {
+	t.Helper()
+	var rows []validateCheck
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("decoding output: %v\n%s", err, out)
+	}
+	return rows
+}
+
+// statusOf returns the status of the named row in a profile, or "" when the
+// row is absent.
+func statusOf(rows []validateCheck, scope, name string) string {
+	for _, r := range rows {
+		if r.Scope == scope && r.Name == name {
+			return r.Status
+		}
+	}
+	return ""
+}
+
+// messageOf returns the message of the named row in a profile.
+func messageOf(rows []validateCheck, scope, name string) string {
+	for _, r := range rows {
+		if r.Scope == scope && r.Name == name {
+			return r.Message
+		}
+	}
+	return ""
+}
+
+// A credential row that only resolved its reference reports "set", never
+// "pass" (#439): the keychain can hold a secret since rotated on the server,
+// and "pass" beside rows that were genuinely checked read as "it works". Every
+// credential row is covered: oauth2, platform, token, and Security Cloud's.
+func TestConfigValidate_CredentialRowsReportSetNotPass(t *testing.T) {
+	t.Setenv("TEST_SET_ID", "id")
+	t.Setenv("TEST_SET_SECRET", "secret")
+	yaml := `
+profiles:
+  inst:
+    url: https://jamf.example.com
+    auth-method: oauth2
+    client-id: "env:TEST_SET_ID"
+    client-secret: "env:TEST_SET_SECRET"
+  gw:
+    url: https://eu.api.jamfcloud.com
+    auth-method: platform
+    client-id: "env:TEST_SET_ID"
+    client-secret: "env:TEST_SET_SECRET"
+    environment-id: env-1
+  tok:
+    url: https://jamf.example.com
+    auth-method: token
+    token: "env:TEST_SET_SECRET"
+  jsc:
+    product: security
+    auth-method: security
+    risk-client-id: risk
+`
+	out, err := runValidateCmd(t, yaml)
+	if err != nil {
+		t.Fatalf("validate: %v\n%s", err, out)
+	}
+	rows := validateRows(t, out)
+	for _, want := range []struct{ scope, name string }{
+		{"inst", "client-id"},
+		{"inst", "client-secret"},
+		{"gw", "client-id"},
+		{"gw", "client-secret"},
+		{"tok", "token"},
+		{"jsc", "credentials"},
+	} {
+		if got := statusOf(rows, want.scope, want.name); got != "set" {
+			t.Errorf("%s %s: status = %q, want \"set\"", want.scope, want.name, got)
+		}
+	}
+	// No token exchange happened, so nothing may claim one did.
+	for _, r := range rows {
+		if r.Name == "auth" {
+			t.Errorf("an auth row was reported without --auth: %+v", r)
+		}
+	}
+}
+
+// A table takes its columns from the first row, and the first row
+// (file-exists) never carries a message, so the table used to drop the column
+// and the reason for every failure with it.
+func TestConfigValidate_TableShowsTheFailureReason(t *testing.T) {
+	yaml := `
+profiles:
+  a:
+    url: https://jamf.example.com
+    auth-method: oauth2
+    client-id: "env:TEST_TABLE_UNSET_ID"
+    client-secret: "env:TEST_TABLE_UNSET_SECRET"
+`
+	out, err := runValidateCmdWith(t, yaml, "table")
+	if err == nil {
+		t.Fatalf("expected a failure for unresolvable credentials:\n%s", out)
+	}
+	if !strings.Contains(out, "TEST_TABLE_UNSET_ID") {
+		t.Errorf("the table does not say why client-id failed:\n%s", out)
+	}
+}
+
+// JSON keeps the omitempty shape: a row with no message carries no message key,
+// which is what a script already parsing this output reads.
+func TestConfigValidate_JSONOmitsAnEmptyMessage(t *testing.T) {
+	out, err := runValidateCmd(t, "profiles: {}\n")
+	if err != nil {
+		t.Fatalf("validate: %v\n%s", err, out)
+	}
+	if strings.Contains(out, `"message"`) {
+		t.Errorf("an empty message was emitted in JSON:\n%s", out)
+	}
+}
+
+// tokenServer answers the token endpoint at path with a token for wantSecret
+// and 401 invalid_client for anything else, and counts requests.
+func tokenServer(t *testing.T, path, wantSecret string) (*httptest.Server, *int) {
+	t.Helper()
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != path {
+			http.NotFound(w, r)
+			return
+		}
+		_ = r.ParseForm()
+		if r.PostForm.Get("client_secret") != wantSecret {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, `{"error":"invalid_client"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"access_token":"t","token_type":"Bearer","expires_in":900}`)
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &calls
+}
+
+// --auth is what earns a credential a "pass": one exchange per profile, on a
+// row of its own, failing with the server's answer when the secret is stale —
+// the rotated-secret case #439 was reported from.
+func TestConfigValidate_AuthExchangesEachProfile(t *testing.T) {
+	inst, _ := tokenServer(t, "/api/oauth/token", "current")
+	gw, _ := tokenServer(t, "/auth/token", "current")
+	t.Setenv("TEST_AUTH_ID", "id")
+	t.Setenv("TEST_AUTH_CURRENT", "current")
+	t.Setenv("TEST_AUTH_ROTATED", "rotated")
+	yaml := fmt.Sprintf(`
+profiles:
+  good:
+    url: %[1]s
+    auth-method: oauth2
+    client-id: "env:TEST_AUTH_ID"
+    client-secret: "env:TEST_AUTH_CURRENT"
+  stale:
+    url: %[1]s
+    auth-method: oauth2
+    client-id: "env:TEST_AUTH_ID"
+    client-secret: "env:TEST_AUTH_ROTATED"
+  gw:
+    url: %[2]s
+    auth-method: platform
+    client-id: "env:TEST_AUTH_ID"
+    client-secret: "env:TEST_AUTH_CURRENT"
+    environment-id: env-1
+  gw-refused:
+    url: %[2]s
+    auth-method: platform
+    client-id: "env:TEST_AUTH_ID"
+    client-secret: "env:TEST_AUTH_ROTATED"
+    environment-id: env-1
+`, inst.URL, gw.URL)
+
+	out, err := runValidateCmdWith(t, yaml, "json", "auth=true")
+	if err == nil {
+		t.Fatalf("a stale secret must fail validation:\n%s", out)
+	}
+	rows := validateRows(t, out)
+	for scope, want := range map[string]string{"good": "pass", "stale": "fail", "gw": "pass", "gw-refused": "fail"} {
+		if got := statusOf(rows, scope, "auth"); got != want {
+			t.Errorf("%s auth: status = %q, want %q", scope, got, want)
+		}
+	}
+	// The gateway answers a wrong region exactly as it answers a wrong
+	// secret, so a refused platform profile names the region among the
+	// causes rather than "verify your client-secret" alone. A Jamf Pro
+	// instance has no regions, so its refusal keeps the plain message.
+	if got := messageOf(rows, "gw-refused", "auth"); got != invalidPlatformClientHint {
+		t.Errorf("gw-refused auth message = %q, want the invalid-client hint", got)
+	}
+	if got := messageOf(rows, "stale", "auth"); strings.Contains(got, "region") {
+		t.Errorf("an instance refusal mentions regions: %q", got)
+	}
+	// The credential rows themselves still only say "set": the exchange is
+	// reported where it happened, not folded into them.
+	if got := statusOf(rows, "good", "client-secret"); got != "set" {
+		t.Errorf("good client-secret: status = %q, want \"set\"", got)
+	}
+}
+
+// A credential that did not resolve has already failed its own row, so --auth
+// sends nothing for it rather than exchanging an empty secret.
+func TestConfigValidate_AuthSkipsAnUnresolvedCredential(t *testing.T) {
+	srv, calls := tokenServer(t, "/api/oauth/token", "x")
+	t.Setenv("TEST_SKIP_ID", "id")
+	yaml := fmt.Sprintf(`
+profiles:
+  a:
+    url: %s
+    auth-method: oauth2
+    client-id: "env:TEST_SKIP_ID"
+    client-secret: "env:TEST_SKIP_UNSET_SECRET"
+`, srv.URL)
+
+	out, _ := runValidateCmdWith(t, yaml, "json", "auth=true")
+	if *calls != 0 {
+		t.Errorf("--auth sent %d request(s) for an unresolved secret", *calls)
+	}
+	if got := statusOf(validateRows(t, out), "a", "auth"); got != "" {
+		t.Errorf("auth row reported for an unresolved credential: %q", got)
 	}
 }
