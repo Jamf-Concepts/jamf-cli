@@ -41,6 +41,9 @@ type Client struct {
 	// ID cannot stand in for "this is the gateway".
 	gateway bool
 	scope   auth.Scope
+	// throttle paces requests on the gateway's rate-limit headers. Nil off
+	// the gateway, where it is a no-op. See ratelimit.go.
+	throttle *requestThrottle
 }
 
 // Option configures the client
@@ -87,6 +90,9 @@ func New(baseURL string, authProvider auth.Provider, opts ...Option) *Client {
 	}
 	for _, opt := range opts {
 		opt(c)
+	}
+	if c.gateway {
+		c.throttle = &requestThrottle{}
 	}
 	return c
 }
@@ -274,18 +280,24 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 			})
 		}
 
+		seq, err := c.pace(ctx)
+		if err != nil {
+			return nil, err
+		}
 		resp, err := httpClient.Do(req.WithContext(reqCtx))
 		if err != nil {
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))
 		}
+		c.throttle.observe(resp, seq, time.Now())
 
 		// Rate limited and rewindable — sleep, rewind on next iteration, retry.
 		if resp.StatusCode == http.StatusTooManyRequests && seeker != nil && attempt+1 < maxAttempts {
 			delay := parseRetryAfter(resp.Header.Get("Retry-After"), time.Second*time.Duration(1<<attempt))
-			_ = resp.Body.Close()
-			if c.verboseLevel >= 1 {
-				fmt.Fprintf(os.Stderr, "<-- 429 Too Many Requests, retrying in %v\n", delay)
+			if wait, ok := rateLimitResetWait(resp, rateLimitWaitMax); ok {
+				delay = wait
 			}
+			c.logRateLimited(resp, true, delay)
+			_ = resp.Body.Close()
 			if err := sleepWithContext(ctx, delay); err != nil {
 				return nil, err
 			}
@@ -401,6 +413,10 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 			attempt.ContentLength = int64(len(bodyData))
 		}
 
+		seq, err := c.pace(ctx)
+		if err != nil {
+			return nil, err
+		}
 		resp, err := c.httpClient.Do(attempt)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -422,15 +438,28 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 			continue
 		}
 
-		// Rate limited - respect Retry-After
+		c.throttle.observe(resp, seq, time.Now())
+
+		// Rate limited: Retry-After, else the gateway's x-ratelimit-reset (its
+		// 429 carries no Retry-After), else the exponential curve. A 429 is a
+		// refusal, so it is retried whatever the method. The last attempt does
+		// not sleep: nothing follows it.
 		if resp.StatusCode == http.StatusTooManyRequests {
 			delay := baseDelay * time.Duration(1<<i)
 			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 				if secs, err := strconv.Atoi(retryAfter); err == nil {
 					delay = time.Duration(secs) * time.Second
 				}
+			} else if wait, ok := rateLimitResetWait(resp, rateLimitWaitMax); ok {
+				delay = wait
 			}
+			// Do logs only the response that survives this loop, so a 429 is
+			// logged here or never: its x-ratelimit-* headers are the evidence.
+			c.logRateLimited(resp, i < maxRetries-1, delay)
 			_ = resp.Body.Close()
+			if i == maxRetries-1 {
+				break
+			}
 			if sleepErr := sleepWithContext(ctx, delay); sleepErr != nil {
 				return nil, sleepErr
 			}
@@ -444,6 +473,42 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr))
 	}
 	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
+}
+
+// pace waits for the gateway throttle's go-ahead and returns the start's
+// sequence number for observe. A wait long enough to read as a hang is reported
+// under --verbose.
+func (c *Client) pace(ctx context.Context) (uint64, error) {
+	seq, waited, err := c.throttle.wait(ctx)
+	if err != nil {
+		return 0, exitcode.Wrap(exitcode.General, err)
+	}
+	if waited >= time.Second && c.verboseLevel >= 1 {
+		fmt.Fprintf(os.Stderr, "--- waited %v for the gateway rate-limit window\n", waited.Round(time.Millisecond))
+	}
+	return seq, nil
+}
+
+// logRateLimited logs a 429 that the retry loop consumes, at the levels Do
+// logs a response: the status line under -v (with the wait when a retry
+// follows), headers under -vv, body under -vvv. It reads at most bodyLogLimit
+// of the body, which the caller then closes.
+func (c *Client) logRateLimited(resp *http.Response, retrying bool, delay time.Duration) {
+	if c.verboseLevel < 1 {
+		return
+	}
+	if retrying {
+		fmt.Fprintf(os.Stderr, "<-- %s %s, retrying in %v\n", resp.Proto, resp.Status, delay.Round(time.Millisecond))
+	} else {
+		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
+	}
+	if c.verboseLevel >= 2 {
+		logHeaders(os.Stderr, responseWireHeaders(resp), false)
+	}
+	if c.verboseLevel >= 3 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
+		logBody(os.Stderr, redact.Body(body))
+	}
 }
 
 // mayHaveAppliedHint is the remedy for a write that failed after it was sent:
