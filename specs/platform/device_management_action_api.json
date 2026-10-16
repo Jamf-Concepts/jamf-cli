@@ -163,7 +163,7 @@
     },
     "description": "API for invoking common management tasks against managed devices",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Device Management Actions API",
+    "title": "Device Management Actions",
     "version": "1.0.0"
   },
   "openapi": "3.0.1",

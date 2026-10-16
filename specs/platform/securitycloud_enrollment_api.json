@@ -260,7 +260,7 @@
     },
     "description": "API for managing activation profiles used during device enrollment",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Security Cloud Enrollment API",
+    "title": "Security Cloud Enrollment",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",

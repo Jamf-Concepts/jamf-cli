@@ -951,7 +951,7 @@ func TestGatewayUnservedNote(t *testing.T) {
 			// it is unserved reads as a CLI bug.
 			name:     "an endpoint the published spec omits gets the transitional note",
 			status:   http.StatusForbidden,
-			path:     "/pro/v2/environment-type",
+			path:     "/pro/v1/api-roles",
 			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
 			wantNote: true,
 		},

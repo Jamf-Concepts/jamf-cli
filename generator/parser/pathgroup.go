@@ -287,33 +287,6 @@ var droppedPaths = map[string]bool{
 	// Unversioned legacy twin of `/v1/policy-properties`. Shares the
 	// `policies-preview` tag with that live path, hence the path-keyed drop.
 	"/settings/obj/policyProperties": true,
-	// Inventory preload v1, superseded by v2 at a restructured path.
-	//
-	// This is the one case a version rule cannot settle on its own. v2 moved
-	// every record operation under `records/`, so `/v1/inventory-preload/{id}`
-	// and `/v2/inventory-preload/records/{id}` are the same endpoint at two
-	// path *shapes* — and deduplicateVersionedOps matches on the shape, so it
-	// sees two unrelated endpoints and keeps both. The gateway withdrew the v1
-	// family, and v2 serves list, get, create, update, delete and delete-all,
-	// so nothing is lost by dropping these.
-	//
-	// Left in, they were actively worse than absent: the v1 paths took the
-	// plain `list`, `get`, `create`, `update` and `delete` names on
-	// `pro inventory-preload` while being refused on a gateway profile, and the
-	// served v2 CRUD sat under `pro inventory-preload-records`. The obvious
-	// command was the broken one.
-	"/inventory-preload":                 true,
-	"/v1/inventory-preload":              true,
-	"/inventory-preload/{id}":            true,
-	"/v1/inventory-preload/{id}":         true,
-	"/inventory-preload/validate-csv":    true,
-	"/v1/inventory-preload/validate-csv": true,
-	"/inventory-preload/history":         true,
-	"/v1/inventory-preload/history":      true,
-	"/inventory-preload/history/notes":   true,
-	"/inventory-preload/csv-template":    true,
-	"/v1/inventory-preload/csv-template": true,
-
 	// The deprecated v1 erase and unmanage actions, superseded by v4 at a
 	// path that spells the resource differently.
 	//

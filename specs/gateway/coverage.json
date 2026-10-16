@@ -3,19 +3,19 @@
   "sources": {
     "pro": {
       "file": "pro_api.json",
-      "title": "Jamf Pro API",
-      "version": "11.32.0",
-      "paths": 478,
-      "operations": 704
+      "title": "Jamf Pro",
+      "version": "11.33.0",
+      "paths": 477,
+      "operations": 702
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
-      "title": "Classic API",
+      "title": "Jamf Pro Classic",
       "version": "11.32.0",
       "paths": 270,
       "operations": 589
     },
-    "sdkCommit": "9f9835d"
+    "sdkCommit": "04c3916"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -1628,10 +1628,6 @@
     ],
     "/pro/v3/sso/metadata/download": [
       "GET"
-    ],
-    "/pro/v3/sso/oidc-broker-config": [
-      "GET",
-      "PUT"
     ],
     "/pro/v4/computers-inventory": [
       "GET",
@@ -5626,14 +5622,6 @@
     "/pro/v3/sso/metadata/download": {
       "GET": [
         "sso-settings:read"
-      ]
-    },
-    "/pro/v3/sso/oidc-broker-config": {
-      "GET": [
-        "sso-settings:read"
-      ],
-      "PUT": [
-        "sso-settings:update"
       ]
     },
     "/pro/v4/computers-inventory": {

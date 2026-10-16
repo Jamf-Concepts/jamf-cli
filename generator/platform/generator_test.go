@@ -545,7 +545,7 @@ func TestAccountAndAuditResourceNames(t *testing.T) {
 
 	want := map[string][]string{
 		"account-licenses":            {"list"},
-		"deal-registrations":          {"list"},
+		"deal-registrations":          {"create", "get", "list"},
 		"distributor-configuration":   {"get", "patch"},
 		"distributor-purchase-orders": {"create", "get", "validate"},
 		"distributor-quotes":          {"get"},

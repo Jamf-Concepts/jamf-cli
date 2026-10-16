@@ -227,6 +227,7 @@ var nestedAliases = map[string]nestedAlias{
 // real command beats an alias in cobra.
 var withdrawnNames = map[string]string{
 	"remote-administration-configurations": "the bare `/preview/remote-administration-configurations` collection is no longer ingested; the family under it ships as `pro team-viewer-remote-administration`",
+	"environment-type":                     "`/v2/environment-type` is not in the Jamf Pro 11.33.0 API schema; there is no replacement",
 	"servers":                              "`/settings/issueTomcatSslCertificate` was an unversioned legacy endpoint with no replacement in the versioned API",
 	// Not a withdrawal but a handwritten replacement, which lands here for the
 	// same reason: pro.go removes the generated resource outright, so there is
