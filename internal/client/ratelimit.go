@@ -11,9 +11,10 @@ import (
 	"time"
 )
 
-// Gateway rate limiting, ported from jamfplatform-go-sdk v1.6.0
-// (internal/client/throttle.go and retry.go; the wire evidence is that repo's
-// docs/WIRE-FACTS.md#rate-limiting). The SDK's limiter is internal, so the
+// Gateway rate limiting, ported from jamfplatform-go-sdk (internal/client/
+// throttle.go and retry.go; the wire evidence is that repo's
+// docs/WIRE-FACTS.md#rate-limiting). In step with v1.6.1, which took the limit
+// ceiling and the stricter-gap rule below back upstream. The SDK's limiter is internal, so the
 // requests this client sends on a gateway profile pace themselves here. It is a
 // copy, not a shared budget: SDK traffic in the same process paces on its own
 // throttle. Keep the two in step until this client's gateway traffic moves onto
@@ -25,9 +26,10 @@ import (
 // encodes the limit or the window length: both are gateway configuration that
 // changes without a release, and the headers carry whatever they currently are.
 //
-// The SDK's fixed minimum interval between requests is deliberately not ported.
-// It is tuned for Terraform's parallelism; on a serial walk of thousands of
-// requests it would add minutes. In its place is a ceiling read from
+// The SDK's fixed minimum interval between requests is deliberately not ported,
+// and the SDK client runs with it at 0 too (newPlatformSDKClient): it is a
+// read-after-write cushion, and on a serial walk of thousands of requests it
+// would add minutes. What keeps a client under the limit is a ceiling read from
 // x-ratelimit-limit (see limitSpacing), which the budget gate alone does not
 // provide: a live burst of 60 concurrent workers against the EU gateway on
 // 2026-10-16, budget gate only, put 149 requests into one second and drew nine

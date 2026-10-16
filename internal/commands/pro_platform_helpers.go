@@ -323,6 +323,13 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	}
 	opts = append(opts, jamfplatform.WithHTTPClient(stdClient))
 
+	// No fixed gap between requests, as the Terraform provider runs it. The
+	// SDK's 100ms default is a read-after-write cushion, not a rate-limit
+	// control: its pacing on x-ratelimit-* keeps a client under the gateway's
+	// limit with the interval at 0 (v1.6.1), and at 100ms a serial walk of
+	// thousands of requests would spend minutes waiting.
+	opts = append(opts, jamfplatform.WithMinRequestInterval(0))
+
 	return jamfplatform.NewClient(url, clientID, clientSecret, opts...), nil
 }
 
