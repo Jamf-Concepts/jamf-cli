@@ -477,6 +477,16 @@ func statusOf(rows []validateCheck, scope, name string) string {
 	return ""
 }
 
+// messageOf returns the message of the named row in a profile.
+func messageOf(rows []validateCheck, scope, name string) string {
+	for _, r := range rows {
+		if r.Scope == scope && r.Name == name {
+			return r.Message
+		}
+	}
+	return ""
+}
+
 // A credential row that only resolved its reference reports "set", never
 // "pass" (#439): the keychain can hold a secret since rotated on the server,
 // and "pass" beside rows that were genuinely checked read as "it works". Every
@@ -615,6 +625,12 @@ profiles:
     client-id: "env:TEST_AUTH_ID"
     client-secret: "env:TEST_AUTH_CURRENT"
     environment-id: env-1
+  gw-refused:
+    url: %[2]s
+    auth-method: platform
+    client-id: "env:TEST_AUTH_ID"
+    client-secret: "env:TEST_AUTH_ROTATED"
+    environment-id: env-1
 `, inst.URL, gw.URL)
 
 	out, err := runValidateCmdWith(t, yaml, "json", "auth=true")
@@ -622,10 +638,20 @@ profiles:
 		t.Fatalf("a stale secret must fail validation:\n%s", out)
 	}
 	rows := validateRows(t, out)
-	for scope, want := range map[string]string{"good": "pass", "stale": "fail", "gw": "pass"} {
+	for scope, want := range map[string]string{"good": "pass", "stale": "fail", "gw": "pass", "gw-refused": "fail"} {
 		if got := statusOf(rows, scope, "auth"); got != want {
 			t.Errorf("%s auth: status = %q, want %q", scope, got, want)
 		}
+	}
+	// The gateway answers a wrong region exactly as it answers a wrong
+	// secret, so a refused platform profile names the region among the
+	// causes rather than "verify your client-secret" alone. A Jamf Pro
+	// instance has no regions, so its refusal keeps the plain message.
+	if got := messageOf(rows, "gw-refused", "auth"); got != invalidPlatformClientHint {
+		t.Errorf("gw-refused auth message = %q, want the invalid-client hint", got)
+	}
+	if got := messageOf(rows, "stale", "auth"); strings.Contains(got, "region") {
+		t.Errorf("an instance refusal mentions regions: %q", got)
 	}
 	// The credential rows themselves still only say "set": the exchange is
 	// reported where it happened, not folded into them.

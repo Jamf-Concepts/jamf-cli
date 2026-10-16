@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -865,7 +866,17 @@ and validate ignores them. Run 'jamf-cli doctor' to see which ones you have set.
 							scope = auth.EnvironmentScope(p.EnvironmentID)
 						}
 						checks = append(checks, checkTokenExchange(cmd.Context(), name, func(ctx context.Context) error {
-							return auth.VerifyPlatformCredentials(ctx, p.URL, clientID, clientSecret, scope)
+							err := auth.VerifyPlatformCredentials(ctx, p.URL, clientID, clientSecret, scope)
+							// "verify your client-id and client-secret" sends
+							// the operator to re-check a secret that is fine
+							// when the profile names the wrong region, which
+							// the gateway answers identically. Live-probed
+							// 2026-10-16: a US credential against EU answers
+							// 401 invalid_client.
+							if isInvalidClient(err) {
+								return errors.New(invalidPlatformClientHint)
+							}
+							return err
 						}))
 					}
 				case "oauth2":

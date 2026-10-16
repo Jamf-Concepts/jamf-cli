@@ -24,8 +24,9 @@ failed with `invalid client credentials` (#439).
   `fail` row makes validate exit non-zero.
 - **`--auth`** (new) exchanges each `oauth2` and `platform` profile's client credentials for
   a token and reports the result on an `auth` row: `pass`, or `fail` with the server's
-  answer. It skips the token cache, so a cached token can't hide a rotated secret. Token and
-  Security Cloud profiles get no `auth` row.
+  answer. It skips the token cache, so a cached token can't hide a rotated secret. When the
+  gateway refuses a platform profile, the row names the usual causes, including a profile
+  that points at the wrong region. Token and Security Cloud profiles get no `auth` row.
 - Table, CSV and plain output now include a `MESSAGE` column. The formatter takes its
   columns from the first row, which never has a message, so a `fail` row in a table never
   said why it failed. JSON and YAML output stays the same: a row with no message has no
