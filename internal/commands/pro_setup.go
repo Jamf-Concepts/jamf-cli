@@ -970,7 +970,7 @@ Deprecation notice for --credentials create:
 
 				_, _ = fmt.Fprintf(w, "\n── %s ──\n", urls[0])
 				if credentialSrc == credentialSourceExisting {
-					clientID, clientSecret, err := promptClientCredentials(w, reader)
+					clientID, clientSecret, err := promptClientCredentials(w, reader, jamfProClientSource)
 					if err != nil {
 						return err
 					}
@@ -1008,7 +1008,7 @@ Deprecation notice for --credentials create:
 					// Prompted inside the loop: an API client is issued by one
 					// instance, so there is no pair to reuse across them.
 					var clientID, clientSecret string
-					clientID, clientSecret, err = promptClientCredentials(w, reader)
+					clientID, clientSecret, err = promptClientCredentials(w, reader, jamfProClientSource)
 					if err == nil {
 						err = setupInstanceWithExistingClient(ctx, w, cfg, instanceURL, clientID, clientSecret, profileName)
 					}

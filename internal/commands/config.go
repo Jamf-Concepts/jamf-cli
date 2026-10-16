@@ -4,6 +4,7 @@ package commands
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
@@ -442,7 +444,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 			// oauth2 and platform both require client-id + client-secret
 			if authMethod == "oauth2" || authMethod == "platform" {
 				var err error
-				profileClientID, profileClientSec, err = promptClientCredentials(w, reader)
+				profileClientID, profileClientSec, err = promptClientCredentials(w, reader, clientCredentialSource(authMethod))
 				if err != nil {
 					return err
 				}
@@ -656,19 +658,79 @@ func newConfigSetDefaultCmd() *cobra.Command {
 }
 
 // validateCheck is one line of validation output.
+//
+// Status is "pass", "set" or "fail". "set" is a credential that is present and
+// whose reference resolves, and nothing more: no request was made with it, so
+// it is not reported as "pass" (#439). A rotated secret still sitting in the
+// keychain resolves cleanly, and a "pass" beside rows that were genuinely
+// checked read as "this credential works". --auth is what earns a credential a
+// "pass", on a row of its own.
 type validateCheck struct {
 	Scope   string `json:"scope"` // "config" or profile name
 	Name    string `json:"name"`
-	Status  string `json:"status"` // "pass" or "fail"
+	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
 }
 
+// validateTableRow is validateCheck for the column formats, with no omitempty
+// on Message. A table's columns are the keys of its first row, and the first
+// row (file-exists) never carries a message, so the table dropped the column
+// and with it the reason for every failure below. JSON and YAML keep the
+// omitempty shape scripts already read.
+type validateTableRow struct {
+	Name    string `json:"name"`
+	Scope   string `json:"scope"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// validateRowsForFormat is listRowsForFormat's counterpart for config validate.
+func validateRowsForFormat(checks []validateCheck, format string) any {
+	if output.RendersStructureVerbatim(format) {
+		return checks
+	}
+	out := make([]validateTableRow, 0, len(checks))
+	for _, c := range checks {
+		out = append(out, validateTableRow{Name: c.Name, Scope: c.Scope, Status: c.Status, Message: c.Message})
+	}
+	return out
+}
+
 func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var connectivity bool
+	var (
+		connectivity bool
+		verifyAuth   bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate config file and profile settings",
+		Long: `Check the config file and each profile in it. Without --auth or
+--connectivity, validate sends no requests.
+
+Each row reports pass, set or fail. A credential row (client-id,
+client-secret, token, or a Security Cloud profile's credentials) reports "set"
+when the value is present and its keychain:, env: or file: reference resolves.
+validate does not send the credential to the server, so a secret you rotated
+in Jamf Pro or Jamf Account still reports "set". Any "fail" row makes the
+command exit non-zero.
+
+--auth exchanges each oauth2 and platform profile's client credentials for a
+token and reports the result on an "auth" row: pass if the server issued a
+token, or fail with the server's answer. A pass proves the pair is valid and
+tells you nothing about the integration's privileges or scope level. Token and
+Security Cloud profiles get no auth row, because you can test a bearer token
+only by spending it on a real request.
+
+--connectivity sends an unauthenticated HEAD request to each profile's URL and
+passes on any HTTP response. A pass means the host answered.
+
+validate reads the config file and nothing else. JAMF_URL, JAMF_TOKEN,
+JAMF_CLIENT_ID and JAMF_CLIENT_SECRET override a profile when a command runs,
+and validate ignores them. Run 'jamf-cli doctor' to see which ones you have set.`,
+		Example: `  jamf-cli config validate
+  jamf-cli config validate --auth
+  jamf-cli config validate --auth -o json | jq '.[] | select(.status == "fail")'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := config.ConfigPath()
 			var checks []validateCheck
@@ -779,8 +841,8 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					} else if p.URL != "" {
 						pass(name, "gateway-url")
 					}
-					checkSecretField(&checks, name, "client-id", p.ClientID)
-					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
+					clientID, idOK := checkSecretField(&checks, name, "client-id", p.ClientID)
+					clientSecret, secretOK := checkSecretField(&checks, name, "client-secret", p.ClientSecret)
 					// One level per profile: environment or tenant, or neither
 					// for an organization-scoped integration. Both is the only
 					// fault — the credential works with one level's header, so
@@ -795,18 +857,35 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					default:
 						pass(name, "organization-scoped (no environment-id or tenant-id)")
 					}
+					// A retired host has already failed above, and the
+					// exchange against it would only add an HTML 403.
+					if verifyAuth && idOK && secretOK && p.URL != "" && platformGatewayURLForRegion(p.URL) == "" {
+						scope := auth.TenantScope(p.TenantID)
+						if p.EnvironmentID != "" {
+							scope = auth.EnvironmentScope(p.EnvironmentID)
+						}
+						checks = append(checks, checkTokenExchange(cmd.Context(), name, func(ctx context.Context) error {
+							return auth.VerifyPlatformCredentials(ctx, p.URL, clientID, clientSecret, scope)
+						}))
+					}
 				case "oauth2":
-					checkSecretField(&checks, name, "client-id", p.ClientID)
-					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
+					clientID, idOK := checkSecretField(&checks, name, "client-id", p.ClientID)
+					clientSecret, secretOK := checkSecretField(&checks, name, "client-secret", p.ClientSecret)
+					if verifyAuth && idOK && secretOK && p.URL != "" {
+						checks = append(checks, checkTokenExchange(cmd.Context(), name, func(ctx context.Context) error {
+							return auth.VerifyOAuth2Credentials(ctx, p.URL, clientID, clientSecret)
+						}))
+					}
 				case "token":
-					checkSecretField(&checks, name, "token", p.Token)
+					_, _ = checkSecretField(&checks, name, "token", p.Token)
 				case "security":
 					// Any subset of the three Risk/Lifecycle/SSE credential pairs
 					// may be configured; only require that at least one is.
 					if p.RiskClientID == "" && p.LifecycleClientID == "" && p.SSEClientID == "" {
 						fail(name, "credentials", "no risk-client-id, lifecycle-client-id, or sse-client-id configured")
 					} else {
-						pass(name, "credentials")
+						// Presence of a client ID only; see validateCheck.
+						checks = append(checks, validateCheck{Scope: name, Name: "credentials", Status: "set"})
 					}
 				}
 
@@ -845,26 +924,50 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&connectivity, "connectivity", false, "test server reachability for each profile")
+	cmd.Flags().BoolVar(&connectivity, "connectivity", false, "test server reachability for each profile (unauthenticated HEAD)")
+	cmd.Flags().BoolVar(&verifyAuth, "auth", false, "exchange each oauth2 and platform profile's client credentials for a token")
 
 	return cmd
 }
 
 // checkSecretField fails when the value is empty or not resolvable, otherwise passes.
-func checkSecretField(checks *[]validateCheck, profileName, field, value string) {
+// checkSecretField reports a credential field "set" when it is present and its
+// reference resolves, and returns the resolved value so --auth does not resolve
+// it a second time (a keychain read can raise a dialog).
+func checkSecretField(checks *[]validateCheck, profileName, field, value string) (string, bool) {
 	if value == "" {
 		*checks = append(*checks, validateCheck{Scope: profileName, Name: field, Status: "fail", Message: "missing"})
-		return
+		return "", false
 	}
-	if _, err := config.ResolveSecret(value); err != nil {
+	resolved, err := config.ResolveSecret(value)
+	if err != nil {
 		*checks = append(*checks, validateCheck{Scope: profileName, Name: field, Status: "fail", Message: fmt.Sprintf("not resolvable: %v", err)})
-		return
+		return "", false
 	}
-	*checks = append(*checks, validateCheck{Scope: profileName, Name: field, Status: "pass"})
+	*checks = append(*checks, validateCheck{Scope: profileName, Name: field, Status: "set"})
+	return resolved, true
+}
+
+// validateAuthTimeout bounds one profile's token exchange, so one unreachable
+// host cannot hold up the rest of the config.
+const validateAuthTimeout = 30 * time.Second
+
+// checkTokenExchange runs one --auth exchange and reports it as the profile's
+// "auth" row. The exchange goes through auth.Verify*Credentials, which bypass
+// the on-disk token cache: that cache is keyed on (URL, client ID) and not the
+// secret, so a cached token would pass a rotated secret — the exact case
+// config validate is run to catch.
+func checkTokenExchange(ctx context.Context, profileName string, exchange func(context.Context) error) validateCheck {
+	ctx, cancel := context.WithTimeout(ctx, validateAuthTimeout)
+	defer cancel()
+	if err := exchange(ctx); err != nil {
+		return validateCheck{Scope: profileName, Name: "auth", Status: "fail", Message: err.Error()}
+	}
+	return validateCheck{Scope: profileName, Name: "auth", Status: "pass", Message: "token issued"}
 }
 
 func emitValidate(cliCtx *registry.CLIContext, checks []validateCheck) error {
-	data, err := json.Marshal(checks)
+	data, err := json.Marshal(validateRowsForFormat(checks, cliCtx.Output.Format()))
 	if err != nil {
 		return fmt.Errorf("marshalling validation results: %w", err)
 	}

@@ -5,14 +5,18 @@ package commands
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
+	"golang.org/x/oauth2"
 	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
 
 // promptClientCredentials reads an OAuth2 client ID and secret from the
@@ -20,11 +24,20 @@ import (
 // and neither value is accepted via a flag, an environment variable or stdin —
 // see the credential input policy in CLAUDE.md.
 //
-// Shared by "pro setup" and "config add-profile" so the two cannot drift on
-// what they accept: a client ID may legitimately be an env: or file: reference
-// in add-profile, and both commands must reject an empty value rather than
-// saving a profile that cannot authenticate.
-func promptClientCredentials(w io.Writer, reader *bufio.Reader) (clientID, clientSecret string, err error) {
+// Shared by "pro setup", "platform setup", "security setup" and "config
+// add-profile" so they cannot drift on what they accept: a client ID may
+// legitimately be an env: or file: reference in add-profile, and every command
+// must reject an empty value rather than saving a profile that cannot
+// authenticate.
+//
+// source is printed ahead of the first prompt and says where the pair comes
+// from (#438). A bare "Client ID:" is ambiguous to an operator who holds a
+// platform environment ID and no secret: an environment has no secret, and
+// nothing said the prompt wanted an API integration's. The caller picks the
+// wording because only it knows whether the pair belongs to a Jamf Pro API
+// client or a Jamf Account integration.
+func promptClientCredentials(w io.Writer, reader *bufio.Reader, source string) (clientID, clientSecret string, err error) {
+	_, _ = fmt.Fprintln(w, source)
 	_, _ = fmt.Fprint(w, "Client ID: ")
 	line, err := reader.ReadString('\n')
 	if err != nil && line == "" {
@@ -47,6 +60,54 @@ func promptClientCredentials(w io.Writer, reader *bufio.Reader) (clientID, clien
 	}
 
 	return clientID, clientSecret, nil
+}
+
+// Where a client ID and secret come from, for promptClientCredentials. Jamf Pro
+// names the page "API roles and clients"; Jamf Account's is the Platform API
+// integrations UI (docs/guides/platform-api-ga.md).
+const (
+	jamfProClientSource = "Enter the client ID and secret of a Jamf Pro API client\n" +
+		"(Settings > API roles and clients)."
+	platformIntegrationSource = "Enter the client ID and secret of a Jamf Account Platform API integration.\n" +
+		"Do not enter the platform environment ID or the tenant ID here."
+)
+
+// clientCredentialSource returns the promptClientCredentials lead-in for an
+// auth method: a platform credential is issued by Jamf Account, anything else
+// by the Jamf Pro instance.
+func clientCredentialSource(authMethod string) string {
+	if authMethod == "platform" {
+		return platformIntegrationSource
+	}
+	return jamfProClientSource
+}
+
+// invalidPlatformClientHint is the remedy for a gateway refusing a client ID
+// and secret outright. The token exchange cannot say which of these it is, so
+// all three are named; each is a mistake an operator makes in setup, not a
+// fault a retry fixes. Regions: the same pair answers 401 invalid_client at
+// another region's /auth/token (internal/platform/CLAUDE.md).
+const invalidPlatformClientHint = "the gateway refused this client ID and secret. Check that you entered " +
+	"the integration's client ID and not an environment or tenant ID, and that the " +
+	"gateway URL is in the region where you registered the integration. Jamf revoked " +
+	"public-beta credentials at GA, so a beta integration needs a replacement in Jamf Account"
+
+// isInvalidClient reports whether a token exchange failed because the server
+// refused the client ID and secret, as opposed to a network fault, a wrong
+// URL or a server error. Two sources: jamf-cli's own exchange
+// (auth.ErrInvalidClientCredentials), and the platform SDK's, which passes
+// x/oauth2's RetrieveError through — "invalid_client" in the body, or a bare
+// 401, which RFC 6749 §5.2 makes the same answer.
+func isInvalidClient(err error) bool {
+	if errors.Is(err, auth.ErrInvalidClientCredentials) {
+		return true
+	}
+	var re *oauth2.RetrieveError
+	if !errors.As(err, &re) {
+		return false
+	}
+	return re.ErrorCode == "invalid_client" ||
+		(re.Response != nil && re.Response.StatusCode == http.StatusUnauthorized)
 }
 
 // verifyProfileCredentials proves a profile's client credentials work before
@@ -89,7 +150,11 @@ func verifyProfileCredentials(ctx context.Context, w io.Writer, authMethod, url,
 	}
 	if err != nil {
 		_, _ = fmt.Fprintln(w, "✗")
-		return fmt.Errorf("%w\n\njamf-cli did not write the profile. Add --no-verify to save it without checking", err)
+		wrapped := fmt.Errorf("%w\n\njamf-cli did not write the profile. Add --no-verify to save it without checking", err)
+		if authMethod == "platform" && isInvalidClient(err) {
+			return exitcode.Wrap(exitcode.Authentication, wrapped).WithHint(invalidPlatformClientHint)
+		}
+		return wrapped
 	}
 	_, _ = fmt.Fprintln(w, "✓")
 	return nil

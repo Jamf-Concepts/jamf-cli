@@ -576,6 +576,7 @@ Additive — no action needed, and all of it is live now.
 | `… is served by the Jamf Platform API, which the active credentials do not reach` (exit 8) | A platform command on an instance profile. Use `-p <platform profile>`. |
 | `--environment-id and --tenant-id are mutually exclusive` | Both levels supplied. Unset whichever the credential was not created for, including in the environment. |
 | Authentication fails outright with credentials that used to work | Beta credentials, revoked at GA. Register a replacement integration in Jamf Account and re-run `jamf-cli platform setup`. |
+| `oauth2: "invalid_client"` from `platform setup` or `config add-profile` (exit 3) | The gateway refused the client ID and secret. Check that you entered the integration's client ID from Jamf Account's Platform API integrations UI, and not an environment or tenant ID. Check that the gateway URL is in the region where you registered the integration: a credential works in that region alone. Jamf revoked public-beta credentials at GA, so a beta integration needs a replacement. |
 
 ## Other CLI changes in this release
 
