@@ -235,7 +235,7 @@ func runPolicyHealthCheck(ctx context.Context, cliCtx *registry.CLIContext, days
 // fetchAndCheckPolicies fetches all policy details and runs config checks.
 // Returns the policies, findings, fetch error count, and any fatal error.
 func fetchAndCheckPolicies(ctx context.Context, client registry.HTTPClient) ([]policyInfo, []policyHealthFinding, int, error) {
-	raw, err := FetchClassicList(ctx, client, "/JSSResource/policies", "policies")
+	raw, err := FetchAnalyticPolicyList(ctx, client, "policies")
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("listing policies: %w", err)
 	}
