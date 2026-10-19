@@ -8,7 +8,7 @@
     "spec": "classic_api_resource_documentation.json",
     "title": "Jamf Pro Classic",
     "version": "11.32.0",
-    "sdkCommit": "04c3916",
+    "sdkCommit": "db330a9",
     "schemas": 165,
     "resources": 44,
     "unresolved": 1
