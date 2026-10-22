@@ -351,8 +351,8 @@ type hashCandidate struct {
 // stronger one.
 //
 // On each iteration it nudges the inventory refresh (errors ignored — transient
-// 500s and concurrency failures are expected), then waits for the distribution
-// point's file inventory to report the file READY before comparing. A value equal to the previous
+// 500s and concurrency failures are expected), then waits for the package's
+// cloudTransferStatus to be READY before comparing. A value equal to the previous
 // record's means the server has not recomputed yet, so polling continues. A
 // different non-matching value is genuine corruption and fails immediately.
 //
@@ -386,13 +386,7 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 			continue // transient fetch failure, retry
 		}
 
-		// The distribution point's own file row is the authority on whether the
-		// transfer finished; the package record's cloudTransferStatus is the
-		// fallback when the row is not listed yet.
-		status := cdpFileStatus(ctx, client, fileName)
-		if status == "" {
-			status, _ = data["cloudTransferStatus"].(string)
-		}
+		status, _ := data["cloudTransferStatus"].(string)
 		if status == "ERROR" {
 			return nil, fmt.Errorf("distribution point reports the transfer of %s as ERROR", fileName)
 		}
@@ -421,27 +415,6 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 	}
 
 	return nil, fmt.Errorf("timed out after %v waiting for the server to compute a hash (check package integrity)", verifyTimeout)
-}
-
-// cdpFileStatus returns the status (PENDING, READY or ERROR) the cloud
-// distribution point inventory reports for fileName, or "" when it lists none
-// or cannot be read.
-func cdpFileStatus(ctx context.Context, client registry.HTTPClient, fileName string) string {
-	path := fmt.Sprintf("/v1/cloud-distribution-point/files?page=0&page-size=2&filter=%s",
-		url.QueryEscape(fmt.Sprintf(`fileName=="%s"`, resolve.EscapeRSQL(fileName))))
-	data, err := fetchJSON(ctx, client, path)
-	if err != nil {
-		return ""
-	}
-	results, _ := data["results"].([]any)
-	for _, r := range results {
-		if rec, ok := r.(map[string]any); ok {
-			if status, _ := rec["status"].(string); status != "" {
-				return status
-			}
-		}
-	}
-	return ""
 }
 
 // humanSize formats a byte count as a human-readable string.

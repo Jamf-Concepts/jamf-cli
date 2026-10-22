@@ -68,14 +68,14 @@ use `--scope full-admin`.
 Against an Amazon S3 distribution point the command waited ten minutes for a SHA3-512 hash
 Jamf Pro never computes there, then warned and exited 0. It now compares the strongest hash
 the server reports (SHA3-512, then SHA-256, then MD5; S3 reports MD5 only, JCDS all three)
-once the distribution point's file inventory lists the file `READY`, and finishes in about
-the time the inventory takes to catch up. Nothing is written to the package record: Jamf
+once the package's `cloudTransferStatus` is `READY`, and finishes in about the time the
+distribution point takes to catch up. Nothing is written to the package record: Jamf
 computes the hashes and the size, and a distribution point's own inventory refresh
 overwrites any value a client sends.
 
 What changes for a script:
 
-- **A transfer the inventory reports as `ERROR`** now fails the command. It used to wait
+- **A transfer reported as `ERROR`** now fails the command. It used to wait
   out the timeout.
 - **A hash that differs from the local file** fails on any of the three, not only SHA3-512.
 
