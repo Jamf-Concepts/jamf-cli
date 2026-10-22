@@ -42,8 +42,11 @@ func newPackagesUploadCmd(cliCtx *registry.CLIContext) *cobra.Command {
 If a package with the same filename already exists, its binary and hash metadata
 are updated. Otherwise a new package record is created first.
 
-The command calculates SHA3-512, SHA-256, and MD5 hashes of the file and writes
-them to the package metadata after upload.`,
+The command hashes the file locally and checks the result against the hash Jamf
+Pro computes for the uploaded file. It never writes hashes to the package
+record: Jamf computes them and the size itself. The strongest hash the server
+reports is compared, in the order SHA3-512, SHA-256, MD5. Jamf Cloud (JCDS)
+reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 		Example: `  # Upload a package
   jamf-cli pro packages upload --file ./Firefox-134.0.pkg
 
@@ -96,7 +99,7 @@ them to the package metadata after upload.`,
 				return err
 			}
 
-			var previousHash string // non-empty when replacing an existing package
+			var prev previousHashes // non-empty when replacing an existing package
 			if pkgID != "" {
 				if !flagYes {
 					noInput, _ := cmd.Flags().GetBool("no-input")
@@ -114,7 +117,8 @@ them to the package metadata after upload.`,
 				// Record the existing hash so verification can distinguish
 				// a stale old hash from a genuine mismatch after upload.
 				if data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID))); err == nil {
-					previousHash, _ = data["hashValue"].(string)
+					prev.sha3, _ = data["hashValue"].(string)
+					prev.md5, _ = data["md5"].(string)
 				}
 
 				fmt.Fprintf(os.Stderr, "Updating existing package (id %s)\n", pkgID)
@@ -135,13 +139,13 @@ them to the package metadata after upload.`,
 			}
 			fmt.Fprintf(os.Stderr, "Upload complete\n")
 
-			// 6. Verify upload — poll until server-computed hash matches local hash.
-			// The server computes hashType/hashValue/sha3512/sha256/md5/size itself
-			// from the uploaded JCDS file, so no PUT of hash metadata is needed (and
-			// a PUT would blank the server-managed size field). verifyPackageUpload
-			// returns the complete record on success — reuse it for display.
+			// 6. Verify upload — poll until a server-computed hash matches the local
+			// file. The server computes the hashes and size itself (SHA3-512 on JCDS,
+			// MD5 only on S3; the strongest one present is compared), so none are sent: a PUT blanks the size, and the
+			// distribution point's own inventory refresh overwrites it anyway.
+			// verifyPackageUpload returns the complete record on success.
 			fmt.Fprintf(os.Stderr, "Verifying upload...\n")
-			data, err := verifyPackageUpload(ctx, client, pkgID, fileName, hashes.sha3, previousHash)
+			data, err := verifyPackageUpload(ctx, client, pkgID, fileName, hashes, prev)
 			if err != nil {
 				if strings.Contains(err.Error(), "hash mismatch") {
 					return fmt.Errorf("upload verification failed: %w", err)
@@ -320,22 +324,48 @@ func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgI
 	return nil
 }
 
-// verifyPackageUpload polls the package until the server's computed hash matches
-// the expected value. On each iteration it nudges the JCDS inventory refresh
-// (errors ignored — transient 500s and concurrency failures are expected).
-// previousHash is the hash that was on the package record before upload (empty for
-// new packages). When the server still returns this value, polling continues because
-// the server hasn't recomputed from the new file yet. A different non-matching
-// SHA3_512 hash indicates genuine corruption and fails immediately.
+// previousHashes is what the package record held before an upload replaced its
+// file, so verification can tell a stale value from a genuinely wrong one.
+type previousHashes struct {
+	sha3   string
+	sha256 string
+	md5    string
+}
+
+// hashCandidate pairs a package record field with the local and previous value
+// of the same algorithm.
+type hashCandidate struct {
+	label, field, local, prev string
+}
+
+// verifyPackageUpload polls the package until the strongest hash the server has
+// computed matches the local file. Nothing is written back: Jamf computes the
+// hashes and the size itself, and a distribution point's inventory refresh
+// (which runs on its own schedule as well as from the nudge below) overwrites
+// any value a client PUTs.
 //
-// On success it returns the verified package record. The server computes
-// hashType/hashValue/sha3512/sha256/md5/size itself from the uploaded JCDS
-// file, so this record is complete — callers can display it directly without
-// a further GET, and must not PUT hash metadata back (a PUT blanks the
-// server-managed size field).
-func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID, fileName, expectedSHA3, previousHash string) (map[string]any, error) {
+// Which hashes exist depends on the distribution point: JCDS fills sha3512, an
+// S3 distribution point only md5. So the check does not key on hashType or
+// hashValue (only JCDS populates them) but takes the first populated field of
+// sha3512, sha256, md5, which also covers a provider that starts reporting a
+// stronger one.
+//
+// On each iteration it nudges the inventory refresh (errors ignored — transient
+// 500s and concurrency failures are expected), then waits for the distribution
+// point's file inventory to report the file READY before comparing. A value equal to the previous
+// record's means the server has not recomputed yet, so polling continues. A
+// different non-matching value is genuine corruption and fails immediately.
+//
+// On success it returns the verified package record, which is complete, so
+// callers can display it without a further GET.
+func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID, fileName string, local fileHashes, prev previousHashes) (map[string]any, error) {
 	refreshPath := fmt.Sprintf("/v1/cloud-distribution-point/refresh-inventory?file-name=%s", url.QueryEscape(fileName))
 	pkgPath := fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID))
+	candidates := []hashCandidate{
+		{"SHA3-512", "sha3512", local.sha3, prev.sha3},
+		{"SHA-256", "sha256", local.sha256, prev.sha256},
+		{"MD5", "md5", local.md5, prev.md5},
+	}
 
 	deadline := time.Now().Add(verifyTimeout)
 	for time.Now().Before(deadline) {
@@ -346,45 +376,72 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 		case <-time.After(verifyInterval):
 		}
 
-		// Nudge JCDS refresh (ignore errors — transient failures are expected)
+		// Nudge inventory refresh (ignore errors — transient failures are expected)
 		if resp, err := client.Do(ctx, "POST", refreshPath, nil); err == nil {
 			_ = resp.Body.Close()
 		}
 
-		// Check server hash
 		data, err := fetchJSON(ctx, client, pkgPath)
 		if err != nil {
 			continue // transient fetch failure, retry
 		}
 
-		hashType, _ := data["hashType"].(string)
-		hashValue, _ := data["hashValue"].(string)
-
-		if hashValue == "" {
-			fmt.Fprintf(os.Stderr, "  waiting for server hash computation...\n")
+		// The distribution point's own file row is the authority on whether the
+		// transfer finished; the package record's cloudTransferStatus is the
+		// fallback when the row is not listed yet.
+		status := cdpFileStatus(ctx, client, fileName)
+		if status == "" {
+			status, _ = data["cloudTransferStatus"].(string)
+		}
+		if status == "ERROR" {
+			return nil, fmt.Errorf("distribution point reports the transfer of %s as ERROR", fileName)
+		}
+		if status != "" && status != "READY" {
+			fmt.Fprintf(os.Stderr, "  waiting for transfer (%s)...\n", status)
 			continue
 		}
 
-		if hashType == "SHA3_512" && hashValue == expectedSHA3 {
-			return data, nil
+		verdict := "waiting for server hash computation..."
+		for _, c := range candidates {
+			server, _ := data[c.field].(string)
+			if server == "" {
+				continue
+			}
+			switch server {
+			case c.local:
+				return data, nil
+			case c.prev:
+				verdict = "waiting for server to recompute hash..."
+			default:
+				return nil, fmt.Errorf("hash mismatch: server %s=%s local=%s", c.label, server, c.local)
+			}
+			break // the strongest populated hash decides
 		}
-
-		if hashType == "SHA3_512" && hashValue == previousHash {
-			// Server still has the old file's hash — hasn't recomputed yet
-			fmt.Fprintf(os.Stderr, "  waiting for server to recompute hash...\n")
-			continue
-		}
-
-		if hashType == "SHA3_512" {
-			// Server computed a new SHA3_512 hash that doesn't match — corrupted upload
-			return nil, fmt.Errorf("hash mismatch: server=%s local=%s", hashValue, expectedSHA3)
-		}
-
-		// Hash type hasn't been updated to SHA3_512 yet — keep polling
-		fmt.Fprintf(os.Stderr, "  waiting for hash type update (current: %s)...\n", hashType)
+		fmt.Fprintf(os.Stderr, "  %s\n", verdict)
 	}
 
-	return nil, fmt.Errorf("timed out after %v waiting for server hash to match (check package integrity)", verifyTimeout)
+	return nil, fmt.Errorf("timed out after %v waiting for the server to compute a hash (check package integrity)", verifyTimeout)
+}
+
+// cdpFileStatus returns the status (PENDING, READY or ERROR) the cloud
+// distribution point inventory reports for fileName, or "" when it lists none
+// or cannot be read.
+func cdpFileStatus(ctx context.Context, client registry.HTTPClient, fileName string) string {
+	path := fmt.Sprintf("/v1/cloud-distribution-point/files?page=0&page-size=2&filter=%s",
+		url.QueryEscape(fmt.Sprintf(`fileName=="%s"`, resolve.EscapeRSQL(fileName))))
+	data, err := fetchJSON(ctx, client, path)
+	if err != nil {
+		return ""
+	}
+	results, _ := data["results"].([]any)
+	for _, r := range results {
+		if rec, ok := r.(map[string]any); ok {
+			if status, _ := rec["status"].(string); status != "" {
+				return status
+			}
+		}
+	}
+	return ""
 }
 
 // humanSize formats a byte count as a human-readable string.

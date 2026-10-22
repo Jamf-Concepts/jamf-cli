@@ -153,7 +153,7 @@ func TestVerifyPackageUpload(t *testing.T) {
 			srv := newPkgVerifyServer(tc.hashSeq)
 			defer srv.close()
 
-			data, err := verifyPackageUpload(context.Background(), srv, "702", "x.pkg", newHash, tc.previousHash)
+			data, err := verifyPackageUpload(context.Background(), srv, "702", "x.pkg", fileHashes{sha3: newHash}, previousHashes{sha3: tc.previousHash})
 
 			if tc.wantErr != "" {
 				if err == nil {
@@ -172,6 +172,176 @@ func TestVerifyPackageUpload(t *testing.T) {
 			}
 			if got, _ := data["hashValue"].(string); got != tc.wantHashVal {
 				t.Errorf("returned hashValue = %q, want %q", got, tc.wantHashVal)
+			}
+		})
+	}
+}
+
+// TestVerifyPackageUpload_S3MD5Only models an S3 distribution point: the server
+// reports hashType MD5, computes only md5, and never fills sha3512. Verification
+// must succeed on the MD5 once the transfer is READY and must not wait for a
+// SHA3-512 that will never arrive.
+func TestVerifyPackageUpload_S3MD5Only(t *testing.T) {
+	const (
+		localMD5 = "11111111111111111111111111111111"
+		oldMD5   = "22222222222222222222222222222222"
+		badMD5   = "33333333333333333333333333333333"
+	)
+	tests := []struct {
+		name    string
+		bodies  []string
+		prev    previousHashes
+		wantErr string
+	}{
+		{
+			name:   "matches once READY",
+			bodies: []string{`{"hashType":"MD5","md5":"` + localMD5 + `","cloudTransferStatus":"READY","sha3512":""}`},
+		},
+		{
+			name: "waits while PENDING then matches",
+			bodies: []string{
+				`{"hashType":"MD5","md5":"","cloudTransferStatus":"PENDING"}`,
+				`{"hashType":"MD5","md5":"` + localMD5 + `","cloudTransferStatus":"READY"}`,
+			},
+		},
+		{
+			name: "waits out the previous file's md5",
+			bodies: []string{
+				`{"hashType":"MD5","md5":"` + oldMD5 + `","cloudTransferStatus":"READY"}`,
+				`{"hashType":"MD5","md5":"` + localMD5 + `","cloudTransferStatus":"READY"}`,
+			},
+			prev: previousHashes{md5: oldMD5},
+		},
+		{
+			name:    "different md5 fails fast",
+			bodies:  []string{`{"hashType":"MD5","md5":"` + badMD5 + `","cloudTransferStatus":"READY"}`},
+			prev:    previousHashes{md5: oldMD5},
+			wantErr: "hash mismatch",
+		},
+		{
+			name:    "ERROR transfer fails",
+			bodies:  []string{`{"hashType":"MD5","md5":"","cloudTransferStatus":"ERROR"}`},
+			wantErr: "ERROR",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			withFastVerifyPoll(t)
+			var n atomic.Int32
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/cloud-distribution-point/refresh-inventory", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
+			mux.HandleFunc("/v1/packages/702", func(w http.ResponseWriter, _ *http.Request) {
+				i := min(int(n.Add(1))-1, len(tc.bodies)-1)
+				_, _ = w.Write([]byte(tc.bodies[i]))
+			})
+			ts := httptest.NewServer(mux)
+			defer ts.Close()
+			srv := &pkgVerifyServer{srv: ts}
+
+			_, err := verifyPackageUpload(context.Background(), srv, "702", "x.pkg", fileHashes{sha3: "unused", md5: localMD5}, tc.prev)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("error = %v, want substring %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestVerifyPackageUpload_StrongestHashDecides checks the preference order: the
+// strongest populated hash is the one compared, and hashType/hashValue are
+// ignored.
+func TestVerifyPackageUpload_StrongestHashDecides(t *testing.T) {
+	local := fileHashes{sha3: "s3", sha256: "s2", md5: "m5"}
+	tests := []struct {
+		name    string
+		body    string
+		wantErr string
+	}{
+		{"sha256 alone", `{"sha256":"s2","md5":"","hashType":"MD5"}`, ""},
+		{"sha3512 wins over a wrong md5", `{"sha3512":"s3","md5":"wrong"}`, ""},
+		{"wrong sha3512 fails despite matching md5", `{"sha3512":"wrong","md5":"m5"}`, "hash mismatch"},
+		{"hashValue ignored", `{"hashType":"SHA3_512","hashValue":"junk","md5":"m5"}`, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			withFastVerifyPoll(t)
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/cloud-distribution-point/refresh-inventory", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
+			mux.HandleFunc("/v1/packages/702", func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(tc.body))
+			})
+			ts := httptest.NewServer(mux)
+			defer ts.Close()
+
+			_, err := verifyPackageUpload(context.Background(), &pkgVerifyServer{srv: ts}, "702", "x.pkg", local, previousHashes{})
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("error = %v, want substring %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestVerifyPackageUpload_WaitsForFilesRowREADY checks the distribution point's
+// file row gates verification: the hash already matches, but nothing is
+// compared until the row leaves PENDING, and an ERROR row fails.
+func TestVerifyPackageUpload_WaitsForFilesRowREADY(t *testing.T) {
+	tests := []struct {
+		name     string
+		statuses []string
+		wantErr  string
+		minPolls int32
+	}{
+		{"PENDING then READY", []string{"PENDING", "PENDING", "READY"}, "", 3},
+		{"ERROR row", []string{"PENDING", "ERROR"}, "ERROR", 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			withFastVerifyPoll(t)
+			var n atomic.Int32
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/cloud-distribution-point/refresh-inventory", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
+			mux.HandleFunc("/v1/cloud-distribution-point/files", func(w http.ResponseWriter, r *http.Request) {
+				if !strings.Contains(r.URL.RawQuery, "fileName") {
+					t.Errorf("files query lacks a fileName filter: %q", r.URL.RawQuery)
+				}
+				i := min(int(n.Add(1))-1, len(tc.statuses)-1)
+				_, _ = fmt.Fprintf(w, `{"results":[{"fileName":"x.pkg","status":%q}]}`, tc.statuses[i])
+			})
+			mux.HandleFunc("/v1/packages/702", func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(`{"md5":"m5","cloudTransferStatus":"READY"}`))
+			})
+			ts := httptest.NewServer(mux)
+			defer ts.Close()
+
+			_, err := verifyPackageUpload(context.Background(), &pkgVerifyServer{srv: ts}, "702", "x.pkg", fileHashes{md5: "m5"}, previousHashes{})
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("error = %v, want substring %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := n.Load(); got < tc.minPolls {
+				t.Errorf("files polled %d times, want at least %d: verification did not wait for READY", got, tc.minPolls)
 			}
 		})
 	}
