@@ -37,6 +37,61 @@
           "pattern": "^[0-9]{1,10}$",
           "type": "string"
         }
+      },
+      "page": {
+        "description": "Page number, starting at 0. Only accepted when listing Jamf ID users.",
+        "in": "query",
+        "name": "page",
+        "schema": {
+          "default": 0,
+          "example": 0,
+          "format": "int32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "pageSize": {
+        "description": "Number of users per page (1-100, default 100). Only accepted when listing Jamf ID users.",
+        "in": "query",
+        "name": "page-size",
+        "schema": {
+          "default": 100,
+          "example": 100,
+          "format": "int32",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "region": {
+        "description": "Region the user lives in, as returned in the `region` field of a user. Jamf ID users are always in `US`.",
+        "in": "query",
+        "name": "region",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Region"
+        }
+      },
+      "search": {
+        "description": "Only return users whose email address or name contains this text. At least 3 characters, and cannot start or end with a space; an empty value returns every user. Separate words with a space to match any of them, such as a first and last name. Only accepted when listing Jamf ID users.",
+        "in": "query",
+        "name": "search",
+        "schema": {
+          "example": "rivera",
+          "pattern": "^$|^\\S.+\\S$",
+          "type": "string"
+        }
+      },
+      "userId": {
+        "description": "Identifier of the user, as returned in the `id` field of a user. User identifiers are the identity platform's own, not integers or UUIDs, and contain a `|`, which must be percent-encoded as `%7C` in the path - `auth0|64f1c2a9b7e3d05a1c9e4b72` is sent as `auth0%7C64f1c2a9b7e3d05a1c9e4b72`.",
+        "in": "path",
+        "name": "userId",
+        "required": true,
+        "schema": {
+          "example": "auth0|64f1c2a9b7e3d05a1c9e4b72",
+          "minLength": 1,
+          "type": "string"
+        }
       }
     },
     "responses": {
@@ -81,6 +136,27 @@
           }
         },
         "description": "Not Found. No connection with this identifier is configured for the organization."
+      },
+      "CreateUserBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FIELD_VALIDATION",
+                  "description": "must be a well-formed email address",
+                  "field": "email"
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. A field failed validation (`FIELD_VALIDATION`, with `field` naming it) or the body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`)."
       },
       "DomainConflict": {
         "content": {
@@ -206,7 +282,49 @@
             }
           }
         },
-        "description": "Internal Server Error. The organization in the token could not be resolved, or an upstream dependency failed. The `description` is deliberately generic; quote `traceId` when reporting the failure."
+        "description": "Internal Server Error. The organization in the token could not be resolved or the service failed (`INTERNAL_ERROR`), an upstream identity dependency failed (`UPSTREAM_ERROR`), or it did not respond in time (`UPSTREAM_TIMEOUT`). The `description` is deliberately generic; quote `traceId` when reporting the failure."
+      },
+      "InvalidParameterBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "INVALID_PARAMETER",
+                  "description": "The value provided for region is not valid",
+                  "field": "region"
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. `region` is not one of the supported regions (`INVALID_PARAMETER`), or it is missing (`BAD_REQUEST`)."
+      },
+      "ListUsersBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FIELD_VALIDATION",
+                  "description": "must be less than or equal to 100",
+                  "field": "page-size"
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. `page`, `page-size` or `search` is outside its allowed range (`FIELD_VALIDATION`, with `field` naming it), `type` is not a user type or `page` or `page-size` is not a number (`INVALID_PARAMETER`), or `type` is missing or `page`, `page-size` or `search` was sent when listing identity provider users (`BAD_REQUEST`)."
       },
       "Unauthorized": {
         "content": {
@@ -228,6 +346,69 @@
           }
         },
         "description": "Unauthorized. The access token is missing, invalid, or expired. The API Gateway rejects the request before it reaches the service."
+      },
+      "UserConflict": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "CONFLICT",
+                  "description": "A Jamf ID already exists for this email address",
+                  "field": null
+                }
+              ],
+              "httpStatus": 409,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Conflict. The email address already has a Jamf ID, in this organization or another one."
+      },
+      "UserForbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "Unable to access user with ID: auth0|64f1c2a9b7e3d05a1c9e4b72",
+                  "field": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The token does not carry the privilege required to reach this endpoint, or the user belongs to a different organization."
+      },
+      "UserNotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "NOT_FOUND",
+                  "description": "Jamf ID user with ID: auth0|64f1c2a9b7e3d05a1c9e4b72 not found",
+                  "field": null
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. No user with this identifier exists in the region, or - on the endpoints that manage Jamf ID users - the user is not a Jamf ID user."
       },
       "VerificationBadRequest": {
         "content": {
@@ -284,7 +465,7 @@
         "description": "A single problem with the request.",
         "properties": {
           "code": {
-            "description": "Machine-readable, stable classification of the problem. Values used by this API include `MALFORMED_REQUEST_BODY`, `FIELD_VALIDATION`, `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, and `INTERNAL_ERROR`. Prefer this over matching on `description`.",
+            "description": "Machine-readable, stable classification of the problem. Values used by this API include `MALFORMED_REQUEST_BODY`, `FIELD_VALIDATION`, `INVALID_PARAMETER`, `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `UPSTREAM_ERROR`, `UPSTREAM_TIMEOUT`, and `INTERNAL_ERROR`. Prefer this over matching on `description`.",
             "example": "FIELD_VALIDATION",
             "type": "string"
           },
@@ -1548,7 +1729,7 @@
         "type": "string"
       },
       "Region": {
-        "description": "Region a connection lives in. A connection cannot be moved between regions once created.",
+        "description": "Region a connection or user lives in. A connection cannot be moved between regions once created. This is where the identity data is held, not which regional gateway URL the request is sent to.",
         "enum": [
           "US",
           "EU",
@@ -1612,7 +1793,7 @@
     "description": "Verified domains and identity provider connections for single sign-on to Jamf products",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
     "title": "Jamf Account SSO",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -2305,6 +2486,10 @@
     {
       "description": "Operations for the identity provider connections of the organization resolved from the access token.",
       "name": "connections"
+    },
+    {
+      "description": "Operations for the users of the organization resolved from the access token: the Jamf ID users it manages directly, and the users who sign in through its identity provider connections.",
+      "name": "users"
     }
   ]
 }

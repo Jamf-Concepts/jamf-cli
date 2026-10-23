@@ -21,7 +21,7 @@ package gateway
 const (
 	ProAPIVersion     = "11.33.0"
 	ClassicAPIVersion = "11.32.0"
-	SDKCommit         = "db330a9"
+	SDKCommit         = "ac22d23"
 )
 
 // unserved is sorted by path then method. Paths are gateway-form with every
@@ -56,7 +56,6 @@ var unserved = []Finding{
 	{Method: "POST", Path: "/pro/v1/system/initialize", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro 11.33.0"},
 	{Method: "POST", Path: "/pro/v1/system/initialize-database-connection", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro 11.33.0"},
 	{Method: "POST", Path: "/pro/v1/system/platform-initialize", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro 11.33.0"},
-	{Method: "POST", Path: "/pro/v2/mdm/commands", Level: Unserved, Basis: BasisUnpublished, Detail: "the gateway's Jamf Pro 11.33.0 declares GET on this path but not POST"},
 	{Method: "GET", Path: "/pro/v3/sso/oidc-broker-config", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro 11.33.0"},
 	{Method: "PUT", Path: "/pro/v3/sso/oidc-broker-config", Level: Unserved, Basis: BasisUnpublished, Detail: "not declared by the gateway's Jamf Pro 11.33.0"},
 	{Method: "PUT", Path: "/proclassic/allowedfileextensions/**", Level: Unserved, Basis: BasisUnpublished, Detail: "the gateway's Jamf Pro Classic 11.32.0 declares no PUT on this resource"},
@@ -620,6 +619,7 @@ var scopeRules = []scopeRule{
 	{Method: "PUT", Path: "/pro/v2/local-admin-password/{}/set-password", Scopes: []string{"local-admin-passwords:execute"}},
 	{Method: "POST", Path: "/pro/v2/mdm/blank-push", Scopes: []string{"device-actions:execute"}},
 	{Method: "GET", Path: "/pro/v2/mdm/commands", Scopes: []string{"device-actions:read"}},
+	{Method: "POST", Path: "/pro/v2/mdm/commands", Scopes: []string{"destructive-device-actions:execute", "device-actions:execute", "local-admin-passwords:execute", "recovery-lock:execute"}},
 	{Method: "GET", Path: "/pro/v2/mobile-device-groups", Scopes: []string{"device-groups:read"}},
 	{Method: "GET", Path: "/pro/v2/mobile-device-groups/smart-group-membership/{}", Scopes: []string{"device-groups:read", "devices:read"}},
 	{Method: "GET", Path: "/pro/v2/mobile-device-groups/smart-groups", Scopes: []string{"device-groups:read"}},

@@ -6,7 +6,7 @@
       "title": "Jamf Pro",
       "version": "11.33.0",
       "paths": 477,
-      "operations": 702
+      "operations": 703
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
@@ -15,7 +15,7 @@
       "paths": 270,
       "operations": 589
     },
-    "sdkCommit": "db330a9"
+    "sdkCommit": "ac22d23"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -1326,7 +1326,8 @@
       "POST"
     ],
     "/pro/v2/mdm/commands": [
-      "GET"
+      "GET",
+      "POST"
     ],
     "/pro/v2/mobile-device-groups": [
       "GET"
@@ -5066,6 +5067,12 @@
     "/pro/v2/mdm/commands": {
       "GET": [
         "device-actions:read"
+      ],
+      "POST": [
+        "destructive-device-actions:execute",
+        "device-actions:execute",
+        "local-admin-passwords:execute",
+        "recovery-lock:execute"
       ]
     },
     "/pro/v2/mobile-device-groups": {

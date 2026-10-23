@@ -14,7 +14,7 @@ type SpecSource struct {
 var Sources = []SpecSource{
 	{File: "specs/platform/account_licensing_api.json", SHA256: "358414232ce9d825ab91750c6e5bbb71f65826219cb5180b12711c41ea57e86a"},
 	{File: "specs/platform/account_partners_api.json", SHA256: "d9c8efa2b1e121f338f4298a9dc672cca3a90588b444e93f9f7768d6808d18d6"},
-	{File: "specs/platform/account_sso_api.json", SHA256: "9e864da21763836cc5466b5e22eb1e54085858902d12286460c44bac9e04cc4c"},
+	{File: "specs/platform/account_sso_api.json", SHA256: "bcff1db2b30245bd3944e0c7028080449fea8c6dd05162ee39717a1e9681900a"},
 	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "b662089fe7c8b5ed0e81b7a7463be19dd3ee8454a8c6b3a3670e07c117294cd6"},
 	{File: "specs/platform/audit_api.json", SHA256: "0501cd71d9f9af0a070b4fab6eba60aa751d6c98a6579bc82e669d104ae2c0af"},
 	{File: "specs/platform/blueprints_api.json", SHA256: "def4bd3970f3fff2dc1c3931bdde71ce72c3087ca8d6a56d1a3e670989370c5a"},
