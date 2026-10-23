@@ -512,7 +512,8 @@
               3,
               5,
               7,
-              14
+              14,
+              30
             ],
             "example": 3,
             "minimum": 0,
@@ -1605,7 +1606,8 @@
               3,
               5,
               7,
-              14
+              14,
+              30
             ],
             "example": 3,
             "minimum": 0,
@@ -1850,7 +1852,7 @@
     },
     "description": "API for managing UEM Connect connectors",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "JSC UEM Connect API",
+    "title": "JSC UEM Connect",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",

@@ -434,7 +434,7 @@
     },
     "description": "API for querying audit events",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Audit API",
+    "title": "Audit",
     "version": "1.0.0"
   },
   "openapi": "3.0.1",

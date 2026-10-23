@@ -162,6 +162,7 @@ var platformAliases = map[string][]string{
 	"distributor-quotes":          {"dq"},
 	"sso-connections":             {"ssoc"},
 	"sso-domains":                 {"ssod"},
+	"environments":                {"envs"},
 }
 
 // applyPlatformAliases appends aliases to platform subcommands.

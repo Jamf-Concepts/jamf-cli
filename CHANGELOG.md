@@ -84,6 +84,22 @@ the instance's API roles, API integrations and accounts for any that a
 `standard` client created. To manage roles, accounts or sign-in from the CLI,
 use `--scope full-admin`.
 
+### Behaviour — `pro packages upload` verifies against the hash the distribution point computes
+
+Against an Amazon S3 distribution point the command waited ten minutes for a SHA3-512 hash
+Jamf Pro never computes there, then warned and exited 0. It now compares the strongest hash
+the server reports (SHA3-512, then SHA-256, then MD5; S3 reports MD5 only, JCDS all three)
+once the package's `cloudTransferStatus` is `READY`, and finishes in about the time the
+distribution point takes to catch up. Nothing is written to the package record: Jamf
+computes the hashes and the size, and a distribution point's own inventory refresh
+overwrites any value a client sends.
+
+What changes for a script:
+
+- **A transfer reported as `ERROR`** now fails the command. It used to wait
+  out the timeout.
+- **A hash that differs from the local file** fails on any of the three, not only SHA3-512.
+
 ### Behaviour — `unlock-user-account` exits non-zero when Jamf Pro queued no unlock
 
 Jamf Pro holds one pending `UNLOCK_USER_ACCOUNT` command per device. While one
@@ -409,6 +425,29 @@ documents: `pro computer-groups-static-groups create`/`update`/`apply` without
 create`/`patch`/`apply` without `groupName`, `siteId` and `assignments`. These
 fields are now filled in when left out. An `update` that names no members keeps
 the current ones, because that PUT replaces the member list.
+
+### Changed — MDM device actions work through a platform gateway profile
+
+The gateway now publishes `POST /pro/v2/mdm/commands` (jamfplatform-go-sdk v1.9.0), so the 20
+commands refused on a gateway profile for sending it are served: `pro mdm commands`, and the
+`lock`, `set-recovery-lock`, `set-auto-admin-password`, `settings`, `unlock-user-account`,
+lost-mode, `clear-passcode` and related actions on `pro computer-inventory` and
+`pro mobile-devices`. They send the modern MDM command on every profile type, so
+`enable-remote-desktop` / `disable-remote-desktop` no longer use the Classic computer command
+and `restart` / `shutdown` no longer use the Platform API device action on a gateway profile.
+`pro computer-inventory restart --rebuild-kernel-cache` is accepted there again. The
+credential needs `destructive-device-actions:execute`, `device-actions:execute`,
+`local-admin-passwords:execute` and `recovery-lock:execute`.
+
+### Removed — `pro environment-type`; `pro sso-settings oidc-broker-config` refused on a gateway profile
+
+Jamf Pro 11.33.0 no longer serves `/v2/environment-type`, so `pro environment-type` is gone. It now
+answers with a withdrawal message and exits non-zero. There is no replacement.
+
+The gateway's Jamf Pro API spec no longer declares `/pro/v3/sso/oidc-broker-config`, so
+`pro sso-settings oidc-broker-config get` and `update` are refused with exit code 8 on a gateway
+profile. They still work on an instance profile. 11.33.0 also adds `pro jamf-pro-initialization
+fedramp-initialize`, refused on a gateway profile like the rest of that group.
 
 ## v1.32.0
 

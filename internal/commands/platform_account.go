@@ -15,10 +15,10 @@ import (
 // usGatewayURL is the only gateway that serves the Jamf Account APIs.
 const usGatewayURL = "https://us.api.jamfcloud.com"
 
-// newAccountCmds builds the Jamf Account command tree — licensing, partners and
-// SSO — with the US-only guard and help text applied to every leaf.
+// newAccountCmds builds the Jamf Account command tree — licensing, partners,
+// SSO, environments and tenants — with the US-only guard and help text applied to every leaf.
 //
-// These three specs are organization-scoped: the organization is resolved from
+// These specs are organization-scoped: the organization is resolved from
 // the access token, so no scope header is sent at all and a profile carrying a
 // tenant or environment ID is the wrong credential for them.
 func newAccountCmds(cliCtx *registry.CLIContext) []*cobra.Command {
@@ -28,8 +28,10 @@ func newAccountCmds(cliCtx *registry.CLIContext) []*cobra.Command {
 		platformgen.NewDistributorConfigurationCmd(cliCtx),
 		platformgen.NewDistributorPurchaseOrdersCmd(cliCtx),
 		platformgen.NewDistributorQuotesCmd(cliCtx),
+		platformgen.NewEnvironmentsCmd(cliCtx),
 		platformgen.NewSsoConnectionsCmd(cliCtx),
 		platformgen.NewSsoDomainsCmd(cliCtx),
+		platformgen.NewTenantsCmd(cliCtx),
 	}
 	for _, cmd := range cmds {
 		applyAccountUSOnly(cliCtx, cmd)

@@ -13,6 +13,18 @@
           "type": "string"
         }
       },
+      "partnerRegistrationId": {
+        "description": "Identifier Jamf assigned to the deal registration, as returned in the `partnerRegistrationId` field of a deal registration.",
+        "in": "path",
+        "name": "partnerRegistrationId",
+        "required": true,
+        "schema": {
+          "example": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "quoteNumber": {
         "description": "Jamf-assigned quote number, as returned in the `quoteNumber` field of a quote.",
         "in": "path",
@@ -47,6 +59,48 @@
           }
         },
         "description": "Bad Request. The configuration change was rejected (`UPSTREAM_ERROR`), or the request body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`)."
+      },
+      "DealRegistrationBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "MALFORMED_REQUEST_BODY",
+                  "description": "The request body could not be parsed as JSON",
+                  "field": null
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. The request body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`), or the deal registration was rejected by the upstream partner platform (`UPSTREAM_ERROR`)."
+      },
+      "DealRegistrationNotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "NOT_FOUND",
+                  "description": "No deal registration found for partner registration id a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+                  "field": null
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. No deal registration with the given `partnerRegistrationId` exists for the partner organization resolved from the access token."
       },
       "DistributorNotFound": {
         "content": {
@@ -380,6 +434,175 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "DealRegistrationCreate": {
+        "description": "A new deal registration to submit against a prospective end customer. The partner organization is resolved from the access token, so it does not appear in the body.",
+        "properties": {
+          "additionalNotes": {
+            "description": "Free-form notes about the opportunity.",
+            "example": "Evaluating a fleet-wide rollout for the next fiscal year.",
+            "nullable": true,
+            "type": "string"
+          },
+          "additionalSupports": {
+            "description": "Additional support the partner is requesting from Jamf for the opportunity.",
+            "example": [
+              "Onboarding assistance"
+            ],
+            "items": {
+              "example": "Onboarding assistance",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "address": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DealRegistrationAddress"
+              }
+            ],
+            "description": "Address of the prospective end customer.",
+            "example": {
+              "addressLine1": "100 Washington Ave S",
+              "addressLine2": "Suite 1100",
+              "city": "Minneapolis",
+              "country": "United States",
+              "postalCode": "55401",
+              "stateProvince": "MN"
+            }
+          },
+          "budgetApproved": {
+            "description": "Whether the prospective end customer has approved budget for the purchase.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "businessType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BusinessType"
+              }
+            ],
+            "description": "Market segment of the prospective end customer.",
+            "example": "Commercial"
+          },
+          "deviceCntRange": {
+            "description": "Estimated device count for the opportunity, as a range.",
+            "example": "1000-2499",
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "description": "Email address of the contact at the prospective end customer.",
+            "example": "alex.rivera@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "employeeStudentCnt": {
+            "description": "Number of employees or students at the prospective end customer organization.",
+            "example": 1200,
+            "type": "integer"
+          },
+          "expectedCloseDate": {
+            "description": "Date the partner expects the opportunity to close, as submitted.",
+            "example": "2026-12-31",
+            "nullable": true,
+            "type": "string"
+          },
+          "firstName": {
+            "description": "Given name of the contact at the prospective end customer.",
+            "example": "Alex",
+            "type": "string"
+          },
+          "jobTitle": {
+            "description": "Job title of the contact at the prospective end customer.",
+            "example": "IT Director",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastName": {
+            "description": "Family name of the contact at the prospective end customer.",
+            "example": "Rivera",
+            "type": "string"
+          },
+          "newCustomer": {
+            "description": "Whether the prospective end customer is new to Jamf rather than an existing customer.",
+            "example": true,
+            "type": "boolean"
+          },
+          "newProductLine": {
+            "description": "Whether the opportunity introduces a Jamf product line the customer does not already own.",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "organizationName": {
+            "description": "Name of the prospective end customer organization.",
+            "example": "Example Manufacturing Co",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Telephone number of the contact.",
+            "example": "+1-555-0142",
+            "nullable": true,
+            "type": "string"
+          },
+          "primaryDistributorAccountId": {
+            "description": "Identifier of the primary distributor for the opportunity.",
+            "example": "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f",
+            "nullable": true,
+            "type": "string"
+          },
+          "productInterests": {
+            "description": "Jamf products the prospective end customer is interested in.",
+            "example": [
+              "Jamf Pro",
+              "Jamf Connect"
+            ],
+            "items": {
+              "description": "Name of a Jamf product.",
+              "example": "Jamf Pro",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "secondaryDistributorAccountId": {
+            "description": "Identifier of the secondary distributor for the opportunity, if any.",
+            "example": "e2f3a4b5-c6d7-4e8f-9012-2b3c4d5e6f70",
+            "nullable": true,
+            "type": "string"
+          },
+          "website": {
+            "description": "Website of the prospective end customer organization.",
+            "example": "https://www.example.com",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DealRegistrationCreated": {
+        "description": "A reference to a newly created deal registration.",
+        "properties": {
+          "href": {
+            "description": "URL of the newly created deal registration.",
+            "example": "https://account.jamf.com/api-external/v1/partners/deal-registrations/a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+            "format": "uri",
+            "type": "string"
+          },
+          "id": {
+            "description": "Identifier Jamf assigned to the new deal registration; the same value as its `partnerRegistrationId`.",
+            "example": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "href"
+        ],
         "type": "object"
       },
       "DealRegistrationList": {
@@ -1016,8 +1239,8 @@
     },
     "description": "Deal registrations, distributor quotes, and distributor purchase orders for Jamf channel partners",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Jamf Account Partners API",
-    "version": "1.0.0"
+    "title": "Jamf Account Partners",
+    "version": "1.1.0"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -1081,6 +1304,169 @@
           }
         ],
         "summary": "List Deal Registrations",
+        "tags": [
+          "deal-registrations"
+        ]
+      },
+      "post": {
+        "description": "Submits a new deal registration for the partner organization resolved from the access token, against a prospective end customer. The registration is created in `PENDING` status and awaits Jamf review.\n\nOn success the `Location` header points at the new registration's `GET /deal-registrations/{partnerRegistrationId}` endpoint, and the response body carries that same identifier as `id` alongside its `href`.",
+        "operationId": "createDealRegistration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "additionalNotes": "Evaluating a fleet-wide rollout for the next fiscal year.",
+                "additionalSupports": [
+                  "Onboarding assistance"
+                ],
+                "address": {
+                  "addressLine1": "100 Washington Ave S",
+                  "addressLine2": "Suite 1100",
+                  "city": "Minneapolis",
+                  "country": "United States",
+                  "postalCode": "55401",
+                  "stateProvince": "MN"
+                },
+                "budgetApproved": true,
+                "businessType": "Commercial",
+                "deviceCntRange": "1000-2499",
+                "email": "alex.rivera@example.com",
+                "employeeStudentCnt": 1200,
+                "expectedCloseDate": "2026-12-31",
+                "firstName": "Alex",
+                "jobTitle": "IT Director",
+                "lastName": "Rivera",
+                "newCustomer": true,
+                "newProductLine": false,
+                "organizationName": "Example Manufacturing Co",
+                "phone": "+1-555-0142",
+                "primaryDistributorAccountId": "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f",
+                "productInterests": [
+                  "Jamf Pro",
+                  "Jamf Connect"
+                ],
+                "website": "https://www.example.com"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/DealRegistrationCreate"
+              }
+            }
+          },
+          "description": "The deal registration to create.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "href": "https://account.jamf.com/api-external/v1/partners/deal-registrations/a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+                  "id": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DealRegistrationCreated"
+                }
+              }
+            },
+            "description": "The deal registration was created in `PENDING` status. The `Location` header points at the new registration and the body carries its `id` and `href`.",
+            "headers": {
+              "Location": {
+                "description": "URL of the newly created deal registration.",
+                "schema": {
+                  "example": "https://account.jamf.com/api-external/v1/partners/deal-registrations/a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+                  "format": "uri",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/DealRegistrationBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Create Deal Registration",
+        "tags": [
+          "deal-registrations"
+        ]
+      }
+    },
+    "/v1/deal-registrations/{partnerRegistrationId}": {
+      "get": {
+        "description": "Returns a single deal registration belonging to the partner organization resolved from the access token, including its current status and, once approved, its expiry.",
+        "operationId": "getDealRegistration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/partnerRegistrationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "address": {
+                    "addressLine1": "100 Washington Ave S",
+                    "addressLine2": "Suite 1100",
+                    "city": "Minneapolis",
+                    "country": "United States",
+                    "postalCode": "55401",
+                    "stateProvince": "MN"
+                  },
+                  "businessType": "Commercial",
+                  "email": "alex.rivera@example.com",
+                  "expirationDate": "2026-12-31T23:59:59Z",
+                  "firstName": "Alex",
+                  "lastName": "Rivera",
+                  "organizationName": "Example Manufacturing Co",
+                  "partnerRegistrationId": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+                  "phone": "+1-555-0142",
+                  "productInterests": [
+                    "Jamf Pro",
+                    "Jamf Connect"
+                  ],
+                  "registrationStatus": "APPROVED",
+                  "website": "https://www.example.com"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DealRegistration"
+                }
+              }
+            },
+            "description": "The requested deal registration."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DealRegistrationNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get Deal Registration",
         "tags": [
           "deal-registrations"
         ]

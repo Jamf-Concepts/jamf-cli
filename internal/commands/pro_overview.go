@@ -977,8 +977,8 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchClassicCount(ctx, client, "/JSSResource/policies", "policies")
-		send("policies", v, err)
+		items, err := FetchAnalyticPolicyList(ctx, client, "policies")
+		send("policies", formatCount(len(items)), err)
 	})
 
 	wg.Go(func() {

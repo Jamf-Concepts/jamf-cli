@@ -137,6 +137,252 @@
         ],
         "type": "object"
       },
+      "AppSettingsAllowed": {
+        "description": "Allow/deny lists for which apps and binaries can run.\n\n\u003e **Validation rule:** Each entry in `AllowedBinaries` requires either `CDHash` or\n\u003e `TeamID`. Each entry in `DeniedBinaries` requires `CDHash`, `TeamID`, or `SigningID`.\n",
+        "properties": {
+          "AllowedApps": {
+            "description": "Bundle IDs the device may show or launch. Not supported on macOS.",
+            "example": [
+              "com.example.app"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "AllowedBinaries": {
+            "description": "Binaries allowed to run. macOS only.",
+            "items": {
+              "$ref": "#/components/schemas/AppSettingsBinaryIdentifier"
+            },
+            "type": "array"
+          },
+          "AlwaysAllowManagedApps": {
+            "default": false,
+            "description": "If `true`, implicitly allows managed apps when `AllowedBinaries` is present. macOS only.",
+            "type": "boolean"
+          },
+          "DeniedApps": {
+            "description": "Bundle IDs the device may not show or launch. Not supported on macOS.",
+            "example": [
+              "com.example.app"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "DeniedBinaries": {
+            "description": "Binaries denied from running. macOS only.",
+            "items": {
+              "$ref": "#/components/schemas/AppSettingsBinaryIdentifier"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "AppSettingsBinaryIdentifier": {
+        "description": "Identifies a binary by code-signing attributes.",
+        "properties": {
+          "CDHash": {
+            "description": "40-character code directory hash of the binary.",
+            "example": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+            "maxLength": 40,
+            "minLength": 40,
+            "type": "string"
+          },
+          "PathPrefix": {
+            "description": "File system path prefix to match binaries.",
+            "example": "/Applications/Example.app",
+            "type": "string"
+          },
+          "SigningID": {
+            "description": "Code signature signing identifier of the binary.",
+            "example": "com.example.app",
+            "type": "string"
+          },
+          "SigningState": {
+            "default": "All",
+            "description": "Code signing state to match.",
+            "enum": [
+              "All",
+              "TestFlight",
+              "DeveloperID",
+              "Enterprise",
+              "AppStore",
+              "Apple"
+            ],
+            "type": "string"
+          },
+          "TeamID": {
+            "description": "Code signature team identifier. Use `*APPLE*` for Apple binaries with no team identifier.",
+            "example": "ABCD1234",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AppSettingsDeclaration": {
+        "description": "Configures app allow/deny lists and app privacy permission defaults.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/AppSettingsDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.app.settings"
+            ],
+            "example": "com.apple.configuration.app.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "App Settings",
+        "type": "object"
+      },
+      "AppSettingsDeclarationPayload": {
+        "description": "Payload fields for the App Settings declaration.",
+        "example": {
+          "Privacy": {
+            "PermissionDefaults": {
+              "com.example.scanner": {
+                "Camera": "Allow",
+                "OrganizationJustification": "This app is used for scanning work documents."
+              }
+            }
+          }
+        },
+        "properties": {
+          "Allowed": {
+            "$ref": "#/components/schemas/AppSettingsAllowed"
+          },
+          "Privacy": {
+            "$ref": "#/components/schemas/AppSettingsPrivacy"
+          }
+        },
+        "type": "object"
+      },
+      "AppSettingsPermissionDefaults": {
+        "description": "App privacy permission defaults for one app identifier.",
+        "properties": {
+          "Accessibility": {
+            "description": "Not supported on iOS.",
+            "enum": [
+              "None",
+              "Allow"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "Bluetooth": {
+            "enum": [
+              "None",
+              "Allow"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "Camera": {
+            "enum": [
+              "None",
+              "Allow"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "Dictation": {
+            "enum": [
+              "None",
+              "Allow"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "LocalNetwork": {
+            "enum": [
+              "None",
+              "Allow"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "Location": {
+            "enum": [
+              "None",
+              "WhileUsing",
+              "Always"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "LocationAccuracy": {
+            "description": "Not supported on macOS.",
+            "enum": [
+              "None",
+              "Approximate",
+              "Precise"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "Microphone": {
+            "enum": [
+              "None",
+              "Allow"
+            ],
+            "example": "None",
+            "type": "string"
+          },
+          "OrganizationJustification": {
+            "description": "Text shown to the user explaining why the organization requires these defaults.",
+            "example": "This app is used for scanning work documents.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "OrganizationJustification"
+        ],
+        "type": "object"
+      },
+      "AppSettingsPermissionDefaultsMap": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/AppSettingsPermissionDefaults"
+        },
+        "description": "Maps an app identifier (bundle ID on iOS; a composed `Bundle-ID\n{Designated-Requirement}` identifier on macOS) to a permission-defaults object.\n",
+        "example": {
+          "com.example.scanner": {
+            "Camera": "Allow",
+            "OrganizationJustification": "This app is used for scanning work documents."
+          }
+        },
+        "type": "object"
+      },
+      "AppSettingsPrivacy": {
+        "description": "App privacy permission defaults. Not supported on tvOS/visionOS/watchOS.",
+        "properties": {
+          "PermissionDefaults": {
+            "$ref": "#/components/schemas/AppSettingsPermissionDefaultsMap"
+          }
+        },
+        "type": "object"
+      },
       "AudioAccessorySettingsComponent": {
         "properties": {
           "configuration": {
@@ -548,6 +794,7 @@
         "discriminator": {
           "mapping": {
             "com.jamf.ddm-configuration-profile": "#/components/schemas/ConfigurationProfile",
+            "com.jamf.ddm-strict": "#/components/schemas/DeclarationsComponent",
             "com.jamf.ddm.app-managed": "#/components/schemas/ManagedAppComponent",
             "com.jamf.ddm.audio-accessory-settings": "#/components/schemas/AudioAccessorySettingsComponent",
             "com.jamf.ddm.custom-declarations": "#/components/schemas/CustomDeclarationsComponent",
@@ -598,6 +845,9 @@
           },
           {
             "$ref": "#/components/schemas/ManagedAppComponent"
+          },
+          {
+            "$ref": "#/components/schemas/DeclarationsComponent"
           }
         ],
         "properties": {
@@ -699,6 +949,257 @@
         },
         "required": [
           "payloadType"
+        ],
+        "type": "object"
+      },
+      "ContentCachingDeclaration": {
+        "description": "Configures the built-in Content Caching service. macOS only.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ContentCachingDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.content-cache.settings"
+            ],
+            "example": "com.apple.configuration.content-cache.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Content Caching",
+        "type": "object"
+      },
+      "ContentCachingDeclarationPayload": {
+        "description": "Payload fields for the Content Caching declaration.",
+        "example": {
+          "AllowPersonalCaching": true,
+          "AllowSharedCaching": true,
+          "AutoActivation": true,
+          "KeepAwake": true,
+          "Port": 0
+        },
+        "properties": {
+          "AllowCacheDelete": {
+            "default": true,
+            "description": "If `true`, the system may purge cached content when disk space is low.",
+            "type": "boolean"
+          },
+          "AllowPersonalCaching": {
+            "default": true,
+            "description": "Caches the user's iCloud data. At least one of `AllowPersonalCaching`/`AllowSharedCaching` must be `true`.",
+            "type": "boolean"
+          },
+          "AllowSharedCaching": {
+            "default": true,
+            "description": "Caches non-iCloud content such as apps and software updates.",
+            "type": "boolean"
+          },
+          "AutoActivation": {
+            "default": false,
+            "description": "Automatically activates Content Caching when possible.",
+            "type": "boolean"
+          },
+          "AutoEnableTetheredCaching": {
+            "default": false,
+            "description": "Automatically enables Internet connection sharing for tethered caching.",
+            "type": "boolean"
+          },
+          "CacheLimit": {
+            "default": 0,
+            "description": "Maximum disk space in bytes for the cache. `0` is unlimited.",
+            "type": "integer"
+          },
+          "DataPath": {
+            "description": "Directory used to store cached content. Must end with `/Library/Application Support/Apple/AssetCache/Data`.",
+            "example": "/Library/Application Support/Apple/AssetCache/Data",
+            "type": "string"
+          },
+          "DeclarativeStatusInterval": {
+            "default": 0,
+            "description": "Reporting interval in seconds for the status item. `0` disables it; any other\nvalue must be between 300 and 86400.\n",
+            "maximum": 86400,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "DenyActivation": {
+            "default": false,
+            "description": "If `true`, disables Content Caching entirely.",
+            "type": "boolean"
+          },
+          "DenyTetheredCaching": {
+            "default": false,
+            "description": "If `true`, disables tethered caching.",
+            "type": "boolean"
+          },
+          "DisplayAlerts": {
+            "default": false,
+            "description": "Shows exceptional conditions as system notifications.",
+            "type": "boolean"
+          },
+          "KeepAwake": {
+            "default": false,
+            "description": "Prevents sleep while Content Caching is on.",
+            "type": "boolean"
+          },
+          "ListenRanges": {
+            "description": "Client IP ranges to serve.",
+            "items": {
+              "$ref": "#/components/schemas/ContentCachingIpRange"
+            },
+            "type": "array"
+          },
+          "ListenRangesOnly": {
+            "default": false,
+            "description": "Restricts serving to `ListenRanges` only.",
+            "type": "boolean"
+          },
+          "ListenWithPeersAndParents": {
+            "default": true,
+            "description": "Serves clients in the union of `ListenRanges`, `PeerListenRanges`, and `Parents`.",
+            "type": "boolean"
+          },
+          "LocalSubnetsOnly": {
+            "default": true,
+            "description": "Restricts serving to the local subnet, ignoring `ListenRanges`.",
+            "type": "boolean"
+          },
+          "LogClientIdentity": {
+            "default": false,
+            "description": "Logs client IP and port.",
+            "type": "boolean"
+          },
+          "ManagementReportingInterval": {
+            "default": 300,
+            "description": "Reporting interval in seconds for management statistics.",
+            "maximum": 86400,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "ManagementSecurityConfig": {
+            "default": "no-cert",
+            "description": "How the `ManagementStatusTarget` HTTPS connection is secured.",
+            "enum": [
+              "no-cert",
+              "signedByCACert",
+              "specificServerCert"
+            ],
+            "type": "string"
+          },
+          "ManagementStatusCertificateReference": {
+            "description": "Asset declaration identifier for the certificate used to verify `ManagementStatusTarget`.",
+            "example": "4BF32552-6F85-4F67-999B-7B2494C4DD99",
+            "type": "string"
+          },
+          "ManagementStatusTarget": {
+            "description": "URL the cache PUTs management statistics to.",
+            "example": "https://example.com/status",
+            "type": "string"
+          },
+          "ParentSelectionPolicy": {
+            "default": "round-robin",
+            "description": "Policy for choosing among multiple parents.",
+            "enum": [
+              "first-available",
+              "url-path-hash",
+              "random",
+              "round-robin",
+              "sticky-available"
+            ],
+            "type": "string"
+          },
+          "Parents": {
+            "description": "IP addresses of upstream content caches to use instead of Apple directly.",
+            "example": [
+              "10.0.0.5"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "PeerFilterRanges": {
+            "description": "Peer IP ranges this cache queries for content.",
+            "items": {
+              "$ref": "#/components/schemas/ContentCachingIpRange"
+            },
+            "type": "array"
+          },
+          "PeerListenRanges": {
+            "description": "Peer IP ranges this cache responds to.",
+            "items": {
+              "$ref": "#/components/schemas/ContentCachingIpRange"
+            },
+            "type": "array"
+          },
+          "PeerLocalSubnetsOnly": {
+            "default": true,
+            "description": "Restricts peering to the local subnet.",
+            "type": "boolean"
+          },
+          "PersonalCacheLimit": {
+            "default": 0,
+            "description": "Maximum disk space in bytes for personal (iCloud) content. `0` uses `CacheLimit`.",
+            "type": "integer"
+          },
+          "Port": {
+            "default": 0,
+            "description": "TCP port for upload/download requests. `0` picks a random port.",
+            "type": "integer"
+          },
+          "PublicRanges": {
+            "description": "Public IP ranges cloud servers use to match clients to caches.",
+            "items": {
+              "$ref": "#/components/schemas/ContentCachingIpRange"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ContentCachingIpRange": {
+        "description": "A range of IP addresses.",
+        "properties": {
+          "first": {
+            "description": "The first IP address in the range.",
+            "example": "10.0.0.1",
+            "minLength": 1,
+            "type": "string"
+          },
+          "last": {
+            "description": "The last IP address in the range.",
+            "example": "10.0.0.254",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "default": "IPv4",
+            "enum": [
+              "IPv4",
+              "IPv6"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "first",
+          "last"
         ],
         "type": "object"
       },
@@ -893,6 +1394,105 @@
         ],
         "type": "string"
       },
+      "DeclarationsComponent": {
+        "description": "Blueprint component for one or more supported Apple declarations.",
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/DeclarationsComponentConfiguration"
+          },
+          "identifier": {
+            "description": "## Supported declarations\n\n| Item | Type identifier | Supported OS |\n|---|---|---|\n| Managed App | `com.apple.configuration.app.managed` | macOS 26.0+ |\n| App Settings | `com.apple.configuration.app.settings` | iOS 27.0+, macOS 27.0+, tvOS 27.0+, visionOS 27.0+ |\n| Content Caching | `com.apple.configuration.content-cache.settings` | macOS 27.0+ |\n| External Intelligence Settings | `com.apple.configuration.external-intelligence.settings` | iOS 26.4+, macOS 26.4+, visionOS 26.4+ |\n| Intelligence Settings | `com.apple.configuration.intelligence.settings` | iOS 26.4+, macOS 26.4+, visionOS 26.4+ |\n| Keyboard Settings | `com.apple.configuration.keyboard.settings` | iOS 26.4+, macOS 26.4+ |\n| Package | `com.apple.configuration.package` | macOS 26.0+ |\n| Screen Sharing Connection | `com.apple.configuration.screensharing.connection` | macOS 14.0+ |\n| Screen Sharing Connection Group | `com.apple.configuration.screensharing.connection.group` | macOS 14.0+ |\n| Screen Sharing Host Settings | `com.apple.configuration.screensharing.host.settings` | macOS 14.0+ |\n| Siri Settings | `com.apple.configuration.siri.settings` | iOS 26.4+, macOS 26.4+, tvOS 27.0+, visionOS 26.4+, watchOS 26.4+ |\n\nA single component can contain multiple declarations, of different supported\ntypes, in its `declarations` array. Each array entry is one of the items above,\nidentified by its own `type` field.\n\nApple publishes the full specification for each of these at\n[apple/device-management/declarative/declarations/configurations](https://github.com/apple/device-management/tree/release/declarative/declarations/configurations).\n",
+            "enum": [
+              "com.jamf.ddm-strict"
+            ],
+            "example": "com.jamf.ddm-strict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "DeclarationsComponentConfiguration": {
+        "description": "Configuration wrapper for one or more declarations.\n\n### Example\n\n```json\n{\n  \"identifier\": \"com.jamf.ddm-strict\",\n  \"configuration\": {\n    \"declarations\": [\n      {\n        \"type\": \"com.apple.configuration.app.managed\",\n        \"channelType\": \"SYSTEM\",\n        \"kind\": \"CONFIGURATION\",\n        \"payload\": {\n          \"AppStoreID\": \"361285480\",\n          \"InstallBehavior\": {\n            \"Install\": \"Required\",\n            \"License\": {\n              \"Assignment\": \"Device\"\n            }\n          }\n        }\n      }\n    ]\n  }\n}\n```\n",
+        "properties": {
+          "declarations": {
+            "description": "An array of declaration items, each identified by its own `type`.",
+            "example": [
+              {
+                "channelType": "SYSTEM",
+                "kind": "CONFIGURATION",
+                "payload": {
+                  "AppStoreID": "361285480"
+                },
+                "type": "com.apple.configuration.app.managed"
+              }
+            ],
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "com.apple.configuration.app.managed": "#/components/schemas/ManagedAppDeclaration",
+                  "com.apple.configuration.app.settings": "#/components/schemas/AppSettingsDeclaration",
+                  "com.apple.configuration.content-cache.settings": "#/components/schemas/ContentCachingDeclaration",
+                  "com.apple.configuration.external-intelligence.settings": "#/components/schemas/ExternalIntelligenceSettingsDeclaration",
+                  "com.apple.configuration.intelligence.settings": "#/components/schemas/IntelligenceSettingsDeclaration",
+                  "com.apple.configuration.keyboard.settings": "#/components/schemas/KeyboardSettingsDeclaration",
+                  "com.apple.configuration.package": "#/components/schemas/PackageDeclaration",
+                  "com.apple.configuration.screensharing.connection": "#/components/schemas/ScreenSharingConnectionDeclaration",
+                  "com.apple.configuration.screensharing.connection.group": "#/components/schemas/ScreenSharingConnectionGroupDeclaration",
+                  "com.apple.configuration.screensharing.host.settings": "#/components/schemas/ScreenSharingHostSettingsDeclaration",
+                  "com.apple.configuration.siri.settings": "#/components/schemas/SiriSettingsDeclaration"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ManagedAppDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/AppSettingsDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/ContentCachingDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/ExternalIntelligenceSettingsDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/IntelligenceSettingsDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/KeyboardSettingsDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/PackageDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/ScreenSharingConnectionDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/ScreenSharingConnectionGroupDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/ScreenSharingHostSettingsDeclaration"
+                },
+                {
+                  "$ref": "#/components/schemas/SiriSettingsDeclaration"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "declarations"
+        ],
+        "type": "object"
+      },
       "Deferrals": {
         "properties": {
           "CombinedPeriodInDays": {
@@ -1045,6 +1645,74 @@
         ],
         "type": "object"
       },
+      "ExternalIntelligenceSettingsDeclaration": {
+        "description": "Configures External Intelligence Integrations settings.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ExternalIntelligenceSettingsDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.external-intelligence.settings"
+            ],
+            "example": "com.apple.configuration.external-intelligence.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "External Intelligence Settings",
+        "type": "object"
+      },
+      "ExternalIntelligenceSettingsDeclarationPayload": {
+        "description": "Payload fields for the External Intelligence Settings declaration.",
+        "example": {
+          "AllowSignIn": false,
+          "AllowedWorkspaceIDs": [
+            "ABCDEFGH"
+          ],
+          "Enabled": false
+        },
+        "properties": {
+          "AllowSignIn": {
+            "default": true,
+            "description": "If `false`, disables sign-in for external intelligence integrations.",
+            "type": "boolean"
+          },
+          "AllowedWorkspaceIDs": {
+            "description": "Restricts external intelligence to the given workspace ID (currently limited to one element).",
+            "example": [
+              "ABCDEFGH"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1,
+            "type": "array"
+          },
+          "Enabled": {
+            "default": true,
+            "description": "If `false`, disables external intelligence integrations.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "FailedAttemptsResetInMinutes": {
         "properties": {
           "Included": {
@@ -1109,6 +1777,258 @@
           "RPN",
           "UnitConversion"
         ],
+        "type": "object"
+      },
+      "IntelligenceSettingsApps": {
+        "description": "Per-app Intelligence feature toggles.",
+        "properties": {
+          "Calendar": {
+            "$ref": "#/components/schemas/IntelligenceSettingsAppsCalendar"
+          },
+          "Mail": {
+            "$ref": "#/components/schemas/IntelligenceSettingsAppsMail"
+          },
+          "Notes": {
+            "$ref": "#/components/schemas/IntelligenceSettingsAppsNotes"
+          },
+          "Safari": {
+            "$ref": "#/components/schemas/IntelligenceSettingsAppsSafari"
+          }
+        },
+        "type": "object"
+      },
+      "IntelligenceSettingsAppsCalendar": {
+        "description": "Calendar and Reminders Intelligence feature toggles. Requires iOS/macOS/visionOS 27.0+.",
+        "properties": {
+          "AllowNaturalLanguageEditing": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "IntelligenceSettingsAppsMail": {
+        "description": "Mail Intelligence feature toggles.",
+        "properties": {
+          "AllowSmartReplies": {
+            "default": true,
+            "type": "boolean"
+          },
+          "AllowSummary": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "IntelligenceSettingsAppsNotes": {
+        "description": "Not supported on visionOS.",
+        "properties": {
+          "AllowTranscription": {
+            "default": true,
+            "type": "boolean"
+          },
+          "AllowTranscriptionSummary": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "IntelligenceSettingsAppsSafari": {
+        "description": "Safari Intelligence feature toggles.",
+        "properties": {
+          "AllowSummary": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "IntelligenceSettingsDeclaration": {
+        "description": "Configures Apple Intelligence settings.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/IntelligenceSettingsDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.intelligence.settings"
+            ],
+            "example": "com.apple.configuration.intelligence.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Intelligence Settings",
+        "type": "object"
+      },
+      "IntelligenceSettingsDeclarationPayload": {
+        "description": "Payload fields for the Intelligence Settings declaration.",
+        "example": {
+          "AllowGenmoji": false,
+          "AllowImagePlayground": false,
+          "Apps": {
+            "Mail": {
+              "AllowSmartReplies": false,
+              "AllowSummary": false
+            },
+            "Safari": {
+              "AllowSummary": false
+            }
+          },
+          "ForceOnDeviceOnlyDictation": true
+        },
+        "properties": {
+          "AllowAppleIntelligenceReport": {
+            "default": true,
+            "type": "boolean"
+          },
+          "AllowGenmoji": {
+            "default": true,
+            "type": "boolean"
+          },
+          "AllowImagePlayground": {
+            "default": true,
+            "type": "boolean"
+          },
+          "AllowImageWand": {
+            "default": true,
+            "description": "Not supported on macOS.",
+            "type": "boolean"
+          },
+          "AllowPersonalizedHandwritingResults": {
+            "default": true,
+            "description": "Not supported on macOS/visionOS.",
+            "type": "boolean"
+          },
+          "AllowVisualIntelligence": {
+            "default": true,
+            "description": "Not supported on visionOS. Requires iOS/macOS 27.0+.",
+            "type": "boolean"
+          },
+          "AllowVisualIntelligenceSummary": {
+            "default": true,
+            "description": "Not supported on macOS/visionOS. Deprecated on iOS 27.0+ in favor of\n`AllowVisualIntelligence`.\n",
+            "type": "boolean"
+          },
+          "AllowWritingTools": {
+            "default": true,
+            "type": "boolean"
+          },
+          "Apps": {
+            "$ref": "#/components/schemas/IntelligenceSettingsApps"
+          },
+          "ForceOnDeviceOnlyDictation": {
+            "default": false,
+            "description": "If `true`, forces on-device-only dictation.",
+            "type": "boolean"
+          },
+          "ForceOnDeviceOnlyTranslation": {
+            "default": false,
+            "description": "Not supported on macOS/visionOS. If `true`, forces on-device-only translation.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "KeyboardSettingsDeclaration": {
+        "description": "Configures keyboard settings.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/KeyboardSettingsDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.keyboard.settings"
+            ],
+            "example": "com.apple.configuration.keyboard.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Keyboard Settings",
+        "type": "object"
+      },
+      "KeyboardSettingsDeclarationPayload": {
+        "description": "Payload fields for the Keyboard Settings declaration.",
+        "example": {
+          "AllowAutoCorrection": false,
+          "AllowDictation": false,
+          "AllowSpellCheck": false
+        },
+        "properties": {
+          "AllowAutoCorrection": {
+            "default": true,
+            "description": "Not supported on macOS.",
+            "type": "boolean"
+          },
+          "AllowDefinitionLookup": {
+            "default": true,
+            "type": "boolean"
+          },
+          "AllowDictation": {
+            "default": true,
+            "type": "boolean"
+          },
+          "AllowMathKeyboardSuggestions": {
+            "default": true,
+            "description": "Also supported by `math.settings`.",
+            "type": "boolean"
+          },
+          "AllowPredictiveText": {
+            "default": true,
+            "description": "Not supported on macOS.",
+            "type": "boolean"
+          },
+          "AllowSlideToType": {
+            "default": true,
+            "description": "Not supported on macOS.",
+            "type": "boolean"
+          },
+          "AllowSpellCheck": {
+            "default": true,
+            "description": "Not supported on macOS.",
+            "type": "boolean"
+          },
+          "AllowTextReplacement": {
+            "default": true,
+            "description": "Not supported on macOS.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "ManagedAppAttributes": {
@@ -1177,6 +2097,38 @@
         ],
         "type": "object"
       },
+      "ManagedAppConfig": {
+        "description": "App or extension config data and credentials. Requires macOS 27.0+.",
+        "properties": {
+          "Certificates": {
+            "description": "Certificates to provide to the app or extension. Each entry pairs a certificate asset\nreference with an identifier the app uses to look the certificate up.\n",
+            "items": {
+              "$ref": "#/components/schemas/ManagedAppCredentialConfig"
+            },
+            "type": "array"
+          },
+          "DataAssetReference": {
+            "description": "Identifier of an asset declaration containing a reference to the app or extension\nconfig data. The asset must be of type `com.apple.asset.data`, the referenced data\nmust be a property list file, and the asset's `ContentType` must match the data type.\n",
+            "example": "4BF32552-6F85-4F67-999B-7B2494C4DD99",
+            "type": "string"
+          },
+          "Identities": {
+            "description": "Identities to provide to the app or extension. Each entry pairs an identity asset\nreference with an identifier the app uses to look the identity up.\n",
+            "items": {
+              "$ref": "#/components/schemas/ManagedAppCredentialConfig"
+            },
+            "type": "array"
+          },
+          "Passwords": {
+            "description": "Passwords to provide to the app or extension. Each entry pairs a password asset\nreference with an identifier the app uses to look the password up.\n",
+            "items": {
+              "$ref": "#/components/schemas/ManagedAppCredentialConfig"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "ManagedAppConfiguration": {
         "description": "Configuration for one or more volume purchasing apps.\n\n### Example — single required app\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\",\n      \"AutomaticAppUpdates\": \"AlwaysOn\"\n    }\n  ]\n}\n```\n\n### Example — app with attributes (iOS 18.1+)\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\",\n      \"AllowDownloadsOverCellular\": \"AlwaysOff\",\n      \"AutomaticAppUpdates\": \"AlwaysOn\",\n      \"IncludeInBackup\": true,\n      \"Attributes\": {\n        \"Hideable\": true,\n        \"Lockable\": true,\n        \"AssociatedDomains\": [\"corp.example.com\"],\n        \"AssociatedDomainsEnableDirectDownloads\": false\n      }\n    }\n  ]\n}\n```\n\n### Example — multiple apps in one component\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\"\n    },\n    {\n      \"AssetId\": \"12345678-0000-0000-0000-000000000001\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Word\",\n      \"Install\": \"Optional\",\n      \"AutomaticAppUpdates\": \"StoreSettings\"\n    }\n  ]\n}\n```\n",
         "properties": {
@@ -1192,6 +2144,113 @@
         "required": [
           "apps"
         ],
+        "type": "object"
+      },
+      "ManagedAppCredentialConfig": {
+        "description": "A credential asset reference and the identifier the app looks it up by.",
+        "properties": {
+          "AssetReference": {
+            "description": "Identifier of the asset declaration containing the credential.",
+            "example": "4BF32552-6F85-4F67-999B-7B2494C4DD99",
+            "type": "string"
+          },
+          "Identifier": {
+            "description": "The identifier the app or extension uses to fetch this credential through the\n`ManagedApp` framework. App developers define these values.\n",
+            "example": "app-identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "Identifier",
+          "AssetReference"
+        ],
+        "type": "object"
+      },
+      "ManagedAppDeclaration": {
+        "description": "Manages an app installed by other means (App Store, a manifest URL, or a\npackage). For volume purchasing (VPP) apps, use the `com.jamf.ddm.app-managed`\ncomponent instead.\n",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ManagedAppDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.app.managed"
+            ],
+            "example": "com.apple.configuration.app.managed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Managed App",
+        "type": "object"
+      },
+      "ManagedAppDeclarationPayload": {
+        "description": "Payload fields for the Managed App declaration.\n\n\u003e **Validation rule:** One of `AppStoreID`, `BundleID`, or `AppComposedIdentifier` is required.\n",
+        "example": {
+          "AppStoreID": "361285480",
+          "InstallBehavior": {
+            "Install": "Required",
+            "License": {
+              "Assignment": "Device"
+            }
+          }
+        },
+        "properties": {
+          "AppComposedIdentifier": {
+            "description": "Identifies an existing app to take over management of, formatted `Bundle-ID` or `Bundle-ID (Team-ID)`.",
+            "example": "com.example.app (ABCD1234)",
+            "type": "string"
+          },
+          "AppConfig": {
+            "$ref": "#/components/schemas/ManagedAppConfig"
+          },
+          "AppStoreID": {
+            "description": "App Store ID of the app. One of `AppStoreID`, `BundleID`, or `AppComposedIdentifier` is required.",
+            "example": "361285480",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "BundleID": {
+            "description": "Bundle ID of an App Store app.",
+            "example": "com.example.app",
+            "type": "string"
+          },
+          "ExtensionConfigs": {
+            "$ref": "#/components/schemas/ManagedAppExtensionConfigs"
+          },
+          "InstallBehavior": {
+            "$ref": "#/components/schemas/ManagedAppInstallBehavior"
+          },
+          "LegacyAppConfigAssetReference": {
+            "description": "Identifier of an asset declaration providing app config data via the MDMv1 behavior. Requires macOS 27.0+.",
+            "example": "4BF32552-6F85-4F67-999B-7B2494C4DD99",
+            "type": "string"
+          },
+          "UpdateBehavior": {
+            "$ref": "#/components/schemas/ManagedAppUpdateBehavior"
+          },
+          "iOSApp": {
+            "default": false,
+            "description": "If `true`, installs an iOS/iPadOS App Store app on Apple silicon Macs.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "ManagedAppEntry": {
@@ -1254,6 +2313,70 @@
           "AssetId",
           "AppAndBookTokenId",
           "AppId"
+        ],
+        "type": "object"
+      },
+      "ManagedAppExtensionConfigs": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/ManagedAppConfig"
+        },
+        "description": "Maps an extension composed identifier (`Bundle-ID` or `Bundle-ID (Team-ID)`) to its config.",
+        "type": "object"
+      },
+      "ManagedAppInstallBehavior": {
+        "description": "Describes how and when to install the app.",
+        "properties": {
+          "Install": {
+            "default": "Optional",
+            "description": "Whether the app remains on the device at all times.",
+            "enum": [
+              "Optional",
+              "Required"
+            ],
+            "type": "string"
+          },
+          "License": {
+            "$ref": "#/components/schemas/ManagedAppLicense"
+          },
+          "Version": {
+            "description": "App Store external version identifier (EVID) to install.",
+            "example": 834261235,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ManagedAppLicense": {
+        "description": "The app's license.",
+        "properties": {
+          "Assignment": {
+            "description": "License type for an App Store app.",
+            "enum": [
+              "Device",
+              "User"
+            ],
+            "example": "Device",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ManagedAppUpdateBehavior": {
+        "description": "Specifies how the device updates the app.",
+        "properties": {
+          "AutomaticAppUpdates": {
+            "description": "Whether the device automatically updates the app.",
+            "enum": [
+              "AlwaysOn",
+              "AlwaysOff",
+              "StoreSettings"
+            ],
+            "example": "StoreSettings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "AutomaticAppUpdates"
         ],
         "type": "object"
       },
@@ -1567,6 +2690,91 @@
         "required": [
           "Enabled"
         ],
+        "type": "object"
+      },
+      "PackageDeclaration": {
+        "description": "Installs a package (apps, fonts, documents, or other items) on macOS. Apps a\npackage installs are not automatically managed; use the Managed App declaration\nfor that.\n",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/PackageDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.package"
+            ],
+            "example": "com.apple.configuration.package",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Package",
+        "type": "object"
+      },
+      "PackageDeclarationPayload": {
+        "description": "Payload fields for the Package declaration.",
+        "example": {
+          "InstallBehavior": {
+            "Install": "Required"
+          },
+          "ManifestURL": "https://example.com/files/packages/TestPackage.plist"
+        },
+        "properties": {
+          "InstallBehavior": {
+            "$ref": "#/components/schemas/PackageInstallBehavior"
+          },
+          "ManifestURL": {
+            "description": "URL of the manifest document for the package (`.pkg`) to install.",
+            "example": "https://example.com/files/packages/TestPackage.plist",
+            "type": "string"
+          },
+          "UninstallBehavior": {
+            "$ref": "#/components/schemas/PackageUninstallBehavior"
+          }
+        },
+        "required": [
+          "ManifestURL"
+        ],
+        "type": "object"
+      },
+      "PackageInstallBehavior": {
+        "description": "Describes how and when to install the package.",
+        "properties": {
+          "Install": {
+            "default": "Optional",
+            "enum": [
+              "Optional",
+              "Required"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PackageUninstallBehavior": {
+        "description": "macOS 27.0+.",
+        "properties": {
+          "Remove": {
+            "default": false,
+            "description": "If `true`, removes the files the package installed when the configuration is removed.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "PagedResponseBlueprintOverview": {
@@ -1944,6 +3152,329 @@
         "required": [
           "Enabled"
         ],
+        "type": "object"
+      },
+      "ScreenSharingConnectionDeclaration": {
+        "description": "Configures a connection to a screen-sharing host. macOS only.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ScreenSharingConnectionDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.screensharing.connection"
+            ],
+            "example": "com.apple.configuration.screensharing.connection",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Screen Sharing Connection",
+        "type": "object"
+      },
+      "ScreenSharingConnectionDeclarationPayload": {
+        "description": "Payload fields for the Screen Sharing Connection declaration.",
+        "example": {
+          "ConnectionUUID": "FA80E209-B31B-4862-B880-399F79E8FC35",
+          "DisplayConfiguration": {
+            "DisplayType": "Virtual1"
+          },
+          "DisplayName": "Host1",
+          "HostName": "example.com"
+        },
+        "properties": {
+          "AuthenticationCredentialsAssetReference": {
+            "description": "Asset declaration identifier of type `com.apple.asset.credential.userpassword` providing authentication credentials.",
+            "example": "4BF32552-6F85-4F67-999B-7B2494C4DD99",
+            "type": "string"
+          },
+          "ConnectionUUID": {
+            "description": "Unique identifier for this connection when it is a member of a connection group.",
+            "example": "FA80E209-B31B-4862-B880-399F79E8FC35",
+            "type": "string"
+          },
+          "DisplayConfiguration": {
+            "$ref": "#/components/schemas/ScreenSharingDisplayConfiguration"
+          },
+          "DisplayName": {
+            "description": "The name of the connection.",
+            "example": "Host1",
+            "type": "string"
+          },
+          "HostName": {
+            "description": "Host name or IP address of the screen-sharing host.",
+            "example": "example.com",
+            "type": "string"
+          },
+          "Port": {
+            "description": "TCP port to initiate the connection on.",
+            "example": 5900,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ConnectionUUID",
+          "DisplayName",
+          "HostName",
+          "DisplayConfiguration"
+        ],
+        "type": "object"
+      },
+      "ScreenSharingConnectionGroupDeclaration": {
+        "description": "Groups multiple Screen Sharing Connection declarations together. macOS only.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ScreenSharingConnectionGroupDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.screensharing.connection.group"
+            ],
+            "example": "com.apple.configuration.screensharing.connection.group",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Screen Sharing Connection Group",
+        "type": "object"
+      },
+      "ScreenSharingConnectionGroupDeclarationPayload": {
+        "description": "Payload fields for the Screen Sharing Connection Group declaration.",
+        "example": {
+          "ConnectionGroupUUID": "4BF32552-6F85-4F67-999B-7B2494C4DD99",
+          "GroupName": "Lab Devices",
+          "Members": [
+            "7F8F28A5-C024-470B-8166-EC6669A12C3A",
+            "EDF04C7F-F9B0-4204-A5EE-34AE094CA7BB"
+          ]
+        },
+        "properties": {
+          "ConnectionGroupUUID": {
+            "description": "Unique identifier for this connection group.",
+            "example": "4BF32552-6F85-4F67-999B-7B2494C4DD99",
+            "type": "string"
+          },
+          "GroupName": {
+            "description": "The name of the connection group.",
+            "example": "Lab Devices",
+            "type": "string"
+          },
+          "Members": {
+            "description": "`ConnectionUUID` values of Screen Sharing Connection declarations that belong to this group.",
+            "example": [
+              "7F8F28A5-C024-470B-8166-EC6669A12C3A"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ConnectionGroupUUID",
+          "GroupName",
+          "Members"
+        ],
+        "type": "object"
+      },
+      "ScreenSharingDisplayConfiguration": {
+        "description": "Display configuration for a screen-sharing connection.",
+        "properties": {
+          "DisplayType": {
+            "description": "Number of virtual displays to create.",
+            "enum": [
+              "Virtual1",
+              "Virtual2"
+            ],
+            "example": "Virtual1",
+            "type": "string"
+          }
+        },
+        "required": [
+          "DisplayType"
+        ],
+        "type": "object"
+      },
+      "ScreenSharingHostSettingsDeclaration": {
+        "description": "Restricts how a device behaves as a screen-sharing host. macOS only.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ScreenSharingHostSettingsDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.screensharing.host.settings"
+            ],
+            "example": "com.apple.configuration.screensharing.host.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Screen Sharing Host Settings",
+        "type": "object"
+      },
+      "ScreenSharingHostSettingsDeclarationPayload": {
+        "description": "Payload fields for the Screen Sharing Host Settings declaration.",
+        "example": {
+          "MaximumVirtualDisplays": 1,
+          "PortBase": 1100,
+          "PreventCopyFilesFromHost": true,
+          "PreventCopyFilesToHost": true,
+          "PreventHighPerformanceConnections": true
+        },
+        "properties": {
+          "MaximumVirtualDisplays": {
+            "description": "Maximum virtual displays to make available to clients.",
+            "example": 1,
+            "maximum": 2,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "PortBase": {
+            "description": "Initial UDP port for the host connection. Screen sharing always establishes its first connection on TCP port 5900.",
+            "example": 1100,
+            "maximum": 65535,
+            "minimum": 1024,
+            "type": "integer"
+          },
+          "PreventCopyFilesFromHost": {
+            "default": false,
+            "type": "boolean"
+          },
+          "PreventCopyFilesToHost": {
+            "default": false,
+            "type": "boolean"
+          },
+          "PreventHighPerformanceConnections": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "SiriSettingsDeclaration": {
+        "description": "Configures Siri settings.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "description": "All declarations in this component are `com.apple.configuration.*` types.",
+            "enum": [
+              "CONFIGURATION"
+            ],
+            "example": "CONFIGURATION",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SiriSettingsDeclarationPayload"
+          },
+          "type": {
+            "enum": [
+              "com.apple.configuration.siri.settings"
+            ],
+            "example": "com.apple.configuration.siri.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload"
+        ],
+        "title": "Siri Settings",
+        "type": "object"
+      },
+      "SiriSettingsDeclarationPayload": {
+        "description": "Payload fields for the Siri Settings declaration.",
+        "example": {
+          "AllowSiriAI": false,
+          "AllowWhileLocked": false,
+          "Enabled": false,
+          "ForceProfanityFilter": true
+        },
+        "properties": {
+          "AllowSiriAI": {
+            "default": true,
+            "description": "Not supported on tvOS/watchOS. Requires iOS/macOS/visionOS 27.0+. If `false`, disables Siri AI features.",
+            "type": "boolean"
+          },
+          "AllowUserGeneratedContent": {
+            "default": true,
+            "description": "Not supported on macOS/tvOS/visionOS.",
+            "type": "boolean"
+          },
+          "AllowWhileLocked": {
+            "default": true,
+            "description": "Not supported on macOS/tvOS/visionOS.",
+            "type": "boolean"
+          },
+          "Enabled": {
+            "default": true,
+            "description": "Not supported on watchOS. If `false`, disables Siri.",
+            "type": "boolean"
+          },
+          "ForceProfanityFilter": {
+            "default": false,
+            "description": "Not supported on tvOS/visionOS/watchOS.",
+            "type": "boolean"
+          },
+          "ForceReduceSensitiveContent": {
+            "default": false,
+            "description": "Not supported on tvOS/watchOS. Requires iOS/macOS/visionOS 27.0+.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "SoftwareUpdateSettingsComponent": {
@@ -2399,7 +3930,7 @@
     },
     "description": "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Blueprints API",
+    "title": "Blueprints",
     "version": "v0"
   },
   "openapi": "3.1.0",
@@ -2965,6 +4496,16 @@
               }
             },
             "description": "Blueprint status report doesn't exist"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "The reporting is overloaded, retry the request later"
           }
         },
         "security": [

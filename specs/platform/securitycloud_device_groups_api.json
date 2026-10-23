@@ -203,7 +203,7 @@
     },
     "description": "API for accessing Security Cloud device information",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Security Cloud Devices API",
+    "title": "Security Cloud Devices",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",

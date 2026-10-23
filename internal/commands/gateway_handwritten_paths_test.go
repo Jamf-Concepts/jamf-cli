@@ -323,10 +323,9 @@ func expandDynamicCollections(path string) []string {
 var handWrittenUndeterminedMethods = map[string][]string{
 	// pro_device_actions.go, mdmCommandsPath — every use is a POST
 	// (sendComputerModernMDMCommand, sendMobileModernMDMCommand). The gateway
-	// declares GET here and not POST, which is why the POST entry in
-	// unservedHandWrittenPaths below exists and why markGatewayCoverage stamps
-	// the senders. This is the entry the tightening was written for: under the
-	// old "published under any method" fallback the const passed on GET.
+	// declared GET here and not POST until jamfplatform-go-sdk v1.9.0; this is
+	// the entry the tightening was written for, because under the old
+	// "published under any method" fallback the const passed on GET.
 	"/pro/v2/mdm/commands": {"POST"},
 
 	// pro_packages_upload.go — the multipart upload goes through
@@ -451,22 +450,6 @@ var unservedHandWrittenPaths = map[string]string{
 	// so it is a rewrite of the bulk lookup rather than a literal edit. Not in
 	// this change's scope; recorded so it is not mistaken for coverage.
 	"GET /proclassic/computers/id/{}": "no drop-in successor: the modern /v4/computers-inventory replacement is a different response shape, so pro_bulk.go needs a rewrite rather than a re-version",
-
-	// pro_device_actions.go, sendComputerModernMDMCommand and
-	// sendMobileModernMDMCommand — the gateway declares GET on
-	// /v2/mdm/commands and not POST, and there is no served successor: Classic's
-	// /computercommands takes a different command vocabulary and a computer id
-	// rather than a managementId, so it is a different feature and not a
-	// re-version.
-	//
-	// Resolved the other way instead. Every command that POSTs here is stamped
-	// by markGatewayCoverage, so checkAPIMatch refuses it before anything is
-	// sent — the same treatment the generated `pro mdm-commands create` already
-	// had. The point of the finding was the asymmetry: one command name refused
-	// while a dozen others sent the identical request, which told the operator
-	// the endpoint was out of the supported API and then let them bulk-issue it
-	// across a group. TestModernMDMCommandsCarryTheGatewayRefusal pins that.
-	"POST /pro/v2/mdm/commands": "no successor, and refused pre-flight instead: every command sending it is stamped by markGatewayCoverage",
 }
 
 // TestHandWrittenPathsAreServed greps the hand-written command files for Jamf
@@ -640,53 +623,48 @@ func TestBackupResourcePathsAreServed(t *testing.T) {
 	}
 }
 
-// modernMDMRefusedCommands are the hand-written device actions that POST
-// /v2/mdm/commands, the path the gateway declares GET on and not POST. Named
-// rather than discovered, because the failure being pinned is a command that
-// silently stops being annotated.
-var modernMDMRefusedCommands = [][]string{
+// modernMDMCommands are the hand-written device actions that POST
+// /v2/mdm/commands. Named rather than discovered, because the failure being
+// pinned is a command that starts being refused again.
+var modernMDMCommands = [][]string{
 	{"pro", "computers-inventory", "lock"},
 	{"pro", "computers-inventory", "set-recovery-lock"},
 	{"pro", "computers-inventory", "set-auto-admin-password"},
 	{"pro", "computers-inventory", "settings"},
 	{"pro", "computers-inventory", "unlock-user-account"},
+	{"pro", "computers-inventory", "enable-remote-desktop"},
+	{"pro", "computers-inventory", "disable-remote-desktop"},
+	{"pro", "computers-inventory", "restart"},
+	{"pro", "computers-inventory", "shutdown"},
 	{"pro", "mobile-devices", "lock"},
 	{"pro", "mobile-devices", "clear-passcode"},
 	{"pro", "mobile-devices", "enable-lost-mode"},
 	{"pro", "mobile-devices", "settings"},
+	{"pro", "mobile-devices", "restart"},
+	{"pro", "mobile-devices", "shutdown"},
 }
 
-// TestModernMDMCommandsCarryTheGatewayRefusal pins finding (22)'s resolution:
-// the same wire operation must not be refused under one command name and sent
-// under a dozen others.
-//
-// `pro mdm-commands create` is generated, carries jamf:gateway from the
-// manifest and exits non-zero on a gateway profile. Every command listed above
-// POSTs the identical /v2/mdm/commands through sendComputerModernMDMCommand or
-// sendMobileModernMDMCommand and carried no annotation at all — so the operator
-// was told the endpoint is outside the supported API by one command and could
-// then bulk-issue it across a whole group with another.
-func TestModernMDMCommandsCarryTheGatewayRefusal(t *testing.T) {
+// TestModernMDMCommandsAreNotRefusedOnTheGateway pins the other half of finding
+// (22): the gateway publishes POST /v2/mdm/commands since jamfplatform-go-sdk
+// v1.9.0, so no command sending it may carry a refusal — and none takes a
+// Classic or Platform API detour any more. markGatewayCoverage reads the
+// runtime table, so this fails if the table ever withdraws the operation again
+// without the commands being re-examined.
+func TestModernMDMCommandsAreNotRefusedOnTheGateway(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
-	for _, path := range modernMDMRefusedCommands {
+	for _, path := range modernMDMCommands {
 		name := strings.Join(path, " ")
 		cmd, _, err := root.Find(path)
 		if err != nil || cmd == nil || cmd.Name() != path[len(path)-1] {
 			t.Errorf("%s: not found in the command tree (%v)", name, err)
 			continue
 		}
-		if got := cmd.Annotations[annotationGateway]; got != string(gateway.Unserved) {
-			t.Errorf("%s: jamf:gateway is %q, want %q — it POSTs /v2/mdm/commands, which the gateway does not publish",
-				name, got, gateway.Unserved)
-			continue
+		if got := cmd.Annotations[annotationGateway]; got != "" {
+			t.Errorf("%s: jamf:gateway is %q, want unset — it POSTs /v2/mdm/commands, which the gateway publishes", name, got)
 		}
-		if got := cmd.Annotations[annotationAPI]; got != apiPro {
-			t.Errorf("%s: jamf:api is %q, want %q — checkAPIMatch only reads the gateway verdict for a Pro or Classic command",
-				name, got, apiPro)
-		}
-		if err := checkAPIMatch(cmd, &auth.PlatformOAuth2Provider{}, "platform-ga"); err == nil {
-			t.Errorf("%s: allowed through on a gateway profile", name)
+		if err := checkAPIMatch(cmd, &auth.PlatformOAuth2Provider{}, "platform-ga"); err != nil {
+			t.Errorf("%s: refused on a gateway profile: %v", name, err)
 		}
 	}
 }
@@ -703,15 +681,6 @@ func TestServedHandWrittenActionsAreNotAnnotatedUnserved(t *testing.T) {
 		{"pro", "computers-inventory", "erase"},
 		{"pro", "computers-inventory", "remove-mdm"},
 		{"pro", "mobile-devices", "update-inventory"},
-		// These POST /v2/mdm/commands directly, and on a gateway profile take
-		// the gatewayRoute their constructor names: the Classic computer
-		// command, or the Platform API device action.
-		{"pro", "computers-inventory", "enable-remote-desktop"},
-		{"pro", "computers-inventory", "disable-remote-desktop"},
-		{"pro", "computers-inventory", "restart"},
-		{"pro", "computers-inventory", "shutdown"},
-		{"pro", "mobile-devices", "restart"},
-		{"pro", "mobile-devices", "shutdown"},
 	} {
 		name := strings.Join(path, " ")
 		cmd, _, err := root.Find(path)

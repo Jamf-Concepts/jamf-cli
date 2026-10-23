@@ -382,7 +382,7 @@ func checkEmptySmartGroups(ctx context.Context, client registry.HTTPClient, _ in
 }
 
 func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
-	raw, err := FetchClassicList(ctx, client, "/JSSResource/policies", "policies")
+	raw, err := FetchAnalyticPolicyList(ctx, client, "policies")
 	if err != nil {
 		return nil, err
 	}

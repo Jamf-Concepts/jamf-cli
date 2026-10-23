@@ -13,6 +13,6 @@ type SpecSource struct {
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
 	{File: "specs/AppInstallers.yaml", SHA256: "43da30ccfc609ba004d716afbce42d5702eae3257bb59c15e61bf60acad3e3a5"},
-	{File: "specs/JamfProAPI.yaml", SHA256: "f5821256588cd7f62a5f92e94346d0cff98052d506bacd9742bd8d97c951b13a"},
+	{File: "specs/JamfProAPI.yaml", SHA256: "ece3b6cb80ff99dad0ffdabdbcbf3160cde23d433804b7a21cc2965a4257890d"},
 	{File: "specs/classic/resources.yaml", SHA256: "cddfa3ff6f8539ec9c7d8ea5b3fef3275ba77d211921d55c01274974fe15d69c"},
 }

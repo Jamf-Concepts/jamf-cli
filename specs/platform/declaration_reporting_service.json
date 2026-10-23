@@ -310,7 +310,7 @@
     },
     "description": "API for accessing device and declaration status reports",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Declaration Reporting Service API",
+    "title": "Declaration Reporting Service",
     "version": "1.0.0"
   },
   "openapi": "3.1.0",
