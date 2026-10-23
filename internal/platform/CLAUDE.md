@@ -136,9 +136,11 @@ Wire facts (2026-08-31, EU sandbox, environment-scoped credential):
 
 ## Jamf Account and Audit
 
-Twenty-two generated commands from four specs, wired under **`platform`**: `account-licenses`, `deal-registrations`, distributor operations, `sso-connections`, `sso-domains`, `audit`.
+Generated commands from five account specs plus audit, wired under **`platform`**: `account-licenses`, `deal-registrations`, distributor operations, `sso-connections`, `sso-domains`, `environments`, `tenants`, `audit`.
 
-**The account trio is US-only.** `requireUSGateway` refuses a non-US profile before sending. EU and APAC answer bare `404 page not found` for all three — Tyk's unrouted response, no `traceId`, reads as a wrong path rather than a wrong region.
+**The account commands are US-only.** `requireUSGateway` refuses a non-US profile before sending. EU and APAC answer bare `404 page not found` for all of them — Tyk's unrouted response, no `traceId`, reads as a wrong path rather than a wrong region.
+
+**`environments` and `tenants` come from `account_organization_api.json`** (jamfplatform-go-sdk v1.7+, served under `/organization/v1`). Wire-checked 2026-10-23 with an organization-scoped US credential: `list`, `create`, `update`, `apply` and `delete` all work. `update` is a PUT that **replaces** the environment — `--set label=…` alone answers `400 FIELD_VALIDATION label: Environment type is required`, so pass `--from-file` with the whole body (`--set` then overlays it). `environments tenants` (assign tenants) was deliberately not exercised.
 
 **`platform audit` requires environment scope.** `X-Tenant-Id` is refused with `400 INVALID_REQUEST_CONTEXT_TYPE`. The guard `AnnotateScopeLevelError` covers the missing-scope 400; `ENVIRONMENT_NOT_FOUND` (a 404) is annotated before the level arms.
 

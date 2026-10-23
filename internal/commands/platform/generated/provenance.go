@@ -13,6 +13,7 @@ type SpecSource struct {
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
 	{File: "specs/platform/account_licensing_api.json", SHA256: "358414232ce9d825ab91750c6e5bbb71f65826219cb5180b12711c41ea57e86a"},
+	{File: "specs/platform/account_organization_api.json", SHA256: "6502341e45ac454c664fcdec94db5320d12cdf005ea3827c4ace87abab61159e"},
 	{File: "specs/platform/account_partners_api.json", SHA256: "d9c8efa2b1e121f338f4298a9dc672cca3a90588b444e93f9f7768d6808d18d6"},
 	{File: "specs/platform/account_sso_api.json", SHA256: "bcff1db2b30245bd3944e0c7028080449fea8c6dd05162ee39717a1e9681900a"},
 	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "b662089fe7c8b5ed0e81b7a7463be19dd3ee8454a8c6b3a3670e07c117294cd6"},

@@ -51,7 +51,7 @@ A Jamf Platform API integration is created at one of three levels in Jamf Accoun
 
 | level | header | what it reaches |
 |---|---|---|
-| organization | *none* — resolved from the access token | Jamf Account: `account-licenses`, `deal-registrations`, `distributor-*`, `sso-connections`, `sso-domains` (US-only), plus AI Governance |
+| organization | *none* — resolved from the access token | Jamf Account: `account-licenses`, `deal-registrations`, `distributor-*`, `sso-connections`, `sso-domains`, `environments`, `tenants` (US-only), plus AI Governance |
 | platform environment | `X-Environment-Id` | a group of tenants — **the level to prefer**; also the only level `platform audit` accepts |
 | tenant | `X-Tenant-Id` | one Jamf Pro / School / Protect / Security Cloud tenant — the legacy level |
 

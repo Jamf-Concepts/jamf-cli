@@ -522,7 +522,7 @@ Additive — no action needed, and all of it is live now.
   organization scope.
 - **Jamf Account:** `platform account-licenses`, `deal-registrations`,
   `distributor-configuration`, `distributor-purchase-orders`, `distributor-quotes`,
-  `sso-connections`, `sso-domains`. Organization scope, and **US-only** — a non-US profile
+  `sso-connections`, `sso-domains`, `environments`, `tenants`. Organization scope, and **US-only** — a non-US profile
   is refused before sending, permanently, because these APIs are served from one region.
 - **Platform audit:** `platform audit`. Environment scope only; an organization-scoped
   profile gets an error explaining that. Not to be confused with `pro audit`, which runs

@@ -143,6 +143,7 @@ sync-specs:
 # in the directory would silently join the build on any branch.
 PLATFORM_SDK_SPECS = \
 	account_licensing_api.json \
+	account_organization_api.json \
 	account_partners_api.json \
 	account_sso_api.json \
 	ai_governance_policies_api.json \

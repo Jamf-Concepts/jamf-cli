@@ -1,0 +1,890 @@
+{
+  "components": {
+    "parameters": {
+      "environmentId": {
+        "description": "Jamf-assigned identifier of the environment, as returned in the `id` field of an environment. Treat it as an opaque string.",
+        "in": "path",
+        "name": "environmentId",
+        "required": true,
+        "schema": {
+          "example": "8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FIELD_VALIDATION",
+                  "description": "Environment name is required",
+                  "field": "name"
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. A field failed validation (`FIELD_VALIDATION`, with `field` naming it), a path or query value could not be used (`INVALID_PARAMETER`), the request was rejected for another reason the caller can correct (`BAD_REQUEST`), or the body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`)."
+      },
+      "EnvironmentNotEmpty": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "CONFLICT",
+                  "description": "Environment 8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63 cannot be deleted because it is not empty",
+                  "field": null
+                }
+              ],
+              "httpStatus": 409,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Conflict. The environment still holds tenants, or it is one Jamf manages on your behalf, and only an empty environment can be deleted."
+      },
+      "EnvironmentNotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "NOT_FOUND",
+                  "description": "Environment 8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63 not found",
+                  "field": null
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. No environment with this identifier exists for the organization resolved from the access token."
+      },
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "M2M token missing required scope",
+                  "field": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The token is not an external M2M token, or it does not carry the privilege required to reach this endpoint."
+      },
+      "InternalServerError": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "INTERNAL_ERROR",
+                  "description": "The request could not be completed",
+                  "field": null
+                }
+              ],
+              "httpStatus": 500,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Internal Server Error. The organization in the token could not be resolved, or an upstream dependency failed. The `description` is deliberately generic; quote `traceId` when reporting the failure."
+      },
+      "OrganizationForbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "Unable to create environment for this org",
+                  "field": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The token is not an external M2M token, it does not carry the privilege required to reach this endpoint, or the organization it resolves to is a generic account. A generic account is a Jamf-internal placeholder shared by unrelated organizations, so its environments belong to nobody in particular and cannot be changed. Reads return an empty collection for such an account rather than this error."
+      },
+      "TenantAssignmentBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UNKNOWN_TENANT",
+                  "description": "Tenant d51b3a87-4c29-4e0f-9b6d-72af8e15c304 does not belong to this organization",
+                  "field": null
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. `tenantIds` was empty or held a blank entry (`FIELD_VALIDATION`), the same tenant was listed twice (`DUPLICATE_TENANT_ID`), a tenant does not belong to this organization (`UNKNOWN_TENANT`), or the body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`). A tenant of another organization is reported as unknown rather than forbidden — the organization's own tenants are the only ones this API can see."
+      },
+      "TenantAssignmentConflict": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "DUPLICATE_MANAGEMENT_PRODUCT",
+                  "description": "Tenant d51b3a87-4c29-4e0f-9b6d-72af8e15c304 cannot be added to environment 8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63 because an environment can only contain one management product",
+                  "field": null
+                }
+              ],
+              "httpStatus": 409,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Conflict. A tenant cannot join the environment, and none of the tenants in the request were assigned. The `code` says which rule refused it: `TENANT_ALREADY_ASSIGNED` — the tenant belongs to another environment and cannot be moved; `DUPLICATE_MANAGEMENT_PRODUCT` — the environment already holds a management product (Jamf Pro, Jamf School or Jamf Now); `DUPLICATE_PRODUCT` — the environment already holds a tenant of the same product family; `REGION_MISMATCH` — the tenant is not in the environment's `metaRegion`."
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UNAUTHORIZED",
+                  "description": "The access token is missing, invalid, or expired.",
+                  "field": null
+                }
+              ],
+              "httpStatus": 401,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unauthorized. The access token is missing, invalid, or expired. The API Gateway rejects the request before it reaches the service."
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard Jamf error response body, returned for every non-2xx response raised by the service.",
+        "properties": {
+          "errors": {
+            "description": "Every problem found with the request. Always holds at least one entry.",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorItem"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status code of the response.",
+            "example": 409,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace identifier correlating the response with Jamf server-side logs. Quote it when reporting a failure. Null when the request carried no active trace.",
+            "example": "80f198ee56343ba864fe8b2a57d3eff7",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorItem": {
+        "description": "A single problem with the request.",
+        "properties": {
+          "code": {
+            "description": "Machine-readable, stable classification of the problem. Values used by this API include `MALFORMED_REQUEST_BODY`, `FIELD_VALIDATION`, `INVALID_PARAMETER`, `BAD_REQUEST`, `DUPLICATE_TENANT_ID`, `UNKNOWN_TENANT`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `TENANT_ALREADY_ASSIGNED`, `DUPLICATE_MANAGEMENT_PRODUCT`, `DUPLICATE_PRODUCT`, `REGION_MISMATCH`, and `INTERNAL_ERROR`. Prefer this over matching on `description`.",
+            "example": "DUPLICATE_MANAGEMENT_PRODUCT",
+            "type": "string"
+          },
+          "description": {
+            "description": "Human-readable explanation, for troubleshooting rather than display to an end user. Generic for server-side failures, which are correlated through `traceId` instead.",
+            "example": "must not be blank",
+            "type": "string"
+          },
+          "field": {
+            "description": "Request field the problem relates to, in dotted notation for a nested field and with an index for an array entry. Null when the problem is not about one field.",
+            "example": "tenantIds[0]",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "type": "object"
+      },
+      "AssignTenantsRequest": {
+        "description": "The tenants to add to an environment. Additive: the tenants already in the environment are kept.",
+        "properties": {
+          "tenantIds": {
+            "description": "Identifiers of the tenants to add, as returned in the `id` field of a tenant. Every one must be an unassigned tenant of the organization, and no identifier may be repeated.",
+            "example": [
+              "d51b3a87-4c29-4e0f-9b6d-72af8e15c304",
+              "1b9d4f52-7e30-4a6c-8f21-c4b70d938e5a"
+            ],
+            "items": {
+              "description": "Identifier of one of the organization's unassigned tenants.",
+              "example": "d51b3a87-4c29-4e0f-9b6d-72af8e15c304",
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "tenantIds"
+        ],
+        "type": "object"
+      },
+      "CreateEnvironmentRequest": {
+        "description": "An environment to create. It is created empty.",
+        "properties": {
+          "label": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EnvironmentLabel"
+              }
+            ],
+            "description": "What the environment is for. Descriptive only — it does not change what can be assigned to the environment.",
+            "example": "SANDBOX"
+          },
+          "metaRegion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetaRegion"
+              }
+            ],
+            "description": "Region every tenant assigned to this environment must be in. Omit to create a global environment, which accepts tenants from any region. Cannot be changed once the environment exists.",
+            "example": "US"
+          },
+          "name": {
+            "description": "Display name for the environment, shown to administrators in Jamf Account. Trimmed of surrounding whitespace, and not required to be unique.",
+            "example": "Phoenix",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "type": "object"
+      },
+      "Environment": {
+        "description": "A named grouping of the organization's tenants, representing one deployment of Jamf.",
+        "properties": {
+          "href": {
+            "description": "URL of the environment, relative to this API. Resolve it against the server URL you called; it does not name a region.",
+            "example": "/v1/environments/8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63",
+            "type": "string"
+          },
+          "id": {
+            "description": "Jamf-assigned identifier of the environment. Use it to update or delete the environment and to assign tenants to it. Treat it as an opaque string.",
+            "example": "8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63",
+            "type": "string"
+          },
+          "label": {
+            "description": "What the environment is for, normally one of the `EnvironmentLabel` values (`BETA`, `NFR`, `PRODUCTION`, `SANDBOX`, `TRIAL`). Typed as a string rather than an enum because a label Jamf introduces elsewhere is passed through unchanged rather than failing the read; match on it defensively.",
+            "example": "SANDBOX",
+            "nullable": true,
+            "type": "string"
+          },
+          "metaRegion": {
+            "description": "Region the environment's tenants must be in, one of the `MetaRegion` values. Null for a global environment, which accepts tenants from any region. Fixed when the environment is created.",
+            "example": "US",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the environment, as supplied on create.",
+            "example": "Phoenix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "href",
+          "name"
+        ],
+        "type": "object"
+      },
+      "EnvironmentLabel": {
+        "description": "What an environment is for. Descriptive only: the label does not change which tenants can be assigned to the environment. The mixed-case forms used elsewhere in Jamf (`Beta`, `NFR`, `Production`, `Sandbox`, `Trial`) are also accepted on a request, and matching is case-insensitive.",
+        "enum": [
+          "BETA",
+          "NFR",
+          "PRODUCTION",
+          "SANDBOX",
+          "TRIAL"
+        ],
+        "example": "SANDBOX",
+        "type": "string"
+      },
+      "EnvironmentList": {
+        "description": "The environments of the organization.",
+        "properties": {
+          "results": {
+            "description": "The environments of the organization.",
+            "items": {
+              "$ref": "#/components/schemas/Environment"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Number of environments in `results`.",
+            "example": 2,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "MetaRegion": {
+        "description": "Region a tenant is hosted in, and the region an environment holds its tenants in. `HIGH_COMPLIANCE` and `FEDRAMP` are the regulated regions and are only available to organizations entitled to them.",
+        "enum": [
+          "US",
+          "EU",
+          "APAC",
+          "HIGH_COMPLIANCE",
+          "FEDRAMP"
+        ],
+        "example": "US",
+        "type": "string"
+      },
+      "Tenant": {
+        "description": "A single Jamf service instance held for the organization, and the environment it belongs to.",
+        "properties": {
+          "environmentId": {
+            "description": "Identifier of the environment the tenant belongs to. Null for a tenant that has not been assigned yet, which is the only kind `PUT /environments/{environmentId}/tenants` accepts.",
+            "example": "2f7c1e04-8b6a-4d51-9a3c-1e5b7f0d92aa",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "Jamf-assigned identifier of the tenant, as accepted by `PUT /environments/{environmentId}/tenants`. Treat it as an opaque string.",
+            "example": "d51b3a87-4c29-4e0f-9b6d-72af8e15c304",
+            "type": "string"
+          },
+          "metaRegion": {
+            "description": "Region the tenant is hosted in, one of the `MetaRegion` values. It must match the `metaRegion` of the environment the tenant is assigned to, unless the product is global.",
+            "example": "US",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the tenant. Null for a tenant Jamf holds no name for.",
+            "example": "Example Corp Jamf Pro",
+            "nullable": true,
+            "type": "string"
+          },
+          "product": {
+            "description": "Code of the Jamf product the tenant is an instance of, such as `pro` for Jamf Pro, `school`, `now`, `protect`, `jetp` for Jamf Mobile Forensics, `jsc` or `security` for Jamf Security Cloud, and `wizy` for Jamf Manager for Android. New codes are added as Jamf ships products, so treat the value as an open set.",
+            "example": "pro",
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "description": "Classification of the product, such as `management` for the products that manage devices. Descriptive only, an open set like `product`, and null for a product Jamf holds no classification for.",
+            "example": "management",
+            "nullable": true,
+            "type": "string"
+          },
+          "url": {
+            "description": "URL the tenant is reached at. Null for a product whose tenants have no per-tenant URL.",
+            "example": "https://example.jamfcloud.com",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "TenantList": {
+        "description": "The tenants of the organization.",
+        "properties": {
+          "results": {
+            "description": "The tenants of the organization.",
+            "items": {
+              "$ref": "#/components/schemas/Tenant"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Number of tenants in `results`.",
+            "example": 2,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "UpdateEnvironmentRequest": {
+        "description": "The complete name and label of an existing environment. A full replacement, not a patch.",
+        "properties": {
+          "label": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EnvironmentLabel"
+              }
+            ],
+            "description": "What the environment is for.",
+            "example": "PRODUCTION"
+          },
+          "name": {
+            "description": "Display name for the environment. Trimmed of surrounding whitespace, and not required to be unique.",
+            "example": "Phoenix",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {},
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Manage your Jamf organization and the resources it owns, including environments and product tenants",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Jamf Account Organization API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/environments": {
+      "get": {
+        "description": "Returns every environment of the organization resolved from the access token. Read `GET /tenants` to find which tenants each environment holds — an environment does not carry its tenants.\n\nThe response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no environments returns an empty `results` array and a `totalCount` of 0, and so does a generic account, whose environments belong to nobody in particular.",
+        "operationId": "listEnvironments",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "href": "/v1/environments/2f7c1e04-8b6a-4d51-9a3c-1e5b7f0d92aa",
+                      "id": "2f7c1e04-8b6a-4d51-9a3c-1e5b7f0d92aa",
+                      "label": "PRODUCTION",
+                      "metaRegion": "US",
+                      "name": "Production"
+                    },
+                    {
+                      "href": "/v1/environments/8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63",
+                      "id": "8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63",
+                      "label": "SANDBOX",
+                      "metaRegion": "EU",
+                      "name": "Phoenix"
+                    }
+                  ],
+                  "totalCount": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentList"
+                }
+              }
+            },
+            "description": "The environments of the organization. `results` is empty when it has none."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "List Environments",
+        "tags": [
+          "environments"
+        ]
+      },
+      "post": {
+        "description": "Creates an environment for the organization resolved from the access token and returns it with the Jamf-assigned `id` to assign tenants against.\n\nThe environment is created empty. `metaRegion` fixes the region every tenant assigned to it must be in and cannot be changed afterwards; omit it to create a global environment, which accepts tenants from any region. `label` describes what the environment is for and carries no behavior of its own.\n\nNames are not required to be unique and are trimmed of surrounding whitespace. Nothing here rejects a combination of tenants — the eligibility rules are checked when tenants are assigned.",
+        "operationId": "createEnvironment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "label": "SANDBOX",
+                "metaRegion": "US",
+                "name": "Phoenix"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/CreateEnvironmentRequest"
+              }
+            }
+          },
+          "description": "The environment to create.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "href": "/v1/environments/8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63",
+                  "id": "8c4e2a19-6f7b-4c88-b0d2-3a95e1c47f63",
+                  "label": "SANDBOX",
+                  "metaRegion": "US",
+                  "name": "Phoenix"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Environment"
+                }
+              }
+            },
+            "description": "The created environment. No `Location` header is returned; the created environment is in the body, and `href` is the path it can be read back at."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/OrganizationForbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Create Environment",
+        "tags": [
+          "environments"
+        ]
+      }
+    },
+    "/v1/environments/{environmentId}": {
+      "delete": {
+        "description": "Deletes an environment belonging to the organization resolved from the access token.\n\nOnly an empty environment can be deleted. Because tenants cannot be unassigned over this API, an environment that holds tenants stays in place and the request is rejected with `409`; read `GET /tenants` and check `environmentId` to see what is in it. Environments Jamf manages on your behalf — those backing a Jamf-hosted domain — are never empty and cannot be deleted either.\n\nThe response has no body.",
+        "operationId": "deleteEnvironment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environmentId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The environment was deleted. The response has no body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/OrganizationForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnvironmentNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnvironmentNotEmpty"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Delete Environment",
+        "tags": [
+          "environments"
+        ]
+      },
+      "put": {
+        "description": "Replaces the name and label of an environment belonging to the organization resolved from the access token.\n\nBoth fields are required and are a full replacement, not a patch: omitting one is a `400` rather than leaving it unchanged, so read `GET /environments` first if you only mean to change one of them.\n\n`metaRegion` is not part of the request. An environment cannot be moved between regions once tenants have been assigned against its region, so it is fixed at creation. Tenant membership is not part of the request either — use `PUT /environments/{environmentId}/tenants`.\n\nThe response has no body.",
+        "operationId": "updateEnvironment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environmentId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "label": "PRODUCTION",
+                "name": "Phoenix"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvironmentRequest"
+              }
+            }
+          },
+          "description": "The complete name and label of the environment.",
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The environment was updated. The response has no body."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/OrganizationForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnvironmentNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Update Environment",
+        "tags": [
+          "environments"
+        ]
+      }
+    },
+    "/v1/environments/{environmentId}/tenants": {
+      "put": {
+        "description": "Adds tenants to an environment of the organization resolved from the access token.\n\nAdditive despite being a `PUT`: the tenants already in the environment stay in it, and a tenant omitted from `tenantIds` is not removed. There is no way to unassign a tenant or move it to another environment over this API, so a tenant that already belongs to an environment is rejected with `409` rather than moved.\n\nEvery tenant named must be one of the organization's own unassigned tenants — read `GET /tenants` and look for a null `environmentId`. The request is resolved and checked in full before anything is written, so a request naming one ineligible tenant assigns none of them.\n\nWhich tenants may share an environment is constrained:\n\n* one management product per environment — Jamf Pro, Jamf School or Jamf\n  Now, but not two of them\n* one tenant per product family, so Jamf Pro with Jamf Protect and Jamf\n  Security Cloud is fine while a second Jamf Protect is not\n* every tenant in the environment's `metaRegion`, with Jamf Security\n  Cloud exempt because it is global. An environment created without a\n  `metaRegion` is global and constrains nothing\n\n\nThe rules are applied to the tenants already in the environment plus the earlier tenants of the same request, so one request cannot introduce a combination two requests would be refused. A `409` names the rule that refused it in `code`.\n\nThe response has no body.",
+        "operationId": "assignTenants",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/environmentId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "tenantIds": [
+                  "d51b3a87-4c29-4e0f-9b6d-72af8e15c304",
+                  "1b9d4f52-7e30-4a6c-8f21-c4b70d938e5a"
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/AssignTenantsRequest"
+              }
+            }
+          },
+          "description": "The tenants to add to the environment.",
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The tenants were added to the environment. The response has no body."
+          },
+          "400": {
+            "$ref": "#/components/responses/TenantAssignmentBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/OrganizationForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnvironmentNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/TenantAssignmentConflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Assign Tenants To Environment",
+        "tags": [
+          "environments"
+        ]
+      }
+    },
+    "/v1/tenants": {
+      "get": {
+        "description": "Returns every Jamf product tenant Jamf holds for the organization resolved from the access token, assigned or not, with the `environmentId` of the environment each belongs to. A null `environmentId` marks a tenant that can still be assigned.\n\nThe response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no tenants returns an empty `results` array and a `totalCount` of 0, and so does a generic account, whose tenants belong to nobody in particular.",
+        "operationId": "listTenants",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "environmentId": "2f7c1e04-8b6a-4d51-9a3c-1e5b7f0d92aa",
+                      "id": "d51b3a87-4c29-4e0f-9b6d-72af8e15c304",
+                      "metaRegion": "US",
+                      "name": "Example Corp Jamf Pro",
+                      "product": "pro",
+                      "type": "management",
+                      "url": "https://example.jamfcloud.com"
+                    },
+                    {
+                      "environmentId": null,
+                      "id": "1b9d4f52-7e30-4a6c-8f21-c4b70d938e5a",
+                      "metaRegion": "US",
+                      "name": "Example Corp Jamf Protect",
+                      "product": "protect",
+                      "type": null,
+                      "url": "https://example.protect.jamfcloud.com"
+                    }
+                  ],
+                  "totalCount": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/TenantList"
+                }
+              }
+            },
+            "description": "The tenants of the organization. `results` is empty when it has none."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "List Tenants",
+        "tags": [
+          "tenants"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "OAuth2ClientCredentials": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Production API Gateway",
+      "url": "https://{region}.api.jamfcloud.com/organization",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Select the regional gateway",
+          "enum": [
+            "us"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Operations for the environments of the organization resolved from the access token, including assigning tenants to them.",
+      "name": "environments"
+    },
+    {
+      "description": "Operations for the Jamf product tenants of the organization resolved from the access token.",
+      "name": "tenants"
+    }
+  ]
+}

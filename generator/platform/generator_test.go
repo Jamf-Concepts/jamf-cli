@@ -355,7 +355,9 @@ func TestLoadResourcesDropsTheTenantFromEveryPath(t *testing.T) {
 	for _, r := range resources {
 		for _, op := range r.Operations {
 			total++
-			if strings.Contains(op.Path, "tenant") {
+			// The retired scope-in-URL shape, not the word: the organization API's
+			// /tenants collection is a resource, not a scope segment.
+			if strings.Contains(op.Path, "/tenant/") || strings.Contains(op.Path, "{tenantId}") {
 				t.Errorf("%s/%s: request path still carries a tenant segment: %s", r.Name, op.Name, op.Path)
 			}
 			assertNamespacePrefixed(t, r.Name+"/"+op.Name, op.Path)

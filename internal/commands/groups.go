@@ -746,6 +746,8 @@ var platformGroupMap = map[string]string{
 	"distributor-quotes":          groupPlatformAccount,
 	"sso-connections":             groupPlatformAccount,
 	"sso-domains":                 groupPlatformAccount,
+	"environments":                groupPlatformAccount,
+	"tenants":                     groupPlatformAccount,
 
 	"audit": groupPlatformAudit,
 }
