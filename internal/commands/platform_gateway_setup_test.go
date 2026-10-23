@@ -6,11 +6,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
 
 // scopeProbePath is the exact path the scope probe must request, registered
@@ -106,8 +109,36 @@ func TestValidatePlatformGatewayCredentials_BadCredentialsAreFatal(t *testing.T)
 	}
 	// Credentials that don't work are worth failing setup over: nothing the
 	// profile could go on to do would succeed.
-	if _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err == nil {
+	_, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+	if err == nil {
 		t.Fatal("expected credential validation to fail")
+	}
+	// The token exchange cannot say why it refused the pair, so the hint names
+	// the setup mistakes that produce it (#438): an environment or tenant ID in
+	// the client ID field, the wrong region, a revoked beta credential.
+	var ee *exitcode.Error
+	if !errors.As(err, &ee) || ee.Hint != invalidPlatformClientHint {
+		t.Fatalf("a refused client ID and secret carries no remedy: %#v", err)
+	}
+	if ee.Code != exitcode.Authentication {
+		t.Errorf("exit code = %d, want %d (authentication)", ee.Code, exitcode.Authentication)
+	}
+}
+
+// A server fault is not a credential problem, so it must not be answered with
+// advice to re-check the client ID.
+func TestValidatePlatformGatewayCredentials_ServerErrorCarriesNoCredentialHint(t *testing.T) {
+	srv := gatewayStub(t, http.StatusInternalServerError, nil)
+
+	var out bytes.Buffer
+	creds := &platformGatewayCredentials{GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret"}
+	_, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+	if err == nil {
+		t.Fatal("expected credential validation to fail")
+	}
+	var ee *exitcode.Error
+	if errors.As(err, &ee) && ee.Hint == invalidPlatformClientHint {
+		t.Errorf("a 500 was answered with the invalid-client hint: %v", err)
 	}
 }
 

@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 
-	"golang.org/x/term"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
@@ -77,22 +75,10 @@ func promptPlatformGatewayCredentials(w io.Writer, reader *bufio.Reader) (*platf
 	}
 	creds.GatewayURL = normalized
 
-	_, _ = fmt.Fprint(w, "\nClient ID: ")
-	line, _ = reader.ReadString('\n')
-	creds.ClientID = strings.TrimSpace(line)
-	if creds.ClientID == "" {
-		return nil, fmt.Errorf("client ID is required")
-	}
-
-	_, _ = fmt.Fprint(w, "Client Secret: ")
-	secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return nil, fmt.Errorf("reading client secret: %w", err)
-	}
 	_, _ = fmt.Fprintln(w)
-	creds.ClientSecret = string(secretBytes)
-	if creds.ClientSecret == "" {
-		return nil, fmt.Errorf("client secret is required")
+	creds.ClientID, creds.ClientSecret, err = promptClientCredentials(w, reader, platformIntegrationSource)
+	if err != nil {
+		return nil, err
 	}
 
 	creds.EnvironmentID, creds.TenantID = promptScope(w, reader)
@@ -171,7 +157,11 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 
 	if err := pc.ValidateCredentials(ctx); err != nil {
 		_, _ = fmt.Fprintln(w, "failed")
-		return false, fmt.Errorf("credential validation failed: %w", err)
+		wrapped := fmt.Errorf("credential validation failed: %w", err)
+		if isInvalidClient(err) {
+			return false, exitcode.Wrap(exitcode.Authentication, wrapped).WithHint(invalidPlatformClientHint)
+		}
+		return false, wrapped
 	}
 	_, _ = fmt.Fprintln(w, "ok")
 
