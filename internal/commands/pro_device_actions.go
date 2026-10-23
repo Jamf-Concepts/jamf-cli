@@ -753,9 +753,7 @@ func sendComputerModernMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContex
 
 // newModernComputerMDMCmd creates a computer subcommand that sends a
 // modern API MDM command via POST /v2/mdm/commands with no additional body fields.
-// route is how it reaches a device on a gateway profile, or nil for no way
-// (see gatewayRoute).
-func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType string, route *gatewayRoute, short, long, example string, destructive bool) *cobra.Command {
+func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType string, short, long, example string, destructive bool) *cobra.Command {
 	var (
 		dt                 deviceTarget
 		yes                bool
@@ -773,9 +771,6 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType stri
 				deviceType:  "computer",
 				destructive: destructive,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					if sent, err := sendThroughRoute(cmd, cliCtx, route, d); sent {
-						return err
-					}
 					return sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{
 						"commandType": commandType,
 					})
@@ -788,12 +783,12 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType stri
 	if destructive {
 		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	}
-	return withGatewayRoute(cmd, route)
+	return cmd
 }
 
 func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "lock", "DEVICE_LOCK", nil,
+		cliCtx, "lock", "DEVICE_LOCK",
 		"Lock a computer",
 		"Lock a computer by serial number, name, or ID. This is a destructive operation.",
 		`  jamf-cli pro comp lock --serial C02X1234 --yes
@@ -804,7 +799,7 @@ func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP", classicComputerCommandRoute("EnableRemoteDesktop"),
+		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
 		"Enable Remote Desktop on a computer",
 		"Enable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234
@@ -815,7 +810,7 @@ func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comma
 
 func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP", classicComputerCommandRoute("DisableRemoteDesktop"),
+		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
 		"Disable Remote Desktop on a computer",
 		"Disable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234
@@ -825,7 +820,6 @@ func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comm
 }
 
 func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	restartRoute := platformDeviceActionRoute("restart")
 	var (
 		dt                 deviceTarget
 		yes                bool
@@ -840,22 +834,10 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
   jamf-cli pro comp restart --serial C02X1234 --rebuild-kernel-cache
   jamf-cli pro comp restart --group "Lab Macs" --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// The Platform API restart takes no options, so the one this
-			// command offers is refused rather than silently dropped.
-			if rebuildKernelCache && isGatewayProvider(cliCtx.AuthProvider) {
-				return &exitcode.Error{
-					Code:    exitcode.Unsupported,
-					Message: "--rebuild-kernel-cache cannot be sent through a platform gateway profile",
-					Hint:    "the gateway restarts a computer through the Platform API device action, which takes no options; drop the flag, or use a direct Jamf Pro profile",
-				}
-			}
 			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
 				actionName: "restart",
 				deviceType: "computer",
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					if sent, err := sendThroughRoute(cmd, cliCtx, restartRoute, d); sent {
-						return err
-					}
 					commandData := map[string]any{"commandType": "RESTART_DEVICE"}
 					if rebuildKernelCache {
 						commandData["rebuildKernelCache"] = true
@@ -867,13 +849,13 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
-	cmd.Flags().BoolVar(&rebuildKernelCache, "rebuild-kernel-cache", false, "rebuild the kernel cache before restarting (not through a platform gateway profile)")
-	return withGatewayRoute(cmd, restartRoute)
+	cmd.Flags().BoolVar(&rebuildKernelCache, "rebuild-kernel-cache", false, "rebuild the kernel cache before restarting")
+	return cmd
 }
 
 func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernComputerMDMCmd(
-		cliCtx, "shutdown", "SHUT_DOWN_DEVICE", platformDeviceActionRoute("shutdown"),
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
 		"Shut down a computer",
 		"Shut down a supervised computer by serial number, name, or ID.",
 		`  jamf-cli pro comp shutdown --serial C02X1234
@@ -1128,7 +1110,7 @@ func sendMobileModernMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContext,
 
 // newModernMobileMDMCmd creates a mobile-device subcommand that sends a
 // modern API MDM command via POST /v2/mdm/commands with no additional body fields.
-func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType string, route *gatewayRoute, short, long, example string, destructive bool) *cobra.Command {
+func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType string, short, long, example string, destructive bool) *cobra.Command {
 	var (
 		dt                 deviceTarget
 		yes                bool
@@ -1146,9 +1128,6 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType string
 				deviceType:  "mobile device",
 				destructive: destructive,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					if sent, err := sendThroughRoute(cmd, cliCtx, route, d); sent {
-						return err
-					}
 					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
 						"commandType": commandType,
 					})
@@ -1161,12 +1140,12 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType string
 	if destructive {
 		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	}
-	return withGatewayRoute(cmd, route)
+	return cmd
 }
 
 func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "restart", "RESTART_DEVICE", platformDeviceActionRoute("restart"),
+		cliCtx, "restart", "RESTART_DEVICE",
 		"Restart a mobile device",
 		"Restart a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md restart --serial F4GH5678
@@ -1177,7 +1156,7 @@ func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobileShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "shutdown", "SHUT_DOWN_DEVICE", platformDeviceActionRoute("shutdown"),
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
 		"Shut down a mobile device",
 		"Shut down a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md shutdown --serial F4GH5678`,
@@ -1370,7 +1349,7 @@ func newMobileEnableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE", nil,
+		cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE",
 		"Disable Lost Mode on a mobile device",
 		"Disable Lost Mode on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md disable-lost-mode --serial F4GH5678 --yes
@@ -1381,7 +1360,7 @@ func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND", nil,
+		cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND",
 		"Play a sound on a device in Lost Mode",
 		"Play a sound on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md play-lost-mode-sound --serial F4GH5678
@@ -1392,7 +1371,7 @@ func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newMobileClearRestrictionsPasswordCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD", nil,
+		cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD",
 		"Clear the restrictions password on a mobile device",
 		"Clear the restrictions password on a supervised mobile device.",
 		`  jamf-cli pro md clear-restrictions-password --serial F4GH5678
@@ -1630,7 +1609,7 @@ One of --destination-id or --destination-name is required.`,
 
 func newMobileStopMirroringCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "stop-mirroring", "STOP_MIRRORING", nil,
+		cliCtx, "stop-mirroring", "STOP_MIRRORING",
 		"Stop AirPlay mirroring on a mobile device",
 		"Stop an active AirPlay mirroring session on a mobile device.",
 		`  jamf-cli pro md stop-mirroring --serial F4GH5678`,
@@ -1760,7 +1739,7 @@ This is a destructive operation.`,
 
 func newMobileLogOutUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newModernMobileMDMCmd(
-		cliCtx, "log-out-user", "LOG_OUT_USER", nil,
+		cliCtx, "log-out-user", "LOG_OUT_USER",
 		"Log out the current user on a Shared iPad",
 		"Log out the currently signed-in user on a Shared iPad.",
 		`  jamf-cli pro md log-out-user --serial F4GH5678
