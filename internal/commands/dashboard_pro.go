@@ -628,7 +628,10 @@ func collectEnvironmentStats(ctx context.Context, client registry.HTTPClient, st
 	}
 
 	tasks := []countTask{
-		{envStatPolicies, &stats.Policies, classicCount("/JSSResource/policies")},
+		{envStatPolicies, &stats.Policies, func() (int, error) {
+			items, err := FetchAnalyticPolicyList(ctx, client, "")
+			return len(items), err
+		}},
 		{envStatConfigProfiles, &stats.ConfigProfiles, classicCount("/JSSResource/osxconfigurationprofiles")},
 		{envStatScripts, &stats.Scripts, paginatedCount("/v1/scripts")},
 		{envStatPackages, &stats.Packages, classicCount("/JSSResource/packages")},
@@ -887,7 +890,7 @@ type policyDetailSet struct {
 // fetchPolicyDetails runs the shared pass. Each skipped policy is named on
 // stderr: "150 policies unreadable" is not actionable without the ids.
 func fetchPolicyDetails(ctx context.Context, client registry.HTTPClient) *policyDetailSet {
-	policies, err := FetchClassicList(ctx, client, "/JSSResource/policies", "policy")
+	policies, err := FetchAnalyticPolicyList(ctx, client, "policy")
 	if err != nil {
 		return &policyDetailSet{err: fmt.Errorf("policies: %w", err)}
 	}
