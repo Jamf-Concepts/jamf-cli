@@ -714,7 +714,7 @@ func TestDetectSingleton(t *testing.T) {
 			// so it generates `get` rather than `list` for a single-object response.
 			name: "read-only singleton — allowlisted GET-only path",
 			ops: []*Operation{
-				{Name: "list", Method: "GET", Path: "/v2/environment-type", IsList: false},
+				{Name: "list", Method: "GET", Path: "/v1/app-installers", IsList: false},
 			},
 			want: true,
 		},

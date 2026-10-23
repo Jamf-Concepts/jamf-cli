@@ -85,7 +85,6 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewEnrollmentCustomizationCmd(ctx))
 	root.AddCommand(NewEnrollmentCustomizationImagesCmd(ctx))
 	root.AddCommand(NewEnrollmentLanguagesCmd(ctx))
-	root.AddCommand(NewEnvironmentTypeCmd(ctx))
 	root.AddCommand(NewGroupsCmd(ctx))
 	root.AddCommand(NewGsxConnectionCmd(ctx))
 	root.AddCommand(NewHealthCheckCmd(ctx))

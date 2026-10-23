@@ -6,10 +6,10 @@
   },
   "x-jamf-source": {
     "spec": "classic_api_resource_documentation.json",
-    "title": "Classic API",
+    "title": "Jamf Pro Classic",
     "version": "11.32.0",
-    "sdkCommit": "9f9835d",
-    "schemas": 165,
+    "sdkCommit": "ac22d23",
+    "schemas": 172,
     "resources": 44,
     "unresolved": 1
   },
@@ -1765,6 +1765,9 @@
                     "example": 1,
                     "type": "integer"
                   },
+                  "management_id": {
+                    "type": "string"
+                  },
                   "serial_number": {
                     "example": "C02Q7KHTGFWF",
                     "type": "string"
@@ -1831,26 +1834,141 @@
         },
         "type": "object"
       },
+      "computer_command_issued": {
+        "description": "The 201 body of POST /computercommands/command/{command} and its /id/{id} form. The spec declares no body and config pointed it at computer_command, which decodes to nothing; the server answers one flat command element per computer, each with its own UUID (wire-verified 2026-10-19). Mobile device commands answer one UUID for all devices; computer commands do not.",
+        "properties": {
+          "command": {
+            "items": {
+              "properties": {
+                "command_uuid": {
+                  "description": "UUID of the queued command for this computer; the handle for GetComputerCommandByUUID and GetComputerCommandsByStatus.",
+                  "type": "string"
+                },
+                "computer_id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "description": "Command name as the server normalised it.",
+                  "type": "string"
+                }
+              },
+              "type": "object",
+              "xml": {
+                "name": "command"
+              }
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "xml": {
+          "name": "computer_command"
+        }
+      },
       "computer_command_post": {
         "properties": {
           "computers": {
+            "description": "The computers to send the command to. The spec declares one computer; the server takes several (wire-verified 2026-10-19) and queues one command per computer, answering 400 Unable to match computer for an unknown ID and queueing nothing. When a body names computers the server targets those and ignores any IDs in the URL.",
             "properties": {
               "computer": {
-                "properties": {
-                  "id": {
-                    "example": 1,
-                    "type": "integer"
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    }
                   },
-                  "serial_number": {
-                    "example": "C02Q7KHTGFWF",
-                    "type": "string"
-                  },
-                  "udid": {
-                    "example": "55900BDC-347C-58B1-D249-F32244B11D30",
-                    "type": "string"
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object",
+                  "xml": {
+                    "name": "computer"
                   }
                 },
-                "type": "object"
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "general": {
+            "properties": {
+              "command": {
+                "description": "Command to queue, by its plain name, for example EnableRemoteDesktop or UnlockUserAccount. The spec's enum members carry prose annotations that the server refuses, so the field is a plain string.",
+                "type": "string"
+              },
+              "user_name": {
+                "description": "Username for UnlockUserAccount (deprecated on 2025-07-07) command",
+                "example": "administrator",
+                "type": "string"
+              }
+            },
+            "required": [
+              "command"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "object",
+        "xml": {
+          "name": "computer_command"
+        }
+      },
+      "computer_command_status": {
+        "description": "The body of GET /computercommands/status/{uuid}. No schema in the spec declares status, so the typed result dropped the one field that says whether a command has run. An unknown UUID answers 200 with status Canceled.",
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "status": {
+            "description": "Pending for a queued command; Canceled for an unknown UUID.",
+            "type": "string"
+          },
+          "uuid": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "xml": {
+          "name": "computer_command"
+        }
+      },
+      "computer_command_summary": {
+        "description": "One element of the computer command list. The server answers flat (wire-verified 2026-10-19): command, uuid and the send timestamps sit directly on the element, beside computers. The spec nests a trimmed computer_command inside each item and omits management_id.",
+        "properties": {
+          "apns_result_status": {
+            "type": "string"
+          },
+          "command": {
+            "description": "Command name as the server records it.",
+            "type": "string"
+          },
+          "computers": {
+            "properties": {
+              "computer": {
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "ip_address": {
+                      "type": "string"
+                    },
+                    "management_id": {
+                      "type": "string"
+                    },
+                    "udid": {
+                      "type": "string"
+                    },
+                    "users": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object",
+                  "xml": {
+                    "name": "computer"
+                  }
+                },
+                "type": "array"
               },
               "size": {
                 "$ref": "#/components/schemas/size"
@@ -1858,51 +1976,24 @@
             },
             "type": "object"
           },
-          "general": {
-            "properties": {
-              "apns_result_status": {
-                "example": "Acknowledged",
-                "type": "string"
-              },
-              "command": {
-                "description": "Command type",
-                "example": "InstallProfile",
-                "type": "string"
-              },
-              "date_sent": {
-                "example": "2017-07-07T18:37:04.000Z",
-                "type": "string"
-              },
-              "date_sent_epoch": {
-                "example": 1499470624555,
-                "type": "string"
-              },
-              "date_sent_utc": {
-                "example": "2017-07-07T18:37:04.555-0500",
-                "type": "string"
-              },
-              "id": {
-                "example": 1002,
-                "type": "integer"
-              },
-              "profile_id": {
-                "example": 121,
-                "type": "integer"
-              },
-              "profile_udid": {
-                "example": "A083D99E-5FD0-4A80-A9F4-0CF8BC790C74",
-                "type": "string"
-              },
-              "udid": {
-                "example": "002d47b9-ad68-4d58-9fc7-0c4a50950020",
-                "type": "string"
-              },
-              "uuid": {
-                "example": "002d47b9-ad68-4d58-9fc7-0c4a50950020",
-                "type": "string"
-              }
-            },
-            "type": "object"
+          "date_sent": {
+            "type": "string"
+          },
+          "date_sent_epoch": {
+            "type": "string"
+          },
+          "date_sent_utc": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": "integer"
+          },
+          "profile_udid": {
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the command; the handle for GetComputerCommandByUUID.",
+            "type": "string"
           }
         },
         "type": "object",
@@ -1978,6 +2069,24 @@
           "type": "object"
         },
         "type": "array"
+      },
+      "computer_commands_listed": {
+        "description": "The list body for GET /computercommands and GET /computercommands/name/{name}. The spec declares computer_commands as a bare array of items rather than a wrapper object, so only the first element decodes, and declares the name filter as a single computer_command, which decodes to a zero struct with a nil error (601 elements on the EU test environment).",
+        "properties": {
+          "computer_command": {
+            "items": {
+              "$ref": "#/components/schemas/computer_command_summary"
+            },
+            "type": "array"
+          },
+          "size": {
+            "$ref": "#/components/schemas/size"
+          }
+        },
+        "type": "object",
+        "xml": {
+          "name": "computer_commands"
+        }
       },
       "computer_extension_attribute": {
         "properties": {
@@ -6628,8 +6737,32 @@
                 ],
                 "type": "string"
               },
-              "certificates_used": {
+              "certificate_used": {
+                "description": "Certificate to trust for LDAPS, as PEM or base64-encoded DER. Write-only: the server stores it as a certificate named after the server and returns it in certificates_used. The spec declares this field on ldap_server_post only, where post-symmetry replaces it away.",
                 "type": "string"
+              },
+              "certificates_used": {
+                "description": "Certificates the server trusts, each as its configuration name and issuer. The spec declares a string; the server nests a certificate element per entry (wire-verified 2026-10-19).",
+                "properties": {
+                  "certificate": {
+                    "items": {
+                      "properties": {
+                        "configuration_name": {
+                          "type": "string"
+                        },
+                        "issuer": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object",
+                      "xml": {
+                        "name": "certificate"
+                      }
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
               },
               "hostname": {
                 "description": "Hostname or IP address of the server",
@@ -6912,8 +7045,32 @@
                 ],
                 "type": "string"
               },
-              "certificates_used": {
+              "certificate_used": {
+                "description": "Certificate to trust for LDAPS, as PEM or base64-encoded DER. Write-only: the server stores it as a certificate named after the server and returns it in certificates_used. The spec declares this field on ldap_server_post only, where post-symmetry replaces it away.",
                 "type": "string"
+              },
+              "certificates_used": {
+                "description": "Certificates the server trusts, each as its configuration name and issuer. The spec declares a string; the server nests a certificate element per entry (wire-verified 2026-10-19).",
+                "properties": {
+                  "certificate": {
+                    "items": {
+                      "properties": {
+                        "configuration_name": {
+                          "type": "string"
+                        },
+                        "issuer": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object",
+                      "xml": {
+                        "name": "certificate"
+                      }
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
               },
               "hostname": {
                 "description": "Hostname or IP address of the server",
@@ -9083,6 +9240,9 @@
                     "example": 1,
                     "type": "integer"
                   },
+                  "management_id": {
+                    "type": "string"
+                  },
                   "phone_number": {
                     "example": "123-555-6789",
                     "type": "string"
@@ -9111,83 +9271,230 @@
         },
         "type": "object"
       },
-      "mobile_device_command_post": {
+      "mobile_device_command_issued": {
+        "description": "The 201 body of POST /mobiledevicecommands/command. The spec declares mobile_device_command here, which nests uuid and command under general; the server answers flat (wire-verified 2026-10-19), so that type decodes everything but the device echo.",
         "properties": {
-          "general": {
-            "properties": {
-              "apns_result_status": {
-                "example": "Acknowledged",
-                "type": "string"
-              },
-              "command": {
-                "example": "ClearPasscode",
-                "type": "string"
-              },
-              "date_sent": {
-                "example": "2017-07-07T18:37:04.000Z",
-                "type": "string"
-              },
-              "date_sent_epoch": {
-                "example": 1499470624555,
-                "type": "string"
-              },
-              "date_sent_utc": {
-                "example": "2017-07-07T18:37:04.555-0500",
-                "type": "string"
-              },
-              "id": {
-                "example": 1,
-                "type": "integer"
-              },
-              "profile_id": {
-                "type": "integer"
-              },
-              "profile_udid": {
-                "type": "string"
-              },
-              "udid": {
-                "example": "be597b7d-d0a4-42e6-ab98-18d1fd0c5640",
-                "type": "string"
-              },
-              "uuid": {
-                "example": "be597b7d-d0a4-42e6-ab98-18d1fd0c5640",
-                "type": "string"
-              }
-            },
-            "type": "object"
+          "command": {
+            "type": "string"
           },
           "mobile_devices": {
             "properties": {
               "mobile_device": {
-                "properties": {
-                  "id": {
-                    "example": 1,
-                    "type": "integer"
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "management_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
                   },
-                  "phone_number": {
-                    "example": "123-555-6789",
-                    "type": "string"
-                  },
-                  "serial_number": {
-                    "example": "F19QMFBYFRY7",
-                    "type": "string"
-                  },
-                  "udid": {
-                    "example": "270aae10800b6e61a2ee2bbc285eb967050b5984",
-                    "type": "string"
-                  },
-                  "wifi_mac_address": {
-                    "example": "E0:AC:CB:97:36:G4",
-                    "type": "string"
+                  "type": "object",
+                  "xml": {
+                    "name": "mobile_device"
                   }
                 },
-                "type": "object"
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "uuid": {
+            "description": "UUID of the queued command; the handle for GetMobileDeviceCommandByUUID.",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "xml": {
+          "name": "mobile_device_command"
+        }
+      },
+      "mobile_device_command_post": {
+        "properties": {
+          "general": {
+            "properties": {
+              "always_enforce_lost_mode": {
+                "default": true,
+                "description": "Whether Lost Mode should be enabled after the device is wiped and re-enrolled (optional, but defaults to true)",
+                "example": "Whether Lost Mode should be enabled after the device is wiped and re-enrolled (optional, but defaults to true)",
+                "type": "boolean"
+              },
+              "command": {
+                "description": "Command to send the device, by its plain name, for example Wallpaper or EnableLostMode. The spec's enum members carry prose annotations such as \"(supervised only)\" and \"(Deprecated on ...)\" that the server does not accept, so the field is a plain string.",
+                "type": "string"
+              },
+              "disallow_proximity_setup": {
+                "default": false,
+                "description": "If true, on the next reboot Proximity Setup is not allowed and the pane in Setup Assistant will be skipped. Defaults to false.",
+                "example": "If true, on the next reboot Proximity Setup is not allowed and the pane in Setup Assistant will be skipped. Defaults to false.",
+                "type": "boolean"
+              },
+              "e_sim_server_url": {
+                "description": "The carrier's eSIM server URL to query. This URL is obtained from each carrier separately.",
+                "example": "https://support.apple.com/en-us/HT209096",
+                "type": "string"
+              },
+              "lost_mode_footnote": {
+                "description": "The footnote to be displayed for the EnableLostMode command (optional)",
+                "example": "The footnote to be displayed for the EnableLostMode command (optional)",
+                "type": "string"
+              },
+              "lost_mode_message": {
+                "description": "The message to be displayed on the lost device (Required for EnableLostMode command if lost_mode_phone is not specified)",
+                "example": "The message to be displayed on the lost device (Required for EnableLostMode command if lost_mode_phone is not specified)",
+                "type": "string"
+              },
+              "lost_mode_phone": {
+                "description": "The phone number to be displayed on the lost device (Required for EnableLostMode command if lost_mode_message is not specified)",
+                "example": "The phone number to be displayed on the lost device (Required for EnableLostMode command if lost_mode_message is not specified)",
+                "type": "string"
+              },
+              "lost_mode_with_sound": {
+                "default": false,
+                "description": "Whether to play a sound on the device when the EnableLostMode command is sent (optional)",
+                "example": "Whether to play a sound on the device when the EnableLostMode command is sent (optional)",
+                "type": "boolean"
+              },
+              "passcode_lock_grace_period": {
+                "description": "Number of seconds the screen must be locked before unlock attempts will require the device passcode (Required for PasscodeLockGracePeriod command)",
+                "example": "Number of seconds the screen must be locked before unlock attempts will require the device passcode (Required for PasscodeLockGracePeriod command)",
+                "type": "integer"
+              },
+              "wallpaper_content": {
+                "description": "Wallpaper image in PNG or JPEG format, encoded using base64 (required for Wallpaper command if wallpaper_id is not specified)",
+                "example": "Wallpaper image in PNG or JPEG format, encoded using base64 (required for Wallpaper command if wallpaper_id is not specified)",
+                "type": "string"
+              },
+              "wallpaper_id": {
+                "description": "ID of existing icon within Jamf Pro to use (required for Wallpaper command if wallpaper_content is not specified)",
+                "example": "ID of existing icon within Jamf Pro to use (required for Wallpaper command if wallpaper_content is not specified)",
+                "type": "integer"
+              },
+              "wallpaper_setting": {
+                "description": "Where to set wallpaper (Required for Wallpaper command.) Possible values include - 1 (Lock screen), 2 (Home screen), 3 (Lock and home screens)",
+                "enum": [
+                  1,
+                  2,
+                  3
+                ],
+                "example": "Where to set wallpaper (Required for Wallpaper command.) Possible values include - 1 (Lock screen), 2 (Home screen), 3 (Lock and home screens)",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "command"
+            ],
+            "type": "object"
+          },
+          "mobile_devices": {
+            "description": "The devices to send the command to. The spec declares one device; the server takes several (wire-verified 2026-10-19) and applies the command to all of them or none, answering 400 Unable to match mobile_device for an unknown ID. When a body is present the server targets these devices and ignores any IDs in the URL.",
+            "properties": {
+              "mobile_device": {
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "management_id": {
+                      "type": "string"
+                    },
+                    "phone_number": {
+                      "type": "string"
+                    },
+                    "serial_number": {
+                      "type": "string"
+                    },
+                    "udid": {
+                      "type": "string"
+                    },
+                    "wifi_mac_address": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object",
+                  "xml": {
+                    "name": "mobile_device"
+                  }
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object",
+        "xml": {
+          "name": "mobile_device_command"
+        }
+      },
+      "mobile_device_command_summary": {
+        "description": "One element of the mobile device command list. The server answers flat (wire-verified 2026-10-19): command, uuid and the send timestamps sit directly on the element, beside mobile_devices. The spec nests a trimmed mobile_device_command inside each item and omits uuid, so decoding it yields no UUID and no devices.",
+        "properties": {
+          "apns_result_status": {
+            "type": "string"
+          },
+          "command": {
+            "description": "Command name as the server records it. Not always the name that was sent: PlayLostModeSound is recorded as PLAY_LOST_MODE_SOUND.",
+            "type": "string"
+          },
+          "date_sent": {
+            "type": "string"
+          },
+          "date_sent_epoch": {
+            "type": "string"
+          },
+          "date_sent_utc": {
+            "type": "string"
+          },
+          "mobile_devices": {
+            "properties": {
+              "mobile_device": {
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "management_id": {
+                      "type": "string"
+                    },
+                    "phone_number": {
+                      "type": "string"
+                    },
+                    "serial_number": {
+                      "type": "string"
+                    },
+                    "udid": {
+                      "type": "string"
+                    },
+                    "wifi_mac_address": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object",
+                  "xml": {
+                    "name": "mobile_device"
+                  }
+                },
+                "type": "array"
               },
               "size": {
                 "$ref": "#/components/schemas/size"
               }
             },
             "type": "object"
+          },
+          "profile_id": {
+            "type": "integer"
+          },
+          "profile_udid": {
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the command; the handle for GetMobileDeviceCommandByUUID.",
+            "type": "string"
           }
         },
         "type": "object",
@@ -9257,6 +9564,24 @@
           }
         },
         "type": "array"
+      },
+      "mobile_device_commands_listed": {
+        "description": "The list body for GET /mobiledevicecommands and its command and name filters. The spec declares mobile_device_commands as a bare array of items rather than a wrapper object, so only the first element decodes (one of 453 on the EU test environment).",
+        "properties": {
+          "mobile_device_command": {
+            "items": {
+              "$ref": "#/components/schemas/mobile_device_command_summary"
+            },
+            "type": "array"
+          },
+          "size": {
+            "$ref": "#/components/schemas/size"
+          }
+        },
+        "type": "object",
+        "xml": {
+          "name": "mobile_device_commands"
+        }
       },
       "mobile_device_configuration_profile": {
         "properties": {

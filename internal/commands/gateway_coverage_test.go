@@ -246,7 +246,7 @@ func asExitcode(err error, out **exitcode.Error) bool {
 
 // The catalog skipped every command named "commands", not just the root's own
 // catalog command — so `pro mdm commands` was absent from the
-// machine-readable listing, gateway refusal and all.
+// machine-readable listing.
 func TestCommandsCatalogIncludesANestedCommandNamedCommands(t *testing.T) {
 	root := NewRootCmd("test", "", "", "")
 	entries := collectCommands(root, "", "", "")
@@ -258,9 +258,6 @@ func TestCommandsCatalogIncludesANestedCommandNamedCommands(t *testing.T) {
 		}
 		if e.Command == "pro mdm commands" {
 			found = true
-			if e.Gateway == "" {
-				t.Errorf("%s listed without its gateway verdict", e.Command)
-			}
 		}
 	}
 	if !found {

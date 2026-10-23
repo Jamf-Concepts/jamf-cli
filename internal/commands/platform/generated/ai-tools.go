@@ -23,7 +23,7 @@ func NewAiToolsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "ai-tools",
 		Short:       "Manage ai-tools (Platform API)",
-		Long:        "API for managing AI governance policies",
+		Long:        "API for managing AI governance policies and tools deployed to managed devices",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newAiToolsListCmd(cliCtx))

@@ -583,7 +583,7 @@
     },
     "description": "Management API for device inventory - Query and manage devices across your organization",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Device Inventory API",
+    "title": "Device Inventory",
     "version": "1.0.0"
   },
   "openapi": "3.0.1",

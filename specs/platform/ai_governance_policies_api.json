@@ -701,9 +701,9 @@
       "name": "Jamf Developer",
       "url": "https://developer.jamf.com"
     },
-    "description": "API for managing AI governance policies\n\n**Preview:** Every endpoint in this API is in preview. All are expected to graduate\nto general availability within 6 months (by 2027-03-03), pending feedback on\nrequest/response shape. Every successful (2xx) response carries a\n`Jamf-Preview: true` header.",
+    "description": "API for managing AI governance policies and tools deployed to managed devices\n\n**Preview:** Every endpoint in this API is in preview. All are expected to graduate\nto general availability within 6 months (by 2027-03-03), pending feedback on\nrequest/response shape. Every successful (2xx) response carries a\n`Jamf-Preview: true` header.",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "AI Governance Policies API",
+    "title": "AI Governance - Preview",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",

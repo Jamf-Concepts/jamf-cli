@@ -156,6 +156,9 @@ func droppedByPolicy(shape string) bool {
 		// real by this test's measure — the capability is not. See droppedPaths.
 		"/computer-inventory/{id}/erase",
 		"/computer-inventory/{id}/remove-mdm-profile",
+		// Not served by the Jamf Pro 11.33.0 /api/schema/ document at all, so
+		// there is nothing left to reach. Listed as withdrawn in deprecatedNames.
+		"/environment-type",
 	} {
 		if strings.HasSuffix(shape, " "+p) {
 			return true

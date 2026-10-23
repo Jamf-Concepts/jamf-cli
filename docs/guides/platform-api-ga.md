@@ -301,20 +301,17 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 
 | Command group | Refused | Why |
 |---|---|---|
-| `pro mobile-devices` | 14 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock` and lost mode |
-| `pro computer-inventory` | 5 | as above — `lock`, `set-recovery-lock`, `set-auto-admin-password`, `settings`, `unlock-user-account` |
 | `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
 | `pro api-authentication` | 6 | outside the published API |
 | `pro api-roles` | 6 | as `pro api-integrations` |
-| `pro jamf-pro-initialization` | 3 | `initialize`, `platform-initialize` and `initialize-database-connection`, withdrawn upstream |
+| `pro jamf-pro-initialization` | 4 | `initialize`, `platform-initialize`, `initialize-database-connection` and `fedramp-initialize`, withdrawn upstream |
 | `pro api-role-privileges` | 2 | as `pro api-integrations` |
-| `pro environment-type` | 1 | outside the published API |
+| `pro sso-settings oidc-broker-config` | 2 | `get` and `update` — the gateway no longer declares `/pro/v3/sso/oidc-broker-config` |
 | `pro macos-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
-| `pro mdm commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro sso-oauth-session-tokens` | 1 | outside the published API |
 
-54 commands in total (a wholly-refused resource contributes its group node too).
+36 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
@@ -328,37 +325,24 @@ served. The other two were `pro policy-properties`, whose unversioned legacy twi
 Two groups also merged into `pro jamf-pro-initialization`, which is why the table has 12
 rows where it had 15 and still counts the same endpoints.
 
-**19 of the 54 are MDM device actions, and that is the refusal most likely to be felt.**
-`pro mobile-devices` loses `lock`, `enable-lost-mode`,
-`disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
-`delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
-`refresh-cellular-plans`, `request-mirroring`, `stop-mirroring` and `settings`;
-`pro computer-inventory` loses `lock`, `set-recovery-lock`, `set-auto-admin-password`,
-`settings` and `unlock-user-account`. The
-published API declares GET on those paths but not POST, so the refusal is **per method**: the
-inventory reads on both resources are unaffected, and so is everything else under them.
-`pro comp erase` and `pro comp remove-mdm` are hand-written against a different path and are
-**not** refused. Six MDM actions take another route on a gateway profile instead of being
-refused:
+**MDM device actions are no longer refused.** The gateway publishes `POST /pro/v2/mdm/commands`
+since jamfplatform-go-sdk v1.9.0, so `pro mdm commands`, and every hand-written action that
+sends it — `pro computer-inventory` and `pro mobile-devices` `lock`, `set-recovery-lock`,
+`set-auto-admin-password`, `settings`, `unlock-user-account`, lost mode, `clear-passcode`,
+`restart`, `shutdown` and the rest — send the same modern command on a gateway profile as on a
+direct one. That removes 20 refusals (14 on `pro mobile-devices`, 5 on `pro computer-inventory`,
+1 on `pro mdm commands`) and the two detours the CLI used while the endpoint was missing:
+`enable-remote-desktop` / `disable-remote-desktop` no longer go through the Classic computer
+command, and `restart` / `shutdown` no longer go through the Platform API device action, so
+`pro comp restart --rebuild-kernel-cache` works on a gateway profile again. The credential needs
+the matching Platform API permissions in Jamf Account — `destructive-device-actions:execute`,
+`device-actions:execute`, `local-admin-passwords:execute` and `recovery-lock:execute` — and
+answers 403 `BAD_PERMISSIONS` without them. The deprecated `pro bulk send-command` still refuses
+the ten Classic computer commands that are no longer queued before sending.
 
-| command | sent on a gateway profile as |
-|---|---|
-| `pro comp enable-remote-desktop` / `disable-remote-desktop` | the Classic `EnableRemoteDesktop` / `DisableRemoteDesktop` computer command |
-| `pro comp restart` / `shutdown`, `pro md restart` / `shutdown` | the Platform API `restart` / `shutdown` device action, by management ID |
-
-`pro comp restart --rebuild-kernel-cache` is refused there (exit 8), because the Platform
-action takes no options. Nothing else has a route. Jamf Pro 11.32 queues only the
-remote-desktop pair through the Classic computer API. Through the Classic mobile API it answers
-`Invalid command` for lock, restart, shutdown, passcode and lost-mode commands except
-`EnableLostMode`, and that one has no gateway route back out of lost mode, so it isn't offered.
-The deprecated `pro bulk send-command` refuses the ten Classic computer commands that are no
-longer queued before sending. The Platform device actions need the matching Platform API
-permission in Jamf Account.
-
-Those first two rows are the shape to expect from here on: a withdrawal can take **part of a
-command group**. `pro mobile-devices list`, `get` and the rest are served while 14 of its
-subcommands are refused. Check `--help` on the individual subcommand rather than the group;
-a refused one says so in its first paragraph.
+A withdrawal can take **part of a command group**, so check `--help` on the individual
+subcommand rather than the group: `pro sso-settings` is served while its two
+`oidc-broker-config` subcommands are refused, and a refused one says so in its first paragraph.
 
 Classic is judged at three granularities for the same reason — the resource, then each method
 across it, then the collection GET exactly — and **the binary has no live example of the two
@@ -538,7 +522,7 @@ Additive — no action needed, and all of it is live now.
   organization scope.
 - **Jamf Account:** `platform account-licenses`, `deal-registrations`,
   `distributor-configuration`, `distributor-purchase-orders`, `distributor-quotes`,
-  `sso-connections`, `sso-domains`. Organization scope, and **US-only** — a non-US profile
+  `sso-connections`, `sso-domains`, `environments`, `tenants`. Organization scope, and **US-only** — a non-US profile
   is refused before sending, permanently, because these APIs are served from one region.
 - **Platform audit:** `platform audit`. Environment scope only; an organization-scoped
   profile gets an error explaining that. Not to be confused with `pro audit`, which runs

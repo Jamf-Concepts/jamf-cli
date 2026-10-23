@@ -20,10 +20,78 @@ func NewJamfProInitializationCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newJamfProInitializationFedrampInitializeCmd(ctx))
 	cmd.AddCommand(newJamfProInitializationInitializeCmd(ctx))
 	cmd.AddCommand(newJamfProInitializationInitializeDatabaseConnectionCmd(ctx))
 	cmd.AddCommand(newJamfProInitializationPlatformInitializeCmd(ctx))
 
+	return cmd
+}
+
+func newJamfProInitializationFedrampInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		fromFile     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "fedramp-initialize",
+		Short:       "Set up a fresh installed Jamf Pro Server for FedRAMP",
+		Long:        "Performs the fresh-install initialization of a FedRAMP instance: creates the initial federated account, records the activation code and Jamf Pro URL, acknowledges the EULA, persists the tenant's OIDC broker (Keycloak) configuration UUID, and enables FedRAMP SSO. Run-once operation: allowed only on a FedRAMP instance, while no JSS users exist, the broker is enabled, and no broker UUID is already stored. Gated by the activation code, matching the sibling init endpoints. Non-FedRAMP instances are rejected with INVALID_STATE.",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro 11.33.0"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "activationCode": "VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB",
+  "configUuid": "11111111-2222-3333-4444-555555555555",
+  "email": "ITBob@jamf.com",
+  "eulaAccepted": true,
+  "institutionName": "Jamf",
+  "jssUrl": "https://jamf.jamfcloud.com",
+  "username": "admin"
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/system/fedramp-initialize"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			raw, haveBody, err := readBodyInput(fromFile, false)
+			if err != nil {
+				return err
+			}
+			if haveBody {
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to the JSON or YAML request body (or pipe it to stdin)")
 	return cmd
 }
 
@@ -37,7 +105,7 @@ func newJamfProInitializationInitializeCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "initialize",
 		Short:       "Set up fresh installed Jamf Pro Server",
 		Long:        "Set up fresh installed Jamf Pro Server",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro 11.33.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -104,7 +172,7 @@ func newJamfProInitializationInitializeDatabaseConnectionCmd(ctx *registry.CLICo
 		Use:         "initialize-database-connection",
 		Short:       "Provide Database Password during startup",
 		Long:        "Provide database password during startup. Endpoint is accessible when database password was not configured and Jamf Pro server has not been initialized yet.",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro 11.33.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -165,7 +233,7 @@ func newJamfProInitializationPlatformInitializeCmd(ctx *registry.CLIContext) *co
 		Use:         "platform-initialize",
 		Short:       "Set up fresh installed Jamf Pro Server for Platform",
 		Long:        "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.32.0"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro 11.33.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

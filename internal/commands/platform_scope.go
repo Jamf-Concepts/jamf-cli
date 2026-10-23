@@ -734,8 +734,8 @@ func printScopeSummary(w io.Writer, root *cobra.Command, creds *platformGatewayC
 		// header, and every platform resource that declares a level declares
 		// one this credential is not at.
 		_, _ = fmt.Fprintln(w, "This is an organization-scoped credential. It serves the Jamf Account commands")
-		_, _ = fmt.Fprintln(w, "(account-licenses, deal-registrations, distributor-*, sso-connections, sso-domains),")
-		_, _ = fmt.Fprintln(w, "which are US-only.")
+		_, _ = fmt.Fprintln(w, "(account-licenses, deal-registrations, distributor-*, sso-connections, sso-domains,")
+		_, _ = fmt.Fprintln(w, "environments, tenants), which are US-only.")
 		_, _ = fmt.Fprintf(w, "It reaches no other Platform API resource: all %d declare environment or tenant\n", len(unreachable))
 		_, _ = fmt.Fprintln(w, "scope, and the Pro and Classic APIs need a scope header too. Set up a profile with")
 		_, _ = fmt.Fprintln(w, "an environment ID to drive Pro, Platform, Security Cloud, audit or AI Governance.")

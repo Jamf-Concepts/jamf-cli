@@ -565,7 +565,7 @@
     },
     "description": "Management API for Device Groups - Create, manage, and organize device groups with membership controls",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Device Groups API",
+    "title": "Device Groups",
     "version": "1.0.0"
   },
   "openapi": "3.0.1",

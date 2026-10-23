@@ -165,8 +165,8 @@ func TestAuditScopeErrorIsAnnotatedFromTheSpecDeclaredLevel(t *testing.T) {
 func TestAccountCommandsCarryUSOnlyHelp(t *testing.T) {
 	cliCtx := &registry.CLIContext{}
 	cmds := newAccountCmds(cliCtx)
-	if len(cmds) != 7 {
-		t.Fatalf("expected 7 Jamf Account resources, got %d", len(cmds))
+	if len(cmds) != 9 {
+		t.Fatalf("expected 9 Jamf Account resources, got %d", len(cmds))
 	}
 	var leaves int
 	var walk func(*cobra.Command)

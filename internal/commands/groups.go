@@ -382,7 +382,6 @@ var proGroupMap = map[string]string{
 	"scheduler-jobs":               groupServer,
 	"scheduler":                    groupServer,
 	"startup-status":               groupServer,
-	"environment-type":             groupServer,
 
 	// System Integrations — third-party / hardware / locale config that
 	// connects Jamf Pro to the surrounding world.
@@ -747,6 +746,8 @@ var platformGroupMap = map[string]string{
 	"distributor-quotes":          groupPlatformAccount,
 	"sso-connections":             groupPlatformAccount,
 	"sso-domains":                 groupPlatformAccount,
+	"environments":                groupPlatformAccount,
+	"tenants":                     groupPlatformAccount,
 
 	"audit": groupPlatformAudit,
 }
