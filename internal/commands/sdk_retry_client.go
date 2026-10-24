@@ -60,7 +60,7 @@ func isGraphQLMutation(req *http.Request, body []byte) bool {
 // mutation or a subscription. Strings, block strings and comments are skipped,
 // and only words outside every brace, parenthesis and bracket are operation
 // keywords. A document this lexer cannot follow (an unterminated string, an
-// unbalanced closer) is a write.
+// unbalanced brace) is a write.
 func graphQLDocumentWrites(doc string) bool {
 	depth := 0
 	for i := 0; i < len(doc); {
@@ -112,7 +112,7 @@ func graphQLDocumentWrites(doc string) bool {
 			i++
 		}
 	}
-	return false
+	return depth != 0
 }
 
 // blockStringEnd returns the index just past the """ that closes a block

@@ -18,7 +18,7 @@ file upload. `protect api-clients apply` under `-n` created the API client and p
 secret. Over `mcp serve`, a model's "preview" was a live write.
 
 - **Protect and School**: under `-n`, reads still go out, so name lookups work. Each write
-  is reported on stderr as `[dry-run] <method> <path>` and refused, and the command exits
+  is reported on stderr as `[dry-run] <method> <path>` (Protect adds `(mutation <name>)`) and refused, and the command exits
   non-zero with `--dry-run is set and this command has no preview mode`. Delete, replace and
   device-action prompts keep their existing `[dry-run] Would …` preview and exit 0.
 - **Pro uploads** (`inventory-preload upload`, `icon upload`, `packages upload` and the

@@ -368,6 +368,10 @@ func TestIsGraphQLMutation(t *testing.T) {
 		{app, `{"query":"query q { a(s: \"\"\" never closed ) } mutation m { b }"}`, true},
 		{app, `{"query":"query q { a(s: \"never closed) } mutation m { b }"}`, true},
 		{app, `{"query":"{ a } #x\rmutation M { b }"}`, true},
+		{app, `{"query":"query q { a(s: \"x\n) } mutation m { b } # \")}"}`, true},
+		{app, `{"query":"query q { a(s: \"x\r) } mutation m { b } # \")}"}`, true},
+		{app, `{"query":"query q { a(s: \"\"\"\nline \"q\"\n\"\"\") }"}`, false},
+		{app, `{"query":"query q { a { b } "}`, true},
 		{app, `{"query":"} mutation m { b }"}`, true},
 		{app, `{"client_id":"x","password":"y"}`, true},
 		{app, `{"extensions":{"persistedQuery":{"sha256Hash":"abc"}}}`, true},
@@ -397,25 +401,30 @@ func TestGraphQLDocumentWrites_EverySDKDocument(t *testing.T) {
 		t.Fatalf("locating the Protect SDK module: %v", err)
 	}
 	dir := filepath.Join(strings.TrimSpace(string(out)), "jamfprotect")
-	fset := gotoken.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool { return !strings.HasSuffix(fi.Name(), "_test.go") }, 0)
-	if err != nil {
-		t.Fatalf("parsing %s: %v", dir, err)
+	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("listing %s: %d files, %v", dir, len(files), err)
 	}
+	fset := gotoken.NewFileSet()
 	exprs := map[string]ast.Expr{}
-	for _, pkg := range pkgs {
-		for _, f := range pkg.Files {
-			for _, decl := range f.Decls {
-				gd, ok := decl.(*ast.GenDecl)
-				if !ok || (gd.Tok != gotoken.CONST && gd.Tok != gotoken.VAR) {
-					continue
-				}
-				for _, spec := range gd.Specs {
-					vs := spec.(*ast.ValueSpec)
-					for i, name := range vs.Names {
-						if i < len(vs.Values) {
-							exprs[name.Name] = vs.Values[i]
-						}
+	for _, path := range files {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", path, err)
+		}
+		for _, decl := range f.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok || (gd.Tok != gotoken.CONST && gd.Tok != gotoken.VAR) {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				vs := spec.(*ast.ValueSpec)
+				for i, name := range vs.Names {
+					if i < len(vs.Values) {
+						exprs[name.Name] = vs.Values[i]
 					}
 				}
 			}
