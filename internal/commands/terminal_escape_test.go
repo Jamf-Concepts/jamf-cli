@@ -191,9 +191,13 @@ func TestCheckTenantVersionDropsAnEscapeCarryingCachedVersion(t *testing.T) {
 	_ = os.WriteFile(cacheFile, data, 0o600)
 
 	var buf bytes.Buffer
-	checkTenantVersion(&versionMockClient{body: `{"version":"11.28.0"}`}, "11.28.0", "p", &buf)
+	mock := &versionMockClient{body: `{"version":"11.27.0"}`}
+	checkTenantVersion(mock, "11.28.0", "p", &buf)
 	if strings.ContainsRune(buf.String(), 0x1b) {
 		t.Errorf("a malformed cached version was replayed: %q", buf.String())
+	}
+	if !mock.called || !strings.Contains(buf.String(), "11.27.0") {
+		t.Errorf("a malformed cached version suppressed the live probe: called=%v out=%q", mock.called, buf.String())
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -259,12 +260,23 @@ var sanitizingCalls = map[string]bool{
 // device-authored name can drive the terminal through.
 func TestEveryRendererSanitizes(t *testing.T) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "output.go", nil, 0)
+	paths, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
+	var decls []ast.Decl
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decls = append(decls, file.Decls...)
+	}
 	seen := map[string]bool{}
-	for _, decl := range file.Decls {
+	for _, decl := range decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok || fn.Recv == nil || fn.Body == nil {
 			continue
@@ -297,7 +309,7 @@ func TestEveryRendererSanitizes(t *testing.T) {
 	}
 	for name := range writerSanctioned {
 		if !seen[name] {
-			t.Errorf("writerSanctioned names %s, which output.go no longer declares", name)
+			t.Errorf("writerSanctioned names %s, which internal/output no longer declares", name)
 		}
 	}
 }

@@ -338,8 +338,8 @@ func checkTenantVersion(c registry.HTTPClient, specVersion, profileName string, 
 	// Use cached version when available and fresh to avoid a round-trip per command.
 	if profileName != "" {
 		if cache := readVersionCache(); cache != nil {
-			if entry, ok := cache[profileName]; ok && time.Since(entry.CheckedAt) < versionCacheTTL {
-				if proVersionPattern.MatchString(entry.Version) && compareProVersions(entry.Version, specVersion) < 0 {
+			if entry, ok := cache[profileName]; ok && time.Since(entry.CheckedAt) < versionCacheTTL && proVersionPattern.MatchString(entry.Version) {
+				if compareProVersions(entry.Version, specVersion) < 0 {
 					_, _ = fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", entry.Version, specVersion)
 				}
 				return
