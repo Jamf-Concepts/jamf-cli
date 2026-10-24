@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,7 +17,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -266,6 +264,20 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 		Body:       io.NopCloser(strings.NewReader("{}")),
 		Header:     make(http.Header),
 	}, nil
+}
+
+// dryRunUploader refuses a streaming upload under --dry-run. Generated upload
+// commands report and return before reaching it; it holds the line for any
+// upload that has no preview of its own. An upload marked validation-only
+// stores nothing and is sent.
+type dryRunUploader struct{ inner registry.FileUploader }
+
+func (u dryRunUploader) Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error) {
+	if registry.IsValidationOnlyUpload(ctx) {
+		return u.inner.Upload(ctx, path, body, contentType, contentLength)
+	}
+	fmt.Fprintf(os.Stderr, "[dry-run] POST %s (%s, %d bytes)\n", path, contentType, contentLength)
+	return nil, exitcode.New(exitcode.General, fmt.Sprintf("refused upload to %s: --dry-run is set and this command has no preview mode. Re-run without -n to apply.", path))
 }
 
 // versionCacheEntry holds a single cached tenant version probe result.
@@ -930,7 +942,10 @@ in the config file. It never runs in CI, when output is piped, or under
 				clientOpts = append(clientOpts, client.WithCookieJar(jp.Jar()))
 			}
 			proClient := &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
-			cliCtx.Uploader = proClient // set before wrapping with decorators
+			cliCtx.Uploader = proClient
+			if dryRun {
+				cliCtx.Uploader = dryRunUploader{inner: proClient}
+			}
 			var httpClient registry.HTTPClient = proClient
 			if registry.InMCPChild() {
 				httpClient = &cdnKeyRedactingClient{inner: httpClient}
@@ -1874,24 +1889,7 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 		return exitcode.New(exitcode.Usage, "client-id and client-secret are required for Jamf Protect: use JAMFPROTECT_CLIENT_ID/JAMFPROTECT_CLIENT_SECRET env vars, or configure a protect profile")
 	}
 
-	// Build a retryablehttp-backed HTTP client with a cookie jar so that:
-	//   - sticky session affinity cookies (APBALANCEID) persist across requests
-	//   - the SDK's retry behavior (3 retries, exponential backoff) is preserved
-	// Injecting a plain *http.Client would replace the SDK's default retryablehttp
-	// transport, so we reconstruct it here with the jar set on the inner client.
-	jar, _ := cookiejar.New(nil)
-	rc := retryablehttp.NewClient()
-	rc.RetryMax = 3
-	rc.RetryWaitMin = 1 * time.Second
-	rc.RetryWaitMax = 30 * time.Second
-	rc.Logger = nil
-	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
-	rc.HTTPClient.Timeout = 60 * time.Second
-	rc.HTTPClient.Jar = jar
-	// GraphQL: every call is a POST to one URL, so no retry labels.
-	rc.HTTPClient.Transport = verboseRoundTripper(rc.HTTPClient.Transport, true)
-
-	stdClient := rc.StandardClient()
+	stdClient := newProtectHTTPClient()
 	if shouldShowSpinner() {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
 	}
@@ -2007,19 +2005,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 		return exitcode.New(exitcode.Usage, "network-id and api-key are required for Jamf School: use JAMFSCHOOL_NETWORK_ID/JAMFSCHOOL_API_KEY env vars, or configure a school profile")
 	}
 
-	// Build a retryablehttp-backed HTTP client for retry behavior.
-	jar, _ := cookiejar.New(nil)
-	rc := retryablehttp.NewClient()
-	rc.RetryMax = 3
-	rc.RetryWaitMin = 1 * time.Second
-	rc.RetryWaitMax = 30 * time.Second
-	rc.Logger = nil
-	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
-	rc.HTTPClient.Timeout = 60 * time.Second
-	rc.HTTPClient.Jar = jar
-	rc.HTTPClient.Transport = verboseRoundTripper(rc.HTTPClient.Transport, false)
-
-	stdClient := rc.StandardClient()
+	stdClient := newSchoolHTTPClient()
 	if shouldShowSpinner() {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
 	}

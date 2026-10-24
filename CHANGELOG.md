@@ -11,6 +11,36 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — `--dry-run` refuses Jamf Protect, Jamf School and Pro upload writes
+
+`-n` used to send real writes for Jamf Protect and Jamf School commands and for every Pro
+file upload. `protect api-clients apply` under `-n` created the API client and printed its
+secret. Over `mcp serve`, a model's "preview" was a live write.
+
+- **Protect and School**: under `-n`, reads still go out, so name lookups work. Each write
+  is reported on stderr as `[dry-run] <method> <path>` (Protect adds `(mutation <name>)`) and refused, and the command exits
+  non-zero with `--dry-run is set and this command has no preview mode`. Delete, replace and
+  device-action prompts keep their existing `[dry-run] Would …` preview and exit 0.
+- **Pro uploads** (`inventory-preload upload`, `icon upload`, `packages upload` and the
+  other multipart commands): `-n` reports the upload on stderr and exits 0 without sending
+  it. `packages upload` reports whether it would create or replace the package, before the
+  replace prompt. `inventory-preload csv-validate` stores nothing, so `-n` still sends it
+  and prints the validation result. A missing `--file` fails the same way with or without
+  `-n`.
+
+### Behaviour — Protect and School writes are no longer re-sent after they reach the server
+
+The Protect, School and dashboard HTTP clients re-sent a request up to three more times after
+a 5xx, a connection reset or a timeout, whatever the request did. One 502 on a create could
+make four objects. A write — a School `POST`/`PUT`/`DELETE`, or a Protect GraphQL
+`mutation` — is now sent once. After a 5xx the server's status and body are returned. After
+a reset the error says the write may have been applied. Reads are still retried, a 429 is
+still retried for any request, and a timeout is no longer retried at all.
+
+A `Retry-After` header now waits at most 60 seconds, on these clients and on the Jamf Pro
+client. A huge value made the CLI sleep until killed. A negative value on the Pro client now
+falls back to the normal backoff rather than retrying at once.
+
 ### Behaviour — `config validate` reports credentials as `set`
 
 `config validate` reported `pass` for a credential once its `keychain:`, `env:` or `file:`

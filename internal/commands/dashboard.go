@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
@@ -682,20 +680,9 @@ func buildProtectClient(cfg *config.Config, profileName string) (registry.Protec
 		return nil, fmt.Errorf("client-id and client-secret are required for protect profile")
 	}
 
-	jar, _ := cookiejar.New(nil)
-	rc := retryablehttp.NewClient()
-	rc.RetryMax = 3
-	rc.RetryWaitMin = 1 * time.Second
-	rc.RetryWaitMax = 30 * time.Second
-	rc.Logger = nil
-	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
-	rc.HTTPClient.Timeout = 60 * time.Second
-	rc.HTTPClient.Jar = jar
-	rc.HTTPClient.Transport = verboseRoundTripper(rc.HTTPClient.Transport, true)
-
 	protectOpts := []jamfprotect.Option{
 		jamfprotect.WithUserAgent("jamf-cli/" + cliVersion),
-		jamfprotect.WithHTTPClient(rc.StandardClient()),
+		jamfprotect.WithHTTPClient(newProtectHTTPClient()),
 	}
 	if cacheDir, err := os.UserCacheDir(); err == nil {
 		protectOpts = append(protectOpts, jamfprotect.WithFileTokenCache(cacheDir+"/jamf-cli"))

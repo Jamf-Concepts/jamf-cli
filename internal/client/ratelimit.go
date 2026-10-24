@@ -43,6 +43,9 @@ import (
 // misconfigured or hostile reset cannot stall a request indefinitely.
 const rateLimitWaitMax = 60 * time.Second
 
+// RateLimitWaitMax is the longest wait any server header can ask of a client.
+const RateLimitWaitMax = rateLimitWaitMax
+
 // requestThrottle decides when each outbound gateway request may start. It is
 // shared by every goroutine sending through the client; each caller reserves
 // its start under one lock, in arrival order, then sleeps outside it.
