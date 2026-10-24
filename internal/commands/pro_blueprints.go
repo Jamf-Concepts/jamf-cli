@@ -2050,7 +2050,7 @@ func reverseResolveGroups(ctx context.Context, c *jamfplatform.Client, ids []str
 
 	allGroups, err := devicegroups.New(c).ListDeviceGroups(ctx, nil, "")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", err)
+		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", termSafe(err))
 	}
 	groupMap := make(map[string]devicegroups.DeviceGroupListReadRepresentationV1, len(allGroups))
 	for _, g := range allGroups {

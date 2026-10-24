@@ -70,7 +70,7 @@ func collectSecurityCloudFrom(ctx context.Context, sc securityCloudLister, data 
 	// Errors are collected rather than recorded as they happen: whether they
 	// are failures at all depends on how the other four calls answered.
 	fail := func(what string, err error) {
-		fmt.Fprintf(os.Stderr, "dashboard: security cloud %s: %v\n", what, err)
+		fmt.Fprintf(os.Stderr, "dashboard: security cloud %s: %v\n", what, termSafe(err))
 		mu.Lock()
 		errs = append(errs, err)
 		mu.Unlock()

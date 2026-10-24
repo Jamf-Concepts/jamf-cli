@@ -1016,7 +1016,7 @@ Deprecation notice for --credentials create:
 					err = setupInstance(ctx, w, cfg, instanceURL, setupUser, setupPass, setupScope, profileName, rotateCreds)
 				}
 				if err != nil {
-					_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", err)
+					_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", termSafe(err))
 					failures = append(failures, fmt.Sprintf("%s: %v", instanceURL, err))
 					failed++
 				} else {

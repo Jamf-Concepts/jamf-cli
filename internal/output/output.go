@@ -108,8 +108,9 @@ func (f *Formatter) SetNoHints(v bool) {
 func (f *Formatter) SetExplicitNoColor(v bool) { f.explicitNoColor = v }
 
 // SetTerminal records whether the writer is an interactive terminal. The
-// formats a parser reads (plain, csv, --field and the raw fallbacks) stay
-// byte-faithful in a file or a pipe and are sanitized only on a terminal.
+// formats a parser reads (plain, csv, json, --field and the raw fallbacks) are
+// sanitized only on a terminal. In a file or a pipe their bytes are unchanged,
+// except that csv always neutralizes a formula cell.
 func (f *Formatter) SetTerminal(v bool) { f.terminal = v }
 
 // Terminal reports what SetTerminal recorded.
@@ -441,9 +442,24 @@ func (f *Formatter) applyProjection(data any) any {
 }
 
 func (f *Formatter) printJSON(data any) error {
-	enc := json.NewEncoder(f.writer)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
 	enc.SetIndent("", "  ")
-	return enc.Encode(data)
+	if err := enc.Encode(data); err != nil {
+		return err
+	}
+	return f.writeJSON(buf.Bytes())
+}
+
+// writeJSON writes an encoded JSON document. On a terminal it escapes the DEL
+// and C1 characters encoding/json leaves raw, which keeps the document valid
+// JSON; in a file or a pipe the bytes are unchanged.
+func (f *Formatter) writeJSON(data []byte) error {
+	if f.terminal {
+		data = escapeJSONControls(data)
+	}
+	_, err := f.writer.Write(data)
+	return err
 }
 
 // printNDJSON writes one compact JSON object per line (no outer array).
@@ -461,9 +477,7 @@ func (f *Formatter) printNDJSON(data any) error {
 		if err != nil {
 			return err
 		}
-		b = append(b, '\n')
-		_, err = f.writer.Write(b)
-		return err
+		return f.writeJSON(append(b, '\n'))
 	}
 	switch v := data.(type) {
 	case []map[string]any:
@@ -725,7 +739,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 			return writeErr
 		}
 		buf.WriteByte('\n')
-		if _, err := f.writer.Write(buf.Bytes()); err != nil {
+		if err := f.writeJSON(buf.Bytes()); err != nil {
 			return err
 		}
 		f.maybePrintListHint(topLevelArrayCount(data))

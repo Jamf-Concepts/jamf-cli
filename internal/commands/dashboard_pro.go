@@ -81,7 +81,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		fleet, err := collectFleetCounts(ctx, client, status)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: fleet counts: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: fleet counts: %v\n", termSafe(err))
 			status.recordFailureErr(sectionFleet, err)
 			return
 		}
@@ -95,7 +95,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		security, err := collectSecurityPosture(inv)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: security posture: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: security posture: %v\n", termSafe(err))
 			status.recordFailureErr(sectionSecurity, err)
 			return
 		}
@@ -130,7 +130,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		osDist, err := collectOSDistribution(inv)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: OS distribution: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: OS distribution: %v\n", termSafe(err))
 			status.recordFailureErr(sectionOSDist, err)
 			return
 		}
@@ -160,7 +160,7 @@ func collectProDataFast(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		sg, err := collectSmartGroups(ctx, client, "/v3/computer-groups/smart-groups", smartGroupNames, "membershipCount")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: computer smart groups: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: computer smart groups: %v\n", termSafe(err))
 			status.recordFailureErr(sectionSmartGroups, err)
 			return
 		}
@@ -200,7 +200,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		patch, spread, err := collectPatchCompliance(ctx, client, status)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: patch compliance: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: patch compliance: %v\n", termSafe(err))
 			status.recordFailureErr(sectionPatch, err)
 			return
 		}
@@ -215,7 +215,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		hw, err := collectHardwareModels(ctx, client, status, inv)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: hardware models: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: hardware models: %v\n", termSafe(err))
 			status.recordFailureErr(sectionHardware, err)
 			return
 		}
@@ -228,7 +228,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		cleanup, err := collectCleanupAnalysis(ctx, client, policies, profiles, status)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: cleanup analysis: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: cleanup analysis: %v\n", termSafe(err))
 			status.recordFailureErr(sectionCleanup, err)
 			return
 		}
@@ -242,7 +242,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 		defer wg.Done()
 		org, err := collectOrgStructure(ctx, client, status, inv, policies, profiles)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: org structure: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: org structure: %v\n", termSafe(err))
 			status.recordFailureErr(sectionOrgStructure, err)
 			return
 		}
@@ -272,7 +272,7 @@ func collectProDataFull(ctx context.Context, client registry.HTTPClient, data *D
 	// can be slow. Populate fleet total once mobile data is in.
 	mgSG, err := collectSmartGroups(ctx, client, "/v2/mobile-device-groups/smart-groups", smartGroupNames, "count")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: mobile smart groups: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: mobile smart groups: %v\n", termSafe(err))
 		status.recordFailureErr(sectionSmartGroups, err)
 	} else {
 		status.recordSuccess(sectionSmartGroups)
@@ -310,7 +310,7 @@ func collectFleetCounts(ctx context.Context, client registry.HTTPClient, status 
 	if err != nil {
 		// A failed user count is not zero users. Rendering "0 Users" as a
 		// headline figure is the shape this flag exists to prevent.
-		fmt.Fprintf(os.Stderr, "WARNING: user count: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: user count: %v\n", termSafe(err))
 		status.recordFailureErr(sectionFleet, err)
 		summary.UsersMissing = true
 	} else if tc, ok := usersData["totalCount"].(float64); ok {
@@ -370,7 +370,7 @@ func collectAuditFindings(ctx context.Context, client registry.HTTPClient, check
 	for _, check := range checks {
 		result, err := check.Run(ctx, client, 14)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, err)
+			fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, termSafe(err))
 			status.recordFailureErr(sectionAudit, err)
 			summary.ChecksSkipped++
 			continue
@@ -397,7 +397,7 @@ func collectScaledAuditFindings(inv *proInventory, policies *policyDetailSet, st
 		switch {
 		case check.FromInventory != nil:
 			if inv.err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, inv.err)
+				fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, termSafe(inv.err))
 				status.recordFailureErr(sectionAudit, inv.err)
 				summary.ChecksSkipped++
 				continue
@@ -408,7 +408,7 @@ func collectScaledAuditFindings(inv *proInventory, policies *policyDetailSet, st
 			}
 		case check.FromPolicies != nil:
 			if policies.err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, policies.err)
+				fmt.Fprintf(os.Stderr, "WARNING: audit check %q: %v\n", check.Name, termSafe(policies.err))
 				status.recordFailureErr(sectionAudit, policies.err)
 				summary.ChecksSkipped++
 				continue
@@ -466,7 +466,7 @@ func collectPatchCompliance(ctx context.Context, client registry.HTTPClient, sta
 
 	compliance := &patchCompliance{TitlesSkipped: len(errs)}
 	for _, err := range errs {
-		fmt.Fprintf(os.Stderr, "WARNING: patch summary fetch: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: patch summary fetch: %v\n", termSafe(err))
 		status.recordFailureErr(sectionPatch, err)
 	}
 
@@ -545,7 +545,7 @@ func collectDeviceCompliance(ctx context.Context, client registry.HTTPClient, st
 	staleData, err := fetchJSON(ctx, client,
 		fmt.Sprintf("/v4/computers-inventory?section=GENERAL&page-size=1&filter=general.lastCheckIn%%3C%s", cutoff))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: stale device check-in count: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: stale device check-in count: %v\n", termSafe(err))
 		status.recordFailureErr(sectionFleet, err)
 		compliance.StaleMissing = true
 	} else if tc, ok := staleData["totalCount"].(float64); ok {
@@ -554,7 +554,7 @@ func collectDeviceCompliance(ctx context.Context, client registry.HTTPClient, st
 
 	mdmData, err := fetchJSON(ctx, client, "/v2/mdm/commands?filter=status%3D%3DError&page-size=1")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed MDM commands: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: failed MDM commands: %v\n", termSafe(err))
 		status.recordFailureErr(sectionFleet, err)
 		compliance.MDMMissing = true
 	} else if tc, ok := mdmData["totalCount"].(float64); ok {
@@ -647,7 +647,7 @@ func collectEnvironmentStats(ctx context.Context, client registry.HTTPClient, st
 			defer wg.Done()
 			val, err := fn()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: environment stat %s: %v\n", label, err)
+				fmt.Fprintf(os.Stderr, "WARNING: environment stat %s: %v\n", label, termSafe(err))
 				status.recordFailureErr(sectionEnvironment, err)
 				mu.Lock()
 				stats.Missing[label] = true
@@ -682,7 +682,7 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient, statu
 	failures := 0
 
 	fail := func(what string, err error, mark *bool) {
-		fmt.Fprintf(os.Stderr, "WARNING: %s: %v\n", what, err)
+		fmt.Fprintf(os.Stderr, "WARNING: %s: %v\n", what, termSafe(err))
 		status.recordFailureErr(sectionCheckin, err)
 		mu.Lock()
 		*mark = true
@@ -775,7 +775,7 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient, stat
 	hw := &hardwareModels{}
 
 	if inv.err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: computer hardware: %v\n", inv.err)
+		fmt.Fprintf(os.Stderr, "WARNING: computer hardware: %v\n", termSafe(inv.err))
 		status.recordFailureErr(sectionHardware, inv.err)
 		hw.ComputerModelsMissing = true
 	} else {
@@ -794,7 +794,7 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient, stat
 
 	all, err := FetchAllPaginated(ctx, client, "/v2/mobile-devices", 500)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: mobile device models: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: mobile device models: %v\n", termSafe(err))
 		status.recordFailureErr(sectionHardware, err)
 		hw.MobileModelsMissing = true
 	} else {
@@ -1184,7 +1184,7 @@ func collectOrgStructure(ctx context.Context, client registry.HTTPClient, status
 	// category id rather than a name.
 	cats, err := FetchAllPaginated(ctx, client, "/v1/categories", PageSizeFromPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: categories: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: categories: %v\n", termSafe(err))
 		status.recordFailureErr(sectionOrgStructure, err)
 		org.CategoriesMissing = true
 		return org, nil

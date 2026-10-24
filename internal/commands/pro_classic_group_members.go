@@ -278,7 +278,7 @@ func runClassicGroupMembers(cmd *cobra.Command, cliCtx *registry.CLIContext, kin
 	// a failure, with a result saying it was sent but not verified.
 	after, err := currentMembers()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "warning: could not read %s %q back to confirm the change: %v\n", kind.groupLabel, group.name, err)
+		_, _ = fmt.Fprintf(stderr, "warning: could not read %s %q back to confirm the change: %v\n", kind.groupLabel, group.name, termSafe(err))
 	}
 	unverified := map[string]bool{}
 	for _, d := range plan.change {

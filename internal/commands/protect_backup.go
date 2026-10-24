@@ -419,7 +419,7 @@ func protectResources() []protectResource {
 				for _, o := range doc.Overrides {
 					a, err := byName.one(o.Analytic)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "  skipped override for %q: %v\n", o.Analytic, err)
+						fmt.Fprintf(os.Stderr, "  skipped override for %q: %v\n", o.Analytic, termSafe(err))
 						continue
 					}
 					if !a.Jamf {
@@ -442,7 +442,7 @@ func protectResources() []protectResource {
 						input.TenantActions = append(input.TenantActions, jamfprotect.AnalyticActionInput{Name: act.Name, Parameters: params})
 					}
 					if _, err := c.UpdateInternalAnalytic(ctx, a.UUID, input); err != nil {
-						fmt.Fprintf(os.Stderr, "  FAILED override for %q: %v\n", o.Analytic, err)
+						fmt.Fprintf(os.Stderr, "  FAILED override for %q: %v\n", o.Analytic, termSafe(err))
 						failed++
 						continue
 					}
@@ -1536,7 +1536,7 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		entries, err := res.Export(ctx, cliCtx.ProtectClient)
 		if err != nil {
 			failures[res.Name] = err.Error()
-			fmt.Fprintf(os.Stderr, "WARNING: %s failed: %v\n", res.Name, err)
+			fmt.Fprintf(os.Stderr, "WARNING: %s failed: %v\n", res.Name, termSafe(err))
 			continue
 		}
 		// Report empty resources too. A silently absent line reads as "not
@@ -1882,13 +1882,13 @@ func runProtectRestore(ctx context.Context, cliCtx *registry.CLIContext, inputDi
 
 		data, err := os.ReadFile(f.Path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  FAILED %s: %v\n", filepath.Base(f.Path), err)
+			fmt.Fprintf(os.Stderr, "  FAILED %s: %v\n", filepath.Base(f.Path), termSafe(err))
 			failed++
 			continue
 		}
 		name, err := f.Resource.Restore(ctx, cliCtx.ProtectClient, resolver, data)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  FAILED %s: %v\n", filepath.Base(f.Path), err)
+			fmt.Fprintf(os.Stderr, "  FAILED %s: %v\n", filepath.Base(f.Path), termSafe(err))
 			failed++
 			continue
 		}

@@ -358,7 +358,7 @@ Designed for scheduled runs on file-share distribution points.`,
 					for name := range localFiles {
 						if _, onJCDS := jcdsSet[name]; !onJCDS {
 							localPath := filepath.Join(flagDir, name)
-							fmt.Fprintf(os.Stderr, "[dry-run] Would delete %s\n", localPath)
+							fmt.Fprintf(os.Stderr, "[dry-run] Would delete %s\n", termSafe(localPath))
 							addFileResult(jcdsSyncFileResult{FileName: name, Status: jcdsStatusWouldDelete})
 							deleted.Add(1)
 						}
@@ -367,7 +367,7 @@ Designed for scheduled runs on file-share distribution points.`,
 				for _, f := range jcdsFiles {
 					localPath, err := jcdsLocalPath(flagDir, f.FileName)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "warning: %v; skipping\n", err)
+						fmt.Fprintf(os.Stderr, "warning: %v; skipping\n", termSafe(err))
 						addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusFailed, Error: err.Error()})
 						failed.Add(1)
 						continue
@@ -400,12 +400,12 @@ Designed for scheduled runs on file-share distribution points.`,
 						if _, onJCDS := jcdsSet[name]; !onJCDS {
 							localPath := filepath.Join(flagDir, name)
 							if err := os.Remove(localPath); err != nil {
-								fmt.Fprintf(os.Stderr, "warning: could not delete %s: %v\n", localPath, err)
+								fmt.Fprintf(os.Stderr, "warning: could not delete %s: %v\n", termSafe(localPath), termSafe(err))
 								addFileResult(jcdsSyncFileResult{FileName: name, Status: jcdsStatusFailed, Error: err.Error()})
 								failed.Add(1)
 								continue
 							}
-							fmt.Fprintf(os.Stderr, "Deleted %s (not on JCDS)\n", localPath)
+							fmt.Fprintf(os.Stderr, "Deleted %s (not on JCDS)\n", termSafe(localPath))
 							addFileResult(jcdsSyncFileResult{FileName: name, Status: jcdsStatusDeleted})
 							deleted.Add(1)
 						}
@@ -420,7 +420,7 @@ Designed for scheduled runs on file-share distribution points.`,
 				for _, f := range jcdsFiles {
 					localPath, err := jcdsLocalPath(flagDir, f.FileName)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "warning: %v; skipping\n", err)
+						fmt.Fprintf(os.Stderr, "warning: %v; skipping\n", termSafe(err))
 						addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusFailed, Error: err.Error()})
 						failed.Add(1)
 						continue

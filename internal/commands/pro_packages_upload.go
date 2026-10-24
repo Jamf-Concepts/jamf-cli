@@ -151,7 +151,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 					return fmt.Errorf("upload verification failed: %w", err)
 				}
 				// Timeout is non-fatal — server may still be processing
-				fmt.Fprintf(os.Stderr, "WARNING: %v\n", err)
+				fmt.Fprintf(os.Stderr, "WARNING: %v\n", termSafe(err))
 				fmt.Fprintf(os.Stderr, "The file was uploaded. The server may still be processing.\n")
 			} else {
 				fmt.Fprintf(os.Stderr, "Verified: server hash matches local hash\n")

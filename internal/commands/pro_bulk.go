@@ -96,7 +96,7 @@ func bulkPreviewTable(rows []map[string]any) {
 	}
 	formatter := output.New("table", noColor, wide)
 	if err := formatter.Print(rows); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "WARNING: table render error: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "WARNING: table render error: %v\n", termSafe(err))
 	}
 }
 

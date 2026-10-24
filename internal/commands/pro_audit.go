@@ -179,7 +179,7 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 		for _, check := range checks {
 			result, err := check.Run(ctx, client, opts.Days)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: check %q failed: %v\n", check.Name, err)
+				fmt.Fprintf(os.Stderr, "WARNING: check %q failed: %v\n", check.Name, termSafe(err))
 				continue
 			}
 			if result != nil {
@@ -646,12 +646,12 @@ func runPlatformAuditChecks(ctx context.Context, c *jamfplatform.Client) []audit
 	// Fetch shared data once
 	bps, bpErr := blueprints.New(c).ListBlueprints(ctx, nil, "")
 	if bpErr != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: listing blueprints for audit: %v\n", bpErr)
+		fmt.Fprintf(os.Stderr, "WARNING: listing blueprints for audit: %v\n", termSafe(bpErr))
 	}
 
 	bmResp, bmErr := compliancebenchmarks.New(c).ListBenchmarks(ctx)
 	if bmErr != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: listing benchmarks for audit: %v\n", bmErr)
+		fmt.Fprintf(os.Stderr, "WARNING: listing benchmarks for audit: %v\n", termSafe(bmErr))
 	}
 
 	// Blueprint checks (skip all if listing failed)
@@ -838,7 +838,7 @@ func checkEmptyPlatformScope(ctx context.Context, c *jamfplatform.Client, bps []
 func checkFailedDDMDeclarations(ctx context.Context, c *jamfplatform.Client) *auditResult {
 	devices, err := devices.New(c).ListDevices(ctx, nil, "")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Failed DDM declarations", err)
+		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Failed DDM declarations", termSafe(err))
 		return nil
 	}
 

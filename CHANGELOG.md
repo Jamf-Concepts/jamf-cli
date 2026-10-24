@@ -23,11 +23,15 @@ now printed as a visible `\xNN`.
   `-o json` to read the value unchanged.
 - **`-o plain`, `-o csv`, `--field`** and non-JSON response bodies are sanitized only when
   standard output is a terminal. In a pipe or with `--out-file` their bytes are unchanged.
+  A line that ends in `\r\n` keeps it.
+- **`-o json` and `-o ndjson`** on a terminal print DEL and the C1 control characters as
+  `\u00NN`, which is still valid JSON for the same value. In a pipe they are unchanged.
 - **`-o csv`** now prefixes `'` to a cell that starts with `=`, `+`, `-`, `@`, a tab or a
   carriage return and is not a number, so a spreadsheet does not evaluate it as a formula.
   This applies to files and pipes too. If a script reads such a cell, strip the leading `'`.
 - The error and hint printed on failure, the overview commands, progress and confirmation
-  lines that name an id, and the "tenant is on Jamf Pro …" warning are sanitized. A tenant
+  lines that name an id, warning lines that carry a server error, and the "tenant is on
+  Jamf Pro …" warning are sanitized. A tenant
   version that is not a version number is now ignored instead of printed or cached.
 - `pro jcds` refuses a server-supplied file name that contains a control character.
 

@@ -4,6 +4,7 @@ package output
 
 import (
 	"bytes"
+	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -58,6 +59,24 @@ func TestSanitizeTerminalLinesKeepsNewlinesOnly(t *testing.T) {
 	want := `first` + "\n" + `second\x0d\x1b]0;title\x07`
 	if got != want {
 		t.Errorf("SanitizeTerminalLines = %q, want %q", got, want)
+	}
+}
+
+func TestSanitizeTerminalLinesKeepsALineEndingCR(t *testing.T) {
+	cases := map[string]string{
+		"a\r\nb\r\n": "a\r\nb\r\n",
+		"a\rb\r\n":   `a\x0db` + "\r\n",
+		"end\r":      `end\x0d`,
+		"a\r\r\nb":   `a\x0d` + "\r\nb",
+		"x\x1b\r\ny": `x\x1b` + "\r\ny",
+	}
+	for in, want := range cases {
+		if got := SanitizeTerminalLines(in); got != want {
+			t.Errorf("SanitizeTerminalLines(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := SanitizeTerminal("a\r\nb"); got != `a\x0d\x0ab` {
+		t.Errorf("SanitizeTerminal kept a line break: %q", got)
 	}
 }
 
@@ -143,13 +162,16 @@ func TestPlainIsSanitizedOnlyOnATerminal(t *testing.T) {
 }
 
 func TestCSVIsSanitizedOnlyOnATerminal(t *testing.T) {
-	rows := []map[string]any{{"id": "1", "name": escapePayload}}
+	rows := []map[string]any{{"id": "1", "name": escapePayload, "k\x1b[1A": "v"}}
 
 	f, buf := bufferFormatter("csv", true)
 	if err := f.Print(rows); err != nil {
 		t.Fatal(err)
 	}
 	assertInert(t, "printCSV on a terminal", buf.String())
+	if strings.Contains(buf.String(), "k\x1b[1A") {
+		t.Errorf("printCSV wrote a raw header on a terminal: %q", buf.String())
+	}
 
 	f, buf = bufferFormatter("csv", false)
 	if err := f.Print(rows); err != nil {
@@ -239,13 +261,11 @@ func TestPrintBytesSanitizesOnATerminalExceptRaw(t *testing.T) {
 // sanitizing, each with its reason. Every other method that writes there must
 // reach one of sanitizingCalls.
 var writerSanctioned = map[string]string{
-	"printJSON":   "encoding/json escapes every C0 control character",
-	"printNDJSON": "encoding/json escapes every C0 control character",
-	"printYAML":   "yaml.v3 quotes and escapes control characters",
-	"PrintRaw":    "-o raw is an explicit request for exact wire bytes; its other writes go through writeBytes",
-	"writeBytes":  "is the sanitizing writer",
-	"SetWriter":   "assigns the writer and writes nothing",
-	"Writer":      "returns the writer; a caller rendering its own text owns sanitizing it",
+	"printYAML":  "yaml.v3 quotes and escapes control characters",
+	"PrintRaw":   "-o raw is an explicit request for exact wire bytes; its other writes go through writeBytes and writeJSON",
+	"writeBytes": "is the sanitizing writer",
+	"SetWriter":  "assigns the writer and writes nothing",
+	"Writer":     "returns the writer; a caller rendering its own text owns sanitizing it",
 }
 
 var sanitizingCalls = map[string]bool{
@@ -253,6 +273,7 @@ var sanitizingCalls = map[string]bool{
 	"SanitizeTerminalLines": true,
 	"forTerminal":           true,
 	"writeBytes":            true,
+	"escapeJSONControls":    true,
 }
 
 // TestEveryRendererSanitizes keeps the human renderers sanitizing: a method
@@ -310,6 +331,60 @@ func TestEveryRendererSanitizes(t *testing.T) {
 	for name := range writerSanctioned {
 		if !seen[name] {
 			t.Errorf("writerSanctioned names %s, which internal/output no longer declares", name)
+		}
+	}
+}
+
+func TestPlainScalarsAreSanitizedOnlyOnATerminal(t *testing.T) {
+	type named struct{ Name string }
+	for what, data := range map[string]any{"string": escapePayload, "struct": named{escapePayload}} {
+		f, buf := bufferFormatter("plain", true)
+		if err := f.Print(data); err != nil {
+			t.Fatal(err)
+		}
+		assertInert(t, "printPlain "+what+" on a terminal", buf.String())
+
+		f, buf = bufferFormatter("plain", false)
+		if err := f.Print(data); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(buf.String(), escapePayload) {
+			t.Errorf("printPlain %s to a pipe must stay byte-faithful: %q", what, buf.String())
+		}
+	}
+}
+
+func TestJSONEscapesC1AndDELOnlyOnATerminal(t *testing.T) {
+	value := "a\u009b[2Jb\x7fc"
+	wire := []byte(`{"name":"` + value + `","bad":"x` + "\xff" + `y"}`)
+	runs := map[string]func(*Formatter) error{
+		"printJSON":         func(f *Formatter) error { return f.Print(map[string]any{"name": value}) },
+		"printNDJSON":       func(f *Formatter) error { return f.Print([]map[string]any{{"name": value}}) },
+		"PrintRaw fastpath": func(f *Formatter) error { return f.PrintRaw(wire) },
+	}
+	formats := map[string]string{"printJSON": "json", "printNDJSON": "ndjson", "PrintRaw fastpath": "json"}
+	for name, run := range runs {
+		f, buf := bufferFormatter(formats[name], true)
+		if err := run(f); err != nil {
+			t.Fatal(err)
+		}
+		out := buf.String()
+		if strings.ContainsRune(out, 0x9b) || strings.ContainsRune(out, 0x7f) || !utf8.ValidString(out) {
+			t.Errorf("%s on a terminal wrote a raw C1, DEL or invalid byte: %q", name, out)
+		}
+		var got map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &got); err != nil {
+			t.Errorf("%s on a terminal is no longer valid JSON: %v: %q", name, err, out)
+		} else if got["name"] != value {
+			t.Errorf("%s on a terminal changed the value: %q", name, got["name"])
+		}
+
+		f, buf = bufferFormatter(formats[name], false)
+		if err := run(f); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(buf.String(), value) {
+			t.Errorf("%s to a pipe must stay byte-faithful: %q", name, buf.String())
 		}
 	}
 }

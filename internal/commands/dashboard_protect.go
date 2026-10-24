@@ -24,7 +24,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		defer wg.Done()
 		plans, err := client.ListPlans(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "dashboard: protect plans: %v\n", err)
+			fmt.Fprintf(os.Stderr, "dashboard: protect plans: %v\n", termSafe(err))
 			status.recordFailureErr(sectionProtect, err)
 			return
 		}
@@ -39,7 +39,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		defer wg.Done()
 		analytics, err := client.ListAnalytics(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "dashboard: protect analytics: %v\n", err)
+			fmt.Fprintf(os.Stderr, "dashboard: protect analytics: %v\n", termSafe(err))
 			status.recordFailureErr(sectionProtect, err)
 			return
 		}
@@ -55,7 +55,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		defer wg.Done()
 		computers, err := client.ListComputers(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "dashboard: protect computers: %v\n", err)
+			fmt.Fprintf(os.Stderr, "dashboard: protect computers: %v\n", termSafe(err))
 			status.recordFailureErr(sectionProtect, err)
 			return
 		}
@@ -70,7 +70,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		defer wg.Done()
 		sets, err := client.ListAnalyticSets(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "dashboard: protect analytic sets: %v\n", err)
+			fmt.Fprintf(os.Stderr, "dashboard: protect analytic sets: %v\n", termSafe(err))
 			status.recordFailureErr(sectionProtect, err)
 			return
 		}
@@ -85,7 +85,7 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 		defer wg.Done()
 		sets, err := client.ListExceptionSets(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "dashboard: protect exception sets: %v\n", err)
+			fmt.Fprintf(os.Stderr, "dashboard: protect exception sets: %v\n", termSafe(err))
 			status.recordFailureErr(sectionProtect, err)
 			return
 		}

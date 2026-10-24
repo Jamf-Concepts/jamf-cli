@@ -168,7 +168,7 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 			// A curated resource absent from this backup is not a problem —
 			// only an unreadable directory is.
 			if !errors.Is(err, fs.ErrNotExist) {
-				fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", path, err)
+				fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", path, termSafe(err))
 			}
 			return nil
 		}
@@ -281,19 +281,19 @@ func readObjectsFromSubdir(subDir, nameField string) (map[string]map[string]any,
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: reading file %s: %v\n", path, err)
+			fmt.Fprintf(os.Stderr, "WARNING: reading file %s: %v\n", path, termSafe(err))
 			continue
 		}
 
 		var obj map[string]any
 		if strings.HasSuffix(name, ".json") {
 			if err := json.Unmarshal(data, &obj); err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: parsing %s: %v\n", path, err)
+				fmt.Fprintf(os.Stderr, "WARNING: parsing %s: %v\n", path, termSafe(err))
 				continue
 			}
 		} else {
 			if err := yaml.Unmarshal(data, &obj); err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: parsing %s: %v\n", path, err)
+				fmt.Fprintf(os.Stderr, "WARNING: parsing %s: %v\n", path, termSafe(err))
 				continue
 			}
 			// yaml.v3 decodes maps as map[string]interface{} — normalise to
@@ -386,7 +386,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 	for _, def := range defs {
 		items, err := listResourceItems(ctx, httpCli, def)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: listing %s from profile %q: %v\n", def.Key, profileName, err)
+			fmt.Fprintf(os.Stderr, "WARNING: listing %s from profile %q: %v\n", def.Key, profileName, termSafe(err))
 			continue
 		}
 
@@ -456,7 +456,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			bp := blueprints.New(sdk)
 			bps, err := bp.ListBlueprints(ctx, nil, "")
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: could not list blueprints: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: could not list blueprints: %v\n", termSafe(err))
 			} else {
 				objects := make(map[string]map[string]any)
 				for _, item := range bps {
@@ -477,7 +477,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			cb := compliancebenchmarks.New(sdk)
 			resp, err := cb.ListBenchmarks(ctx)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: could not list benchmarks: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: could not list benchmarks: %v\n", termSafe(err))
 			} else {
 				objects := make(map[string]map[string]any)
 				for _, b := range resp.Benchmarks {

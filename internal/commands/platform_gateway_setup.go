@@ -238,7 +238,7 @@ func reportScopeIDProbe(w io.Writer, level string, err error) (scopeIDRejected b
 	// a verdict: a capability refusal in particular means the scope header got
 	// as far as being resolved, since the gateway checks ownership before
 	// capability.
-	_, _ = fmt.Fprintf(w, "could not confirm (%v)\n", err)
+	_, _ = fmt.Fprintf(w, "could not confirm (%v)\n", termSafe(err))
 	return false
 }
 

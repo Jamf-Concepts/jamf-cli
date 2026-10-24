@@ -188,6 +188,10 @@ func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
 	return current, true
 }
 
+// stdoutIsTerminal reports whether standard output is an interactive terminal.
+// A variable so a test can stand in for a terminal, which go test never has.
+var stdoutIsTerminal = func() bool { return output.IsTerminal(os.Stdout.Fd()) }
+
 // buildOutputFormatter assembles the one formatter every command prints
 // through, shared by all products and by the auth-skipped commands. It is the
 // only sanctioned call to output.New in the tree: a formatter built anywhere
@@ -205,7 +209,7 @@ func buildOutputFormatter(outFileHandle *os.File, explicitNoColor bool) *output.
 	formatter.SetQuiet(quiet)
 	formatter.SetNoHints(noHints)
 	formatter.SetExplicitNoColor(explicitNoColor)
-	formatter.SetTerminal(outFileHandle == nil && output.IsTerminal(os.Stdout.Fd()))
+	formatter.SetTerminal(outFileHandle == nil && stdoutIsTerminal())
 	return formatter
 }
 
@@ -319,10 +323,11 @@ func writeVersionCache(profileName, version string) {
 }
 
 // proVersionPattern is the shape of a Jamf Pro version ("11.28.0",
-// "11.28.0-t1729188960"). The version comes off the wire, is cached and is
-// printed on every Pro command, so anything else is dropped rather than
-// sanitized: a value carrying terminal escapes is not a version at all.
-var proVersionPattern = regexp.MustCompile(`^[0-9]{1,6}(\.[0-9]{1,6}){1,3}([-.][0-9A-Za-z]{1,32})?$`)
+// "11.28.0-t1729188960"), with room for a pre-release or build suffix such as
+// "-rc.1" or "+abc". The version comes off the wire, is cached and is printed
+// on every Pro command, so anything else is dropped rather than sanitized: a
+// value carrying terminal escapes is not a version at all.
+var proVersionPattern = regexp.MustCompile(`^[0-9]{1,6}(\.[0-9]{1,6}){1,3}([-.+][0-9A-Za-z][0-9A-Za-z.+-]{0,63})?$`)
 
 // checkTenantVersion probes /v1/jamf-pro-version and emits a one-line warning
 // to w when the tenant is running an older Jamf Pro than the spec version this

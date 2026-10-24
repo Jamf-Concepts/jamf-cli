@@ -410,7 +410,7 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 	var baselineTitle, baselineDescription string
 	bls, blsErr := compliancebenchmarks.New(cliCtx.PlatformSDKClient).ListBaselines(ctx)
 	if blsErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not fetch baseline metadata for title/description: %v\n", blsErr)
+		fmt.Fprintf(os.Stderr, "Warning: could not fetch baseline metadata for title/description: %v\n", termSafe(blsErr))
 	} else {
 		for _, bl := range bls.Baselines {
 			if bl.ID == baselineID {

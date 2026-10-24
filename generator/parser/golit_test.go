@@ -59,6 +59,11 @@ func TestValidateResourceNamesRefusesEverySpecDerivedName(t *testing.T) {
 				r.Operations[0].Parameters = []*Parameter{{Name: "id", Description: "the id\u009b"}}
 			}, "parameter id description",
 		},
+		"escape in update token summary": {
+			func(r *Resource) {
+				r.UpdateTokenOp = &Operation{Name: "upload-token", Path: "/v1/widgets/{id}/upload-token", Summary: "Upload\x1b[2J"}
+			}, "summary",
+		},
 		"newline in required privilege": {
 			func(r *Resource) { r.Operations[0].Privileges = []string{"Read Widgets\n"} }, "required privilege",
 		},

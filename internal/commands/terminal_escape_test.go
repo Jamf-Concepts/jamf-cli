@@ -202,12 +202,12 @@ func TestCheckTenantVersionDropsAnEscapeCarryingCachedVersion(t *testing.T) {
 }
 
 func TestProVersionPattern(t *testing.T) {
-	for _, v := range []string{"11.28.0", "11.28.0-t1729188960", "11.33", "10.52.0.1"} {
+	for _, v := range []string{"11.28.0", "11.28.0-t1729188960", "11.33", "10.52.0.1", "11.28.0-rc.1", "11.28.0+abc", "11.28.0-t1729188960-hotfix"} {
 		if !proVersionPattern.MatchString(v) {
 			t.Errorf("%q is a real Jamf Pro version and was refused", v)
 		}
 	}
-	for _, v := range []string{"", "11", "11.28.0\x1b[2K", "11.28.0 extra", "v11.28.0", strings.Repeat("1", 7) + ".0"} {
+	for _, v := range []string{"", "11", "11.28.0\x1b[2K", "11.28.0 extra", "v11.28.0", "11.28.0-rc\n", "11.28.0-" + strings.Repeat("a", 65), strings.Repeat("1", 7) + ".0"} {
 		if proVersionPattern.MatchString(v) {
 			t.Errorf("%q was accepted as a version", v)
 		}
@@ -271,15 +271,16 @@ func TestTerminalChokePointsSanitize(t *testing.T) {
 	}
 }
 
-// TestNoStderrLinePrintsARawID refuses an id handed raw to a %s or %v verb of
-// an fmt.Fprintf to stderr, in hand-written and generated commands alike. An id
-// a server returns is a string it chose, so it reaches a consent prompt or a
-// progress line with whatever bytes it carries. Wrap it in termSafe
-// (platform.TermSafe in a platform template), or print it with %q.
+// TestNoStderrLinePrintsARawID refuses an id or an error handed raw to a %s or
+// %v verb of an fmt.Fprintf to stderr, in hand-written and generated commands
+// alike. An id a server returns is a string it chose, and an HTTP error embeds
+// the response body, so either reaches a consent prompt or a warning line with
+// whatever bytes it carries. Wrap it in termSafe (platform.TermSafe in a
+// platform template), or print it with %q.
 //
-// It keys on spelling: an argument whose name ends in "id" (id, resolvedID,
-// e.id, group.ID). An id held under another name, or a format string that is
-// not a literal, passes unseen.
+// It keys on spelling: an argument whose name ends in "id" or "err" (id,
+// resolvedID, e.id, group.ID, err, vErr). A value held under another name, or a
+// format string that is not a literal, passes unseen.
 func TestNoStderrLinePrintsARawID(t *testing.T) {
 	for _, root := range []string{".", "../resolve"} {
 		walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -333,6 +334,13 @@ func isStderrWriter(e ast.Expr) bool {
 	return false
 }
 
+// isServerTextName reports whether an argument's name marks it as an id or an
+// error, the two kinds of server-supplied text a stderr line carries most.
+func isServerTextName(name string) bool {
+	name = strings.ToLower(name)
+	return strings.HasSuffix(name, "id") || strings.HasSuffix(name, "err")
+}
+
 func rawIDArgs(n ast.Node) []ast.Expr {
 	call, ok := n.(*ast.CallExpr)
 	if !ok || len(call.Args) < 2 {
@@ -370,11 +378,74 @@ func rawIDArgs(n ast.Node) []ast.Expr {
 			continue
 		}
 		if argi < len(call.Args) && (format[i] == 's' || format[i] == 'v') {
-			if a := call.Args[argi]; strings.HasSuffix(strings.ToLower(argName(a)), "id") {
+			if a := call.Args[argi]; isServerTextName(argName(a)) {
 				hits = append(hits, a)
 			}
 		}
 		argi++
 	}
 	return hits
+}
+
+func stubStdoutTerminal(t *testing.T, tty bool) {
+	t.Helper()
+	orig := stdoutIsTerminal
+	stdoutIsTerminal = func() bool { return tty }
+	t.Cleanup(func() { stdoutIsTerminal = orig })
+}
+
+func TestBuildOutputFormatterRecordsTheTerminal(t *testing.T) {
+	stubStdoutTerminal(t, true)
+	if !buildOutputFormatter(nil, false).Terminal() {
+		t.Error("a formatter writing to a terminal stdout does not report a terminal")
+	}
+	file, err := os.Create(filepath.Join(t.TempDir(), "out"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = file.Close() })
+	if buildOutputFormatter(file, false).Terminal() {
+		t.Error("a formatter writing to --out-file reports a terminal, so the data file would be rewritten")
+	}
+
+	stubStdoutTerminal(t, false)
+	if buildOutputFormatter(nil, false).Terminal() {
+		t.Error("a formatter writing to a piped stdout reports a terminal")
+	}
+}
+
+func TestFieldOutputFollowsTheFormatterTerminal(t *testing.T) {
+	origField := fieldName
+	fieldName = "name"
+	t.Cleanup(func() { fieldName = origField })
+	body, err := json.Marshal([]map[string]string{{"name": escapePayload}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tty := range []bool{true, false} {
+		stubStdoutTerminal(t, tty)
+
+		var rows bytes.Buffer
+		f := buildOutputFormatter(nil, false)
+		f.SetWriter(&rows)
+		if err := printThrough(f, []map[string]any{{"name": escapePayload}}); err != nil {
+			t.Fatal(err)
+		}
+
+		var raw bytes.Buffer
+		o := &cliOutput{Formatter: buildOutputFormatter(nil, false)}
+		o.SetWriter(&raw)
+		if err := o.PrintRaw(body); err != nil {
+			t.Fatal(err)
+		}
+
+		for where, out := range map[string]string{"printThrough --field": rows.String(), "cliOutput.PrintRaw --field": raw.String()} {
+			if tty {
+				assertTerminalInert(t, where+" on a terminal", out)
+			} else if out != escapePayload+"\n" {
+				t.Errorf("%s to a pipe must stay byte-faithful: %q", where, out)
+			}
+		}
+	}
 }

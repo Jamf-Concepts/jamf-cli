@@ -57,6 +57,9 @@ func ValidateResourceNames(r *Resource) error {
 		if err := validatePath(r.Name, r.UpdateTokenOp.Path); err != nil {
 			return err
 		}
+		if err := validateDisplayText(r.Name, r.UpdateTokenOp); err != nil {
+			return err
+		}
 	}
 	return nil
 }

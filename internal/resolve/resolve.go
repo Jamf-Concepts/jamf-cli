@@ -438,7 +438,7 @@ func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEn
 	for _, entry := range entries {
 		r := results[entry]
 		if r.err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %q: %v\n", spec.label, entry, r.err)
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %q: %v\n", spec.label, entry, output.SanitizeTerminal(r.err.Error()))
 			skipped++
 			continue
 		}

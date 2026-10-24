@@ -22,8 +22,8 @@ func SanitizeTerminal(s string) string {
 }
 
 // SanitizeTerminalLines is SanitizeTerminal for text whose line breaks are
-// intended, such as an error with its hint. It keeps \n and escapes \r, which
-// could otherwise return to the start of a line and overwrite it.
+// intended, such as an error with its hint. It keeps \n, and \r only directly
+// before \n; any other \r could return to the start of a line and overwrite it.
 func SanitizeTerminalLines(s string) string {
 	return sanitize(s, true)
 }
@@ -39,6 +39,8 @@ func sanitize(s string, keepNewline bool) string {
 		switch {
 		case r == utf8.RuneError && size == 1:
 			fmt.Fprintf(&b, `\x%02x`, s[i])
+		case keepNewline && isCRLF(s, i):
+			b.WriteByte('\r')
 		case isTerminalControl(r, keepNewline):
 			fmt.Fprintf(&b, `\x%02x`, r)
 		default:
@@ -53,7 +55,7 @@ func needsSanitizing(s string, keepNewline bool) bool {
 	for i := 0; i < len(s); {
 		c := s[i]
 		if c < utf8.RuneSelf {
-			if isTerminalControl(rune(c), keepNewline) {
+			if isTerminalControl(rune(c), keepNewline) && (!keepNewline || !isCRLF(s, i)) {
 				return true
 			}
 			i++
@@ -66,6 +68,12 @@ func needsSanitizing(s string, keepNewline bool) bool {
 		i += size
 	}
 	return false
+}
+
+// isCRLF reports whether s[i] is a \r that ends a line, which moves nothing a
+// line feed does not.
+func isCRLF(s string, i int) bool {
+	return s[i] == '\r' && i+1 < len(s) && s[i+1] == '\n'
 }
 
 func isTerminalControl(r rune, keepNewline bool) bool {
@@ -98,4 +106,37 @@ func neutralizeCSVFormula(cell string) string {
 		return cell
 	}
 	return "'" + cell
+}
+
+// escapeJSONControls rewrites DEL, the C1 controls and any byte that is not
+// valid UTF-8 in an encoded JSON document as a \u escape. Valid JSON carries
+// such a character only inside a string, where the escape means the same
+// character, so the document stays valid and decodes to the same value.
+func escapeJSONControls(data []byte) []byte {
+	clean := true
+	for i := 0; i < len(data); {
+		r, size := utf8.DecodeRune(data[i:])
+		if r == 0x7f || (r >= 0x80 && r <= 0x9f) || (r == utf8.RuneError && size == 1) {
+			clean = false
+			break
+		}
+		i += size
+	}
+	if clean {
+		return data
+	}
+	out := make([]byte, 0, len(data)+16)
+	for i := 0; i < len(data); {
+		r, size := utf8.DecodeRune(data[i:])
+		switch {
+		case r == utf8.RuneError && size == 1:
+			out = append(out, `\ufffd`...)
+		case r == 0x7f || (r >= 0x80 && r <= 0x9f):
+			out = fmt.Appendf(out, `\u%04x`, r)
+		default:
+			out = append(out, data[i:i+size]...)
+		}
+		i += size
+	}
+	return out
 }
