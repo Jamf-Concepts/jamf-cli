@@ -33,7 +33,7 @@ func sanitize(s string, keepNewline bool) string {
 		return s
 	}
 	var b strings.Builder
-	b.Grow(len(s) + 8)
+	b.Grow(len(s))
 	for i := 0; i < len(s); {
 		r, size := utf8.DecodeRuneInString(s[i:])
 		switch {
@@ -125,7 +125,7 @@ func escapeJSONControls(data []byte) []byte {
 	if clean {
 		return data
 	}
-	out := make([]byte, 0, len(data)+16)
+	out := make([]byte, 0, len(data))
 	for i := 0; i < len(data); {
 		r, size := utf8.DecodeRune(data[i:])
 		switch {
