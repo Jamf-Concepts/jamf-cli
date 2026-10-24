@@ -39,7 +39,21 @@ JAMF_MIGRATE_WORK='/var/folders/ab/cd1234/T/jamf-migrate.Ab12Cd'; jamf-cli pro b
 
 The semicolon is required. In `JAMF_MIGRATE_WORK=<path> jamf-cli …` the shell expands `${JAMF_MIGRATE_WORK:?}` before the assignment applies, so the command stops with "parameter not set". `:?` stops a command whose variable is unset or empty. It does not catch a wrong path, so always use the exact path `mktemp` printed.
 
-If you no longer have that path, for example after a context reset or in a new conversation, do not search for `jamf-migrate.*` directories: you cannot tell which run made each one. Ask the user for the path, or start again at Step 1 with a new directory.
+If you no longer have that path, for example after a context reset or in a new conversation, do not search for `jamf-migrate.*` directories: you cannot tell which run made each one. Ask the user for the path, and run the work directory check below on it. If the user starts over instead, run the command above again for a new directory, and tell them that the old directory still holds credentials and the pre-migration target snapshot.
+
+### Work directory check
+
+Run this check before Pro Step 5, before Protect Step 5, and before Cleanup:
+
+```bash
+ls -ld "${JAMF_MIGRATE_WORK:?}" && cat "${JAMF_MIGRATE_WORK:?}/.created"
+```
+
+- The path must be the one `mktemp` printed, with mode `drwx------` (macOS can append `@`) and you as the owner.
+- `.created` must show the time the command above printed in this session.
+- For a path the user gave you after a context reset, show the user the owner, mode and `.created` time. Continue only when they confirm that it is the directory for this migration.
+
+If any of these does not hold, or `.created` is missing, stop.
 
 ---
 
@@ -79,6 +93,8 @@ Group by dependency order:
 5. Patch titles and policies
 
 ### Step 5: Execute (with user confirmation per stage)
+If you take anything from the backups in the work directory, run the work directory check first.
+
 For each stage:
 1. Show what will be created/updated
 2. Get explicit confirmation
@@ -126,13 +142,7 @@ jamf-cli -p protect-prod protect restore --input "${JAMF_MIGRATE_WORK:?}/protect
 For per-object control, **delete files from the backup directory** — restore applies what it finds. This is the supported way to hold back individual objects, e.g. removing real user files while keeping service accounts.
 
 ### Step 5: Execute
-Before you restore, confirm that the input is the backup your Step 1 wrote in this run:
-
-```bash
-ls -ld "${JAMF_MIGRATE_WORK:?}" && cat "${JAMF_MIGRATE_WORK:?}/.created"
-```
-
-The path must be the one `mktemp` printed in this run, with mode `drwx------` (macOS can append `@`) and you as the owner. `.created` must show the time the Work Directory command printed in this session. If any of these does not hold, or `.created` is missing, stop. Never restore from a directory you did not create in this run.
+Before you restore, run the work directory check. Never restore from a directory that fails it.
 
 ```bash
 jamf-cli -p protect-prod protect restore --input "${JAMF_MIGRATE_WORK:?}/protect-source" --yes
@@ -152,11 +162,16 @@ Expect differences only in the documented exclusions below.
 
 The work directory holds credentials in cleartext until you remove it, and its target snapshot is your only undo (rule 3). When the user has verified the migration, ask whether to delete the directory or keep it. Say that deleting it removes the undo, and that on Pro a rollback is then manual. If they keep it, tell them its path and that it holds credentials.
 
-Remove it only when the user says to. The `case` refuses any path that is not a `jamf-migrate` work directory:
+Remove it only when the user says to, and only after the work directory check passes. The command refuses a path that does not end in a `mktemp` name, has no `.created` marker, or is not yours:
 
 ```bash
 case "${JAMF_MIGRATE_WORK:?}" in
-  */jamf-migrate.??????) rm -rf -- "$JAMF_MIGRATE_WORK" ;;
+  */jamf-migrate.[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9])
+    if [ -f "$JAMF_MIGRATE_WORK/.created" ] && [ -O "$JAMF_MIGRATE_WORK" ]; then
+      rm -rf -- "$JAMF_MIGRATE_WORK"
+    else
+      echo "refusing to remove $JAMF_MIGRATE_WORK: no .created marker, or not owned by you" >&2; exit 1
+    fi ;;
   *) echo "refusing to remove $JAMF_MIGRATE_WORK: not a jamf-migrate work directory" >&2; exit 1 ;;
 esac
 ```
