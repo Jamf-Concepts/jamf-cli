@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -187,5 +188,85 @@ func TestBackupCarriesCredential(t *testing.T) {
 				t.Errorf("backupCarriesCredential = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// A blueprint component's configuration is free-form JSON, so a credential in
+// it reaches the backup and has to reach the warning too.
+func TestBackupBlueprints_CredentialIsNamedAndFileIs0600(t *testing.T) {
+	skipModeTestOnWindows(t)
+	cliCtx, mux, _ := newTestPlatformContext(t)
+	mux.HandleFunc("/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, map[string]any{"results": []map[string]any{{"id": "bp-1", "name": "Wi-Fi"}}, "totalCount": 1})
+	})
+	mux.HandleFunc("/blueprints/v1/blueprints/bp-1", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, map[string]any{"id": "bp-1", "name": "Wi-Fi", "steps": []any{map[string]any{
+			"components": []any{map[string]any{"identifier": "wifi", "configuration": map[string]any{"password": "s3cret"}}},
+		}}})
+	})
+	outDir := t.TempDir()
+	credentials := credentialResources{}
+	n, failures := backupBlueprints(context.Background(), cliCtx, backupOptions{OutputDir: outDir, Format: "yaml"}, func(string) backupMeta { return backupMeta{} }, credentials)
+	if n != 1 || len(failures) != 0 {
+		t.Fatalf("exported %d, failures %v", n, failures)
+	}
+	if !credentials["blueprints"] {
+		t.Error("a blueprint carrying a password was not recorded for the credential warning")
+	}
+	assertPerm(t, filepath.Join(outDir, "blueprints"), 0o700)
+	assertPerm(t, filepath.Join(outDir, "blueprints", "wi-fi.yaml"), 0o600)
+}
+
+func TestBackupBenchmarks_FileIs0600(t *testing.T) {
+	skipModeTestOnWindows(t)
+	cliCtx, mux, _ := newTestPlatformContext(t)
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, map[string]any{"benchmarks": []any{map[string]any{"id": "bm-1", "title": "CIS Level 1"}}})
+	})
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-1", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, map[string]any{"id": "bm-1", "title": "CIS Level 1"})
+	})
+	outDir := t.TempDir()
+	n, failures := backupBenchmarks(context.Background(), cliCtx, backupOptions{OutputDir: outDir, Format: "yaml"}, func(string) backupMeta { return backupMeta{} }, credentialResources{})
+	if n != 1 || len(failures) != 0 {
+		t.Fatalf("exported %d, failures %v", n, failures)
+	}
+	assertPerm(t, filepath.Join(outDir, "compliance-benchmarks", "cis-level-1.yaml"), 0o600)
+}
+
+func TestBackup_FailuresManifestIs0600(t *testing.T) {
+	skipModeTestOnWindows(t)
+	mock := &backupMockClient{responses: map[string]overviewMockResponse{
+		"/JSSResource/policies":      {200, `{"policies":[{"id":1,"name":"Create Admin"},{"id":2,"name":"Broken"}]}`},
+		"/JSSResource/policies/id/1": {200, `{"policy":{"general":{"id":1,"name":"Create Admin"}}}`},
+	}}
+	outDir := t.TempDir()
+	captureStderr(t, func() {
+		_ = runBackup(context.Background(), &registry.CLIContext{Client: mock}, backupOptions{
+			OutputDir: outDir, Format: "yaml", Resources: "policies", Concurrency: 1,
+		})
+	})
+	assertPerm(t, filepath.Join(outDir, "_failures.yaml"), 0o600)
+}
+
+// A run that stops on an error has already written earlier resources, so the
+// warning still has to name them.
+func TestBackup_WarnsEvenWhenTheRunStopsOnAnError(t *testing.T) {
+	outDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outDir, "scripts"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mock := credentialPolicyMock()
+	var runErr error
+	stderr := captureStderr(t, func() {
+		runErr = runBackup(context.Background(), &registry.CLIContext{Client: mock}, backupOptions{
+			OutputDir: outDir, Format: "yaml", Resources: "policies,scripts", Concurrency: 1,
+		})
+	})
+	if runErr == nil {
+		t.Fatal("expected the scripts directory to fail to be created")
+	}
+	if !strings.Contains(stderr, "  policies\n") {
+		t.Errorf("an error return dropped the credential warning:\n%s", stderr)
 	}
 }

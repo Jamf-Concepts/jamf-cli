@@ -24,7 +24,9 @@ point passwords, policy account passwords and configuration profile payload secr
   already at the destination is replaced, not written through, and an existing file's
   looser mode does not survive.
 - The run ends with a `WARNING:` on stderr that names each resource that carried a
-  credential. Nothing is redacted, so `pro diff` against a live tenant still works.
+  credential, also when the run stops on an error. It reads credential-named fields and
+  profile payloads only, not scripts or other free text. Nothing is redacted, so
+  `pro diff` against a live tenant still works.
 
 ### Behaviour — `config validate` reports credentials as `set`
 

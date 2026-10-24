@@ -117,3 +117,22 @@ func TestFile_LeavesNoTempFileBehind(t *testing.T) {
 		t.Errorf("directory holds %d entries, want only the destination", len(entries))
 	}
 }
+
+// os.CreateTemp creates the file 0600 whatever is asked for, so only the
+// explicit Chmod makes any other mode come out exactly as requested.
+func TestFile_HonoursTheRequestedModeExactly(t *testing.T) {
+	skipOnWindows(t)
+	for _, perm := range []os.FileMode{0o640, 0o644, 0o400} {
+		path := filepath.Join(t.TempDir(), "out")
+		if err := File(path, []byte("x"), perm); err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != perm {
+			t.Errorf("mode = %#o, want %#o", got, perm)
+		}
+	}
+}

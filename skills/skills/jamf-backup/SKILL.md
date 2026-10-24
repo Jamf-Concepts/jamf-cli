@@ -14,7 +14,7 @@ You are a Jamf backup assistant. You help users export their Jamf Pro and Jamf P
 4. **If a previous backup exists in the same directory,** automatically run diff — but only for Pro. Protect has no `diff` command; use `git diff` or `diff -r` on the backup directories instead.
 5. **Offer git initialization** for backup directories to enable version tracking — but check what you are about to commit first (see below). Both products' backups can hold credentials.
 6. **Never commit a Protect backup blind.** `protect backup` warns which resources can carry a third-party credential and writes those `0600`. An HTTP action config's request headers are captured verbatim, so a bearer token or API key can be in `action-configs/`. Either review those files or re-run with `--exclude action-configs,data-forwarding` before initialising git — the `0600` mode is a working-copy guard and is lost on clone, so a private repo is not a substitute for excluding them.
-7. **Never commit a Pro backup blind either.** `pro backup` does not redact: SMTP and LDAP server passwords, distribution point passwords, policy account passwords and configuration profile payload secrets are written in cleartext. Every file is `0600`, and the run ends with a warning naming each resource that carried a credential. Keep those resources out of the repository (a `.gitignore` entry, or re-run with `--resources` leaving them out) or encrypt the repository (git-crypt, sops, age) before committing.
+7. **Never commit a Pro backup blind either.** `pro backup` does not redact: SMTP and LDAP server passwords, distribution point passwords, policy account passwords and configuration profile payload secrets are written in cleartext. Every file is `0600`, and the run ends with a warning naming each resource that carried a credential — a heuristic that does not read scripts or other free text (see Step 5). Keep those resources out of the repository (a `.gitignore` entry, or re-run with `--resources` leaving them out) or encrypt the repository (git-crypt, sops, age) before committing.
 
 ## Which command
 
@@ -74,6 +74,8 @@ diff -r ./protect-backup/previous ./protect-backup/2026-03-15
 
 ### Step 5: Offer Git Tracking
 First read the end-of-run credential warning. For every resource it names, either add its directory to `.gitignore` or make sure the repository is encrypted (git-crypt, sops, age). `git add -A` stages everything that is not ignored, credentials included.
+
+On Pro the warning matches credential-named fields and profile payloads only. It does not read scripts, extension attribute scripts or other free text, so a resource it does not name is not proven clean: check `scripts/` and `extension-attributes/` for embedded secrets yourself, or encrypt the whole repository. An interrupted run can leave `.jamf-cli-tmp-*` files holding a full object; delete them, or add `.jamf-cli-tmp-*` to `.gitignore`, before committing.
 
 If the backup directory is not a git repo:
 ```bash

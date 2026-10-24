@@ -98,8 +98,10 @@ The backup holds credentials in cleartext — SMTP and LDAP server passwords,
 distribution point passwords, policy account passwords, configuration profile
 payload secrets — because Jamf Pro returns them in full and they are not
 redacted. Every file is written 0600 and every directory the run creates 0700,
-and the run ends with a warning naming each resource that carried one. Review
-those before committing the directory to version control.`,
+and the run ends with a warning naming each resource that carried one. The
+warning reads credential-named fields and profile payloads only, not scripts or
+other free text, so a resource it does not name is not proven clean. Review the
+backup before committing the directory to version control.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBackup(cmd.Context(), cliCtx, backupOptions{
 				OutputDir:        outputDir,
@@ -255,6 +257,8 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 	var failures []backupFailure
 	totalExported := 0
 	credentials := credentialResources{}
+	// Deferred so an error return part-way through still names what is on disk.
+	defer credentials.warn(opts.OutputDir)
 
 	// packageFilenames collects the "filename" field of every exported package
 	// object so --download-packages can attempt a JCDS download after the
@@ -348,7 +352,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 			slug = DeduplicateSlug(slug, slugSeen)
 
 			outPath := filepath.Join(subDir, slug+ext)
-			if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+			if err := writeBackupObject(outPath, obj, opts.Format, def.FilterName, credentials); err != nil {
 				failures = append(failures, backupFailure{
 					Resource: def.FilterName,
 					Path:     outPath,
@@ -356,7 +360,6 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 				})
 				continue
 			}
-			credentials.note(def.FilterName, obj)
 			totalExported++
 		}
 	}
@@ -417,7 +420,6 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		fmt.Fprintf(os.Stderr, ", %d failures (see _failures%s)", len(failures), ext)
 	}
 	fmt.Fprintln(os.Stderr)
-	credentials.warn(opts.OutputDir)
 
 	if len(failures) > 0 {
 		if allowPartialFailure && totalExported > 0 {
@@ -625,6 +627,17 @@ const (
 	backupDirMode  os.FileMode = 0o700
 )
 
+// writeBackupObject writes one exported object and records whether it carried a
+// credential, so no resource can be written without being considered for the
+// end-of-run warning.
+func writeBackupObject(path string, obj map[string]any, format, resource string, credentials credentialResources) error {
+	if err := writeBackupFile(path, obj, format); err != nil {
+		return err
+	}
+	credentials.note(resource, obj)
+	return nil
+}
+
 // credentialResources is the set of resource filter names whose exported
 // objects carried a credential, reported once at the end of the run.
 type credentialResources map[string]bool
@@ -648,6 +661,7 @@ func (c credentialResources) warn(outputDir string) {
 	for _, n := range names {
 		fmt.Fprintf(os.Stderr, "  %s\n", n)
 	}
+	fmt.Fprintln(os.Stderr, "The check reads credential-named fields and profile payloads only; scripts and other free text are not inspected.")
 	fmt.Fprintf(os.Stderr, "Review these before committing %s to version control\n", outputDir)
 }
 
@@ -924,11 +938,10 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		slug = DeduplicateSlug(slug, slugSeen)
 
 		outPath := filepath.Join(subDir, slug+ext)
-		if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+		if err := writeBackupObject(outPath, obj, opts.Format, "blueprints", credentials); err != nil {
 			failures = append(failures, backupFailure{Resource: "blueprints", Path: outPath, Error: err.Error()})
 			continue
 		}
-		credentials.note("blueprints", obj)
 		exported++
 	}
 
@@ -979,11 +992,10 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		slug = DeduplicateSlug(slug, slugSeen)
 
 		outPath := filepath.Join(subDir, slug+ext)
-		if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+		if err := writeBackupObject(outPath, obj, opts.Format, "compliance-benchmarks", credentials); err != nil {
 			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: outPath, Error: err.Error()})
 			continue
 		}
-		credentials.note("compliance-benchmarks", obj)
 		exported++
 	}
 
