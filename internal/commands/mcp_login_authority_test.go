@@ -152,23 +152,10 @@ func TestMCP_RefusesEveryWriteThatChangesWhoCanLogIn(t *testing.T) {
 // added to mcpRefusedCommands cannot go unadvertised to the operator or the
 // model.
 func TestMCPPolicyTexts_NameEveryLoginAuthorityRefusal(t *testing.T) {
-	guide, err := os.ReadFile("agent_context.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	section := string(guide)
-	start := strings.Index(section, "\n## MCP\n")
-	if start < 0 {
-		t.Fatal("agent_context.md has no '## MCP' section")
-	}
-	section = section[start+1:]
-	if end := strings.Index(section, "\n## "); end >= 0 {
-		section = section[:end]
-	}
 	texts := map[string]string{
 		"mcp serve --help":               newMCPServeCmd().Long,
 		"the run_command description":    loginAuthorityToolNote,
-		"agent_context.md's MCP section": section,
+		"agent_context.md's MCP section": agentContextMCPSection(t),
 	}
 	checked := 0
 	for _, refused := range mcpRefusedCommands {
@@ -189,4 +176,55 @@ func TestMCPPolicyTexts_NameEveryLoginAuthorityRefusal(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("no refusedChangesLoginAuthority entry in mcpRefusedCommands; the check is vacuous")
 	}
+}
+
+// TestMCPPolicyTexts_NameEveryKeyMaterialRefusal requires the `mcp serve` help,
+// the run_command description and the MCP section of agent_context.md to name
+// every command mcpRefusedCommands refuses for writing or printing key
+// material, so such a refusal cannot go unadvertised.
+func TestMCPPolicyTexts_NameEveryKeyMaterialRefusal(t *testing.T) {
+	texts := map[string]string{
+		"mcp serve --help":               newMCPServeCmd().Long,
+		"the run_command description":    keyMaterialToolNote,
+		"agent_context.md's MCP section": agentContextMCPSection(t),
+	}
+	checked := 0
+	for _, refused := range mcpRefusedCommands {
+		if refused.why != refusedWritesKeyMaterial && refused.why != refusedPrintsKeyMaterial {
+			continue
+		}
+		checked++
+		fields := strings.Fields(strings.TrimPrefix(refused.path, "jamf-cli "))
+		product, resource, leaf := fields[0], fields[1], fields[len(fields)-1]
+		resourceNamed := regexp.MustCompile(`'(` + regexp.QuoteMeta(product) + ` )?` + regexp.QuoteMeta(resource) + `['\s]`)
+		leafNamed := regexp.MustCompile(`['\s]` + regexp.QuoteMeta(leaf) + `'`)
+		for name, text := range texts {
+			flat := strings.Join(strings.Fields(strings.ReplaceAll(text, "`", "'")), " ")
+			if !resourceNamed.MatchString(flat) || !leafNamed.MatchString(flat) {
+				t.Errorf("%s does not name %q, which mcpRefusedCommands refuses for its key material", name, strings.Join(fields, " "))
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no key-material entry in mcpRefusedCommands; the check is vacuous")
+	}
+}
+
+// agentContextMCPSection returns the '## MCP' section of agent_context.md.
+func agentContextMCPSection(t *testing.T) string {
+	t.Helper()
+	guide, err := os.ReadFile("agent_context.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	section := string(guide)
+	start := strings.Index(section, "\n## MCP\n")
+	if start < 0 {
+		t.Fatal("agent_context.md has no '## MCP' section")
+	}
+	section = section[start+1:]
+	if end := strings.Index(section, "\n## "); end >= 0 {
+		section = section[:end]
+	}
+	return section
 }
