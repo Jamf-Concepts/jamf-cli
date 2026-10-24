@@ -210,7 +210,6 @@ func TestMCPPolicyTexts_NameEveryKeyMaterialRefusal(t *testing.T) {
 	}
 }
 
-// agentContextMCPSection returns the '## MCP' section of agent_context.md.
 func agentContextMCPSection(t *testing.T) string {
 	t.Helper()
 	guide, err := os.ReadFile("agent_context.md")
