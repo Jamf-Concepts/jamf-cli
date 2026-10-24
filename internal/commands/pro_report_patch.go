@@ -146,7 +146,7 @@ func fetchPatchDeviceFailures(ctx context.Context, client registry.HTTPClient, p
 		path := fmt.Sprintf("/v2/patch-policies/%s/logs", policyID)
 		logs, err := FetchAllPaginated(ctx, client, path, 200)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch logs for policy %s: %v\n", policyID, err)
+			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch logs for policy %s: %v\n", termSafe(policyID), termSafe(err))
 			continue
 		}
 

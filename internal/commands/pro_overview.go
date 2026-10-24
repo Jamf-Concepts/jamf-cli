@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -31,6 +32,25 @@ type overviewItem struct {
 	Resource  string
 	Value     string
 	ColorHint string // optional: "red", "yellow" for expiration coloring
+}
+
+// sanitizeOverviewSections returns a copy of sections whose names, labels and
+// values are safe to write to a terminal. The overview renderers call it before
+// adding their own colour and before measuring a value for alignment.
+func sanitizeOverviewSections(sections []overviewSection) []overviewSection {
+	out := make([]overviewSection, len(sections))
+	for i, s := range sections {
+		items := make([]overviewItem, len(s.Items))
+		for j, it := range s.Items {
+			items[j] = overviewItem{
+				Resource:  output.SanitizeTerminal(it.Resource),
+				Value:     output.SanitizeTerminal(it.Value),
+				ColorHint: it.ColorHint,
+			}
+		}
+		out[i] = overviewSection{Name: output.SanitizeTerminal(s.Name), Items: items}
+	}
+	return out
 }
 
 // tokenExpiry holds per-instance token expiry data for multi-row display.
@@ -1347,8 +1367,9 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool, 
 	// Title
 	heading := "INSTANCE OVERVIEW"
 	if len(title) > 0 && title[0] != "" {
-		heading = title[0]
+		heading = output.SanitizeTerminal(title[0])
 	}
+	sections = sanitizeOverviewSections(sections)
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, colorize("  "+heading, bold))
 	_, _ = fmt.Fprintln(w, colorize("  "+strings.Repeat("━", totalWidth), dim))

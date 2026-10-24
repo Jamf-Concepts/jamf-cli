@@ -53,7 +53,7 @@ func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 // fieldName, so a caller reaching Print directly discards the flag.
 func printThrough(f *output.Formatter, rows []map[string]any) error {
 	if fieldName != "" {
-		return printFieldValues(f.Writer(), rows, fieldName)
+		return printFieldValues(f.Writer(), rows, fieldName, f.Terminal())
 	}
 	return f.Print(rows)
 }

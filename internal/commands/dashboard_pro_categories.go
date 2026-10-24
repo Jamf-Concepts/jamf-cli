@@ -87,7 +87,7 @@ func (c *categoryUsage) failedSource(source string, err error) {
 }
 
 func (c *categoryUsage) skip(source, id string, err error) {
-	fmt.Fprintf(os.Stderr, "WARNING: category usage: %s %s detail: %v\n", source, id, err)
+	fmt.Fprintf(os.Stderr, "WARNING: category usage: %s %s detail: %v\n", source, termSafe(id), termSafe(err))
 	c.mu.Lock()
 	c.skipped++
 	c.mu.Unlock()

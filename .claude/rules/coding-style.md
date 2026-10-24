@@ -13,7 +13,15 @@ The first two are in `internal/commands/output_route.go`. `TestNoFileBuildsItsOw
 
 Reach for `output.New` only where the contract is deliberately not the global one. That is the two `--yes` preview tables, which stay a table whatever `-o` says and must not follow `--out-file` into the data file. Record why in the sanctioned-sites map.
 
-## Flag Rules
+## Server-Supplied Text on a Terminal — `SanitizeTerminal`
+
+**A value a server or a device user chose is printed through `output.SanitizeTerminal`, never raw.** A computer name, an id, an error body or a version string can carry escape sequences that clear the screen, retitle the window or write the clipboard. Sanitize values, not streams: the CLI's own colour and spinner sequences are written around sanitized values and must survive.
+
+- `printTable` and `printDetail` sanitize always. Plain, CSV, `--field` and the non-JSON `PrintRaw` fallbacks sanitize only when `Formatter.Terminal()` is true, because a parser reads them in a pipe. `-o raw` is never touched.
+- `FprintError` sanitizes the error and the hint with `SanitizeTerminalLines`, which keeps `\n`.
+- A hand-written stderr line wraps an id in `termSafe` (generated code: `termSafe` from the registry template, `platform.TermSafe` in the platform template), or prints it with `%q`. `TestNoStderrLinePrintsARawID` enforces this for every argument whose name ends in `id`. It keys on spelling, so a name, a status or an error from a server needs the same treatment by review.
+- CSV cells that a spreadsheet would evaluate get a leading `'` (`neutralizeCSVFormula`), in files as well.
+
 
 **Never declare a local flag whose name matches a root persistent one.** Cobra's `AddFlagSet` skips an inherited flag whose name is already taken and the *shorthand goes with it*, so a local `--dry-run` removed `-n` entirely (`unknown shorthand flag: 'n'`, exit 2) and the flag stopped appearing in that command's Global Flags list. Read the package var instead, the way `pro backup` and `protect backup` read `allowPartialFailure` and `protect restore` reads `dryRun`.
 

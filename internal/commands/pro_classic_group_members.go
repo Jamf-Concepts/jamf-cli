@@ -244,7 +244,7 @@ func runClassicGroupMembers(cmd *cobra.Command, cliCtx *registry.CLIContext, kin
 			tail = " (use --yes to apply)"
 		}
 		_, _ = fmt.Fprintf(stderr, "[dry-run] Would %s %d %s(s) %s %s %q (id %s)%s:\n",
-			action, len(plan.change), kind.label, directionWord(add), kind.groupLabel, group.name, group.id, tail)
+			action, len(plan.change), kind.label, directionWord(add), kind.groupLabel, group.name, termSafe(group.id), tail)
 		deviceActionPreviewTable(plan.rows)
 		return nil
 	}

@@ -166,6 +166,7 @@ func printSchoolOverviewTable(w io.Writer, sections []overviewSection, useColor 
 
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, colorize("  JAMF SCHOOL OVERVIEW", bold))
+	sections = sanitizeOverviewSections(sections)
 	_, _ = fmt.Fprintln(w, colorize("  "+strings.Repeat("━", totalWidth), dim))
 
 	for _, section := range sections {

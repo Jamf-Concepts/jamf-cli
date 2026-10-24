@@ -457,7 +457,7 @@ func collectPatchCompliance(ctx context.Context, client registry.HTTPClient, sta
 		versionsPath := fmt.Sprintf("/v3/patch-software-title-configurations/%s/patch-summary/versions", id)
 		versions, vErr := FetchAllPaginated(ctx, client, versionsPath, PageSizeFromPath)
 		if vErr != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: patch versions for %s: %v\n", id, vErr)
+			fmt.Fprintf(os.Stderr, "WARNING: patch versions for %s: %v\n", termSafe(id), termSafe(vErr))
 			status.recordFailureErr(sectionPatch, vErr)
 		}
 
@@ -912,7 +912,7 @@ func fetchPolicyDetails(ctx context.Context, client registry.HTTPClient) *policy
 			// so everything the pass derives has to be withheld rather than
 			// published as an under-counted tally.
 			set.skipped++
-			fmt.Fprintf(os.Stderr, "WARNING: policy %s detail: %v\n", id, err)
+			fmt.Fprintf(os.Stderr, "WARNING: policy %s detail: %v\n", termSafe(id), termSafe(err))
 			continue
 		}
 		pol, _ := detail["policy"].(map[string]any)
@@ -951,13 +951,13 @@ func fetchConfigProfileDetails(ctx context.Context, client registry.HTTPClient) 
 		detail, err := fetchJSON(ctx, client, "/JSSResource/osxconfigurationprofiles/id/"+id)
 		if err != nil {
 			set.skipped++
-			fmt.Fprintf(os.Stderr, "WARNING: config profile %s detail: %v\n", id, err)
+			fmt.Fprintf(os.Stderr, "WARNING: config profile %s detail: %v\n", termSafe(id), termSafe(err))
 			continue
 		}
 		prof, _ := detail["os_x_configuration_profile"].(map[string]any)
 		if prof == nil {
 			set.skipped++
-			fmt.Fprintf(os.Stderr, "WARNING: config profile %s detail carried no profile object\n", id)
+			fmt.Fprintf(os.Stderr, "WARNING: config profile %s detail carried no profile object\n", termSafe(id))
 			continue
 		}
 		set.details = append(set.details, prof)

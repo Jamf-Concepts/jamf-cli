@@ -163,7 +163,7 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Created benchmark %q (id: %s)\n", input.Title, result.BenchmarkID)
+			fmt.Fprintf(os.Stderr, "Created benchmark %q (id: %s)\n", input.Title, termSafe(result.BenchmarkID))
 			return platform.PrintOne(cliCtx.Output, result)
 		},
 	}
@@ -257,7 +257,7 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Cloned benchmark %q → %q (id: %s)\n", args[0], args[1], result.BenchmarkID)
+			fmt.Fprintf(os.Stderr, "Cloned benchmark %q → %q (id: %s)\n", args[0], args[1], termSafe(result.BenchmarkID))
 			return platform.PrintOne(cliCtx.Output, result)
 		},
 	}

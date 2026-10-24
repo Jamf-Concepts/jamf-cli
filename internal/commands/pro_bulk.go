@@ -102,7 +102,7 @@ func bulkPreviewTable(rows []map[string]any) {
 
 // bulkLogW writes a mutation event to the given writer.
 func bulkLogW(w io.Writer, action, target, result string) {
-	_, _ = fmt.Fprintf(w, "[bulk] %-30s %-40s %s\n", action, target, result)
+	_, _ = fmt.Fprintf(w, "[bulk] %-30s %-40s %s\n", action, termSafe(target), termSafe(result))
 }
 
 // fetchClassicPolicyDetail fetches a single Classic policy by ID and returns
@@ -392,7 +392,7 @@ func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fro
 		data, err := fetchJSON(ctx, client, fmt.Sprintf("/JSSResource/computers/id/%s", id))
 		if err != nil {
 			// Non-fatal: warn and skip name resolution but keep the ID.
-			_, _ = fmt.Fprintf(os.Stderr, "WARNING: could not fetch name for computer id=%s: %v\n", id, err)
+			_, _ = fmt.Fprintf(os.Stderr, "WARNING: could not fetch name for computer id=%s: %v\n", termSafe(id), termSafe(err))
 			targets = append(targets, map[string]string{"id": id, "name": id})
 			continue
 		}

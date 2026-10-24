@@ -67,6 +67,7 @@ type Formatter struct {
 	wide            bool
 	quiet           bool
 	noHints         bool
+	terminal        bool
 	projector       Projector
 }
 
@@ -106,6 +107,31 @@ func (f *Formatter) SetNoHints(v bool) {
 // the in-place stderr counter when stderr is a terminal.
 func (f *Formatter) SetExplicitNoColor(v bool) { f.explicitNoColor = v }
 
+// SetTerminal records whether the writer is an interactive terminal. The
+// formats a parser reads (plain, csv, --field and the raw fallbacks) stay
+// byte-faithful in a file or a pipe and are sanitized only on a terminal.
+func (f *Formatter) SetTerminal(v bool) { f.terminal = v }
+
+// Terminal reports what SetTerminal recorded.
+func (f *Formatter) Terminal() bool { return f.terminal }
+
+// forTerminal sanitizes s only when the writer is a terminal.
+func (f *Formatter) forTerminal(s string) string {
+	if f.terminal {
+		return SanitizeTerminal(s)
+	}
+	return s
+}
+
+// writeBytes writes data, sanitized line-preserving when the writer is a
+// terminal.
+func (f *Formatter) writeBytes(data []byte) (int, error) {
+	if f.terminal {
+		return io.WriteString(f.writer, SanitizeTerminalLines(string(data)))
+	}
+	return f.writer.Write(data)
+}
+
 // listHintThreshold is the minimum row count that triggers the
 // "narrow output" hint on stderr. Below this, lists are short enough
 // that the hint is more noise than help.
@@ -125,7 +151,12 @@ func (f *Formatter) PrintBytes(data []byte) error {
 			data = pretty
 		}
 	}
-	_, err := f.writer.Write(data)
+	var err error
+	if f.format == FormatRaw {
+		_, err = f.writer.Write(data)
+	} else {
+		_, err = f.writeBytes(data)
+	}
 	if err != nil {
 		return err
 	}
@@ -475,11 +506,15 @@ func (f *Formatter) printCSV(data any) error {
 		if len(headers) == 0 {
 			return nil
 		}
-		_ = w.Write(headers)
+		head := make([]string, len(headers))
+		for i, h := range headers {
+			head[i] = f.forTerminal(neutralizeCSVFormula(h))
+		}
+		_ = w.Write(head)
 		for _, row := range v {
 			vals := make([]string, len(headers))
 			for i, h := range headers {
-				vals[i] = FormatValue(row[h])
+				vals[i] = f.forTerminal(neutralizeCSVFormula(FormatValue(row[h])))
 			}
 			_ = w.Write(vals)
 		}
@@ -504,14 +539,14 @@ func (f *Formatter) printPlain(data any) error {
 		for _, row := range v {
 			vals := make([]string, len(keys))
 			for i, k := range keys {
-				vals[i] = FormatValue(row[k])
+				vals[i] = f.forTerminal(FormatValue(row[k]))
 			}
 			_, _ = fmt.Fprintln(f.writer, strings.Join(vals, "\t"))
 		}
 	case string:
-		_, _ = fmt.Fprintln(f.writer, v)
+		_, _ = fmt.Fprintln(f.writer, f.forTerminal(v))
 	default:
-		_, _ = fmt.Fprintf(f.writer, "%v\n", data)
+		_, _ = fmt.Fprintln(f.writer, f.forTerminal(fmt.Sprintf("%v", data)))
 	}
 	return nil
 }
@@ -519,7 +554,7 @@ func (f *Formatter) printPlain(data any) error {
 func (f *Formatter) printTable(data any) error {
 	rows, ok := data.([]map[string]any)
 	if !ok {
-		_, _ = fmt.Fprintf(f.writer, "%v\n", data)
+		_, _ = fmt.Fprintln(f.writer, SanitizeTerminal(fmt.Sprintf("%v", data)))
 		return nil
 	}
 	if len(rows) == 0 {
@@ -552,11 +587,11 @@ func (f *Formatter) printTable(data any) error {
 	// Calculate column widths (using formatted values)
 	widths := make([]int, len(keys))
 	for i, k := range keys {
-		widths[i] = len(strings.ToUpper(k))
+		widths[i] = len(SanitizeTerminal(strings.ToUpper(k)))
 	}
 	for _, row := range rows {
 		for i, k := range keys {
-			val := FormatValue(row[k])
+			val := SanitizeTerminal(FormatValue(row[k]))
 			// Apply date formatting for width calculation
 			if isDateColumn(k) {
 				val, _ = formatDateValue(val, f.wide)
@@ -574,7 +609,7 @@ func (f *Formatter) printTable(data any) error {
 	// Header row
 	var headerParts []string
 	for i, k := range keys {
-		headerParts = append(headerParts, fmt.Sprintf("%-*s", widths[i], strings.ToUpper(k)))
+		headerParts = append(headerParts, fmt.Sprintf("%-*s", widths[i], SanitizeTerminal(strings.ToUpper(k))))
 	}
 	_, _ = fmt.Fprintf(f.writer, " %s\n", strings.Join(headerParts, "   "))
 
@@ -589,7 +624,7 @@ func (f *Formatter) printTable(data any) error {
 	for _, row := range rows {
 		var valParts []string
 		for i, k := range keys {
-			val := FormatValue(row[k])
+			val := SanitizeTerminal(FormatValue(row[k]))
 			displayVal := val
 
 			// Apply date formatting and colorization
@@ -634,14 +669,14 @@ func (f *Formatter) printDetail(obj map[string]any) error {
 
 	fieldW := len("FIELD")
 	for _, k := range keys {
-		if len(k) > fieldW {
-			fieldW = len(k)
+		if n := len(SanitizeTerminal(k)); n > fieldW {
+			fieldW = n
 		}
 	}
 
 	_, _ = fmt.Fprintf(f.writer, "%s\n\n", f.colorize("DETAILS", colorBold))
 	for _, k := range keys {
-		val := FormatValue(row[k])
+		val := SanitizeTerminal(FormatValue(row[k]))
 		display := val
 		switch {
 		case isDateColumn(k):
@@ -653,7 +688,7 @@ func (f *Formatter) printDetail(obj map[string]any) error {
 		case isStatusColumn(k):
 			display = f.formatStatusValue(val)
 		}
-		_, _ = fmt.Fprintf(f.writer, " %-*s   %s\n", fieldW, k, display)
+		_, _ = fmt.Fprintf(f.writer, " %-*s   %s\n", fieldW, SanitizeTerminal(k), display)
 	}
 	return nil
 }
@@ -686,7 +721,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		var buf bytes.Buffer
 		if err := json.Indent(&buf, data, "", "  "); err != nil {
 			// Not valid JSON, print as-is
-			_, writeErr := f.writer.Write(data)
+			_, writeErr := f.writeBytes(data)
 			return writeErr
 		}
 		buf.WriteByte('\n')
@@ -700,7 +735,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		// Not JSON, print as-is
-		_, writeErr := f.writer.Write(data)
+		_, writeErr := f.writeBytes(data)
 		return writeErr
 	}
 
@@ -760,7 +795,7 @@ func (f *Formatter) PrintError(err error, code string, details map[string]any) {
 		maps.Copy(errObj, details)
 		_ = f.printJSON(errObj)
 	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, "Error: %s\n", SanitizeTerminalLines(err.Error()))
 	}
 }
 

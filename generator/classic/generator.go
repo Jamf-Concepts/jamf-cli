@@ -1171,7 +1171,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} %q (id: %s)\n", e.label, termSafe(e.id))
 					}
 					return nil
 				}
@@ -1195,7 +1195,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1204,10 +1204,10 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} %q (id: %s)\n", e.label, termSafe(e.id))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -1235,7 +1235,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				noInputGroup, _ := cmd.Flags().GetBool("no-input")
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} id: %s (from group %q)\n", e.id, flagGroup)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} id: %s (from group %q)\n", termSafe(e.id), flagGroup)
 					}
 					return nil
 				}
@@ -1259,7 +1259,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} id %s failed: %v\n", e.id, err)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} id %s failed: %v\n", termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1268,10 +1268,10 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} id: %s\n", e.id)
+						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} id: %s\n", termSafe(e.id))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} id %s failed: HTTP %d\n", termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -1301,14 +1301,14 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} %s\n", termSafe(resolvedID))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete {{ .Singular }} %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete {{ .Singular }} %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1541,14 +1541,14 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 {{ end }}
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace {{ .Singular }} %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace {{ .Singular }} %q (id: %s)\n", name, termSafe(id))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("{{ .Singular }} %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "{{ .Singular }} %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "{{ .Singular }} %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, termSafe(id))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1590,7 +1590,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 {{ end }}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced {{ .Singular }} %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced {{ .Singular }} %q (id: %s)\n", name, termSafe(id))
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -2404,7 +2404,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 	// Interactive: prompt user to pick
 	fmt.Fprintf(os.Stderr, "Multiple resources found with name %q:\n", name)
 	for i, m := range matches {
-		fmt.Fprintf(os.Stderr, "  [%d] ID: %s  Name: %s\n", i+1, m.id, m.name)
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s  Name: %s\n", i+1, termSafe(m.id), termSafe(m.name))
 	}
 	fmt.Fprintf(os.Stderr, "Enter number to %s (or 0 to cancel): ", verb)
 	var choice int

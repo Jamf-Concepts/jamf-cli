@@ -254,13 +254,13 @@ Create API client credentials in the Jamf Account portal
 			_, _ = fmt.Fprintf(w, "  Gateway:     %s\n", creds.GatewayURL)
 			switch {
 			case creds.EnvironmentID != "":
-				_, _ = fmt.Fprintf(w, "  Scope:       platform environment %s\n", creds.EnvironmentID)
+				_, _ = fmt.Fprintf(w, "  Scope:       platform environment %s\n", termSafe(creds.EnvironmentID))
 			case creds.TenantID != "":
-				_, _ = fmt.Fprintf(w, "  Scope:       tenant %s\n", creds.TenantID)
+				_, _ = fmt.Fprintf(w, "  Scope:       tenant %s\n", termSafe(creds.TenantID))
 			default:
 				_, _ = fmt.Fprintln(w, "  Scope:       organization (resolved from the credential)")
 			}
-			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", creds.ClientID)
+			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", termSafe(creds.ClientID))
 			_, _ = fmt.Fprintln(w, "  Secrets stored in system keychain")
 			_, _ = fmt.Fprintln(w)
 			// State what the profile enables, from the scope levels the specs

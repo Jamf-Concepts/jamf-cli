@@ -567,7 +567,7 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete ldap_server %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete ldap_server %q (id: %s)\n", e.label, termSafe(e.id))
 					}
 					return nil
 				}
@@ -591,7 +591,7 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := fmt.Sprintf("/JSSResource/ldapservers/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete ldap_server %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete ldap_server %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -600,10 +600,10 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted ldap_server %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "Deleted ldap_server %q (id: %s)\n", e.label, termSafe(e.id))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete ldap_server %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete ldap_server %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -633,14 +633,14 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete ldap_server %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete ldap_server %s\n", termSafe(resolvedID))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete ldap_server %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete ldap_server %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -773,14 +773,14 @@ Credential fields (--from-file only, never --set): connection.account.password, 
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace ldap_server %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace ldap_server %q (id: %s)\n", name, termSafe(id))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("ldap_server %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "ldap_server %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "ldap_server %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, termSafe(id))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -795,7 +795,7 @@ Credential fields (--from-file only, never --set): connection.account.password, 
 			}
 
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced ldap_server %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced ldap_server %q (id: %s)\n", name, termSafe(id))
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

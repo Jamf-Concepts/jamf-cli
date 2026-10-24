@@ -614,7 +614,7 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 	writeOAuth2Profile(cfg, profileName, instanceURL, clientID)
 
 	if clientID != "" {
-		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
+		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, termSafe(clientID))
 	} else {
 		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready\n", profileName)
 	}
@@ -759,7 +759,7 @@ func setupInstanceWithExistingClient(ctx context.Context, w io.Writer, cfg *conf
 	}
 	writeOAuth2Profile(cfg, profileName, instanceURL, clientID)
 
-	_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
+	_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, termSafe(clientID))
 	return nil
 }
 

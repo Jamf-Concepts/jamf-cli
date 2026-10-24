@@ -127,9 +127,11 @@ func jcdsFetchPresignedURL(ctx context.Context, client registry.HTTPClient, file
 }
 
 // jcdsLocalPath joins a server-supplied JCDS file name onto dir, refusing any
-// name that is not a single path element so it cannot land outside dir.
+// name that is not a single path element so it cannot land outside dir, and
+// any name carrying a control character, which a local file name has no use
+// for and a terminal would act on.
 func jcdsLocalPath(dir, name string) (string, error) {
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) || termSafe(name) != name {
 		return "", fmt.Errorf("refusing JCDS file name %q: not a plain file name", name)
 	}
 	return filepath.Join(dir, name), nil
@@ -148,7 +150,7 @@ func jcdsDownloadFile(ctx context.Context, client registry.HTTPClient, fileName,
 	var httpErr *jcdsHTTPStatusError
 	if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusForbidden {
 		// Pre-signed URL expired — fetch a fresh one and retry once.
-		fmt.Fprintf(os.Stderr, "warning: %s pre-signed URL expired (403), retrying with fresh URL\n", fileName)
+		fmt.Fprintf(os.Stderr, "warning: %s pre-signed URL expired (403), retrying with fresh URL\n", termSafe(fileName))
 		uri, err = jcdsFetchPresignedURL(ctx, client, fileName)
 		if err != nil {
 			return err
@@ -159,7 +161,7 @@ func jcdsDownloadFile(ctx context.Context, client registry.HTTPClient, fileName,
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Saved %s (%d bytes)\n", outPath, n)
+	fmt.Fprintf(os.Stderr, "Saved %s (%d bytes)\n", termSafe(outPath), n)
 	return nil
 }
 
@@ -371,7 +373,7 @@ Designed for scheduled runs on file-share distribution points.`,
 						continue
 					}
 					if !localFiles[f.FileName] {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would download %s (missing)\n", f.FileName)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would download %s (missing)\n", termSafe(f.FileName))
 						addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusWouldDownload})
 						downloaded.Add(1)
 						continue
@@ -382,7 +384,7 @@ Designed for scheduled runs on file-share distribution points.`,
 							return fmt.Errorf("hashing %s: %w", localPath, err)
 						}
 						if !strings.EqualFold(localHash, f.SHA3) {
-							fmt.Fprintf(os.Stderr, "[dry-run] Would update %s (SHA3-512 mismatch)\n", f.FileName)
+							fmt.Fprintf(os.Stderr, "[dry-run] Would update %s (SHA3-512 mismatch)\n", termSafe(f.FileName))
 							addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusWouldUpdate})
 							updated.Add(1)
 							continue
@@ -432,7 +434,7 @@ Designed for scheduled runs on file-share distribution points.`,
 
 						if !exists {
 							if err := jcdsDownloadFile(reqCtx, cliCtx.Client, f.FileName, localPath); err != nil {
-								fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", f.FileName, err)
+								fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", termSafe(f.FileName), termSafe(err))
 								addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusFailed, Error: err.Error()})
 								failed.Add(1)
 								return nil
@@ -445,15 +447,15 @@ Designed for scheduled runs on file-share distribution points.`,
 						if f.SHA3 != "" {
 							localHash, err := jcdsFileSHA3(localPath)
 							if err != nil {
-								fmt.Fprintf(os.Stderr, "warning: skipping %s (hash error): %v\n", f.FileName, err)
+								fmt.Fprintf(os.Stderr, "warning: skipping %s (hash error): %v\n", termSafe(f.FileName), termSafe(err))
 								addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusFailed, Error: err.Error()})
 								failed.Add(1)
 								return nil
 							}
 							if !strings.EqualFold(localHash, f.SHA3) {
-								fmt.Fprintf(os.Stderr, "Updating %s (SHA3-512 changed)\n", f.FileName)
+								fmt.Fprintf(os.Stderr, "Updating %s (SHA3-512 changed)\n", termSafe(f.FileName))
 								if err := jcdsDownloadFile(reqCtx, cliCtx.Client, f.FileName, localPath); err != nil {
-									fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", f.FileName, err)
+									fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", termSafe(f.FileName), termSafe(err))
 									addFileResult(jcdsSyncFileResult{FileName: f.FileName, Status: jcdsStatusFailed, Error: err.Error()})
 									failed.Add(1)
 									return nil

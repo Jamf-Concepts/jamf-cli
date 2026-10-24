@@ -872,7 +872,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 	// Interactive: prompt user to pick
 	fmt.Fprintf(os.Stderr, "Multiple resources found with name %q:\n", name)
 	for i, m := range matches {
-		fmt.Fprintf(os.Stderr, "  [%d] ID: %s  Name: %s\n", i+1, m.id, m.name)
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s  Name: %s\n", i+1, termSafe(m.id), termSafe(m.name))
 	}
 	fmt.Fprintf(os.Stderr, "Enter number to %s (or 0 to cancel): ", verb)
 	var choice int

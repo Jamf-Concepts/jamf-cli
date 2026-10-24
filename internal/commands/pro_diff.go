@@ -399,14 +399,14 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			path := strings.Replace(def.GetPath, "{id}", item.ID, 1)
 			data, err := fetchJSON(ctx, httpCli, path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: fetching %s id=%s from %q: %v\n", def.Key, item.ID, profileName, err)
+				fmt.Fprintf(os.Stderr, "WARNING: fetching %s id=%s from %q: %v\n", def.Key, termSafe(item.ID), profileName, termSafe(err))
 				continue
 			}
 			if def.ScopePath != "" {
 				if serials, serr := fetchPrestageScope(ctx, httpCli, def.ScopePath, item.ID); serr == nil {
 					data["scope"] = serials
 				} else {
-					fmt.Fprintf(os.Stderr, "WARNING: fetching scope for %s id=%s from %q: %v\n", def.Key, item.ID, profileName, serr)
+					fmt.Fprintf(os.Stderr, "WARNING: fetching scope for %s id=%s from %q: %v\n", def.Key, termSafe(item.ID), profileName, termSafe(serr))
 				}
 			}
 			data = unwrapClassicDetail(data)

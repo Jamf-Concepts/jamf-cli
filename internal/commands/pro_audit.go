@@ -404,7 +404,7 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 		detail, err := fetchJSON(ctx, client, path)
 		if err != nil {
 			skippedCount++
-			fmt.Fprintf(os.Stderr, "WARNING: skipping policy id=%s: %v\n", id, err)
+			fmt.Fprintf(os.Stderr, "WARNING: skipping policy id=%s: %v\n", termSafe(id), termSafe(err))
 			continue
 		}
 		details = append(details, unwrapClassicDetail(detail))

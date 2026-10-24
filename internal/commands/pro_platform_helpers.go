@@ -153,7 +153,7 @@ func (t *verboseTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	t.lastFailed = resp.StatusCode >= 400
 
 	if t.level >= 1 {
-		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
+		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, termSafe(resp.Status))
 	}
 	if t.level >= 2 {
 		jamfclient.LogHeaders(os.Stderr, jamfclient.ResponseWireHeaders(resp), false)

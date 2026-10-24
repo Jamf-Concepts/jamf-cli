@@ -64,14 +64,14 @@ func collectPlatformData(ctx context.Context, client *jamfplatform.Client, data 
 		for _, b := range resp.Benchmarks {
 			pct, err := cb.GetBenchmarkCompliancePercentage(ctx, b.ID)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s compliance: %v\n", b.ID, err)
+				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s compliance: %v\n", termSafe(b.ID), termSafe(err))
 				status.recordFailureErr(sectionPlatform, err)
 				skipped++
 				continue
 			}
 			rules, err := cb.ListBenchmarkRulesStats(ctx, b.ID, "", "")
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s rules: %v\n", b.ID, err)
+				fmt.Fprintf(os.Stderr, "dashboard: benchmark %s rules: %v\n", termSafe(b.ID), termSafe(err))
 				status.recordFailureErr(sectionPlatform, err)
 				skipped++
 				continue
