@@ -804,6 +804,10 @@ func TestParseRetryAfter(t *testing.T) {
 		{"empty uses fallback", "", 2 * time.Second, 2 * time.Second},
 		{"malformed uses fallback", "Wed, 21 Oct 2025 07:28:00 GMT", 2 * time.Second, 2 * time.Second},
 		{"zero is valid", "0", time.Second, 0},
+		{"negative uses fallback", "-5", 2 * time.Second, 2 * time.Second},
+		{"huge is held to the ceiling", "2147483647", time.Second, rateLimitWaitMax},
+		{"past int range uses fallback", "99999999999999999999", time.Second, time.Second},
+		{"ceiling itself is kept", "60", time.Second, 60 * time.Second},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

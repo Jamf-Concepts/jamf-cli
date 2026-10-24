@@ -99,6 +99,15 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 				return err
 			}
 
+			if dryRun {
+				if pkgID != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would replace the file of package %q (id %s) with %s\n", packageName, pkgID, filePath)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create package %q and upload %s\n", packageName, filePath)
+				}
+				return nil
+			}
+
 			var prev previousHashes // non-empty when replacing an existing package
 			if pkgID != "" {
 				if !flagYes {

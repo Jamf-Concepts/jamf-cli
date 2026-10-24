@@ -1165,6 +1165,10 @@ func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Co
 			if ctx.Uploader == nil {
 				return fmt.Errorf("file upload not supported in this context")
 			}
+			if ctx.DryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] POST %s (multipart upload of %s)\n", path, flagFile)
+				return nil
+			}
 			f, err := os.Open(flagFile)
 			if err != nil {
 				return fmt.Errorf("opening %s: %w", flagFile, err)
