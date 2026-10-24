@@ -11,6 +11,23 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — `pro backup` writes files `0600` and directories `0700`
+
+`pro backup` wrote every file `0644` and every directory `0755`, so any local user could read
+the credentials a backup holds in cleartext: SMTP and LDAP server passwords, distribution
+point passwords, policy account passwords and configuration profile payload secrets.
+
+- Every file, `_failures` and the inventory preload CSV included, is now written `0600`, and
+  every directory the run creates `0700`. A directory that already exists keeps its mode. If
+  another account or a scheduled job reads the backup, give it access explicitly.
+- Each file is written to a temporary file and renamed into place. A symlink or hard link
+  already at the destination is replaced, not written through, and an existing file's
+  looser mode does not survive.
+- The run ends with a `WARNING:` on stderr that names each resource that carried a
+  credential, also when the run stops on an error. It reads credential-named fields and
+  profile payloads only, not scripts or other free text. Nothing is redacted, so
+  `pro diff` against a live tenant still works.
+
 ### Behaviour — `config validate` reports credentials as `set`
 
 `config validate` reported `pass` for a credential once its `keychain:`, `env:` or `file:`
