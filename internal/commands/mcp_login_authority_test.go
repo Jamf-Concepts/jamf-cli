@@ -19,6 +19,8 @@ import (
 var loginAuthorityResources = []string{
 	"pro accounts",
 	"pro account-groups",
+	"pro api-roles",
+	"pro api-integrations",
 	"pro classic-accounts",
 	"pro classic-account-users",
 	"pro classic-account-groups",

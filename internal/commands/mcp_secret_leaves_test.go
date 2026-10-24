@@ -77,7 +77,6 @@ var notACredentialPrinter = map[string]string{
 	"pro api-authentication current":                                   "prints the current token's authorization details, not the token",
 	"pro api-authentication list":                                      "prints the current token's authorization details, not the token",
 	"pro api-authentication invalidate-token":                          "invalidates this server's own token and prints nothing",
-	"pro api-integrations update":                                      "names the access token lifetime setting; client-credentials, which prints a secret, is refused",
 	"pro csa delete":                                                   "deletes the CSA token exchange and prints nothing",
 	"pro csa token delete":                                             "deletes the CSA token exchange and prints nothing",
 	"pro csa token get":                                                "prints the exchange's scopes, expiry and tenant; the spec has no token field",
