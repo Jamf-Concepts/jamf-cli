@@ -39,7 +39,7 @@ JAMF_MIGRATE_WORK='/var/folders/ab/cd1234/T/jamf-migrate.Ab12Cd'; jamf-cli pro b
 
 The semicolon is required. In `JAMF_MIGRATE_WORK=<path> jamf-cli …` the shell expands `${JAMF_MIGRATE_WORK:?}` before the assignment applies, so the command stops with "parameter not set". `:?` stops a command whose variable is unset or empty. It does not catch a wrong path, so always use the exact path `mktemp` printed.
 
-If you no longer have that path, for example after a context reset or in a new conversation, do not search for `jamf-migrate.*` directories: you cannot tell which run made each one. Ask the user for the path, and run the work directory check below on it. If the user starts over instead, run the command above again for a new directory, and tell them that the old directory still holds credentials and the pre-migration target snapshot.
+If you no longer have that path, for example after a context reset or in a new conversation, do not search for `jamf-migrate.*` directories: you cannot tell which run made each one. Ask the user for the path, and run the work directory check below on it. If the user starts over instead, run the `mktemp` command again for a new directory, and tell them that the old directory still holds credentials and the pre-migration target snapshot.
 
 ### Work directory check
 
@@ -49,11 +49,11 @@ Run this check before Pro Step 5, before Protect Step 5, and before Cleanup:
 ls -ld "${JAMF_MIGRATE_WORK:?}" && cat "${JAMF_MIGRATE_WORK:?}/.created"
 ```
 
-- The path must be the one `mktemp` printed, with mode `drwx------` (macOS can append `@`) and you as the owner.
-- `.created` must show the time the command above printed in this session.
-- For a path the user gave you after a context reset, show the user the owner, mode and `.created` time. Continue only when they confirm that it is the directory for this migration.
+- Always: the mode must be `drwx------` (macOS can append `@`), you must be the owner, and `.created` must exist.
+- If you created the directory in this session: the path must be the one the `mktemp` command in Work Directory printed, and `.created` must show the time that command printed.
+- If the user gave you the path after a context reset: you cannot check the path or the time yourself. Show the user the owner, mode and `.created` time, and continue only when they confirm that it is the directory for this migration.
 
-If any of these does not hold, or `.created` is missing, stop.
+If a condition that applies does not hold, stop.
 
 ---
 
