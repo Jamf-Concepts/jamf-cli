@@ -24,7 +24,9 @@ secret. Over `mcp serve`, a model's "preview" was a live write.
 - **Pro uploads** (`inventory-preload upload`, `icon upload`, `packages upload` and the
   other multipart commands): `-n` reports the upload on stderr and exits 0 without sending
   it. `packages upload` reports whether it would create or replace the package, before the
-  replace prompt.
+  replace prompt. `inventory-preload csv-validate` stores nothing, so `-n` still sends it
+  and prints the validation result. A missing `--file` fails the same way with or without
+  `-n`.
 
 ### Behaviour — Protect and School writes are no longer re-sent after they reach the server
 

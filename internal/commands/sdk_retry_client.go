@@ -35,20 +35,22 @@ func isRESTWrite(req *http.Request, _ []byte) bool {
 }
 
 // isGraphQLMutation classifies a Jamf Protect request, every one of which is a
-// POST: reads and writes differ only in the GraphQL document. A body with no
-// "query" key is not a GraphQL operation (the token exchange) and is a read.
-// A body that cannot be read as GraphQL is a write, so -n fails closed.
-func isGraphQLMutation(_ *http.Request, body []byte) bool {
-	var payload map[string]json.RawMessage
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return len(bytes.TrimSpace(body)) > 0
-	}
-	raw, ok := payload["query"]
-	if !ok {
+// POST: reads and writes differ only in the GraphQL document. The token
+// exchange (a POST to /token) and a request with no body are reads. Anything
+// else that is not a readable GraphQL document is a write, so -n fails closed.
+func isGraphQLMutation(req *http.Request, body []byte) bool {
+	if req != nil && strings.HasSuffix(req.URL.Path, "/token") {
 		return false
 	}
+	if len(bytes.TrimSpace(body)) == 0 {
+		return false
+	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return true
+	}
 	var doc string
-	if err := json.Unmarshal(raw, &doc); err != nil {
+	if err := json.Unmarshal(payload["query"], &doc); err != nil {
 		return true
 	}
 	return graphQLDocumentWrites(doc)
@@ -56,29 +58,37 @@ func isGraphQLMutation(_ *http.Request, body []byte) bool {
 
 // graphQLDocumentWrites reports whether any top-level operation in doc is a
 // mutation or a subscription. Strings, block strings and comments are skipped,
-// and only words outside every brace and parenthesis are operation keywords.
+// and only words outside every brace, parenthesis and bracket are operation
+// keywords. A document this lexer cannot follow (an unterminated string, an
+// unbalanced closer) is a write.
 func graphQLDocumentWrites(doc string) bool {
 	depth := 0
 	for i := 0; i < len(doc); {
 		c := doc[i]
 		switch {
 		case c == '#':
-			for i < len(doc) && doc[i] != '\n' {
+			for i < len(doc) && doc[i] != '\n' && doc[i] != '\r' {
 				i++
 			}
 		case strings.HasPrefix(doc[i:], `"""`):
-			end := strings.Index(doc[i+3:], `"""`)
-			if end < 0 {
+			end, ok := blockStringEnd(doc, i+3)
+			if !ok {
 				return true
 			}
-			i += 3 + end + 3
+			i = end
 		case c == '"':
 			i++
 			for i < len(doc) && doc[i] != '"' {
+				if doc[i] == '\n' || doc[i] == '\r' {
+					return true
+				}
 				if doc[i] == '\\' {
 					i++
 				}
 				i++
+			}
+			if i >= len(doc) {
+				return true
 			}
 			i++
 		case c == '{' || c == '(' || c == '[':
@@ -86,6 +96,9 @@ func graphQLDocumentWrites(doc string) bool {
 			i++
 		case c == '}' || c == ')' || c == ']':
 			depth--
+			if depth < 0 {
+				return true
+			}
 			i++
 		case c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z':
 			start := i
@@ -100,6 +113,23 @@ func graphQLDocumentWrites(doc string) bool {
 		}
 	}
 	return false
+}
+
+// blockStringEnd returns the index just past the """ that closes a block
+// string whose content starts at i. Inside a block string \""" is an escaped
+// quote run, not the close.
+func blockStringEnd(doc string, i int) (int, bool) {
+	for i < len(doc) {
+		switch {
+		case strings.HasPrefix(doc[i:], `\"""`):
+			i += 4
+		case strings.HasPrefix(doc[i:], `"""`):
+			return i + 3, true
+		default:
+			i++
+		}
+	}
+	return 0, false
 }
 
 // graphQLOperationName returns the operation name in a GraphQL payload, for
@@ -136,9 +166,9 @@ func retrySafeMethod(method string) bool {
 	return false
 }
 
-// errSentWrite marks a transport failure the retry policy must not re-send:
-// a write that reached the server, or any request that timed out after it was
-// sent. Wrapped by sendTracker and recognised by sdkRetryPolicy.
+// errSentWrite marks a transport failure on a write that reached the server,
+// which the retry policy must not re-send. Wrapped by sendTracker and
+// recognised by sdkRetryPolicy.
 var errSentWrite = errors.New("the request reached the server and may have been applied — check the object's current state before retrying")
 
 type writeKey struct{}
@@ -181,7 +211,7 @@ func (t *sendTracker) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	resp, err := t.inner.RoundTrip(req)
-	if err != nil && sent.Load() && (write || isTimeoutErr(err)) {
+	if err != nil && sent.Load() && write {
 		return nil, fmt.Errorf("%w: %w", errSentWrite, err)
 	}
 	return resp, err
@@ -200,21 +230,7 @@ func (t *sendTracker) refuse(req *http.Request, body []byte) *http.Response {
 	if len(body) > 0 && verboseLevel >= 3 {
 		fmt.Fprintf(os.Stderr, "[dry-run] Request body:\n%s\n", redact.Body(body))
 	}
-	msg := fmt.Sprintf("refused %s: --dry-run is set and this command has no preview mode. Re-run without -n to apply.", what)
-	envelope, _ := json.Marshal(map[string]any{
-		"httpStatus": http.StatusPreconditionFailed,
-		"errors":     []map[string]string{{"code": "DRY_RUN", "description": msg}},
-	})
-	return &http.Response{
-		StatusCode: http.StatusPreconditionFailed,
-		Status:     "412 Precondition Failed",
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(bytes.NewReader(envelope)),
-		Request:    req,
-	}
+	return dryRunRefusal(req, what)
 }
 
 func isTimeoutErr(err error) bool {

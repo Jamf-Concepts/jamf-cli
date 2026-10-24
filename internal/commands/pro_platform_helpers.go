@@ -220,17 +220,31 @@ func (t *dryRunGuardTransport) RoundTrip(req *http.Request) (*http.Response, err
 			// anything. A 412 is a status isRetryableWriteStatus will not retry,
 			// and it carries the reason in the envelope the transport already
 			// knows how to report.
-			body := fmt.Sprintf("{\"httpStatus\":412,\"errors\":[{\"code\":\"DRY_RUN\",\"description\":\"refused %s %s: --dry-run is set and this command has no preview mode. Re-run without -n to apply.\"}]}", req.Method, req.URL.Path)
-			return &http.Response{
-				StatusCode: http.StatusPreconditionFailed,
-				Status:     "412 Precondition Failed",
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(strings.NewReader(body)),
-				Request:    req,
-			}, nil
+			return dryRunRefusal(req, req.Method+" "+req.URL.Path), nil
 		}
 	}
 	return t.inner.RoundTrip(req)
+}
+
+// dryRunRefusal is the response a --dry-run guard answers a write with: a 412
+// carrying a DRY_RUN code, a status neither the Platform SDK's retry loop nor
+// sdkRetryPolicy re-sends.
+func dryRunRefusal(req *http.Request, what string) *http.Response {
+	msg := fmt.Sprintf("refused %s: --dry-run is set and this command has no preview mode. Re-run without -n to apply.", what)
+	envelope, _ := json.Marshal(map[string]any{
+		"httpStatus": http.StatusPreconditionFailed,
+		"errors":     []map[string]string{{"code": "DRY_RUN", "description": msg}},
+	})
+	return &http.Response{
+		StatusCode: http.StatusPreconditionFailed,
+		Status:     "412 Precondition Failed",
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewReader(envelope)),
+		Request:    req,
+	}
 }
 
 // requirePlatformClient returns an error if the Platform SDK client is not

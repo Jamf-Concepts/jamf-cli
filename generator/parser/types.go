@@ -174,6 +174,10 @@ type Operation struct {
 	// renders their body instead of letting the client map them to an
 	// exit-code error. Empty for all but a handful of check-style endpoints.
 	StatusResults []StatusResult
+	// ValidationOnly marks a multipart upload whose endpoint validates the file
+	// and stores nothing (see validationOnlyUploads in parser.go), so the
+	// generated command sends it under --dry-run instead of previewing it.
+	ValidationOnly bool
 	// NoContentDescription is the 204 response's description, set only when
 	// StatusResults is non-empty — a 204 has no body, so the generated command
 	// synthesizes one from this so the success case is machine-readable too.

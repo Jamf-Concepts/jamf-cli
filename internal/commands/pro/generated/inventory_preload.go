@@ -511,15 +511,15 @@ func newInventoryPreloadUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 			if ctx.Uploader == nil {
 				return fmt.Errorf("file upload not supported in this context")
 			}
-			if ctx.DryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] POST %s (multipart upload of %s)\n", path, flagFile)
-				return nil
-			}
 			f, err := os.Open(flagFile)
 			if err != nil {
 				return fmt.Errorf("opening %s: %w", flagFile, err)
 			}
 			defer f.Close()
+			if ctx.DryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] POST %s (multipart upload of %s)\n", path, flagFile)
+				return nil
+			}
 			// Stream the file through a seekable multipart body so Upload can
 			// precompute Content-Length and retry on HTTP 429 without
 			// re-buffering the file.
@@ -625,15 +625,14 @@ func newInventoryPreloadCsvValidateCmd(ctx *registry.CLIContext) *cobra.Command 
 			if ctx.Uploader == nil {
 				return fmt.Errorf("file upload not supported in this context")
 			}
-			if ctx.DryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] POST %s (multipart upload of %s)\n", path, flagFile)
-				return nil
-			}
 			f, err := os.Open(flagFile)
 			if err != nil {
 				return fmt.Errorf("opening %s: %w", flagFile, err)
 			}
 			defer f.Close()
+			// This endpoint validates the file and stores nothing, so it is sent
+			// under --dry-run too.
+			reqCtx = registry.WithValidationOnlyUpload(reqCtx)
 			// Stream the file through a seekable multipart body so Upload can
 			// precompute Content-Length and retry on HTTP 429 without
 			// re-buffering the file.

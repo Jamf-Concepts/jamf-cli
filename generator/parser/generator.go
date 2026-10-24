@@ -2971,15 +2971,21 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			if ctx.Uploader == nil {
 				return fmt.Errorf("file upload not supported in this context")
 			}
-			if ctx.DryRun{{ if .IsDestructive }} || flagDryRun{{ end }} {
-				fmt.Fprintf(os.Stderr, "[dry-run] {{ .Method }} %s (multipart upload of %s)\n", path, flagFile)
-				return nil
-			}
 			f, err := os.Open(flagFile)
 			if err != nil {
 				return fmt.Errorf("opening %s: %w", flagFile, err)
 			}
 			defer f.Close()
+{{- if .ValidationOnly }}
+			// This endpoint validates the file and stores nothing, so it is sent
+			// under --dry-run too.
+			reqCtx = registry.WithValidationOnlyUpload(reqCtx)
+{{- else }}
+			if ctx.DryRun{{ if .IsDestructive }} || flagDryRun{{ end }} {
+				fmt.Fprintf(os.Stderr, "[dry-run] {{ .Method }} %s (multipart upload of %s)\n", path, flagFile)
+				return nil
+			}
+{{- end }}
 			// Stream the file through a seekable multipart body so Upload can
 			// precompute Content-Length and retry on HTTP 429 without
 			// re-buffering the file.

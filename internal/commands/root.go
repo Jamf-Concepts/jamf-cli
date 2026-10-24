@@ -268,10 +268,14 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 
 // dryRunUploader refuses a streaming upload under --dry-run. Generated upload
 // commands report and return before reaching it; it holds the line for any
-// upload that has no preview of its own.
-type dryRunUploader struct{}
+// upload that has no preview of its own. An upload marked validation-only
+// stores nothing and is sent.
+type dryRunUploader struct{ inner registry.FileUploader }
 
-func (dryRunUploader) Upload(_ context.Context, path string, _ io.Reader, contentType string, contentLength int64) (*http.Response, error) {
+func (u dryRunUploader) Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error) {
+	if registry.IsValidationOnlyUpload(ctx) {
+		return u.inner.Upload(ctx, path, body, contentType, contentLength)
+	}
 	fmt.Fprintf(os.Stderr, "[dry-run] POST %s (%s, %d bytes)\n", path, contentType, contentLength)
 	return nil, exitcode.New(exitcode.General, fmt.Sprintf("refused upload to %s: --dry-run is set and this command has no preview mode. Re-run without -n to apply.", path))
 }
@@ -940,7 +944,7 @@ in the config file. It never runs in CI, when output is piped, or under
 			proClient := &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
 			cliCtx.Uploader = proClient
 			if dryRun {
-				cliCtx.Uploader = dryRunUploader{}
+				cliCtx.Uploader = dryRunUploader{inner: proClient}
 			}
 			var httpClient registry.HTTPClient = proClient
 			if registry.InMCPChild() {

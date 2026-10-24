@@ -3344,3 +3344,23 @@ func captureStderr(t *testing.T, fn func() []string) ([]string, string) {
 	}
 	return got, string(out)
 }
+
+// TestEveryValidationOnlyUploadNamesALiveMultipartOperation keeps
+// validationOnlyUploads honest: a key that matches no multipart operation is a
+// lookup that silently misses, and the command it meant goes back to
+// previewing under --dry-run instead of validating.
+func TestEveryValidationOnlyUploadNamesALiveMultipartOperation(t *testing.T) {
+	marked := map[string]bool{}
+	for _, r := range FlattenResources(parseCommittedSpecs(t)) {
+		for _, op := range r.Operations {
+			if op.ValidationOnly && op.RequestBody != nil && op.RequestBody.IsMultipart {
+				marked[op.Method+" "+op.Path] = true
+			}
+		}
+	}
+	for key := range validationOnlyUploads {
+		if !marked[key] {
+			t.Errorf("validationOnlyUploads[%q] marks no multipart operation in the committed specs; re-key it or delete it", key)
+		}
+	}
+}

@@ -4,11 +4,21 @@ package commands
 
 import (
 	"bytes"
+	"errors"
+	"go/ast"
+	"go/parser"
+	gotoken "go/token"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -333,23 +343,205 @@ func TestSDKRetryBackoff_HugeRetryAfterIsBounded(t *testing.T) {
 }
 
 func TestIsGraphQLMutation(t *testing.T) {
+	app, _ := http.NewRequest(http.MethodPost, "https://protect.example.invalid/app", nil)
+	tokenReq, _ := http.NewRequest(http.MethodPost, "https://protect.example.invalid/token", nil)
 	for _, tc := range []struct {
+		req  *http.Request
 		body string
 		want bool
 	}{
-		{`{"query":"query listGroups { listGroups { items { id } } }"}`, false},
-		{`{"query":"{ getOrganization { uuid } }"}`, false},
-		{`{"query":"mutation createGroup($i: GroupInput!) { createGroup(input: $i) { id } }"}`, true},
-		{`{"query":"  # a comment naming mutation\n query q { a }"}`, false},
-		{`{"query":"query q { a(note: \"mutation\") }"}`, false},
-		{`{"query":"query q { a } mutation m { b }"}`, true},
-		{`{"query":"subscription s { a }"}`, true},
-		{`{"client_id":"x","password":"y"}`, false},
-		{`not json`, true},
-		{`{"query":42}`, true},
+		{app, `{"query":"query listGroups { listGroups { items { id } } }"}`, false},
+		{app, `{"query":"{ getOrganization { uuid } }"}`, false},
+		{app, `{"query":"mutation createGroup($i: GroupInput!) { createGroup(input: $i) { id } }"}`, true},
+		{app, `{"query":"  # a comment naming mutation\n query q { a }"}`, false},
+		{app, `{"query":"query q { a(note: \"mutation\") }"}`, false},
+		{app, `{"query":"query q { a(note: \"say \\\"hi\\\" mutation\") }"}`, false},
+		{app, `{"query":"query q { a } mutation m { b }"}`, true},
+		{app, `{"query":"subscription s { a }"}`, true},
+		{app, `{"query":"query q { mutation { id } }"}`, false},
+		{app, `{"query":"query q { a(subscription: 1) }"}`, false},
+		{app, `{"query":"query q($x: String = \"mutation\") { a(s: [\"mutation\"]) }"}`, false},
+		{app, `{"query":"query q { a(s: \"\"\" mutation { \"\"\") }"}`, false},
+		{app, `{"query":"query q { a(s: \"\"\" \\\"\"\" mutation \"\"\") }"}`, false},
+		{app, `{"query":"query q { a(s: \"\"\"x\"\"\") } mutation m { b }"}`, true},
+		{app, `{"query":"query q { a(s: \"\"\" \\\"\"\" \"\"\") } mutation m { b }"}`, true},
+		{app, `{"query":"query q { a(s: \"\"\" never closed ) } mutation m { b }"}`, true},
+		{app, `{"query":"query q { a(s: \"never closed) } mutation m { b }"}`, true},
+		{app, `{"query":"{ a } #x\rmutation M { b }"}`, true},
+		{app, `{"query":"} mutation m { b }"}`, true},
+		{app, `{"client_id":"x","password":"y"}`, true},
+		{app, `{"extensions":{"persistedQuery":{"sha256Hash":"abc"}}}`, true},
+		{app, `[{"query":"query q { a }"}]`, true},
+		{app, `not json`, true},
+		{app, `{"query":42}`, true},
+		{app, ``, false},
+		{tokenReq, `{"client_id":"x","password":"y"}`, false},
+		{nil, `{"client_id":"x","password":"y"}`, true},
 	} {
-		if got := isGraphQLMutation(nil, []byte(tc.body)); got != tc.want {
-			t.Errorf("isGraphQLMutation(%s) = %v, want %v", tc.body, got, tc.want)
+		if got := isGraphQLMutation(tc.req, []byte(tc.body)); got != tc.want {
+			path := "<nil>"
+			if tc.req != nil {
+				path = tc.req.URL.Path
+			}
+			t.Errorf("isGraphQLMutation(%s, %s) = %v, want %v", path, tc.body, got, tc.want)
 		}
+	}
+}
+
+// TestGraphQLDocumentWrites_EverySDKDocument classifies every GraphQL document
+// the Protect SDK sends, so an SDK bump that adds a document this lexer reads
+// the wrong way fails here rather than letting a write through -n.
+func TestGraphQLDocumentWrites_EverySDKDocument(t *testing.T) {
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/Jamf-Concepts/jamfprotect-go-sdk").Output()
+	if err != nil {
+		t.Fatalf("locating the Protect SDK module: %v", err)
+	}
+	dir := filepath.Join(strings.TrimSpace(string(out)), "jamfprotect")
+	fset := gotoken.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool { return !strings.HasSuffix(fi.Name(), "_test.go") }, 0)
+	if err != nil {
+		t.Fatalf("parsing %s: %v", dir, err)
+	}
+	exprs := map[string]ast.Expr{}
+	for _, pkg := range pkgs {
+		for _, f := range pkg.Files {
+			for _, decl := range f.Decls {
+				gd, ok := decl.(*ast.GenDecl)
+				if !ok || (gd.Tok != gotoken.CONST && gd.Tok != gotoken.VAR) {
+					continue
+				}
+				for _, spec := range gd.Specs {
+					vs := spec.(*ast.ValueSpec)
+					for i, name := range vs.Names {
+						if i < len(vs.Values) {
+							exprs[name.Name] = vs.Values[i]
+						}
+					}
+				}
+			}
+		}
+	}
+	var eval func(ast.Expr) (string, bool)
+	eval = func(e ast.Expr) (string, bool) {
+		switch e := e.(type) {
+		case *ast.BasicLit:
+			if e.Kind != gotoken.STRING {
+				return "", false
+			}
+			v, err := strconv.Unquote(e.Value)
+			return v, err == nil
+		case *ast.BinaryExpr:
+			l, lok := eval(e.X)
+			r, rok := eval(e.Y)
+			return l + r, lok && rok && e.Op == gotoken.ADD
+		case *ast.Ident:
+			if x, ok := exprs[e.Name]; ok {
+				return eval(x)
+			}
+		case *ast.ParenExpr:
+			return eval(e.X)
+		}
+		return "", false
+	}
+	writes, reads := 0, 0
+	for _, name := range slices.Sorted(maps.Keys(exprs)) {
+		doc, ok := eval(exprs[name])
+		if !ok {
+			continue
+		}
+		var want bool
+		switch trimmed := strings.TrimSpace(doc); {
+		case strings.HasPrefix(trimmed, "mutation"), strings.HasPrefix(trimmed, "subscription"):
+			want, writes = true, writes+1
+		case strings.HasPrefix(trimmed, "query"), strings.HasPrefix(trimmed, "{"):
+			reads++
+		default:
+			continue
+		}
+		if got := graphQLDocumentWrites(doc); got != want {
+			t.Errorf("SDK document %s classified write=%v, want %v", name, got, want)
+		}
+	}
+	if writes == 0 || reads == 0 {
+		t.Fatalf("found %d mutation and %d query documents in %s; the sweep checked nothing", writes, reads, dir)
+	}
+	t.Logf("classified %d mutation and %d query documents", writes, reads)
+}
+
+type fakeTimeout struct{}
+
+func (fakeTimeout) Error() string   { return "i/o timeout" }
+func (fakeTimeout) Timeout() bool   { return true }
+func (fakeTimeout) Temporary() bool { return true }
+
+// sentThenTimeout reports the headers written and then times out, the shape of
+// a server that accepted a request and never answered.
+type sentThenTimeout struct{}
+
+func (sentThenTimeout) RoundTrip(req *http.Request) (*http.Response, error) {
+	if trace := httptrace.ContextClientTrace(req.Context()); trace != nil && trace.WroteHeaders != nil {
+		trace.WroteHeaders()
+	}
+	return nil, fakeTimeout{}
+}
+
+func TestSendTracker_OnlyASentWriteIsReportedAsPossiblyApplied(t *testing.T) {
+	for _, tc := range []struct {
+		method string
+		want   bool
+	}{
+		{http.MethodGet, false},
+		{http.MethodPost, true},
+	} {
+		tr := &sendTracker{inner: sentThenTimeout{}, isWrite: isRESTWrite}
+		req, _ := http.NewRequest(tc.method, "https://school.example.invalid/api/users", nil)
+		_, err := tr.RoundTrip(req)
+		if err == nil {
+			t.Fatalf("%s: want the timeout back", tc.method)
+		}
+		if got := errors.Is(err, errSentWrite); got != tc.want {
+			t.Errorf("%s timing out after it was sent: errSentWrite=%v, want %v (%v)", tc.method, got, tc.want, err)
+		}
+	}
+}
+
+func TestSDKRetryPolicy_ATimeoutIsNeverRetried(t *testing.T) {
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		req, _ := http.NewRequest(method, "https://school.example.invalid/api/users", nil)
+		err := &url.Error{Op: method, URL: req.URL.String(), Err: fakeTimeout{}}
+		retry, perr := sdkRetryPolicy(t.Context(), nil, err)
+		if retry || perr != nil {
+			t.Errorf("%s timeout: retry=%v err=%v; want no retry", method, retry, perr)
+		}
+	}
+}
+
+func TestDryRun_ProCSVValidateIsStillSent(t *testing.T) {
+	isolateHome(t)
+	var log requestLog
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.add(r.Method + " " + r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"recordCount":1}`)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("JAMF_URL", srv.URL)
+	t.Setenv("JAMF_TOKEN", "fake-token")
+
+	csv := writeInput(t, "preload.csv", "Serial Number,Device Type\nC02TEST,Computer\n")
+	stdout, stderr, err := runRoot(t, "-n", "--no-input", "-o", "json", "pro", "inventory-preload", "csv-validate", "--file", csv)
+	if err != nil {
+		t.Fatalf("csv-validate under -n: %v (stderr %q)", err, stderr)
+	}
+	if got := log.matching("POST /api/v2/inventory-preload/csv-validate"); len(got) != 1 {
+		t.Errorf("server saw %q; want one csv-validate POST", log.matching(""))
+	}
+	if !strings.Contains(stdout, "recordCount") {
+		t.Errorf("stdout %q does not carry the validation result", stdout)
+	}
+
+	missing := filepath.Join(t.TempDir(), "absent.csv")
+	if _, _, err := runRoot(t, "-n", "--no-input", "pro", "inventory-preload", "upload", "--file", missing); err == nil {
+		t.Errorf("upload -n of a missing file succeeded; want the same error as without -n")
 	}
 }
