@@ -29,7 +29,7 @@ Backups hold tenant configuration, including credentials, in cleartext. Before t
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/jamf-migrate.XXXXXX") && echo "$WORK"
 ```
 
-`mktemp -d` creates a new directory with a random name and mode `0700`, so only you can read it. Bash tool calls do not share shell variables: record the printed path and start every later command with `WORK=<that path>`.
+`mktemp -d` creates a new directory with a random name and mode `0700`, so only you can read it. Bash tool calls do not share shell variables: record the printed path and start every later command with `WORK=<that path>`. `${WORK:?}` in the commands below stops a command whose `WORK` is unset instead of letting it write to `/pro-source` or remove the wrong path.
 
 ---
 
@@ -37,12 +37,12 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/jamf-migrate.XXXXXX") && echo "$WORK"
 
 ### Step 1: Backup Source
 ```bash
-jamf-cli pro backup --output "$WORK/pro-source" --profile staging
+jamf-cli pro backup --output "${WORK:?}/pro-source" --profile staging
 ```
 
 ### Step 2: Backup Target (safety snapshot)
 ```bash
-jamf-cli pro backup --output "$WORK/pro-target" --profile production
+jamf-cli pro backup --output "${WORK:?}/pro-target" --profile production
 ```
 
 ### Step 3: Diff
@@ -52,7 +52,7 @@ jamf-cli pro diff --source staging --target production
 
 Or from backups:
 ```bash
-jamf-cli pro diff --source "$WORK/pro-source" --target "$WORK/pro-target"
+jamf-cli pro diff --source "${WORK:?}/pro-source" --target "${WORK:?}/pro-target"
 ```
 
 ### Step 4: Present Migration Plan
@@ -87,17 +87,17 @@ Should show minimal or no differences for migrated resources.
 
 ### Step 1: Backup Source
 ```bash
-jamf-cli -p protect-staging protect backup --output "$WORK/protect-source"
+jamf-cli -p protect-staging protect backup --output "${WORK:?}/protect-source"
 ```
 
 ### Step 2: Backup Target (safety snapshot)
 ```bash
-jamf-cli -p protect-prod protect backup --output "$WORK/protect-target"
+jamf-cli -p protect-prod protect backup --output "${WORK:?}/protect-target"
 ```
 
 ### Step 3: Present the Plan — always dry-run first
 ```bash
-jamf-cli -p protect-prod protect restore --input "$WORK/protect-source" --dry-run
+jamf-cli -p protect-prod protect restore --input "${WORK:?}/protect-source" --dry-run
 ```
 
 The dry run prints, without calling the API, every document it would apply in the order it would apply them, plus everything it is skipping and why. Show the user that output verbatim — it is the migration plan. Do not hand-build one.
@@ -107,10 +107,10 @@ Two levers, which compose:
 
 ```bash
 # only these resources
-jamf-cli -p protect-prod protect restore --input "$WORK/protect-source" --resources plans,analytics --dry-run
+jamf-cli -p protect-prod protect restore --input "${WORK:?}/protect-source" --resources plans,analytics --dry-run
 
 # everything except these
-jamf-cli -p protect-prod protect restore --input "$WORK/protect-source" --exclude users,roles --dry-run
+jamf-cli -p protect-prod protect restore --input "${WORK:?}/protect-source" --exclude users,roles --dry-run
 ```
 
 For per-object control, **delete files from the backup directory** — restore applies what it finds. This is the supported way to hold back individual objects, e.g. removing real user files while keeping service accounts.
@@ -119,13 +119,13 @@ For per-object control, **delete files from the backup directory** — restore a
 Before you restore, confirm that the input is the backup your Step 1 wrote in this run:
 
 ```bash
-ls -ld "$WORK" "$WORK/protect-source"
+ls -ld "${WORK:?}" "${WORK:?}/protect-source"
 ```
 
 `$WORK` must be the path `mktemp` printed in this run, with mode `drwx------` and you as the owner. If it is not, stop. Never restore from a directory you did not create in this run.
 
 ```bash
-jamf-cli -p protect-prod protect restore --input "$WORK/protect-source" --yes
+jamf-cli -p protect-prod protect restore --input "${WORK:?}/protect-source" --yes
 ```
 
 Restore is **additive and idempotent**: existing objects of the same name are updated, absent ones created, and nothing is ever deleted. Re-running a completed restore is safe and normal.
@@ -133,8 +133,8 @@ Restore is **additive and idempotent**: existing objects of the same name are up
 ### Step 6: Post-Migration Validation
 Back the target up again and compare against the source:
 ```bash
-jamf-cli -p protect-prod protect backup --output "$WORK/protect-verify"
-diff -r "$WORK/protect-source" "$WORK/protect-verify"
+jamf-cli -p protect-prod protect backup --output "${WORK:?}/protect-verify"
+diff -r "${WORK:?}/protect-source" "${WORK:?}/protect-verify"
 ```
 Expect differences only in the documented exclusions below.
 
@@ -143,7 +143,7 @@ Expect differences only in the documented exclusions below.
 The work directory holds credentials in cleartext until you remove it. When the user has verified the migration and confirms, remove it:
 
 ```bash
-rm -rf -- "$WORK"
+rm -rf -- "${WORK:?}"
 ```
 
 Keep it only if the user asks to keep the target snapshot as an undo. Then tell them its path and that it holds credentials.
