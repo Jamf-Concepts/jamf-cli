@@ -80,14 +80,14 @@ func (c *categoryUsage) countedSource(source string) {
 }
 
 func (c *categoryUsage) failedSource(source string, err error) {
-	fmt.Fprintf(os.Stderr, "WARNING: category usage: %s: %v\n", source, err)
+	fmt.Fprintf(os.Stderr, "WARNING: category usage: %s: %v\n", source, termSafe(err))
 	c.mu.Lock()
 	c.failed = append(c.failed, source)
 	c.mu.Unlock()
 }
 
 func (c *categoryUsage) skip(source, id string, err error) {
-	fmt.Fprintf(os.Stderr, "WARNING: category usage: %s %s detail: %v\n", source, id, err)
+	fmt.Fprintf(os.Stderr, "WARNING: category usage: %s %s detail: %v\n", source, termSafe(id), termSafe(err))
 	c.mu.Lock()
 	c.skipped++
 	c.mu.Unlock()

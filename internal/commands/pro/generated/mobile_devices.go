@@ -880,7 +880,7 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
 					}
 					return nil
 				}
@@ -904,7 +904,7 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v2/mobile-devices/{id}/erase", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -913,14 +913,14 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"erase\" on mobile-device %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Ran \"erase\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -973,9 +973,9 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %q (id: %s)\n", resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %s\n", termSafe(resolvedID))
 				}
 				return nil
 			}
@@ -985,9 +985,9 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will run \"erase\" on mobile-device %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"erase\" on mobile-device %q (id: %s). Type 'yes' to confirm: ", resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will run \"erase\" on mobile-device %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"erase\" on mobile-device %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -1394,7 +1394,7 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
 					}
 					return nil
 				}
@@ -1418,7 +1418,7 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v2/mobile-devices/{id}/unmanage", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1427,14 +1427,14 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"unmanage\" on mobile-device %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Ran \"unmanage\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -1487,9 +1487,9 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %q (id: %s)\n", resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %s\n", termSafe(resolvedID))
 				}
 				return nil
 			}
@@ -1499,9 +1499,9 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will run \"unmanage\" on mobile-device %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"unmanage\" on mobile-device %q (id: %s). Type 'yes' to confirm: ", resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will run \"unmanage\" on mobile-device %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will run \"unmanage\" on mobile-device %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				}
 				var confirm string
 				fmt.Scanln(&confirm)

@@ -133,7 +133,7 @@ func newSchoolClassesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				if createErr != nil {
 					return createErr
 				}
-				fmt.Fprintf(os.Stderr, "Created class %q (UUID: %s)\n", input.Name, newUUID)
+				fmt.Fprintf(os.Stderr, "Created class %q (UUID: %s)\n", input.Name, termSafe(newUUID))
 				item, getErr := cliCtx.SchoolClient.GetClass(ctx, newUUID)
 				if getErr != nil {
 					return nil // created successfully, just can't fetch back

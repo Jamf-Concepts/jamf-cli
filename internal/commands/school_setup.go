@@ -143,11 +143,11 @@ portal (account.jamf.com).`,
 			_, _ = fmt.Fprintf(w, "\nProfile %q saved and set as default.\n", setupProfile)
 			_, _ = fmt.Fprintf(w, "  Product:       Jamf School\n")
 			_, _ = fmt.Fprintf(w, "  URL:           %s\n", setupURL)
-			_, _ = fmt.Fprintf(w, "  Network ID:    %s\n", networkID)
+			_, _ = fmt.Fprintf(w, "  Network ID:    %s\n", termSafe(networkID))
 			_, _ = fmt.Fprintln(w, "  API key stored in system keychain")
 			if prof.PlatformURL != "" {
 				_, _ = fmt.Fprintf(w, "  Platform URL:  %s\n", prof.PlatformURL)
-				_, _ = fmt.Fprintf(w, "  Tenant ID:     %s\n", prof.TenantID)
+				_, _ = fmt.Fprintf(w, "  Tenant ID:     %s\n", termSafe(prof.TenantID))
 				_, _ = fmt.Fprintln(w, "  Platform credentials stored in system keychain")
 				_, _ = fmt.Fprintln(w, "  Blueprints and DDM report commands are enabled.")
 			}

@@ -470,7 +470,7 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 			updatePath := strings.Replace({{printf "%q" .UpdatePath}}, {{goStr (print "{" .UpdateParam "}")}}, url.PathEscape(id), 1)
 			if cliCtx.DryRun {
-				fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "[dry-run] Would update " .NameSingular " %q (id: %s)\n")}}, name, id)
+				fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "[dry-run] Would update " .NameSingular " %q (id: %s)\n")}}, name, platform.TermSafe(id))
 				return platform.ReportDryRun(cmd.ErrOrStderr(), {{methodConstant .UpdateMethod}}, updatePath, body)
 			}
 			// Confirmed because this overwrites something that already exists,
@@ -492,7 +492,7 @@ func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .UpdateMethod}}, updatePath, body, {{if .UpdateMergePatch}}"application/merge-patch+json"{{else}}"application/json"{{end}}, {{statusConstant .UpdateCode}}, {{if .UpdateHasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf({{goStr (print "apply: updating " .NameSingular " %q (id: %s): %w")}}, name, id, err)
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "Updated " .NameSingular " %q (id: %s)\n")}}, name, id)
+			fmt.Fprintf(cmd.ErrOrStderr(), {{goStr (print "Updated " .NameSingular " %q (id: %s)\n")}}, name, platform.TermSafe(id))
 {{- if .UpdateHasResult }}
 			if result == nil {
 				return nil

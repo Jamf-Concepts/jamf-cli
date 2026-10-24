@@ -106,7 +106,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 					if noInput {
 						return fmt.Errorf("package %q already exists (id %s); use --yes to replace when --no-input is set", fileName, pkgID)
 					}
-					fmt.Fprintf(os.Stderr, "Package %q already exists (id %s). Replace? Type 'yes' to confirm: ", fileName, pkgID)
+					fmt.Fprintf(os.Stderr, "Package %q already exists (id %s). Replace? Type 'yes' to confirm: ", termSafe(fileName), termSafe(pkgID))
 					var confirm string
 					_, _ = fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -121,7 +121,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 					prev.md5, _ = data["md5"].(string)
 				}
 
-				fmt.Fprintf(os.Stderr, "Updating existing package (id %s)\n", pkgID)
+				fmt.Fprintf(os.Stderr, "Updating existing package (id %s)\n", termSafe(pkgID))
 			} else {
 				// 4. Create package metadata
 				fmt.Fprintf(os.Stderr, "Creating package record...\n")
@@ -129,7 +129,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 				if err != nil {
 					return fmt.Errorf("creating package: %w", err)
 				}
-				fmt.Fprintf(os.Stderr, "Created package (id %s)\n", pkgID)
+				fmt.Fprintf(os.Stderr, "Created package (id %s)\n", termSafe(pkgID))
 			}
 
 			// 5. Upload the binary
@@ -151,7 +151,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 					return fmt.Errorf("upload verification failed: %w", err)
 				}
 				// Timeout is non-fatal — server may still be processing
-				fmt.Fprintf(os.Stderr, "WARNING: %v\n", err)
+				fmt.Fprintf(os.Stderr, "WARNING: %v\n", termSafe(err))
 				fmt.Fprintf(os.Stderr, "The file was uploaded. The server may still be processing.\n")
 			} else {
 				fmt.Fprintf(os.Stderr, "Verified: server hash matches local hash\n")
@@ -163,7 +163,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 				data, err = fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID)))
 				if err != nil {
 					// Non-fatal: upload succeeded, just can't show final state
-					fmt.Fprintf(os.Stderr, "Package uploaded successfully (id %s)\n", pkgID)
+					fmt.Fprintf(os.Stderr, "Package uploaded successfully (id %s)\n", termSafe(pkgID))
 					return nil
 				}
 			}
@@ -391,7 +391,7 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 			return nil, fmt.Errorf("distribution point reports the transfer of %s as ERROR", fileName)
 		}
 		if status != "" && status != "READY" {
-			fmt.Fprintf(os.Stderr, "  waiting for transfer (%s)...\n", status)
+			fmt.Fprintf(os.Stderr, "  waiting for transfer (%s)...\n", termSafe(status))
 			continue
 		}
 

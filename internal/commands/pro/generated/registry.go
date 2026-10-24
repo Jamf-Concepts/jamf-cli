@@ -26,8 +26,15 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// termSafe renders v for a stderr line a human reads, with the control
+// characters of a server-supplied id or error made visible.
+func termSafe(v any) string {
+	return output.SanitizeTerminal(fmt.Sprint(v))
+}
 
 // RegisterCommands registers all generated resource commands
 func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
@@ -372,7 +379,7 @@ func pickMatchingID(ids []string, name string, noInput bool) (string, error) {
 	}
 	fmt.Fprintf(os.Stderr, "Multiple resources found matching %q:\n", name)
 	for i, id := range ids {
-		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, id)
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, termSafe(id))
 	}
 	fmt.Fprintf(os.Stderr, "Enter number to select (or 0 to cancel): ")
 	var choice int

@@ -2495,7 +2495,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, e.id)
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, termSafe(e.id))
 					}
 					return nil
 				}
@@ -2519,7 +2519,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: %v\n") }}, e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: %v\n") }}, e.label, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2528,14 +2528,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: HTTP %d\n") }}, e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: HTTP %d\n") }}, e.label, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, e.id)
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, termSafe(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -2561,7 +2561,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				noInputGrp, _ := cmd.Flags().GetBool("no-input")
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " id: %s (from group %q)\n") }}, e.id, flagGroup)
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " id: %s (from group %q)\n") }}, termSafe(e.id), flagGroup)
 					}
 					return nil
 				}
@@ -2585,7 +2585,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: %v\n") }}, e.id, err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: %v\n") }}, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2594,14 +2594,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: HTTP %d\n") }}, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " id %s failed: HTTP %d\n") }}, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " id: %s\n") }}, e.id)
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " id: %s\n") }}, termSafe(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -2717,9 +2717,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, termSafe(resolvedID))
 				}
 				return nil
 			}
@@ -2729,9 +2729,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %q (id: %s). Type 'yes' to confirm: ") }}, resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %q (id: %s). Type 'yes' to confirm: ") }}, resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %s. Type 'yes' to confirm: ") }}, resolvedID)
+					fmt.Fprintf(os.Stderr, {{ goStr (print "⚠️  This will " (actionPhrase .) " " $.NameSingular " %s. Type 'yes' to confirm: ") }}, termSafe(resolvedID))
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -3579,7 +3579,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf({{ goStr (print "create succeeded (id %s) but applying body fields failed: %w\nthe " .NameSingular " exists but is unnamed; to recover run: jamf-cli pro " .CmdPath " update %s --from-file <body.json>") }}, newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
-				fmt.Fprintf(os.Stderr, {{ goStr (print "Created " .NameSingular " %q (id: %s)\n") }}, name, newID)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Created " .NameSingular " %q (id: %s)\n") }}, name, termSafe(newID))
 				return ctx.Output.PrintResponse(bodyResp)
 {{- else }}
 {{- if .HasVersionLock }}
@@ -3597,14 +3597,14 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would replace " .NameSingular " %q (id: %s)\n") }}, name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would replace " .NameSingular " %q (id: %s)\n") }}, name, termSafe(id))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf({{ goStr (print .NameSingular " %q already exists (id: %s); use --yes to replace when --no-input is set") }}, name, id)
 				}
-				fmt.Fprintf(os.Stderr, {{ goStr (print .NameSingular " %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ") }}, name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print .NameSingular " %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ") }}, name, termSafe(id))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -3636,7 +3636,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(data) == 0 && tokenResp != nil {
 				// Only the token was replaced — return its response.
 				defer tokenResp.Body.Close()
-				fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " token %q (id: %s)\n") }}, name, id)
+				fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " token %q (id: %s)\n") }}, name, termSafe(id))
 				return ctx.Output.PrintResponse(tokenResp)
 			}
 			if tokenResp != nil {
@@ -3651,7 +3651,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " %q (id: %s)\n") }}, name, id)
+			fmt.Fprintf(os.Stderr, {{ goStr (print "Replaced " .NameSingular " %q (id: %s)\n") }}, name, termSafe(id))
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -3728,8 +3728,15 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// termSafe renders v for a stderr line a human reads, with the control
+// characters of a server-supplied id or error made visible.
+func termSafe(v any) string {
+	return output.SanitizeTerminal(fmt.Sprint(v))
+}
 
 // RegisterCommands registers all generated resource commands
 func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
@@ -3936,7 +3943,7 @@ func pickMatchingID(ids []string, name string, noInput bool) (string, error) {
 	}
 	fmt.Fprintf(os.Stderr, "Multiple resources found matching %q:\n", name)
 	for i, id := range ids {
-		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, id)
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, termSafe(id))
 	}
 	fmt.Fprintf(os.Stderr, "Enter number to select (or 0 to cancel): ")
 	var choice int

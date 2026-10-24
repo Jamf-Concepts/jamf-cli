@@ -66,7 +66,7 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 	// arrays into one --out-file, which jq rejects at the second.
 	policyRows, policyErr := runReportPatchPolicyFailures(ctx, client)
 	if policyErr != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", policyErr)
+		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", termSafe(policyErr))
 	}
 
 	// An empty list prints [], never null. Both are nil on a tenant with no
@@ -85,7 +85,7 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 		deviceErr = devErr
 		switch {
 		case devErr != nil:
-			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch device-level failures: %v\n", devErr)
+			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch device-level failures: %v\n", termSafe(devErr))
 		case len(raw) > 0:
 			lookup := fetchUpdateDeviceLookup(ctx, client)
 			for i, row := range raw {
@@ -146,7 +146,7 @@ func fetchPatchDeviceFailures(ctx context.Context, client registry.HTTPClient, p
 		path := fmt.Sprintf("/v2/patch-policies/%s/logs", policyID)
 		logs, err := FetchAllPaginated(ctx, client, path, 200)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch logs for policy %s: %v\n", policyID, err)
+			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch logs for policy %s: %v\n", termSafe(policyID), termSafe(err))
 			continue
 		}
 
