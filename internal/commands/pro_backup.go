@@ -22,7 +22,10 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
+	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/safewrite"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
@@ -89,7 +92,16 @@ _failures.yaml and the backup continues.
 "packages" resource, saved to packages/files/. Only packages hosted on the
 Jamf Cloud Distribution Service (JCDS) can be downloaded this way — packages
 on other distribution points (on-prem file share, third-party cloud) have no
-reliable download path and are skipped with a warning.`,
+reliable download path and are skipped with a warning.
+
+The backup holds credentials in cleartext — SMTP and LDAP server passwords,
+distribution point passwords, policy account passwords, configuration profile
+payload secrets — because Jamf Pro returns them in full and they are not
+redacted. Every file is written 0600 and every directory the run creates 0700,
+and the run ends with a warning naming each resource that carried one. The
+warning reads credential-named fields and profile payloads only, not scripts or
+other free text, so a resource it does not name is not proven clean. Review the
+backup before committing the directory to version control.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBackup(cmd.Context(), cliCtx, backupOptions{
 				OutputDir:        outputDir,
@@ -244,6 +256,9 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 
 	var failures []backupFailure
 	totalExported := 0
+	credentials := credentialResources{}
+	// Deferred so an error return part-way through still names what is on disk.
+	defer credentials.warn(opts.OutputDir)
 
 	// packageFilenames collects the "filename" field of every exported package
 	// object so --download-packages can attempt a JCDS download after the
@@ -253,7 +268,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 	for _, def := range defs {
 		// Create output subdirectory
 		subDir := filepath.Join(opts.OutputDir, def.SubDir)
-		if err := os.MkdirAll(subDir, 0o755); err != nil {
+		if err := os.MkdirAll(subDir, backupDirMode); err != nil {
 			return fmt.Errorf("creating directory %s: %w", subDir, err)
 		}
 
@@ -337,7 +352,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 			slug = DeduplicateSlug(slug, slugSeen)
 
 			outPath := filepath.Join(subDir, slug+ext)
-			if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+			if err := writeBackupObject(outPath, obj, opts.Format, def.FilterName, credentials); err != nil {
 				failures = append(failures, backupFailure{
 					Resource: def.FilterName,
 					Path:     outPath,
@@ -380,12 +395,12 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 	// Platform resources (blueprints, compliance-benchmarks) via SDK
 	if cliCtx.PlatformSDKClient != nil {
 		if wantFilter("blueprints") {
-			n, errs := backupBlueprints(ctx, cliCtx, opts, newMeta)
+			n, errs := backupBlueprints(ctx, cliCtx, opts, newMeta, credentials)
 			totalExported += n
 			failures = append(failures, errs...)
 		}
 		if wantFilter("compliance-benchmarks") {
-			n, errs := backupBenchmarks(ctx, cliCtx, opts, newMeta)
+			n, errs := backupBenchmarks(ctx, cliCtx, opts, newMeta, credentials)
 			totalExported += n
 			failures = append(failures, errs...)
 		}
@@ -602,7 +617,89 @@ func writeBackupFile(path string, data any, format string) error {
 		}
 	}
 
-	return os.WriteFile(path, content, 0o644)
+	return safewrite.File(path, content, backupFileMode)
+}
+
+// A backup holds credentials in cleartext, so nothing it writes is readable by
+// another local user.
+const (
+	backupFileMode os.FileMode = 0o600
+	backupDirMode  os.FileMode = 0o700
+)
+
+// writeBackupObject writes one exported object and records whether it carried a
+// credential, so no resource can be written without being considered for the
+// end-of-run warning.
+func writeBackupObject(path string, obj map[string]any, format, resource string, credentials credentialResources) error {
+	if err := writeBackupFile(path, obj, format); err != nil {
+		return err
+	}
+	credentials.note(resource, obj)
+	return nil
+}
+
+// credentialResources is the set of resource filter names whose exported
+// objects carried a credential, reported once at the end of the run.
+type credentialResources map[string]bool
+
+func (c credentialResources) note(resource string, obj any) {
+	if !c[resource] && backupCarriesCredential(obj) {
+		c[resource] = true
+	}
+}
+
+func (c credentialResources) warn(outputDir string) {
+	if len(c) == 0 {
+		return
+	}
+	names := make([]string, 0, len(c))
+	for n := range c {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	fmt.Fprintf(os.Stderr, "\nWARNING: %d resource(s) carry credentials in cleartext and were written 0600:\n", len(names))
+	for _, n := range names {
+		fmt.Fprintf(os.Stderr, "  %s\n", n)
+	}
+	fmt.Fprintln(os.Stderr, "The check reads credential-named fields and profile payloads only; scripts and other free text are not inspected.")
+	fmt.Fprintf(os.Stderr, "Review these before committing %s to version control\n", outputDir)
+}
+
+// backupCarriesCredential reports whether v holds a non-empty string under a
+// credential-named key at any depth, or a configuration profile payload holding
+// a secret.
+func backupCarriesCredential(v any) bool {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, child := range t {
+			if s, ok := child.(string); ok && s != "" {
+				if redact.IsCredentialName(k) {
+					return true
+				}
+				if k == "payloads" && payloadsCarrySecret(s) {
+					return true
+				}
+				continue
+			}
+			if backupCarriesCredential(child) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range t {
+			if backupCarriesCredential(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// payloadsCarrySecret reports whether a profile plist has a secret to redact;
+// one that does not parse is assumed to carry one.
+func payloadsCarrySecret(profile string) bool {
+	out, err := profileconvert.RedactPayloadSecrets([]byte(profile))
+	return err != nil || string(out) != profile
 }
 
 // blockLiteralFieldNames lists the field names whose string values are forced
@@ -707,7 +804,7 @@ func normalizeViaJSON(v any) (map[string]any, error) {
 // dataset in one request — there is no paginated JSON list+get for this resource.
 func backupInventoryPreloadCSV(ctx context.Context, client registry.HTTPClient, opts backupOptions) (int, []backupFailure) {
 	subDir := filepath.Join(opts.OutputDir, "inventory-preloads")
-	if err := os.MkdirAll(subDir, 0o755); err != nil {
+	if err := os.MkdirAll(subDir, backupDirMode); err != nil {
 		return 0, []backupFailure{{Resource: "inventory-preloads", Path: subDir, Error: err.Error()}}
 	}
 
@@ -728,7 +825,7 @@ func backupInventoryPreloadCSV(ctx context.Context, client registry.HTTPClient, 
 	}
 
 	outPath := filepath.Join(subDir, "inventory-preload-all.csv")
-	if err := os.WriteFile(outPath, data, 0o644); err != nil {
+	if err := safewrite.File(outPath, data, backupFileMode); err != nil {
 		return 0, []backupFailure{{Resource: "inventory-preloads", Path: outPath, Error: err.Error()}}
 	}
 	return 1, nil
@@ -755,7 +852,7 @@ func backupPackageFiles(ctx context.Context, client registry.HTTPClient, opts ba
 	}
 
 	filesDir := filepath.Join(opts.OutputDir, "packages", "files")
-	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+	if err := os.MkdirAll(filesDir, backupDirMode); err != nil {
 		return 0, []backupFailure{{Resource: "packages", Path: filesDir, Error: err.Error()}}
 	}
 
@@ -802,7 +899,7 @@ func backupPackageFiles(ctx context.Context, client registry.HTTPClient, opts ba
 }
 
 // backupBlueprints exports all blueprints via the Platform SDK.
-func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions, newMeta func(string) backupMeta) (int, []backupFailure) {
+func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions, newMeta func(string) backupMeta, credentials credentialResources) (int, []backupFailure) {
 	bp := blueprints.New(cliCtx.PlatformSDKClient)
 	ext := ".yaml"
 	if opts.Format == "json" {
@@ -810,7 +907,7 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 	}
 
 	subDir := filepath.Join(opts.OutputDir, "blueprints")
-	if err := os.MkdirAll(subDir, 0o755); err != nil {
+	if err := os.MkdirAll(subDir, backupDirMode); err != nil {
 		return 0, []backupFailure{{Resource: "blueprints", Path: subDir, Error: err.Error()}}
 	}
 
@@ -841,7 +938,7 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		slug = DeduplicateSlug(slug, slugSeen)
 
 		outPath := filepath.Join(subDir, slug+ext)
-		if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+		if err := writeBackupObject(outPath, obj, opts.Format, "blueprints", credentials); err != nil {
 			failures = append(failures, backupFailure{Resource: "blueprints", Path: outPath, Error: err.Error()})
 			continue
 		}
@@ -852,7 +949,7 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 }
 
 // backupBenchmarks exports all compliance benchmarks via the Platform SDK.
-func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions, newMeta func(string) backupMeta) (int, []backupFailure) {
+func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions, newMeta func(string) backupMeta, credentials credentialResources) (int, []backupFailure) {
 	cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
 	ext := ".yaml"
 	if opts.Format == "json" {
@@ -860,7 +957,7 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 	}
 
 	subDir := filepath.Join(opts.OutputDir, "compliance-benchmarks")
-	if err := os.MkdirAll(subDir, 0o755); err != nil {
+	if err := os.MkdirAll(subDir, backupDirMode); err != nil {
 		return 0, []backupFailure{{Resource: "compliance-benchmarks", Path: subDir, Error: err.Error()}}
 	}
 
@@ -895,7 +992,7 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		slug = DeduplicateSlug(slug, slugSeen)
 
 		outPath := filepath.Join(subDir, slug+ext)
-		if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+		if err := writeBackupObject(outPath, obj, opts.Format, "compliance-benchmarks", credentials); err != nil {
 			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: outPath, Error: err.Error()})
 			continue
 		}
