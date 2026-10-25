@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha3"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -291,6 +292,40 @@ func TestVerifyPackageUpload_StrongestHashDecides(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestVerifyPackageUpload_UnverifiedWhenREADYAtTheRightSize covers a package
+// Jamf Pro never hashes: it must be reported unverified shortly after READY at
+// the new size, not after the full verify timeout.
+func TestVerifyPackageUpload_UnverifiedWhenREADYAtTheRightSize(t *testing.T) {
+	tests := []struct {
+		name     string
+		prev     previousHashes
+		wantText string
+	}{
+		{"create", previousHashes{}, "computed no hash"},
+		{"replace, old hash cleared", previousHashes{sha3: "bbbb2222", size: "99"}, "cleared or left stale"},
+		{"replace, identical size", previousHashes{size: "123"}, "identical size"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			withFastVerifyPoll(t)
+			verifyGrace = 30 * time.Millisecond
+			t.Cleanup(func() { verifyGrace = 45 * time.Second })
+			srv := newPkgVerifyServer([]string{""})
+			defer srv.close()
+
+			start := time.Now()
+			_, err := verifyPackageUpload(context.Background(), srv, "702", "x.pkg", fileHashes{sha3: "aaaa1111", size: 123}, tc.prev)
+			var un *errUnverified
+			if !errors.As(err, &un) || !strings.Contains(err.Error(), tc.wantText) {
+				t.Fatalf("error = %v, want *errUnverified containing %q", err, tc.wantText)
+			}
+			if time.Since(start) > time.Second {
+				t.Errorf("took %v: the grace must end the wait, not the verify timeout", time.Since(start))
 			}
 		})
 	}
