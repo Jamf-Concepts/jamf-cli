@@ -41,6 +41,15 @@ A `Retry-After` header now waits at most 60 seconds, on these clients and on the
 client. A huge value made the CLI sleep until killed. A negative value on the Pro client now
 falls back to the normal backoff rather than retrying at once.
 
+### Behaviour — `mcp serve` refuses API role and integration writes and the supervision identity download
+
+`run_command` now refuses `create`, `update` and `apply` on `pro api-roles` and `pro
+api-integrations`. Those writes let the connected model give the API integration it runs as
+more privileges than the operator granted, for example by adding privileges to the integration's
+role or binding the integration to an admin role. It also refuses `pro supervision-identities
+download`, which prints the identity's .p12, including the private key. `get`, `list` and
+`delete` still run. Make these changes outside `mcp serve`.
+
 ### Behaviour — `config validate` reports credentials as `set`
 
 `config validate` reported `pass` for a credential once its `keychain:`, `env:` or `file:`

@@ -119,16 +119,17 @@ cloud-distribution-point create` and `patch` (a CloudFront private key),
 the commands that set a Jamf Pro login password (`pro
 jamf-pro-user-account-settings change-password`, `pro accounts create`,
 `update`, `apply`), the writes that change who can log in to a Jamf product
-(`create`, `update` and, where it exists, `apply` on `pro
-classic-account-users`, `classic-account-groups`, `classic-ldap-servers`,
-`cloud-ldap` and `cloud-azure`, and `cloud-ldap update-mappings`; `update` on
+(`create`, `update` and, where it exists, `apply` on `pro api-roles`,
+`api-integrations`, `classic-account-users`, `classic-account-groups`,
+`classic-ldap-servers`, `cloud-ldap` and `cloud-azure`, and `cloud-ldap update-mappings`; `update` on
 `pro classic-smtp-server` and `smtp-server`; `pro sso-settings` `update`,
 `disable`, `cert create` and `cert update` and `oidc-broker-config update`,
 and `create` and `update` under `pro sso-settings-cert`; `platform
 sso-connections` `create` and `update`; `apply` on `protect users`, `groups`
 and `roles` and on `school users` and `groups`; and `protect restore`),
 `protect downloads csr` and `websocket-auth` (they write a
-.p12 into the server's directory), `protect action-configs export`, every
+.p12 into the server's directory), `pro supervision-identities download` (it
+prints a .p12), `protect action-configs export`, every
 `setup`, both `backup` commands and jcds `sync`; and `pro diff` against anything
 but the pinned profile. `config show` runs with every credential field shown as
 `<redacted>`, and so do the report-client header values and URL userinfo and

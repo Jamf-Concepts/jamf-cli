@@ -115,8 +115,9 @@ spelling. It refuses:
     create', 'update' and 'apply', which set a Jamf Pro login password to a
     value the model chose
   - the writes that change who can log in to a Jamf product: 'create', 'update'
-    and, where it exists, 'apply' on 'pro classic-account-users',
-    'classic-account-groups', 'classic-ldap-servers', 'cloud-ldap' (and its
+    and, where it exists, 'apply' on 'pro api-roles', 'api-integrations',
+    'classic-account-users', 'classic-account-groups', 'classic-ldap-servers',
+    'cloud-ldap' (and its
     'update-mappings') and 'cloud-azure'; 'update' on 'pro
     classic-smtp-server' and 'smtp-server', which deliver password
     resets; 'pro sso-settings update', 'disable',
@@ -130,6 +131,8 @@ spelling. It refuses:
     client's header values, the SIEM or webhook credential, verbatim
   - 'protect downloads csr' and 'websocket-auth', which write the tenant's
     .p12 key material into the directory this server was started in
+  - 'pro supervision-identities download', which prints a supervision
+    identity's .p12 and its private key
   - any flag naming a profile, URL, token, tenant, environment or output file
   - any flag whose value is a local path: --from-file, --file, --script-file,
     --mobileconfig-file, --appconfig-file, --custom-payload-file, --body-file,
@@ -264,7 +267,7 @@ value is an error; there is no config key for it.`,
 					"CloudFront private key), the commands that set a Jamf Pro login password " +
 					"('pro jamf-pro-user-account-settings change-password', 'pro accounts " +
 					"create', 'update', 'apply'), " + loginAuthorityToolNote + ", " +
-					"'protect downloads csr' and 'websocket-auth', " +
+					keyMaterialToolNote + ", " +
 					"'protect action-configs export', " +
 					"every 'setup', the backup commands and jcds sync; and " +
 					"'pro diff' against anything but this server's profile or a directory the " +
@@ -594,12 +597,20 @@ var blockedChildFlagPrefixes = []string{
 // TestMCPPolicyTexts_NameEveryLoginAuthorityRefusal holds it, the `mcp serve`
 // help and agent_context.md to that list.
 const loginAuthorityToolNote = "the writes that change who can log in to a Jamf product (create, " +
-	"update and, where it exists, apply on 'pro classic-account-users', 'classic-account-groups', " +
+	"update and, where it exists, apply on 'pro api-roles', 'api-integrations', " +
+	"'classic-account-users', 'classic-account-groups', " +
 	"'classic-ldap-servers', 'cloud-ldap' and 'cloud-azure', and 'cloud-ldap update-mappings'; " +
 	"'pro classic-smtp-server' and 'smtp-server' update; 'pro sso-settings' update, disable, " +
 	"cert create and update, and oidc-broker-config update, and 'pro sso-settings-cert' create " +
 	"and update; 'platform sso-connections' create and update; apply on 'protect users', " +
 	"'groups' and 'roles' and on 'school users' and 'groups'; and 'protect restore')"
+
+// keyMaterialToolNote is the run_command description's account of the
+// refusedWritesKeyMaterial and refusedPrintsKeyMaterial entries in
+// mcpRefusedCommands; TestMCPPolicyTexts_NameEveryKeyMaterialRefusal holds it,
+// the `mcp serve` help and agent_context.md to that list.
+const keyMaterialToolNote = "'protect downloads csr' and 'websocket-auth' (they write a .p12 " +
+	"into the server's directory), 'pro supervision-identities download' (it prints a .p12)"
 
 // payloadRedactionToolNote is the run_command description's account of
 // profileconvert.SecretPayloadKeySuffixes; TestMCPPolicyTexts_NameEveryPayloadSecretSuffix
@@ -667,6 +678,12 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli pro accounts create", refusedSetsLoginPassword},
 	{"jamf-cli pro accounts update", refusedSetsLoginPassword},
 	{"jamf-cli pro accounts apply", refusedSetsLoginPassword},
+	{"jamf-cli pro api-roles create", refusedChangesLoginAuthority},
+	{"jamf-cli pro api-roles update", refusedChangesLoginAuthority},
+	{"jamf-cli pro api-roles apply", refusedChangesLoginAuthority},
+	{"jamf-cli pro api-integrations create", refusedChangesLoginAuthority},
+	{"jamf-cli pro api-integrations update", refusedChangesLoginAuthority},
+	{"jamf-cli pro api-integrations apply", refusedChangesLoginAuthority},
 	{"jamf-cli pro classic-account-users create", refusedChangesLoginAuthority},
 	{"jamf-cli pro classic-account-users update", refusedChangesLoginAuthority},
 	{"jamf-cli pro classic-account-groups create", refusedChangesLoginAuthority},
@@ -698,6 +715,7 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli protect restore", refusedChangesLoginAuthority},
 	{"jamf-cli protect downloads csr", refusedWritesKeyMaterial},
 	{"jamf-cli protect downloads websocket-auth", refusedWritesKeyMaterial},
+	{"jamf-cli pro supervision-identities download", refusedPrintsKeyMaterial},
 	{"jamf-cli protect api-clients apply", refusedMintsProtectPassword},
 	{"jamf-cli protect action-configs export", refusedExportsHeaders},
 	{"jamf-cli pro setup", refusedPicksTarget},
@@ -723,8 +741,9 @@ const (
 	refusedMintsProtectPassword  = "creating an API client mints a new password and prints it, a credential that works outside this server until the client is deleted"
 	refusedPrintsCDNKey          = "its response carries the CloudFront private key that signs download URLs, a credential that works outside this server"
 	refusedSetsLoginPassword     = "it sets a Jamf Pro login password to a value the model chose, a credential that works outside this server"
-	refusedChangesLoginAuthority = "it changes who can log in to a Jamf product or what that login may do: an account or user, a group or role, a directory or identity provider, single sign-on, or the mail server that delivers password resets, so the model could grant itself a login that works outside this server"
+	refusedChangesLoginAuthority = "it changes who can log in to a Jamf product or what that login may do: an account or user, a group or role, an API role or the integration bound to it, a directory or identity provider, single sign-on, or the mail server that delivers password resets, so the model could grant itself a login that works outside this server or raise the privileges of the API integration this server runs as"
 	refusedWritesKeyMaterial     = "it writes the tenant's .p12 key material into the directory this server was started in, under a fixed name that replaces any file already there"
+	refusedPrintsKeyMaterial     = "it prints the supervision identity's .p12, the private key Apple Configurator pairs with and supervises the tenant's devices with, which works outside this server"
 	refusedExportsHeaders        = "its document carries each report client's header values verbatim (the SIEM or webhook bearer token), and a redacted copy would overwrite the real credential when applied; 'protect action-configs get' shows the configuration with them redacted"
 )
 
