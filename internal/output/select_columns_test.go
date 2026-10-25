@@ -56,3 +56,29 @@ func TestPrint_SelectNamesPathThatMatchedNothing(t *testing.T) {
 		t.Errorf("want a note naming the mistyped path, got %q", stderr.String())
 	}
 }
+
+func TestColumnKeys_FollowSelectOrder(t *testing.T) {
+	rows := []map[string]any{{"name": "a", "serial": "s", "general.users": "u", "general.site": "x"}}
+	for _, format := range []string{"csv", "plain"} {
+		f, out := newTestFormatter(format)
+		f.SetProjector(Projector{Select: []string{"name", "serial", "general.users"}})
+		if err := f.Print(rows); err != nil {
+			t.Fatal(err)
+		}
+		got := out.String()
+		if format == "csv" && !strings.HasPrefix(got, "name,serial,general.users\n") {
+			t.Errorf("csv header must follow --select order, got %q", got)
+		}
+		if format == "plain" && strings.TrimSpace(got) != "a\ts\tu" {
+			t.Errorf("plain columns must follow --select order, got %q", got)
+		}
+	}
+}
+
+func TestOrderBySelect_ObjectPathKeepsItsKeysTogetherAndDedupes(t *testing.T) {
+	got := orderBySelect([]string{"a", "g.x", "g.y", "z"}, []string{"z", "g", "z"})
+	want := []string{"z", "g.x", "g.y", "a"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}

@@ -889,7 +889,8 @@ func keyPriority(key string) int {
 	return 2
 }
 
-// columnKeys returns the column set for rows, in sortedKeys' order.
+// columnKeys returns the column set for rows, in sortedKeys' order, or in
+// --select's own order when one is set.
 //
 // Row 0 alone decides it without a projector, which is the documented
 // convention and keeps every existing table byte-identical.
@@ -914,7 +915,39 @@ func (f *Formatter) columnKeys(rows []map[string]any) []string {
 			union[k] = nil
 		}
 	}
-	return sortedKeys(union)
+	keys := sortedKeys(union)
+	if paths := cleanPaths(f.projector.Select); len(paths) > 0 {
+		return orderBySelect(keys, paths)
+	}
+	return keys
+}
+
+// orderBySelect puts keys in the order --select named them, so a column list
+// reads the way it was asked for and a consumer reading columns by position
+// gets the one it expects. A path that names an object contributes its
+// flattened keys together, in sortedKeys' order. Duplicate paths place a key
+// once, and a key no path claims follows.
+func orderBySelect(keys, paths []string) []string {
+	ordered := make([]string, 0, len(keys))
+	placed := make(map[string]bool, len(keys))
+	place := func(k string) {
+		if !placed[k] {
+			placed[k] = true
+			ordered = append(ordered, k)
+		}
+	}
+	for _, path := range paths {
+		prefix := path + "."
+		for _, k := range keys {
+			if k == path || strings.HasPrefix(k, prefix) {
+				place(k)
+			}
+		}
+	}
+	for _, k := range keys {
+		place(k)
+	}
+	return ordered
 }
 
 // sortedKeys returns map keys in deterministic order:
