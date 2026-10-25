@@ -171,6 +171,7 @@ func TestMCP_RefusesCommandsWhoseOutputIsACredential(t *testing.T) {
 		{[]string{"pro", "ai", "client-credentials", "--name", "x"}, "client secret"},
 		{[]string{"protect", "api-clients", "apply"}, "password"},
 		{[]string{"-o", "json", "protect", "apic", "apply"}, "password"},
+		{[]string{"pro", "supervision-identities", "download", "1"}, ".p12"},
 	} {
 		_, err := buildChildArgs("prod", tc.args)
 		if !isMCPRefusal(err) {
