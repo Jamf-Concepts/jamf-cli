@@ -490,3 +490,5 @@ func TestClassicList_NDJSON_PerRecord(t *testing.T) {
 		}
 	}
 }
+
+func (o *ndjsonOutput) SelectPaths() []string { return nil }

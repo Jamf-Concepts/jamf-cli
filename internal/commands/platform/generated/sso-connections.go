@@ -72,7 +72,7 @@ func newSsoConnectionsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "type", Label: "type"},
 				{Field: "region", Label: "region"},
 				{Field: "domains", Label: "domains"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

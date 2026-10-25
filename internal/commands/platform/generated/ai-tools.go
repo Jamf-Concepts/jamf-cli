@@ -68,7 +68,7 @@ func newAiToolsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "id", Label: "id"},
 				{Field: "displayName", Label: "displayName"},
 				{Field: "schemaVersion", Label: "schemaVersion"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

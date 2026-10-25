@@ -295,6 +295,7 @@ func (mockOutput) PrintResponse(_ *http.Response) error { return nil }
 func (mockOutput) PrintRaw(_ []byte) error              { return nil }
 func (mockOutput) PrintBytes(_ []byte) error            { return nil }
 func (mockOutput) Format() string                       { return "json" }
+func (mockOutput) SelectPaths() []string                { return nil }
 func (mockOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }

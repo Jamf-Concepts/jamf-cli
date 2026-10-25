@@ -2970,7 +2970,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				{{- range $.TableColumns }}
 					{field: {{ goStr (.Field) }}, label: {{ goStr (.Label) }}},
 				{{- end }}
-				}, ctx.Output.Format())
+				}, ctx.Output.Format(), ctx.Output.SelectPaths())
 {{- end }}
 				return ctx.Output.PrintRaw(combined)
 			}
@@ -4958,7 +4958,7 @@ type tableColumn struct {
 // selectTableColumns transforms a JSON array to include only the specified
 // columns with display labels. Only applies for table/csv/plain formats;
 // JSON/YAML output is returned unchanged.
-func selectTableColumns(data []byte, columns []tableColumn, format string) []byte {
+func selectTableColumns(data []byte, columns []tableColumn, format string, selectPaths []string) []byte {
 	if format == "json" || format == "yaml" || format == "xml" || format == "raw" || format == "ndjson" {
 		return data
 	}
@@ -4969,17 +4969,25 @@ func selectTableColumns(data []byte, columns []tableColumn, format string) []byt
 	}
 
 	result := make([]map[string]any, 0, len(items))
+	records := make([]map[string]any, 0, len(items))
 	for _, raw := range items {
 		var obj map[string]any
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			continue
 		}
+		records = append(records, obj)
 		row := make(map[string]any, len(columns))
 		for _, col := range columns {
 			row[col.label] = resolveFieldValue(obj, col.field)
 		}
 		result = append(result, row)
 	}
+	// A --select path the columns do not carry is added from the full record.
+	labels := make([]string, len(columns))
+	for i, col := range columns {
+		labels[i] = col.label
+	}
+	output.AddSelectColumns(records, result, labels, selectPaths)
 
 	out, err := json.Marshal(result)
 	if err != nil {

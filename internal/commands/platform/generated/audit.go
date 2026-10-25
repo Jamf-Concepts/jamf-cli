@@ -104,7 +104,7 @@ func newAuditListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "actor.displayName", Label: "actor"},
 				{Field: "resourceId", Label: "resource"},
 				{Field: "txId", Label: "txId"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

@@ -88,6 +88,10 @@ func (f *Formatter) SetProjector(p Projector) {
 	f.projector = p
 }
 
+// SelectPaths returns the dot paths --select named, blanks dropped. A list
+// command reads it to carry fields outside its summary row into the output.
+func (f *Formatter) SelectPaths() []string { return cleanPaths(f.projector.Select) }
+
 // SetQuiet suppresses advisory output written to stderr (e.g. the
 // list-size hint). Errors and primary output on stdout are unaffected.
 func (f *Formatter) SetQuiet(q bool) {
@@ -266,8 +270,14 @@ func RendersStructureVerbatim(format string) bool {
 
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
-	if rows, ok := data.([]map[string]any); ok {
-		f.reportProjectionMiss(rows)
+	switch v := data.(type) {
+	case []map[string]any:
+		f.reportProjectionMiss(v)
+	case []any:
+		// A JSON list arrives parsed from the wire as []any.
+		if rows, ok := mapRows(v); ok {
+			f.reportProjectionMiss(rows)
+		}
 	}
 	data = f.applyProjection(data)
 
@@ -304,6 +314,19 @@ func (f *Formatter) Print(data any) error {
 	return err
 }
 
+// mapRows returns the elements of v as rows, or false when any is not an object.
+func mapRows(v []any) ([]map[string]any, bool) {
+	rows := make([]map[string]any, 0, len(v))
+	for _, item := range v {
+		m, ok := item.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		rows = append(rows, m)
+	}
+	return rows, true
+}
+
 // reportProjectionMiss says on stderr that --select or --compact matched no
 // field in any row.
 //
@@ -318,6 +341,15 @@ func (f *Formatter) Print(data any) error {
 // separating a mistyped field name from an empty collection.
 func (f *Formatter) reportProjectionMiss(rows []map[string]any) {
 	if !f.projector.RendersNothing(rows) {
+		// Some paths matched; a mistyped one still renders a plausible table
+		// with its column missing, so name it.
+		if missing := f.projector.MissingPaths(rows); len(missing) > 0 {
+			w := f.stderr
+			if w == nil {
+				w = os.Stderr
+			}
+			_, _ = fmt.Fprintf(w, "--select %s matched no field in %d row(s)\n", strings.Join(missing, ","), len(rows))
+		}
 		return
 	}
 	flag := "--compact"

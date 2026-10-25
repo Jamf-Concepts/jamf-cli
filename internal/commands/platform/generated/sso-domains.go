@@ -72,7 +72,7 @@ func newSsoDomainsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "domainStatus", Label: "status"},
 				{Field: "sharedDomain", Label: "shared"},
 				{Field: "lastVerificationDate", Label: "lastVerified"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

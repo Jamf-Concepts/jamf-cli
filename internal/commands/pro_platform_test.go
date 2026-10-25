@@ -417,6 +417,7 @@ func (o *captureOutput) PrintRaw(data []byte) error {
 }
 func (o *captureOutput) PrintBytes(data []byte) error { o.rawData = data; return nil }
 func (o *captureOutput) Format() string               { return "json" }
+func (o *captureOutput) SelectPaths() []string        { return nil }
 func (o *captureOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }

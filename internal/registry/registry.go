@@ -116,6 +116,9 @@ type OutputFormatter interface {
 	PrintBytes(data []byte) error
 	// Format returns the current output format string (e.g. "json", "xml", "table").
 	Format() string
+	// SelectPaths returns the dot paths --select named, so a list command's
+	// summary row can be widened with fields it does not carry.
+	SelectPaths() []string
 	// PaginationProgress returns a reporter for --all pagination progress.
 	PaginationProgress() *progress.Reporter
 	// NotePageSizeClamped and NotePageSizeReduced report on stderr that a

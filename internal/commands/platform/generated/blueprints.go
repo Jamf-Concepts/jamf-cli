@@ -120,7 +120,7 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "deploymentState.lastDeployment.started", Label: "lastDeployed"},
 				{Field: "created", Label: "created"},
 				{Field: "updated", Label: "updated"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

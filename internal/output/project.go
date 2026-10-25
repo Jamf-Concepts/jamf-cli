@@ -76,6 +76,41 @@ func (p Projector) RendersNothing(rows []map[string]any) bool {
 	return true
 }
 
+// MissingPaths returns the --select paths that matched no field in any row,
+// for a caller to name when other paths did match. Nothing is missing when the
+// projection is not a Select or there are no rows.
+func (p Projector) MissingPaths(rows []map[string]any) []string {
+	paths := cleanPaths(p.Select)
+	if len(paths) == 0 || len(rows) == 0 {
+		return nil
+	}
+	flat := flattenRowsRaw(rows)
+	var missing []string
+	for _, path := range paths {
+		prefix := path + "."
+		matched := false
+		for _, row := range flat {
+			if _, ok := row[path]; ok {
+				matched = true
+				break
+			}
+			for k := range row {
+				if strings.HasPrefix(k, prefix) {
+					matched = true
+					break
+				}
+			}
+			if matched {
+				break
+			}
+		}
+		if !matched {
+			missing = append(missing, path)
+		}
+	}
+	return missing
+}
+
 // selectRows runs the Select projection. Apply and RendersNothing must answer
 // about the same rows, or a caller withholds a header above output the renderer
 // does produce.
