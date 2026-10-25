@@ -314,7 +314,7 @@ func TestVerifyPackageUpload_UnverifiedWhenREADYAtTheRightSize(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			withFastVerifyPoll(t)
 			verifyGrace = 30 * time.Millisecond
-			t.Cleanup(func() { verifyGrace = 45 * time.Second })
+			t.Cleanup(func() { verifyGrace = 20 * time.Second })
 			srv := newPkgVerifyServer([]string{""})
 			defer srv.close()
 

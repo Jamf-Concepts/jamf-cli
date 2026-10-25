@@ -209,7 +209,7 @@ var (
 	// show a hash before the upload is reported as unverified. Jamf Pro never
 	// computes one for some large packages, so waiting out verifyTimeout would
 	// only make the caller wait for nothing.
-	verifyGrace = 45 * time.Second
+	verifyGrace = 20 * time.Second
 )
 
 // errUnverified is a package that uploaded but could not be integrity-checked:
