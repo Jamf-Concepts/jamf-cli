@@ -88,6 +88,20 @@ func StatusAllowed(ctx context.Context, status int) bool {
 	return slices.Contains(statuses, status)
 }
 
+type validationOnlyUploadKey struct{}
+
+// WithValidationOnlyUpload marks an upload whose endpoint validates the file
+// and stores nothing, so --dry-run sends it rather than refusing it.
+func WithValidationOnlyUpload(ctx context.Context) context.Context {
+	return context.WithValue(ctx, validationOnlyUploadKey{}, true)
+}
+
+// IsValidationOnlyUpload reports whether WithValidationOnlyUpload marked ctx.
+func IsValidationOnlyUpload(ctx context.Context) bool {
+	marked, _ := ctx.Value(validationOnlyUploadKey{}).(bool)
+	return marked
+}
+
 // FileUploader interface for streaming file uploads with custom Content-Type.
 type FileUploader interface {
 	Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error)

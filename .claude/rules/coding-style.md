@@ -101,7 +101,13 @@ Both Platform and Security Cloud generators emit a `cliCtx.DryRun` check on ever
 
 Hand-written platform commands have no per-command preview, so `dryRunGuardTransport` refuses their writes with a 412 carrying a `DRY_RUN` code. (A transport *error* would be retried by the SDK, hanging `-n` through the whole backoff ladder.)
 
+**Protect and School SDK clients are guarded by `sendTracker`** (`internal/commands/sdk_retry_client.go`), which sits under the retry client so it sees every attempt and answers a write with the same 412 `DRY_RUN`. School classifies by method. Protect sends every call, reads included, as a GraphQL POST to `/app`, so it classifies by whether the document holds a `mutation` (`isGraphQLMutation`); the token exchange (a POST to `/token`) passes, and any other body that is not readable GraphQL is a write. `TestGraphQLDocumentWrites_EverySDKDocument` classifies every document the Protect SDK sends, so an SDK bump that the lexer misreads fails there. **Pro uploads** bypass `dryRunClient` (`cliCtx.Uploader` is the unwrapped client), so the multipart template branch and `pro packages upload` preview and return, and `dryRunUploader` refuses any upload that does not. A validation-only upload (`validationOnlyUploads` in `generator/parser/parser.go`, today `inventory-preload csv-validate`) is sent under `-n`: the generated command marks it with `registry.WithValidationOnlyUpload` and `dryRunUploader` passes it through.
+
 **The preview comes before the confirmation, in both templates.** Previously reversed: `ConfirmAction` errors when `--yes` is absent and stdin is not a terminal, so `--no-input -n pro blueprints delete <id>` reported "requires --yes" and previewed nothing. The operator's fix of `-n --yes` would execute the delete if `-n` was dropped. Interactively the old order prompted "Continue? [y/N]" and *then* printed `[dry-run]`, teaching the operator that confirming is harmless. Name→ID resolution stays ahead of both; validations also stay ahead. `confirmStmt` in both emitters keeps the paginated and single-request branches from drifting apart.
+
+## Protect and School SDK HTTP Client
+
+**All three Protect/School clients come from `newSDKRetryClient`** — `resolveProtectClient`, `resolveSchoolClient` and the dashboard's `buildProtectClient`. Neither SDK retries on its own, so this is the only retry loop, and it follows the `doWithRetry` rule below: `sdkRetryPolicy` retries a 429 always, a 5xx for a read only, a transport failure unless a write had reached the server, and a timeout never. `retryablehttp.ErrorPropagatedRetryPolicy` alone re-sent a POST four times on one 502. `sdkRetryBackoff` holds Retry-After to `client.RateLimitWaitMax`.
 
 ## Platform SDK HTTP Client
 

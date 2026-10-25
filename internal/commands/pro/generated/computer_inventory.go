@@ -1277,6 +1277,10 @@ func newComputerInventoryUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("opening %s: %w", flagFile, err)
 			}
 			defer f.Close()
+			if ctx.DryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] POST %s (multipart upload of %s)\n", path, flagFile)
+				return nil
+			}
 			// Stream the file through a seekable multipart body so Upload can
 			// precompute Content-Length and retry on HTTP 429 without
 			// re-buffering the file.
