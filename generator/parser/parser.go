@@ -58,6 +58,14 @@ var documentedStatusResults = map[string][]int{
 	"GET /v1/pki/digicert/trust-lifecycle-manager/{id}/privilege-check": {403},
 }
 
+// validationOnlyUploads lists multipart operations, keyed by "METHOD path",
+// whose endpoint validates the uploaded file and stores nothing, each with the
+// reason. The spec has no read-only signal for a POST, and --dry-run would
+// otherwise preview the upload and exit 0 having validated nothing.
+var validationOnlyUploads = map[string]string{
+	"POST /v2/inventory-preload/csv-validate": "validates the CSV and stores nothing",
+}
+
 // applyDocumentedStatusResults populates op.StatusResults/NoContentDescription
 // from documentedStatusResults, pulling each status's human description from the
 // spec so the generated command doesn't hardcode Jamf's wording.
@@ -2175,6 +2183,7 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 	}
 
 	applyDocumentedStatusResults(operation)
+	_, operation.ValidationOnly = validationOnlyUploads[operation.Method+" "+operation.Path]
 	annotatePaginationParams(operation)
 
 	return operation

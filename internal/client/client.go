@@ -352,17 +352,22 @@ func (c *Client) gatewayUploadClient() *http.Client {
 	}
 }
 
-// parseRetryAfter returns the delay from a Retry-After header value.
-// Supports the delta-seconds form only (Jamf uses integers). Falls back to
-// the caller-supplied default when the header is missing or malformed.
+// parseRetryAfter returns the delay from a Retry-After header value, held to
+// rateLimitWaitMax. Supports the delta-seconds form only (Jamf uses integers).
+// Falls back to the caller-supplied default when the header is missing,
+// malformed or negative.
 func parseRetryAfter(header string, fallback time.Duration) time.Duration {
 	if header == "" {
 		return fallback
 	}
-	if secs, err := strconv.Atoi(strings.TrimSpace(header)); err == nil && secs >= 0 {
-		return time.Duration(secs) * time.Second
+	secs, err := strconv.Atoi(strings.TrimSpace(header))
+	if err != nil || secs < 0 {
+		return fallback
 	}
-	return fallback
+	if secs > int(rateLimitWaitMax/time.Second) {
+		return rateLimitWaitMax
+	}
+	return time.Duration(secs) * time.Second
 }
 
 // retrySafeMethods are the methods whose request may be sent again after it
@@ -447,9 +452,7 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 		if resp.StatusCode == http.StatusTooManyRequests {
 			delay := baseDelay * time.Duration(1<<i)
 			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
-				if secs, err := strconv.Atoi(retryAfter); err == nil {
-					delay = time.Duration(secs) * time.Second
-				}
+				delay = parseRetryAfter(retryAfter, delay)
 			} else if wait, ok := rateLimitResetWait(resp, rateLimitWaitMax); ok {
 				delay = wait
 			}

@@ -342,6 +342,9 @@ Use `--dry-run` (`-n`) to see what a write command would do without executing it
 jamf-cli pro buildings apply --from-file building.json --dry-run
 ```
 
+A Jamf Protect or Jamf School write with no preview of its own is refused under `-n`: it is
+reported on stderr and the command exits non-zero without sending it.
+
 
 ### Bugs and feature requests
 
