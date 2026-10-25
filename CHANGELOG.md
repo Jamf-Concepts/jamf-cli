@@ -28,6 +28,15 @@ point passwords, policy account passwords and configuration profile payload secr
   profile payloads only, not scripts or other free text. Nothing is redacted, so
   `pro diff` against a live tenant still works.
 
+### Behaviour — `mcp serve` refuses API role and integration writes and the supervision identity download
+
+`run_command` now refuses `create`, `update` and `apply` on `pro api-roles` and `pro
+api-integrations`. Those writes let the connected model give the API integration it runs as
+more privileges than the operator granted, for example by adding privileges to the integration's
+role or binding the integration to an admin role. It also refuses `pro supervision-identities
+download`, which prints the identity's .p12, including the private key. `get`, `list` and
+`delete` still run. Make these changes outside `mcp serve`.
+
 ### Behaviour — `config validate` reports credentials as `set`
 
 `config validate` reported `pass` for a credential once its `keychain:`, `env:` or `file:`
