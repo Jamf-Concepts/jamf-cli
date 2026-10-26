@@ -70,7 +70,7 @@ failed, and pending device counts. Requires platform gateway auth.`,
 				case err != nil:
 					// Reported rather than swallowed: without this the row
 					// silently claimed no scope and no steps.
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch blueprint %q: %v\n", b.Name, err)
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch blueprint %q: %v\n", b.Name, termSafe(err))
 				default:
 					row["scope"] = 0
 					if detail.Scope != nil {
@@ -82,7 +82,7 @@ failed, and pending device counts. Requires platform gateway auth.`,
 				if state == "DEPLOYED" {
 					report, err := bp.GetBlueprintReport(ctx, b.ID)
 					if err != nil {
-						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch deployment report for %q: %v\n", b.Name, err)
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch deployment report for %q: %v\n", b.Name, termSafe(err))
 					} else {
 						row["succeeded"] = report.Succeeded
 						row["failed"] = report.Failed
@@ -280,7 +280,7 @@ of failing rules.`,
 				}
 				results, err := compliancebenchmarks.New(c).ListBenchmarkRuleDevices(ctx, benchmarkID, s.RuleID, "", "", state)
 				if err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch devices for rule %q: %v\n", s.RuleTitle, err)
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch devices for rule %q: %v\n", s.RuleTitle, termSafe(err))
 					continue
 				}
 				for _, d := range results {

@@ -624,7 +624,7 @@ func newDeviceEnrollmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete device-enrollment %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete device-enrollment %q (id: %s)\n", e.label, termSafe(e.id))
 					}
 					return nil
 				}
@@ -648,7 +648,7 @@ func newDeviceEnrollmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete device-enrollment %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete device-enrollment %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -657,14 +657,14 @@ func newDeviceEnrollmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete device-enrollment %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete device-enrollment %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted device-enrollment %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted device-enrollment %q (id: %s)\n", e.label, termSafe(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -694,9 +694,9 @@ func newDeviceEnrollmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete device-enrollment %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete device-enrollment %q (id: %s)\n", resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete device-enrollment %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete device-enrollment %s\n", termSafe(resolvedID))
 				}
 				return nil
 			}
@@ -706,9 +706,9 @@ func newDeviceEnrollmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete device-enrollment %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete device-enrollment %q (id: %s). Type 'yes' to confirm: ", resolvedByName, termSafe(resolvedID))
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete device-enrollment %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete device-enrollment %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -1543,20 +1543,20 @@ If not, a new resource is created.`,
 					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe device-enrollment exists but is unnamed; to recover run: jamf-cli pro device-enrollments update %s --from-file <body.json>", newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created device-enrollment %q (id: %s)\n", name, newID)
+				fmt.Fprintf(os.Stderr, "Created device-enrollment %q (id: %s)\n", name, termSafe(newID))
 				return ctx.Output.PrintResponse(bodyResp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace device-enrollment %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace device-enrollment %q (id: %s)\n", name, termSafe(id))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("device-enrollment %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "device-enrollment %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "device-enrollment %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, termSafe(id))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1577,7 +1577,7 @@ If not, a new resource is created.`,
 			if len(data) == 0 && tokenResp != nil {
 				// Only the token was replaced — return its response.
 				defer tokenResp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Replaced device-enrollment token %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Replaced device-enrollment token %q (id: %s)\n", name, termSafe(id))
 				return ctx.Output.PrintResponse(tokenResp)
 			}
 			if tokenResp != nil {
@@ -1588,7 +1588,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced device-enrollment %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced device-enrollment %q (id: %s)\n", name, termSafe(id))
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

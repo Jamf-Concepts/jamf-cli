@@ -622,7 +622,7 @@ func cleanupKeychainRefs(cmd *cobra.Command, p config.Profile) {
 		}
 		service, account := keychain.ParseRef(after)
 		if err := store.Delete(service, account); err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to remove keychain item %s/%s (%s): %v\n", service, account, field, err)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to remove keychain item %s/%s (%s): %v\n", service, account, field, termSafe(err))
 		} else {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed keychain item: %s/%s\n", service, account)
 		}

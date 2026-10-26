@@ -351,7 +351,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_invitation %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_invitation %q (id: %s)\n", e.label, termSafe(e.id))
 					}
 					return nil
 				}
@@ -375,7 +375,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 					delPath := fmt.Sprintf("/JSSResource/computerinvitations/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete computer_invitation %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete computer_invitation %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -384,10 +384,10 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted computer_invitation %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "Deleted computer_invitation %q (id: %s)\n", e.label, termSafe(e.id))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete computer_invitation %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete computer_invitation %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -417,14 +417,14 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_invitation %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_invitation %s\n", termSafe(resolvedID))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete computer_invitation %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete computer_invitation %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

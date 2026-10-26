@@ -95,13 +95,13 @@ func runReportUpdateStatus(ctx context.Context, cliCtx *registry.CLIContext, sca
 
 	results, err := FetchAllPaginated(ctx, client, "/v1/managed-software-updates/update-statuses", 2000)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch update statuses: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch update statuses: %v\n", termSafe(err))
 	}
 
 	fmt.Fprintf(os.Stderr, "Fetching managed software update plans...\n")
 	plans, plansErr := FetchAllPaginated(ctx, client, "/v1/managed-software-updates/plans", 2000)
 	if plansErr != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch update plans: %v\n", plansErr)
+		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch update plans: %v\n", termSafe(plansErr))
 	}
 
 	if len(results) == 0 && len(plans) == 0 {

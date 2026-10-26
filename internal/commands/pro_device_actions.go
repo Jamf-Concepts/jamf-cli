@@ -687,7 +687,7 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 	var firstErr error
 	for _, d := range devices {
 		if err := cfg.execSingle(d, nil); err != nil {
-			_, _ = fmt.Fprintf(stderr, "[%s] %-40s ERROR: %v\n", cfg.actionName, resolve.FormatDeviceDesc(d), err)
+			_, _ = fmt.Fprintf(stderr, "[%s] %-40s ERROR: %v\n", cfg.actionName, resolve.FormatDeviceDesc(d), termSafe(err))
 			if firstErr == nil {
 				firstErr = err
 			}

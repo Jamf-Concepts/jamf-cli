@@ -214,7 +214,7 @@ Examples:
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", createReq.Name, result.ID)
+				fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", createReq.Name, termSafe(result.ID))
 				bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, result.ID)
 				if err != nil {
 					return err
@@ -495,7 +495,7 @@ Examples:
 			var added int
 			for _, gid := range addIDs {
 				if existing[gid] {
-					fmt.Fprintf(os.Stderr, "  group %s already in scope, skipping\n", gid)
+					fmt.Fprintf(os.Stderr, "  group %s already in scope, skipping\n", termSafe(gid))
 					continue
 				}
 				newScope = append(newScope, gid)
@@ -622,7 +622,7 @@ func resolveGroupNames(ctx context.Context, client registry.HTTPClient, names []
 		if err != nil {
 			return nil, fmt.Errorf("resolving group %q: %w", name, err)
 		}
-		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", name, id)
+		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", name, termSafe(id))
 		ids = append(ids, id)
 	}
 	return ids, nil
@@ -736,7 +736,7 @@ The source scope is copied by default. Use --scope to override device group targ
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Cloned blueprint %q → %q (id: %s)\n", args[0], args[1], result.ID)
+			fmt.Fprintf(os.Stderr, "Cloned blueprint %q → %q (id: %s)\n", args[0], args[1], termSafe(result.ID))
 
 			bp, err := bpClient.GetBlueprint(ctx, result.ID)
 			if err != nil {
@@ -1487,7 +1487,7 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		out.Takeover = takeoverLabel(plan.takeover)
 		out.TakeoverUncertain = plan.takeover.Supported && len(unlistedPayloadTypes(plan.components)) > 0
 		out.BlueprintID = id
-		_, _ = fmt.Fprintf(stderr, "Created blueprint %q (id: %s)\n", name, id)
+		_, _ = fmt.Fprintf(stderr, "Created blueprint %q (id: %s)\n", name, termSafe(id))
 		reportTakeover(stderr, plan.takeover)
 		reportExclusionTakeoverNote(stderr, plan.takeover, activationPredicate != "")
 
@@ -1888,7 +1888,7 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 			continue
 		}
 		platformIDs = append(platformIDs, id)
-		_, _ = fmt.Fprintf(log, "  Resolved group %q (%s) → %s\n", ref.name, ref.groupType, id)
+		_, _ = fmt.Fprintf(log, "  Resolved group %q (%s) → %s\n", ref.name, ref.groupType, termSafe(id))
 	}
 
 	return platformIDs, warnings
@@ -2050,7 +2050,7 @@ func reverseResolveGroups(ctx context.Context, c *jamfplatform.Client, ids []str
 
 	allGroups, err := devicegroups.New(c).ListDeviceGroups(ctx, nil, "")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", err)
+		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", termSafe(err))
 	}
 	groupMap := make(map[string]devicegroups.DeviceGroupListReadRepresentationV1, len(allGroups))
 	for _, g := range allGroups {
@@ -2066,7 +2066,7 @@ func reverseResolveGroups(ctx context.Context, c *jamfplatform.Client, ids []str
 				DeviceType: g.DeviceType,
 			})
 		} else {
-			fmt.Fprintf(os.Stderr, "  Warning: group %s not found, including UUID only\n", id)
+			fmt.Fprintf(os.Stderr, "  Warning: group %s not found, including UUID only\n", termSafe(id))
 			result = append(result, blueprintExportScopeGroup{ID: id})
 		}
 	}
@@ -2093,7 +2093,7 @@ func resolvePortableScopeGroups(ctx context.Context, client registry.HTTPClient,
 		if err != nil {
 			return nil, fmt.Errorf("resolving group %q: %w", g.Name, err)
 		}
-		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", g.Name, id)
+		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", g.Name, termSafe(id))
 		ids = append(ids, id)
 	}
 	return ids, nil
