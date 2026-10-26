@@ -459,7 +459,7 @@ func newZtnaAppsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 			updatePath := strings.Replace("/securitycloud/v1/ztna/apps/{appId}", "{appId}", url.PathEscape(id), 1)
 			if cliCtx.DryRun {
-				fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would update ztna-app %q (id: %s)\n", name, id)
+				fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would update ztna-app %q (id: %s)\n", name, platform.TermSafe(id))
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, updatePath, body)
 			}
 			// Confirmed because this overwrites something that already exists,
@@ -478,7 +478,7 @@ func newZtnaAppsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, updatePath, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("apply: updating ztna-app %q (id: %s): %w", name, id, err)
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "Updated ztna-app %q (id: %s)\n", name, id)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updated ztna-app %q (id: %s)\n", name, platform.TermSafe(id))
 			return nil
 		},
 	}

@@ -22,6 +22,7 @@ import (
 	"unicode"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -422,7 +423,7 @@ func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEn
 		if r.device != nil {
 			// A mistyped serial that happens to be another device's name
 			// would otherwise target that device without a word.
-			_, _ = fmt.Fprintf(os.Stderr, "  note: %s matched no serial number; resolved by name to %s %s\n", first[e].Label(), spec.label, r.device.ID)
+			_, _ = fmt.Fprintf(os.Stderr, "  note: %s matched no serial number; resolved by name to %s %s\n", first[e].Label(), spec.label, output.SanitizeTerminal(r.device.ID))
 		}
 		results[e] = r
 	}
@@ -455,7 +456,7 @@ func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEn
 func (s fileEntrySpec) failure(entry listfile.Entry, err error) string {
 	switch {
 	case !entry.Hidden():
-		return err.Error()
+		return output.SanitizeTerminal(err.Error())
 	case errors.Is(err, ErrAmbiguousDevice):
 		return fmt.Sprintf("it matches more than one %s; give its numeric ID", s.label)
 	default:
@@ -1016,7 +1017,7 @@ func batchResolveComputers(ctx context.Context, client registry.HTTPClient, ids 
 	for _, id := range ids {
 		d, err := resolveComputerByID(ctx, client, id)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve computer ID %s: %v\n", id, err)
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve computer ID %s: %v\n", output.SanitizeTerminal(id), output.SanitizeTerminal(err.Error()))
 			continue
 		}
 		results = append(results, d)
@@ -1029,7 +1030,7 @@ func batchResolveMobileDevices(ctx context.Context, client registry.HTTPClient, 
 	for _, id := range ids {
 		d, err := resolveMobileByID(ctx, client, id)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve mobile device ID %s: %v\n", id, err)
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve mobile device ID %s: %v\n", output.SanitizeTerminal(id), output.SanitizeTerminal(err.Error()))
 			continue
 		}
 		results = append(results, d)
@@ -1214,5 +1215,5 @@ func FormatDeviceDesc(d *DeviceIdentifiers) string {
 	if name == "" {
 		name = d.ID
 	}
-	return fmt.Sprintf("%q (%s)", name, strings.Join(parts, ", "))
+	return output.SanitizeTerminal(fmt.Sprintf("%q (%s)", name, strings.Join(parts, ", ")))
 }

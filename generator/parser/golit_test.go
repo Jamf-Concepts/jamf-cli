@@ -25,6 +25,12 @@ func TestValidateResourceNamesRefusesEverySpecDerivedName(t *testing.T) {
 	if err := ValidateResourceNames(valid()); err != nil {
 		t.Fatalf("baseline resource refused: %v", err)
 	}
+	prose := valid()
+	prose.Operations[0].Summary = "Get a widget"
+	prose.Operations[0].Description = "Line one.\n\tIndented line two."
+	if err := ValidateResourceNames(prose); err != nil {
+		t.Fatalf("a description using a line break and a tab was refused: %v", err)
+	}
 	cases := map[string]struct {
 		mutate func(*Resource)
 		want   string
@@ -41,6 +47,25 @@ func TestValidateResourceNamesRefusesEverySpecDerivedName(t *testing.T) {
 		},
 		"newline in update token path": {
 			func(r *Resource) { r.UpdateTokenOp = &Operation{Name: "upload-token", Path: "/v1/widgets/{id}\n"} }, "control character",
+		},
+		"escape in summary": {
+			func(r *Resource) { r.Operations[0].Summary = "Get a widget\x1b]0;x\x07" }, "summary",
+		},
+		"escape in description": {
+			func(r *Resource) { r.Operations[0].Description = "Line one\nline two\x1b[2J" }, "description",
+		},
+		"escape in parameter description": {
+			func(r *Resource) {
+				r.Operations[0].Parameters = []*Parameter{{Name: "id", Description: "the id\u009b"}}
+			}, "parameter id description",
+		},
+		"escape in update token summary": {
+			func(r *Resource) {
+				r.UpdateTokenOp = &Operation{Name: "upload-token", Path: "/v1/widgets/{id}/upload-token", Summary: "Upload\x1b[2J"}
+			}, "summary",
+		},
+		"newline in required privilege": {
+			func(r *Resource) { r.Operations[0].Privileges = []string{"Read Widgets\n"} }, "required privilege",
 		},
 	}
 	for name, tc := range cases {

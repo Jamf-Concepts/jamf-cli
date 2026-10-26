@@ -403,7 +403,7 @@ func addPlatformReferencedGroups(ctx context.Context, c *jamfplatform.Client, re
 func addReferencedGroupsFromClassic(ctx context.Context, client registry.HTTPClient, res scopeableResource, referenced map[string]bool) {
 	items, err := FetchClassicList(ctx, client, res.ListPath, res.WrapperKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to list %s: %v\n", res.Name, err)
+		fmt.Fprintf(os.Stderr, "WARNING: failed to list %s: %v\n", res.Name, termSafe(err))
 		return
 	}
 
@@ -447,7 +447,7 @@ func addReferencedGroupsFromClassic(ctx context.Context, client registry.HTTPCli
 func addReferencedGroupsFromPrestages(ctx context.Context, client registry.HTTPClient, referenced map[string]bool) {
 	prestages, err := FetchAllPaginated(ctx, client, "/v3/computer-prestages", PageSizeFromPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to list computer prestages: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: failed to list computer prestages: %v\n", termSafe(err))
 		return
 	}
 	for _, ps := range prestages {
@@ -623,7 +623,7 @@ func computerGroupCounts(ctx context.Context, client registry.HTTPClient) (group
 // this bug, so the gap is named even when nothing filters on it.
 func warnUnknownCounts(groups []map[string]any, idx groupCountIndex, err error) int {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: member counts are incomplete: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: member counts are incomplete: %v\n", termSafe(err))
 	}
 	unknown := 0
 	for _, g := range groups {

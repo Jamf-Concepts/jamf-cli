@@ -15,6 +15,7 @@ import (
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/blueprints"
 
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -225,7 +226,7 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, types []stri
 				firstErr = err
 			}
 			row.Result, row.Detail = "failed", firstLine(err)
-			fmt.Fprintf(os.Stderr, "--- %s (%s id %s)\n%s\n", row.Profile, t.profileType, t.ref.ID, strings.TrimRight(log.String(), "\n"))
+			fmt.Fprintf(os.Stderr, "--- %s (%s id %s)\n%s\n", termSafe(row.Profile), t.profileType, termSafe(t.ref.ID), output.SanitizeTerminalLines(strings.TrimRight(log.String(), "\n")))
 		case out.DryRun:
 			created++
 			row.Result = "would create"
@@ -237,7 +238,7 @@ func runImportAll(ctx context.Context, cliCtx *registry.CLIContext, types []stri
 			}
 			row.Detail = out.NotDeployed
 		}
-		fmt.Fprintf(os.Stderr, "[%d/%d] %s %s (id %s): %s\n", i+1, len(targets), t.profileType, row.Profile, t.ref.ID, row.Result)
+		fmt.Fprintf(os.Stderr, "[%d/%d] %s %s (id %s): %s\n", i+1, len(targets), t.profileType, termSafe(row.Profile), termSafe(t.ref.ID), row.Result)
 		rows = append(rows, row)
 	}
 

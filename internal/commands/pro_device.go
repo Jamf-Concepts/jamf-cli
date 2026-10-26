@@ -233,7 +233,7 @@ func fetchMDMHistory(ctx context.Context, client registry.HTTPClient, management
 
 	data, err := fetchJSON(ctx, client, path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to fetch MDM history: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to fetch MDM history: %v\n", termSafe(err))
 		return nil
 	}
 
@@ -282,7 +282,7 @@ func fetchPolicyHistory(ctx context.Context, client registry.HTTPClient, deviceI
 
 	data, err := fetchJSON(ctx, client, path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to fetch policy history: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to fetch policy history: %v\n", termSafe(err))
 		return nil
 	}
 
@@ -439,14 +439,14 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 	d := devices.New(cliCtx.PlatformSDKClient)
 	devID, err := d.ResolveDeviceIDBySerialNumber(ctx, serial)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to resolve platform device: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to resolve platform device: %v\n", termSafe(err))
 		return nil
 	}
 
 	// Get device's group memberships
 	deviceGroups, err := dg.ListDeviceGroupsForDevice(ctx, devID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to fetch platform device groups: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to fetch platform device groups: %v\n", termSafe(err))
 		return nil
 	}
 	groupIDs := make(map[string]bool, len(deviceGroups))

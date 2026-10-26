@@ -399,7 +399,7 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete software_update_server %s\n", e.entry.Target(e.id))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete software_update_server %s\n", e.entry.Target(termSafe(e.id)))
 					}
 					return nil
 				}
@@ -424,7 +424,7 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete software_update_server %s failed: %v\n", e.entry.Target(e.id), err)
+						fmt.Fprintf(os.Stderr, "delete software_update_server %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -433,10 +433,10 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted software_update_server %s\n", e.entry.Target(e.id))
+						fmt.Fprintf(os.Stderr, "Deleted software_update_server %s\n", e.entry.Target(termSafe(e.id)))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete software_update_server %s failed: HTTP %d\n", e.entry.Target(e.id), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete software_update_server %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -466,14 +466,14 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete software_update_server %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete software_update_server %s\n", termSafe(resolvedID))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete software_update_server %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete software_update_server %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -591,14 +591,14 @@ Optional sections: id, port, set_system_wide`,
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace software_update_server %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace software_update_server %q (id: %s)\n", name, termSafe(id))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("software_update_server %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "software_update_server %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "software_update_server %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, termSafe(id))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -613,7 +613,7 @@ Optional sections: id, port, set_system_wide`,
 			}
 
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced software_update_server %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced software_update_server %q (id: %s)\n", name, termSafe(id))
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

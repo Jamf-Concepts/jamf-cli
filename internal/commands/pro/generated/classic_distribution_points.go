@@ -497,7 +497,7 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete distribution_point %s\n", e.entry.Target(e.id))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete distribution_point %s\n", e.entry.Target(termSafe(e.id)))
 					}
 					return nil
 				}
@@ -522,7 +522,7 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete distribution_point %s failed: %v\n", e.entry.Target(e.id), err)
+						fmt.Fprintf(os.Stderr, "delete distribution_point %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -531,10 +531,10 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted distribution_point %s\n", e.entry.Target(e.id))
+						fmt.Fprintf(os.Stderr, "Deleted distribution_point %s\n", e.entry.Target(termSafe(e.id)))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete distribution_point %s failed: HTTP %d\n", e.entry.Target(e.id), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete distribution_point %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -564,14 +564,14 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete distribution_point %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete distribution_point %s\n", termSafe(resolvedID))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete distribution_point %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete distribution_point %s. Type 'yes' to confirm: ", termSafe(resolvedID))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -705,14 +705,14 @@ Credential fields (--from-file only, never --set): http_password, http_password_
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace distribution_point %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace distribution_point %q (id: %s)\n", name, termSafe(id))
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("distribution_point %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "distribution_point %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "distribution_point %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, termSafe(id))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -727,7 +727,7 @@ Credential fields (--from-file only, never --set): http_password, http_password_
 			}
 
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced distribution_point %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced distribution_point %q (id: %s)\n", name, termSafe(id))
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

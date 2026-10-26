@@ -201,7 +201,7 @@ func runPolicyHealthCheck(ctx context.Context, cliCtx *registry.CLIContext, days
 		var scanErr error
 		policyFails, computerFails, computersScanned, scanErr = runPolicyFailureScan(ctx, client, days, limit)
 		if scanErr != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: failure scan failed: %v\n", scanErr)
+			fmt.Fprintf(os.Stderr, "WARNING: failure scan failed: %v\n", termSafe(scanErr))
 		}
 	}
 

@@ -361,7 +361,7 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stderr, "Created device group %q (id: %s)\n", createReq.Name, result.ID)
+				fmt.Fprintf(os.Stderr, "Created device group %q (id: %s)\n", createReq.Name, termSafe(result.ID))
 				group, err := devicegroups.New(cliCtx.PlatformSDKClient).GetDeviceGroup(ctx, result.ID)
 				if err != nil {
 					return err

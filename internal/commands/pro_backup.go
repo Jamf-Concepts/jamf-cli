@@ -198,7 +198,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 			jamfProURL = strings.TrimSuffix(u, "/")
 		}
 	} else if verboseLevel >= 1 {
-		fmt.Fprintf(os.Stderr, "WARNING: could not resolve Jamf Pro URL for _meta: %v\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: could not resolve Jamf Pro URL for _meta: %v\n", termSafe(err))
 	}
 
 	// Resolve the scope ID for _meta. The package-level tenantID var only holds
@@ -280,7 +280,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 				Path:     def.ListPath,
 				Error:    err.Error(),
 			})
-			fmt.Fprintf(os.Stderr, "WARNING: failed to list %s: %v\n", def.Key, err)
+			fmt.Fprintf(os.Stderr, "WARNING: failed to list %s: %v\n", def.Key, termSafe(err))
 			continue
 		}
 
@@ -410,7 +410,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 	if len(failures) > 0 {
 		failPath := filepath.Join(opts.OutputDir, "_failures"+ext)
 		if err := writeBackupFile(failPath, failures, opts.Format); err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: could not write failures manifest: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: could not write failures manifest: %v\n", termSafe(err))
 		}
 	}
 

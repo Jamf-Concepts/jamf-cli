@@ -313,7 +313,7 @@ func selectPoliciesByTarget(ctx context.Context, client registry.HTTPClient, std
 			if e.Hidden() {
 				_, _ = fmt.Fprintf(stderr, "  warning: %v\n", listfile.Opaque("could not read policy "+e.Label(), err))
 			} else {
-				_, _ = fmt.Fprintf(stderr, "  warning: could not read policy %s: %v\n", id, err)
+				_, _ = fmt.Fprintf(stderr, "  warning: could not read policy %s: %v\n", termSafe(id), termSafe(err))
 			}
 			unresolved++
 			continue
@@ -359,7 +359,7 @@ func selectPoliciesByFilter(ctx context.Context, client registry.HTTPClient, std
 
 		detail, err := fetchClassicPolicyDetail(ctx, client, id)
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "  warning: could not read policy %s: %v\n", id, err)
+			_, _ = fmt.Fprintf(stderr, "  warning: could not read policy %s: %v\n", termSafe(id), termSafe(err))
 			unreadable++
 			continue
 		}
@@ -443,7 +443,7 @@ func togglePolicies(cmd *cobra.Command, cliCtx *registry.CLIContext, enable bool
 	var firstErr error
 	for _, p := range change {
 		if err := doClassicPolicyUpdate(cmd.Context(), cliCtx.Client, p.id, enable); err != nil {
-			_, _ = fmt.Fprintf(stderr, "  %-40s ERROR: %v\n", policyDesc(p), err)
+			_, _ = fmt.Fprintf(stderr, "  %-40s ERROR: %v\n", policyDesc(p), termSafe(err))
 			failed[p.id] = err
 			if firstErr == nil {
 				firstErr = err
@@ -490,7 +490,7 @@ func policyResultRows(changed, unchanged []policyEntry, enable bool, failed map[
 
 // policyDesc names a policy for a progress line.
 func policyDesc(p policyEntry) string {
-	return fmt.Sprintf("%s (id %s)", p.name(), p.id)
+	return termSafe(fmt.Sprintf("%s (id %s)", p.name(), p.id))
 }
 
 func pluralY(n int) string {

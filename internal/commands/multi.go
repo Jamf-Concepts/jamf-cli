@@ -204,7 +204,7 @@ Examples:
 					child.Stderr = cmd.ErrOrStderr()
 
 					if err := child.Run(); err != nil {
-						_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", err)
+						_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", termSafe(err))
 						failures = append(failures, fmt.Sprintf("%s: %v", profileName, err))
 						failed++
 					} else {

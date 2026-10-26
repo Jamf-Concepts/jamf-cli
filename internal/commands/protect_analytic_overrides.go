@@ -436,7 +436,7 @@ non-zero if any failed.`,
 					continue
 				}
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Skipped %q: %v\n", o.Analytic, err)
+					fmt.Fprintf(os.Stderr, "Skipped %q: %v\n", o.Analytic, termSafe(err))
 					skipped++
 					continue
 				}
@@ -472,7 +472,7 @@ non-zero if any failed.`,
 					// which entry failed, with no indication of how many had
 					// already been written, so a retry was unsafe to reason
 					// about. 'protect restore' takes the same approach.
-					fmt.Fprintf(os.Stderr, "FAILED %q: %v\n", o.Analytic, err)
+					fmt.Fprintf(os.Stderr, "FAILED %q: %v\n", o.Analytic, termSafe(err))
 					failed++
 					continue
 				}

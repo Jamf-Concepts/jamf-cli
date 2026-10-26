@@ -187,7 +187,7 @@ func runMDMHealthReport(ctx context.Context, cliCtx *registry.CLIContext, comman
 		path := "/v2/mdm/commands?filter=" + url.QueryEscape(filter)
 		batch, err := FetchAllPaginated(ctx, client, path, 200)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch pending commands: %v\n", err)
+			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch pending commands: %v\n", termSafe(err))
 			break
 		}
 		pendingResults = append(pendingResults, batch...)

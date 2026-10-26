@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -121,7 +122,7 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 	if w == nil {
 		w = os.Stdout
 	}
-	return printFieldValues(w, objects, fieldName)
+	return printFieldValues(w, objects, fieldName, o.Terminal())
 }
 
 // printFieldValues writes one extracted value per line for --field.
@@ -136,7 +137,10 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 // Shared by cliOutput.PrintRaw, which parses bytes off the wire first, and by
 // printRows, which already holds the rows. Two callers, one extraction, so the
 // two cannot disagree about what --field means.
-func printFieldValues(w io.Writer, objects []map[string]any, field string) error {
+//
+// terminal sanitizes each value, and is true only when w is a terminal, so a
+// value piped to a script stays byte-faithful.
+func printFieldValues(w io.Writer, objects []map[string]any, field string, terminal bool) error {
 	parts := strings.Split(field, ".")
 	written := 0
 	for _, obj := range objects {
@@ -144,7 +148,11 @@ func printFieldValues(w io.Writer, objects []map[string]any, field string) error
 		if !ok {
 			continue
 		}
-		if _, err := fmt.Fprintln(w, output.FormatValue(val)); err != nil {
+		text := output.FormatValue(val)
+		if terminal {
+			text = output.SanitizeTerminal(text)
+		}
+		if _, err := fmt.Fprintln(w, text); err != nil {
 			return err
 		}
 		written++
@@ -178,6 +186,10 @@ func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
 	return current, true
 }
 
+// stdoutIsTerminal reports whether standard output is an interactive terminal.
+// A variable so a test can stand in for a terminal, which go test never has.
+var stdoutIsTerminal = func() bool { return output.IsTerminal(os.Stdout.Fd()) }
+
 // buildOutputFormatter assembles the one formatter every command prints
 // through, shared by all products and by the auth-skipped commands. It is the
 // only sanctioned call to output.New in the tree: a formatter built anywhere
@@ -195,6 +207,7 @@ func buildOutputFormatter(outFileHandle *os.File, explicitNoColor bool) *output.
 	formatter.SetQuiet(quiet)
 	formatter.SetNoHints(noHints)
 	formatter.SetExplicitNoColor(explicitNoColor)
+	formatter.SetTerminal(outFileHandle == nil && stdoutIsTerminal())
 	return formatter
 }
 
@@ -321,6 +334,13 @@ func writeVersionCache(profileName, version string) {
 	}
 }
 
+// proVersionPattern is the shape of a Jamf Pro version ("11.28.0",
+// "11.28.0-t1729188960"), with room for a pre-release or build suffix such as
+// "-rc.1" or "+abc". The version comes off the wire, is cached and is printed
+// on every Pro command, so anything else is dropped rather than sanitized: a
+// value carrying terminal escapes is not a version at all.
+var proVersionPattern = regexp.MustCompile(`^[0-9]{1,6}(\.[0-9]{1,6}){1,3}([-.+][0-9A-Za-z][0-9A-Za-z.+-]{0,63})?$`)
+
 // checkTenantVersion probes /v1/jamf-pro-version and emits a one-line warning
 // to w when the tenant is running an older Jamf Pro than the spec version this
 // CLI was generated from. Results are cached per named profile for 24 hours so
@@ -335,7 +355,7 @@ func checkTenantVersion(c registry.HTTPClient, specVersion, profileName string, 
 	// Use cached version when available and fresh to avoid a round-trip per command.
 	if profileName != "" {
 		if cache := readVersionCache(); cache != nil {
-			if entry, ok := cache[profileName]; ok && time.Since(entry.CheckedAt) < versionCacheTTL {
+			if entry, ok := cache[profileName]; ok && time.Since(entry.CheckedAt) < versionCacheTTL && proVersionPattern.MatchString(entry.Version) {
 				if compareProVersions(entry.Version, specVersion) < 0 {
 					_, _ = fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", entry.Version, specVersion)
 				}
@@ -357,7 +377,7 @@ func checkTenantVersion(c registry.HTTPClient, specVersion, profileName string, 
 		Version string `json:"version"`
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 512))
-	if err != nil || json.Unmarshal(body, &result) != nil || result.Version == "" {
+	if err != nil || json.Unmarshal(body, &result) != nil || !proVersionPattern.MatchString(result.Version) {
 		return
 	}
 
@@ -2245,10 +2265,10 @@ func formatErrorTo(w io.Writer, err error, configDefault string, stdoutTTY, hasO
 // FprintError writes a human-facing error (and a "hint:" line when present) to
 // w. Used by main when the JSON envelope path does not apply.
 func FprintError(w io.Writer, err error) {
-	_, _ = fmt.Fprintln(w, err)
+	_, _ = fmt.Fprintln(w, output.SanitizeTerminalLines(err.Error()))
 	var e *exitcode.Error
 	if errors.As(err, &e) && e.Hint != "" {
-		_, _ = fmt.Fprintf(w, "hint: %s\n", e.Hint)
+		_, _ = fmt.Fprintf(w, "hint: %s\n", output.SanitizeTerminalLines(e.Hint))
 	}
 }
 
