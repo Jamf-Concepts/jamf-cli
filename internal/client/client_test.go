@@ -1133,21 +1133,21 @@ func uploadFramingOf(t *testing.T, opts ...Option) uploadFraming {
 	return got
 }
 
-// TestUpload_GatewayIsHTTP1Chunked pins the framing jamfplatform-go-sdk v1.3.0
-// measured against the GA gateway: HTTP/1.1, chunked, no declared length. The
-// server here offers h2, so a request that stayed on h2 would show ProtoMajor 2.
-func TestUpload_GatewayIsHTTP1Chunked(t *testing.T) {
+// TestUpload_GatewayIsHTTP1WithLength pins the framing measured against the GA
+// gateway: HTTP/1.1 with the declared Content-Length. The server here offers h2,
+// so a request that stayed on h2 would show ProtoMajor 2.
+func TestUpload_GatewayIsHTTP1WithLength(t *testing.T) {
 	got := uploadFramingOf(t, WithGatewayScope(auth.TenantScope("abc-123")))
 	if got.protoMajor != 1 {
 		t.Errorf("ProtoMajor = %d, want 1", got.protoMajor)
 	}
-	if !got.chunked || got.contentLength != -1 || got.header != "" {
-		t.Errorf("framing = %+v, want chunked with no Content-Length", got)
+	if got.chunked || got.contentLength != int64(len("payload")) {
+		t.Errorf("framing = %+v, want Content-Length %d", got, len("payload"))
 	}
 }
 
-// TestUpload_DirectInstanceKeepsH2AndLength: the h1/chunked finding was measured
-// on the gateway only, so a direct instance connection is unchanged.
+// TestUpload_DirectInstanceKeepsH2AndLength: the HTTP/1.1 finding was measured
+// on the gateway only, so a direct instance connection stays on h2.
 func TestUpload_DirectInstanceKeepsH2AndLength(t *testing.T) {
 	got := uploadFramingOf(t)
 	if got.protoMajor != 2 {
