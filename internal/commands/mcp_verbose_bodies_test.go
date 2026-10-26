@@ -58,3 +58,19 @@ func TestMCPChild_RefusesVerboseBodyLogging(t *testing.T) {
 		}
 	}
 }
+
+func TestMCP_RefusesVerboseWithFromFile(t *testing.T) {
+	for _, args := range [][]string{
+		{"pro", "computers", "blank-push", "--from-file", "list.txt", "-v"},
+		{"-vv", "pro", "buildings", "delete", "--from-file", "list.txt", "--yes"},
+	} {
+		_, err := buildChildArgs("prod", args)
+		if !isMCPRefusal(err) || !strings.Contains(err.Error(), "with --from-file") {
+			t.Errorf("run_command on %q: err = %v, want -v refused with --from-file", args, err)
+		}
+		argv := append([]string{"--profile", "prod", "--no-input"}, args...)
+		if err := executeAsMCPChild(t, "prod", argv...); !isMCPRefusal(err) {
+			t.Errorf("MCP child ran %q (err %v); it must refuse -v with --from-file on its own parse", argv, err)
+		}
+	}
+}

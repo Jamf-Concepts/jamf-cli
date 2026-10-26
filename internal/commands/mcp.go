@@ -142,6 +142,8 @@ spelling. It refuses:
   - a --verbose level of 3 or more (-vvv), which logs response bodies before
     any redaction; -vv and less stay available, with Authorization, Cookie and
     Set-Cookie values shown as [redacted]
+  - any --verbose level together with --from-file, since -v logs each request
+    URL and a lookup's URL holds lines of the file
   - 'pro diff' with a --source or --target that is neither this server's
     profile nor a directory inside --input-dir
 Some allowed commands print a third-party credential, shown as <redacted>
@@ -256,7 +258,8 @@ value is an error; there is no config key for it.`,
 					"environment or output file; any flag whose value is a local file or " +
 					"directory (--from-file, --file, --script-file, --save-to, --dir and the " +
 					"like; the -o/--output format flag is fine); body logging (-vvv or a " +
-					"--verbose level of 3 or more; use -vv or less); 'multi', 'mcp', 'completion', " +
+					"--verbose level of 3 or more; use -vv or less), and any --verbose with --from-file; " +
+					"'multi', 'mcp', 'completion', " +
 					"the config write subcommands, 'config validate', 'doctor', " +
 					"every command that prints an access token ('auth token', " +
 					"'pro api-authentication token', 'oauth-token', 'keep-alive'), " +
@@ -904,6 +907,9 @@ func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
 	}
 	if n := verboseCount(inv.settings); n >= verboseLogsBodies {
 		return fmt.Errorf("--verbose at level %d is not available over MCP: response bodies are logged at -vvv, which is not available over MCP; use -vv or less", n)
+	}
+	if verboseCount(inv.settings) > 0 && slices.ContainsFunc(inv.settings, func(s flagSetting) bool { return s.name == "from-file" }) {
+		return errors.New("--verbose is not available over MCP with --from-file: -v logs each request URL, and a lookup's URL holds lines of the file")
 	}
 	for _, s := range inv.settings {
 		if isBlockedChildFlag("--" + s.name) {

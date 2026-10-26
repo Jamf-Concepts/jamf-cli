@@ -664,7 +664,10 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
@@ -672,7 +675,7 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var rid string
 						if rid == "" {
@@ -699,7 +702,7 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						if rid == "" {
 							return fmt.Errorf("no computer-inventory found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -716,7 +719,7 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-inventory %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-inventory %s\n", e.entry.Target(e.id))
 					}
 					return nil
 				}
@@ -740,7 +743,8 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v4/computers-inventory/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete computer-inventory %q (id: %s) failed: %v\n", e.label, e.id, err)
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete computer-inventory %s failed: %v\n", e.entry.Target(e.id), err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -749,14 +753,14 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete computer-inventory %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete computer-inventory %s failed: HTTP %d\n", e.entry.Target(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted computer-inventory %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted computer-inventory %s\n", e.entry.Target(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -2128,7 +2132,10 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
@@ -2136,7 +2143,7 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var rid string
 						if rid == "" {
@@ -2163,7 +2170,7 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 						if rid == "" {
 							return fmt.Errorf("no computer-inventory found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -2180,7 +2187,7 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on computer-inventory %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on computer-inventory %s\n", e.entry.Target(e.id))
 					}
 					return nil
 				}
@@ -2204,7 +2211,8 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v4/computers-inventory/{id}/erase", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %q (id: %s) failed: %v\n", e.label, e.id, err)
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %s failed: %v\n", e.entry.Target(e.id), err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2213,14 +2221,14 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %s failed: HTTP %d\n", e.entry.Target(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"erase\" on computer-inventory %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Ran \"erase\" on computer-inventory %s\n", e.entry.Target(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -2458,7 +2466,10 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
@@ -2466,7 +2477,7 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var rid string
 						if rid == "" {
@@ -2493,7 +2504,7 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 						if rid == "" {
 							return fmt.Errorf("no computer-inventory found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -2510,7 +2521,7 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"remove-mdm-profile\" on computer-inventory %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"remove-mdm-profile\" on computer-inventory %s\n", e.entry.Target(e.id))
 					}
 					return nil
 				}
@@ -2534,7 +2545,8 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 					delPath := strings.Replace("/v4/computers-inventory/{id}/remove-mdm-profile", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %q (id: %s) failed: %v\n", e.label, e.id, err)
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %s failed: %v\n", e.entry.Target(e.id), err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2543,14 +2555,14 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %s failed: HTTP %d\n", e.entry.Target(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"remove-mdm-profile\" on computer-inventory %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Ran \"remove-mdm-profile\" on computer-inventory %s\n", e.entry.Target(e.id))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)

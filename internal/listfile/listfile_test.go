@@ -117,8 +117,51 @@ func TestEntryLabelAndWrap(t *testing.T) {
 		if got := exitcode.CodeFrom(err); got != exitcode.PermissionDenied {
 			t.Errorf("exit code = %d, want %d", got, exitcode.PermissionDenied)
 		}
-		if want := "resolving line 4: the lookup failed (permission_denied)"; err.Error() != want {
+		if want := "resolving line 4: the request failed (permission_denied)"; err.Error() != want {
 			t.Errorf("Wrap = %q, want %q", err, want)
 		}
 	})
+}
+
+func TestOpaqueKeepsTheHintAndNamesAnAmbiguity(t *testing.T) {
+	denied := exitcode.New(exitcode.PermissionDenied, "permission denied (HTTP 403): GET /v1/x?filter=s3cr3t").
+		WithHint("grant the Read Buildings privilege")
+	var e *exitcode.Error
+	if !errors.As(Opaque("resolving line 2", denied), &e) || e.Hint != "grant the Read Buildings privilege" {
+		t.Errorf("Opaque lost the hint: %+v", e)
+	}
+
+	ambiguous := exitcode.New(exitcode.Usage, `multiple resources found matching "s3cr3t" (IDs: 1, 2)`)
+	got := Opaque("resolving line 2", ambiguous)
+	if want := "resolving line 2: it matches more than one record; give its numeric ID"; got.Error() != want {
+		t.Errorf("Opaque = %q, want %q", got, want)
+	}
+	if exitcode.CodeFrom(got) != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage", exitcode.CodeFrom(got))
+	}
+}
+
+func TestEntryTargetAndHide(t *testing.T) {
+	numeric := Entry{Value: "8675309", Line: 3}
+	named := Entry{Value: "Main Office", Line: 4}
+	failure := exitcode.New(exitcode.NotFound, "resource not found (HTTP 404): DELETE /v1/buildings/8675309")
+
+	if got := numeric.Target("8675309"); got != `"8675309" (id: 8675309)` {
+		t.Errorf("Target at a terminal = %s", got)
+	}
+	if got := numeric.Hide(failure); got != error(failure) {
+		t.Errorf("Hide at a terminal = %v, want err unchanged", got)
+	}
+
+	t.Setenv(registry.MCPChildEnvVar, "1")
+	if got := numeric.Target("8675309"); got != "line 3" {
+		t.Errorf("Target of a hidden numeric entry = %s, want line 3", got)
+	}
+	if got := named.Target("12"); got != "line 4 (id: 12)" {
+		t.Errorf("Target of a hidden name = %s, want line 4 (id: 12)", got)
+	}
+	hidden := numeric.Hide(failure)
+	if strings.Contains(hidden.Error(), "8675309") || exitcode.CodeFrom(hidden) != exitcode.NotFound {
+		t.Errorf("Hide = %v (code %d), want no value and NotFound", hidden, exitcode.CodeFrom(hidden))
+	}
 }

@@ -395,7 +395,10 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
@@ -403,7 +406,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
@@ -416,7 +419,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 						if resolvedID == "" {
 							return fmt.Errorf("no computer_extension_attribute found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: resolvedID, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -433,7 +436,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_extension_attribute %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_extension_attribute %s\n", e.entry.Target(e.id))
 					}
 					return nil
 				}
@@ -457,7 +460,8 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 					delPath := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete computer_extension_attribute %q (id: %s) failed: %v\n", e.label, e.id, err)
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete computer_extension_attribute %s failed: %v\n", e.entry.Target(e.id), err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -466,10 +470,10 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted computer_extension_attribute %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "Deleted computer_extension_attribute %s\n", e.entry.Target(e.id))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete computer_extension_attribute %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete computer_extension_attribute %s failed: HTTP %d\n", e.entry.Target(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}

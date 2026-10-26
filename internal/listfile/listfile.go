@@ -5,6 +5,7 @@
 package listfile
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -78,8 +79,22 @@ func (e Entry) Label() string {
 	return strconv.Quote(e.Value)
 }
 
+// Target names the record the entry resolved to, as its quoted value and ID.
+// A hidden entry is named by its line, with the ID only when it differs from
+// the value: a numeric entry is its own ID until the server has answered.
+func (e Entry) Target(id string) string {
+	switch {
+	case !e.Hidden():
+		return fmt.Sprintf("%q (id: %s)", e.Value, id)
+	case id == e.Value:
+		return e.Label()
+	default:
+		return fmt.Sprintf("%s (id: %s)", e.Label(), id)
+	}
+}
+
 // Wrap returns err after msg. When the entry is hidden it keeps only err's
-// exit code.
+// exit code and hint.
 func (e Entry) Wrap(msg string, err error) error {
 	if e.Hidden() {
 		return Opaque(msg, err)
@@ -87,9 +102,31 @@ func (e Entry) Wrap(msg string, err error) error {
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-// Opaque returns an error that has err's exit code and msg, and none of err's
-// text.
+// Hide returns err, or for a hidden entry an error that keeps only err's exit
+// code and hint.
+func (e Entry) Hide(err error) error {
+	if e.Hidden() {
+		return Opaque("", err)
+	}
+	return err
+}
+
+// Opaque returns an error that has err's exit code and hint, and msg in place
+// of err's text. A hint is the CLI's own remedy text and never quotes the
+// request. A lookup that ends in a usage error is a name matching more than
+// one record, and the message says so.
 func Opaque(msg string, err error) error {
 	code := exitcode.CodeFrom(err)
-	return exitcode.New(code, fmt.Sprintf("%s: the lookup failed (%s)", msg, exitcode.CodeName(code)))
+	reason := fmt.Sprintf("the request failed (%s)", exitcode.CodeName(code))
+	if code == exitcode.Usage {
+		reason = "it matches more than one record; give its numeric ID"
+	}
+	if msg != "" {
+		reason = msg + ": " + reason
+	}
+	out := exitcode.New(code, reason)
+	if e, ok := errors.AsType[*exitcode.Error](err); ok {
+		out.Hint = e.Hint
+	}
+	return out
 }

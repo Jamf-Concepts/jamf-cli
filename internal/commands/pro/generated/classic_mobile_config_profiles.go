@@ -661,7 +661,10 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
@@ -669,7 +672,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
@@ -682,7 +685,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 						if resolvedID == "" {
 							return fmt.Errorf("no configuration_profile found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry.Value})
+						bulk = append(bulk, bulkEntry{id: resolvedID, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -699,7 +702,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete configuration_profile %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete configuration_profile %s\n", e.entry.Target(e.id))
 					}
 					return nil
 				}
@@ -723,7 +726,8 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					delPath := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete configuration_profile %q (id: %s) failed: %v\n", e.label, e.id, err)
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete configuration_profile %s failed: %v\n", e.entry.Target(e.id), err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -732,10 +736,10 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted configuration_profile %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "Deleted configuration_profile %s\n", e.entry.Target(e.id))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete configuration_profile %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete configuration_profile %s failed: HTTP %d\n", e.entry.Target(e.id), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}

@@ -111,3 +111,40 @@ func TestResolveComputersFromFile_RefusesANonNameLineBeforeAnyRequest(t *testing
 		})
 	}
 }
+
+func TestResolveComputersFromFile_MCPChildNamesTheLineInTheNameFallbackNote(t *testing.T) {
+	t.Setenv(registry.MCPChildEnvVar, "1")
+	path := writeEntryFile(t, "KIOSK-1\n")
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=hardware.serialNumber=in=`: {200, `{"totalCount":0,"results":[]}`},
+		`filter=general.name=in=`: {200, fmt.Sprintf(`{"totalCount":1,"results":[%s]}`,
+			computerRecordFull("9", "", "", "KIOSK-1", "C02REAL"))},
+	}}
+
+	stderr := captureStderr(t, func() {
+		if _, _, err := ResolveComputersFromFile(context.Background(), client, path); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	if !strings.Contains(stderr, "line 1 matched no serial number; resolved by name to computer 9") || strings.Contains(stderr, "KIOSK-1") {
+		t.Errorf("stderr = %q, want the fallback noted by line, without the value", stderr)
+	}
+}
+
+func TestResolveComputersFromFile_MCPChildReportsAnAmbiguousLine(t *testing.T) {
+	t.Setenv(registry.MCPChildEnvVar, "1")
+	path := writeEntryFile(t, "Lab Mac\n")
+	twoNamed := fmt.Sprintf(`{"totalCount":2,"results":[%s,%s]}`,
+		computerRecordFull("7", "", "", "Lab Mac", "C02A"), computerRecordFull("8", "", "", "Lab Mac", "C02B"))
+	client := &mockClient{responses: map[string]mockResponse{"computers-inventory": {200, twoNamed}}}
+
+	stderr := captureStderr(t, func() {
+		_, _, _ = ResolveComputersFromFile(context.Background(), client, path)
+	})
+	if want := "computer line 1: it matches more than one computer; give its numeric ID"; !strings.Contains(stderr, want) {
+		t.Errorf("stderr = %q, want %q", stderr, want)
+	}
+	if strings.Contains(stderr, "Lab Mac") {
+		t.Errorf("stderr = %q, want the value left out", stderr)
+	}
+}
