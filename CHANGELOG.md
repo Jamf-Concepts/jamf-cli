@@ -11,6 +11,19 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — `--from-file` lists refuse a line that cannot be an ID or a name
+
+The bulk `delete --from-file` commands, and the device-action, bulk and Classic
+group-member commands that read devices from `--from-file`, now refuse the whole file
+before any request when a line holds a control character, is not valid UTF-8, or is longer
+than 255 characters, the longest name the Jamf Pro API declares. The error names the line
+number and not its content. Blank lines and `#` comments are skipped as before.
+
+Under `mcp serve`, a message about an entry that did not resolve names its line (`line 3`)
+and not its value, and a failed lookup keeps its exit code but not its text, which can
+carry the value in the request path. Outside `mcp serve` the messages still quote the
+entry.
+
 ### Behaviour — `--dry-run` refuses Jamf Protect, Jamf School and Pro upload writes
 
 `-n` used to send real writes for Jamf Protect and Jamf School commands and for every Pro

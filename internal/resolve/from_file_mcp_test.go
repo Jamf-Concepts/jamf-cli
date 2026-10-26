@@ -27,8 +27,6 @@ func writeEntryFile(t *testing.T, content string) string {
 	return p
 }
 
-// pathEchoClient fails every request with the request path in the message,
-// as the real client's 404 and 504 errors do.
 type pathEchoClient struct{ calls int }
 
 func (c *pathEchoClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {

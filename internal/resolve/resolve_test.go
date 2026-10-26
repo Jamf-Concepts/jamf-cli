@@ -563,14 +563,14 @@ func TestResolveMobileDevicesFromFile(t *testing.T) {
 	}
 }
 
-func TestReadEntriesFromFile_EmptyFile(t *testing.T) {
+func TestResolveComputersFromFile_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "empty.txt")
 	if err := os.WriteFile(path, []byte("# only comments\n\n"), 0o644); err != nil {
 		t.Fatal(err)
 		return
 	}
-	_, err := readEntriesFromFile(path)
+	_, _, err := ResolveComputersFromFile(context.Background(), &mockClient{}, path)
 	if err == nil {
 		t.Fatal("expected error for empty file")
 		return

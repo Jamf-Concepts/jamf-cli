@@ -30,8 +30,6 @@ func writeDeleteList(t *testing.T, content string) string {
 	return p
 }
 
-// pathEchoClient fails every request with the request path in the message,
-// as the real client's 404 and 504 errors do.
 type pathEchoClient struct{ calls int }
 
 func (c *pathEchoClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
@@ -39,7 +37,6 @@ func (c *pathEchoClient) Do(_ context.Context, method, path string, _ io.Reader)
 	return nil, fmt.Errorf("resource not found (HTTP 404): %s %s", method, path)
 }
 
-// emptyListClient answers every request with an empty Jamf Pro API list.
 type emptyListClient struct{}
 
 func (emptyListClient) Do(context.Context, string, string, io.Reader) (*http.Response, error) {
@@ -52,14 +49,13 @@ func runDelete(t *testing.T, newCmd func(*registry.CLIContext) *cobra.Command, c
 	cmd.SetArgs([]string{"--from-file", list, "--yes"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
-	var err error
 	r, w, perr := os.Pipe()
 	if perr != nil {
 		t.Fatal(perr)
 	}
 	orig := os.Stderr
 	os.Stderr = w
-	err = cmd.Execute()
+	err := cmd.Execute()
 	os.Stderr = orig
 	_ = w.Close()
 	stderr, _ := io.ReadAll(r)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
@@ -740,7 +741,7 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
@@ -751,24 +752,24 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry.Value, noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no mobile-device-prestage found matching %q", entry)
+							return fmt.Errorf("no mobile-device-prestage found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+						bulk = append(bulk, bulkEntry{id: rid, label: entry.Value})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -1388,7 +1389,7 @@ func newMobileDevicePrestagesAttachmentsDeleteMultipleCmd(ctx *registry.CLIConte
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
@@ -1399,24 +1400,24 @@ func newMobileDevicePrestagesAttachmentsDeleteMultipleCmd(ctx *registry.CLIConte
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry.Value, noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no mobile-device-prestage found matching %q", entry)
+							return fmt.Errorf("no mobile-device-prestage found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+						bulk = append(bulk, bulkEntry{id: rid, label: entry.Value})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -1928,7 +1929,7 @@ func newMobileDevicePrestagesScopeDeleteMultipleCmd(ctx *registry.CLIContext) *c
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
@@ -1939,24 +1940,24 @@ func newMobileDevicePrestagesScopeDeleteMultipleCmd(ctx *registry.CLIContext) *c
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", entry.Value, noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no mobile-device-prestage found matching %q", entry)
+							return fmt.Errorf("no mobile-device-prestage found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+						bulk = append(bulk, bulkEntry{id: rid, label: entry.Value})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.

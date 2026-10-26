@@ -8,109 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
-
-// ── readDeleteFile ────────────────────────────────────────────────────────────
-
-func TestReadDeleteFile(t *testing.T) {
-	write := func(t *testing.T, content string) string {
-		t.Helper()
-		f, err := os.CreateTemp(t.TempDir(), "del-*.txt")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatal(err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatal(err)
-		}
-		return f.Name()
-	}
-
-	t.Run("basic entries", func(t *testing.T) {
-		p := write(t, "123\n456\n789\n")
-		got, err := readDeleteFile(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := []string{"123", "456", "789"}
-		if len(got) != len(want) {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-		for i := range want {
-			if got[i] != want[i] {
-				t.Errorf("[%d] got %q, want %q", i, got[i], want[i])
-			}
-		}
-	})
-
-	t.Run("comment lines and blank lines stripped", func(t *testing.T) {
-		p := write(t, "# comment\n\n123\n# another comment\n456\n\n")
-		got, err := readDeleteFile(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := []string{"123", "456"}
-		if len(got) != len(want) {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-	})
-
-	t.Run("CRLF line endings", func(t *testing.T) {
-		p := write(t, "123\r\n456\r\n789\r\n")
-		got, err := readDeleteFile(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, e := range got {
-			if strings.Contains(e, "\r") {
-				t.Errorf("entry %q still contains CR", e)
-			}
-		}
-		if len(got) != 3 {
-			t.Fatalf("got %d entries, want 3", len(got))
-		}
-	})
-
-	t.Run("mixed numeric and name entries", func(t *testing.T) {
-		p := write(t, "42\nMy Policy\n# skip\n100\nAnother Policy\n")
-		got, err := readDeleteFile(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != 4 {
-			t.Fatalf("got %d entries, want 4", len(got))
-		}
-		if got[0] != "42" || got[1] != "My Policy" || got[2] != "100" || got[3] != "Another Policy" {
-			t.Errorf("unexpected entries: %v", got)
-		}
-	})
-
-	t.Run("empty file returns empty slice", func(t *testing.T) {
-		p := write(t, "")
-		got, err := readDeleteFile(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != 0 {
-			t.Errorf("got %v, want empty", got)
-		}
-	})
-
-	t.Run("nonexistent file returns error", func(t *testing.T) {
-		_, err := readDeleteFile(filepath.Join(t.TempDir(), "no-such-file.txt"))
-		if err == nil {
-			t.Fatal("expected error for missing file, got nil")
-		}
-	})
-}
 
 // ── isNumericID ───────────────────────────────────────────────────────────────
 

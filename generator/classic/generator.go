@@ -543,6 +543,9 @@ import (
 {{- if hasOp .Operations "delete" }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 {{- end }}
+{{- if hasDeleteByName . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
+{{- end }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 {{- if needsXMLConv . }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -1119,7 +1122,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasDeleteByName . }}
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
@@ -1130,31 +1133,31 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, label: entry.Value})
 					} else {
 						var resolvedID string
 {{ range extraLookups .Lookups }}{{ if ne . "name" }}					if resolvedID == "" {
-							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/{{ $.Path }}/{{ . }}", entry)
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/{{ $.Path }}/{{ . }}", entry.Value)
 							if lookupErr != nil {
-								return fmt.Errorf("resolving %q via {{ . }}: %w", entry, lookupErr)
+								return entry.Wrap(fmt.Sprintf("resolving %s via {{ . }}", entry.Label()), lookupErr)
 							}
 							resolvedID = id
 						}
 {{ end }}{{ end }}					if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, "delete", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry.Value, "delete", noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							return fmt.Errorf("no {{ .Singular }} found matching %q", entry)
+							return fmt.Errorf("no {{ .Singular }} found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
+						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry.Value})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
