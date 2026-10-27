@@ -32,11 +32,12 @@ func TestRead(t *testing.T) {
 		"comments and blank lines skipped, lines still counted": {
 			"# comment\n\n123\n# another\n456\n\n", []Entry{{"123", 3}, {"456", 5}},
 		},
-		"CRLF line endings":    {"123\r\n456\r\n", []Entry{{"123", 1}, {"456", 2}}},
-		"names keep spaces":    {"42\nMy Policy\n", []Entry{{"42", 1}, {"My Policy", 2}}},
-		"surrounding space":    {"  Main Office \t\n", []Entry{{"Main Office", 1}}},
-		"empty file":           {"", nil},
-		"a 255-character name": {strings.Repeat("é", MaxLen), []Entry{{strings.Repeat("é", MaxLen), 1}}},
+		"CRLF line endings":     {"123\r\n456\r\n", []Entry{{"123", 1}, {"456", 2}}},
+		"UTF-8 byte order mark": {"\xef\xbb\xbf123\n456\n", []Entry{{"123", 1}, {"456", 2}}},
+		"names keep spaces":     {"42\nMy Policy\n", []Entry{{"42", 1}, {"My Policy", 2}}},
+		"surrounding space":     {"  Main Office \t\n", []Entry{{"Main Office", 1}}},
+		"empty file":            {"", nil},
+		"a 255-character name":  {strings.Repeat("é", MaxLen), []Entry{{strings.Repeat("é", MaxLen), 1}}},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -29,8 +29,8 @@ type Entry struct {
 	Line int
 }
 
-// Read returns the entries in the file at path, skipping blank lines and
-// #-comments. It refuses the whole file when a line cannot be an ID or a name,
+// Read returns the entries in the file at path, skipping a leading byte order
+// mark, blank lines and #-comments. It refuses the whole file when a line cannot be an ID or a name,
 // and the refusal names only the line.
 func Read(path string) ([]Entry, error) {
 	data, err := os.ReadFile(path)
@@ -38,7 +38,7 @@ func Read(path string) ([]Entry, error) {
 		return nil, err
 	}
 	var entries []Entry
-	for i, raw := range strings.Split(string(data), "\n") {
+	for i, raw := range strings.Split(strings.TrimPrefix(string(data), "\ufeff"), "\n") {
 		value := strings.TrimSpace(raw)
 		if value == "" || strings.HasPrefix(value, "#") {
 			continue

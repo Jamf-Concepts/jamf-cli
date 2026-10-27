@@ -18,7 +18,8 @@ The bulk `delete --from-file` commands, `pro classic-policies enable` and `disab
 devices from `--from-file`, now refuse the whole file before any request when a line holds
 a control character, is not valid UTF-8, or is longer than 255 characters, the longest name
 the Jamf Pro API declares. The error names the line number and not its content. Blank lines
-and `#` comments are skipped as before.
+and `#` comments are skipped as before. A leading UTF-8 byte order mark is now ignored, so a
+numeric first line in a file saved as "UTF-8 with BOM" is read as an ID and not as a name.
 
 Under `mcp serve`, every message about a file entry names its line (`line 3`) and not its
 value: an entry that did not resolve, a dry-run or delete line for a numeric entry, and a
