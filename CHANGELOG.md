@@ -11,6 +11,23 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — `--from-file` lists refuse a line that cannot be an ID or a name
+
+The bulk `delete --from-file` commands, `pro classic-policies enable` and `disable
+--from-file`, and the device-action, bulk and Classic group-member commands that read
+devices from `--from-file`, now refuse the whole file before any request when a line holds
+a control character, is not valid UTF-8, or is longer than 255 characters, the longest name
+the Jamf Pro API declares. The error names the line number and not its content. Blank lines
+and `#` comments are skipped as before. A leading UTF-8 byte order mark is now ignored, so a
+numeric first line in a file saved as "UTF-8 with BOM" is read as an ID and not as a name.
+
+Under `mcp serve`, every message about a file entry names its line (`line 3`) and not its
+value: an entry that did not resolve, a dry-run or delete line for a numeric entry, and a
+policy that could not be read. A failed request keeps its exit code and hint but not its
+text, which can carry the value in the request path. A name that matches more than one
+record says so. `mcp serve` also refuses any `--verbose` level together with `--from-file`,
+because `-v` logs each request URL. Outside `mcp serve` the messages still quote the entry.
+
 ### Behaviour — server-supplied text is made safe for the terminal
 
 A name, id or error body a server returned reached the terminal byte for byte, so a

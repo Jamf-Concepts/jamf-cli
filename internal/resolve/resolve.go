@@ -7,7 +7,6 @@
 package resolve
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -22,6 +21,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -252,12 +252,18 @@ var mobileEntrySpec = fileEntrySpec{
 }
 
 func resolveEntriesFromFile(ctx context.Context, client registry.HTTPClient, path string, spec fileEntrySpec) ([]*DeviceIdentifiers, int, error) {
-	entries, err := readEntriesFromFile(path)
+	entries, err := listfile.Read(path)
 	if err != nil {
 		return nil, 0, err
 	}
+	if len(entries) == 0 {
+		return nil, 0, fmt.Errorf("file %s contains no entries", path)
+	}
 	devices, skipped, err := resolveEntries(ctx, client, spec, entries)
 	if err != nil {
+		if registry.InMCPChild() {
+			return nil, 0, listfile.Opaque(fmt.Sprintf("looking up the %ss in %s", spec.label, path), err)
+		}
 		return nil, 0, err
 	}
 	if len(devices) == 0 {
@@ -267,10 +273,10 @@ func resolveEntriesFromFile(ctx context.Context, client registry.HTTPClient, pat
 }
 
 func resolveEntryList(ctx context.Context, client registry.HTTPClient, entries []string, spec fileEntrySpec) ([]*DeviceIdentifiers, int, error) {
-	cleaned := make([]string, 0, len(entries))
+	cleaned := make([]listfile.Entry, 0, len(entries))
 	for _, e := range entries {
 		if e = strings.TrimSpace(e); e != "" {
-			cleaned = append(cleaned, e)
+			cleaned = append(cleaned, listfile.Entry{Value: e})
 		}
 	}
 	if len(cleaned) == 0 {
@@ -343,19 +349,19 @@ type entryResult struct {
 // rather than resolved to the first, since Jamf Pro names are not unique. An
 // entry carrying a `*` is resolved on its own: inside a shared list the
 // wildcard would page in every device it matches.
-func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEntrySpec, entries []string) ([]*DeviceIdentifiers, int, error) {
+func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEntrySpec, entries []listfile.Entry) ([]*DeviceIdentifiers, int, error) {
 	byKind := map[entryKind][]string{}
-	seen := make(map[string]bool, len(entries))
+	first := make(map[string]listfile.Entry, len(entries))
 	for _, entry := range entries {
-		if seen[entry] {
+		if _, ok := first[entry.Value]; ok {
 			continue
 		}
-		seen[entry] = true
-		k := classifyEntry(entry)
-		byKind[k] = append(byKind[k], entry)
+		first[entry.Value] = entry
+		k := classifyEntry(entry.Value)
+		byKind[k] = append(byKind[k], entry.Value)
 	}
 
-	results := make(map[string]entryResult, len(seen))
+	results := make(map[string]entryResult, len(first))
 
 	byID := map[string][]*DeviceIdentifiers{}
 	if err := spec.batch(ctx, client, byKind[entryID], "ID", false,
@@ -417,7 +423,7 @@ func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEn
 		if r.device != nil {
 			// A mistyped serial that happens to be another device's name
 			// would otherwise target that device without a word.
-			_, _ = fmt.Fprintf(os.Stderr, "  note: %q matched no serial number; resolved by name to %s %s\n", e, spec.label, output.SanitizeTerminal(r.device.ID))
+			_, _ = fmt.Fprintf(os.Stderr, "  note: %s matched no serial number; resolved by name to %s %s\n", first[e].Label(), spec.label, output.SanitizeTerminal(r.device.ID))
 		}
 		results[e] = r
 	}
@@ -436,15 +442,26 @@ func resolveEntries(ctx context.Context, client registry.HTTPClient, spec fileEn
 	devices := make([]*DeviceIdentifiers, 0, len(entries))
 	skipped := 0
 	for _, entry := range entries {
-		r := results[entry]
+		r := results[entry.Value]
 		if r.err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %q: %v\n", spec.label, entry, output.SanitizeTerminal(r.err.Error()))
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %s: %s\n", spec.label, entry.Label(), spec.failure(entry, r.err))
 			skipped++
 			continue
 		}
 		devices = append(devices, r.device)
 	}
 	return devices, skipped, nil
+}
+
+func (s fileEntrySpec) failure(entry listfile.Entry, err error) string {
+	switch {
+	case !entry.Hidden():
+		return output.SanitizeTerminal(err.Error())
+	case errors.Is(err, ErrAmbiguousDevice):
+		return fmt.Sprintf("it matches more than one %s; give its numeric ID", s.label)
+	default:
+		return fmt.Sprintf("no %s matches it", s.label)
+	}
 }
 
 // batch runs one identifier kind's chunked `=in=` lookups and indexes every
@@ -1159,32 +1176,6 @@ func isRSQLListSafe(s string) bool {
 		}
 	}
 	return true
-}
-
-// readEntriesFromFile reads lines from a file, skipping blanks and #-comments.
-func readEntriesFromFile(path string) ([]string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("opening file %s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
-
-	var entries []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		entries = append(entries, line)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading file %s: %w", path, err)
-	}
-	if len(entries) == 0 {
-		return nil, fmt.Errorf("file %s contains no entries", path)
-	}
-	return entries, nil
 }
 
 // ResolveClassicComputerGroup resolves a computer group name to exactly one

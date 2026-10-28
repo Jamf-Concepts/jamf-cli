@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
@@ -199,18 +199,18 @@ progress on stderr.`, capitalize(verb), verb, policyFilterHelp),
 			case filtered:
 				selected, unresolved, err = selectPoliciesByFilter(ctx, cliCtx.Client, stderr, pf.filters(cmd))
 			case fromFile != "":
-				var entries []string
+				var entries []listfile.Entry
 				entries, err = readPolicyEntries(fromFile)
 				if err == nil {
 					selected, unresolved, err = selectPoliciesByTarget(ctx, cliCtx.Client, stderr, entries)
 				}
 			case name != "":
-				selected, unresolved, err = selectPoliciesByTarget(ctx, cliCtx.Client, stderr, []string{name})
+				selected, unresolved, err = selectPoliciesByTarget(ctx, cliCtx.Client, stderr, []listfile.Entry{{Value: name}})
 			default:
 				if !resolve.IsNumericID(args[0]) {
 					return fmt.Errorf("%q is not a policy ID; pass a name with --name", args[0])
 				}
-				selected, unresolved, err = selectPoliciesByTarget(ctx, cliCtx.Client, stderr, []string{args[0]})
+				selected, unresolved, err = selectPoliciesByTarget(ctx, cliCtx.Client, stderr, []listfile.Entry{{Value: args[0]}})
 			}
 			if err != nil {
 				return err
@@ -235,20 +235,10 @@ progress on stderr.`, capitalize(verb), verb, policyFilterHelp),
 	return markGatewayCoverage(cmd, "PUT", "/JSSResource/policies/id/{id}")
 }
 
-// readPolicyEntries reads policy IDs or names from a file, one per line,
-// skipping blanks and #-comments.
-func readPolicyEntries(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
+func readPolicyEntries(path string) ([]listfile.Entry, error) {
+	entries, err := listfile.Read(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading --from-file: %w", err)
-	}
-	var entries []string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		entries = append(entries, line)
 	}
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("--from-file %s contains no entries", path)
@@ -267,11 +257,11 @@ type policyRef struct {
 // entry is an ID, anything else must name exactly one policy — a unique exact
 // match, else a unique case-insensitive one — since Classic names are not
 // unique. An entry that resolves to nothing warns and counts as unresolved.
-func selectPoliciesByTarget(ctx context.Context, client registry.HTTPClient, stderr io.Writer, entries []string) ([]policyEntry, int, error) {
+func selectPoliciesByTarget(ctx context.Context, client registry.HTTPClient, stderr io.Writer, entries []listfile.Entry) ([]policyEntry, int, error) {
 	var refs []policyRef
 	needList := false
 	for _, e := range entries {
-		if !resolve.IsNumericID(e) {
+		if !resolve.IsNumericID(e.Value) {
 			needList = true
 			break
 		}
@@ -292,14 +282,14 @@ func selectPoliciesByTarget(ctx context.Context, client registry.HTTPClient, std
 	unresolved := 0
 	seen := map[string]bool{}
 	for _, e := range entries {
-		id := e
-		if !resolve.IsNumericID(e) {
-			ref, candidates, err := pickone.One(refs, e,
+		id := e.Value
+		if !resolve.IsNumericID(e.Value) {
+			ref, candidates, err := pickone.One(refs, e.Value,
 				pickone.Exact(func(r policyRef) string { return r.name }),
 				pickone.Fold(func(r policyRef) string { return r.name }))
 			switch {
 			case errors.Is(err, pickone.ErrNone):
-				_, _ = fmt.Fprintf(stderr, "  warning: no policy named %q\n", e)
+				_, _ = fmt.Fprintf(stderr, "  warning: no policy named %s\n", e.Label())
 				unresolved++
 				continue
 			case errors.Is(err, pickone.ErrAmbiguous):
@@ -307,8 +297,8 @@ func selectPoliciesByTarget(ctx context.Context, client registry.HTTPClient, std
 				for i, c := range candidates {
 					ids[i] = c.id
 				}
-				_, _ = fmt.Fprintf(stderr, "  warning: %q names %d policies (ids %s); pass the ID of the one you mean\n",
-					e, len(candidates), strings.Join(ids, ", "))
+				_, _ = fmt.Fprintf(stderr, "  warning: %s names %d policies (ids %s); pass the ID of the one you mean\n",
+					e.Label(), len(candidates), strings.Join(ids, ", "))
 				unresolved++
 				continue
 			}
@@ -320,7 +310,11 @@ func selectPoliciesByTarget(ctx context.Context, client registry.HTTPClient, std
 		seen[id] = true
 		detail, err := fetchClassicPolicyDetail(ctx, client, id)
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "  warning: could not read policy %s: %v\n", termSafe(id), termSafe(err))
+			if e.Hidden() {
+				_, _ = fmt.Fprintf(stderr, "  warning: %v\n", listfile.Opaque("could not read policy "+e.Label(), err))
+			} else {
+				_, _ = fmt.Fprintf(stderr, "  warning: could not read policy %s: %v\n", termSafe(id), termSafe(err))
+			}
 			unresolved++
 			continue
 		}

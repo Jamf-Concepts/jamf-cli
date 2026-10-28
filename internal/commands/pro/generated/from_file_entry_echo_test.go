@@ -1,0 +1,183 @@
+// Copyright 2026, Jamf Software LLC
+
+package generated
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+)
+
+const fileSecret = "s3cr3t-Token_0123456789abcdef"
+
+func writeDeleteList(t *testing.T, content string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "delete.txt")
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+type pathEchoClient struct{ calls int }
+
+func (c *pathEchoClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+	c.calls++
+	return nil, fmt.Errorf("resource not found (HTTP 404): %s %s", method, path)
+}
+
+type emptyListClient struct{}
+
+func (emptyListClient) Do(context.Context, string, string, io.Reader) (*http.Response, error) {
+	return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte(`{"totalCount":0,"results":[]}`)))}, nil
+}
+
+// fixedClient answers every request with one 200 body.
+type fixedClient struct{ body string }
+
+func (c fixedClient) Do(context.Context, string, string, io.Reader) (*http.Response, error) {
+	return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(c.body))}, nil
+}
+
+func runDelete(t *testing.T, newCmd func(*registry.CLIContext) *cobra.Command, client registry.HTTPClient, list string, extra ...string) (string, error) {
+	t.Helper()
+	cmd := newCmd(&registry.CLIContext{Client: client})
+	cmd.SetArgs(append([]string{"--from-file", list, "--yes"}, extra...))
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	r, w, perr := os.Pipe()
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	orig := os.Stderr
+	os.Stderr = w
+	err := cmd.Execute()
+	os.Stderr = orig
+	_ = w.Close()
+	stderr, _ := io.ReadAll(r)
+	return string(stderr), err
+}
+
+func TestFromFileDelete_MCPChildNamesTheLineNotTheEntry(t *testing.T) {
+	cases := map[string]struct {
+		newCmd func(*registry.CLIContext) *cobra.Command
+		client registry.HTTPClient
+	}{
+		"pro, no match":            {newBuildingsDeleteCmd, emptyListClient{}},
+		"pro, lookup fails":        {newBuildingsDeleteCmd, &pathEchoClient{}},
+		"pro, by-field lookup":     {newComputerInventoryDeleteCmd, &pathEchoClient{}},
+		"classic, lookup fails":    {newClassicAdvancedComputerSearchesDeleteCmd, &pathEchoClient{}},
+		"classic, by-field lookup": {newClassicMobileDevicesDeleteCmd, &pathEchoClient{}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(registry.MCPChildEnvVar, "1")
+			stderr, err := runDelete(t, tc.newCmd, tc.client, writeDeleteList(t, "# devices\n"+fileSecret+"\n"))
+			if err == nil {
+				t.Fatal("want an error for an entry that does not resolve")
+			}
+			if strings.Contains(err.Error(), "s3cr3t") || strings.Contains(stderr, "s3cr3t") {
+				t.Errorf("a file line reached the MCP child's output:\nerr: %v\nstderr: %s", err, stderr)
+			}
+			if !strings.Contains(err.Error(), "line 2") {
+				t.Errorf("err = %v, want it to name line 2", err)
+			}
+		})
+	}
+}
+
+func TestFromFileDelete_OutsideMCPQuotesTheEntry(t *testing.T) {
+	_, err := runDelete(t, newBuildingsDeleteCmd, emptyListClient{}, writeDeleteList(t, fileSecret+"\n"))
+	if err == nil || !strings.Contains(err.Error(), strconv.Quote(fileSecret)) {
+		t.Errorf("err = %v, want the entry quoted for a person at the terminal", err)
+	}
+}
+
+func TestFromFileDelete_RefusesANonNameLineBeforeAnyRequest(t *testing.T) {
+	for name, bad := range map[string]string{
+		"control character": "bad\x1b]52;c;" + fileSecret + "\x07",
+		"too long":          fileSecret + strings.Repeat("x", 256),
+		"invalid UTF-8":     "bad\xff" + fileSecret,
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := &pathEchoClient{}
+			_, err := runDelete(t, newBuildingsDeleteCmd, client, writeDeleteList(t, "Main Office\n"+bad+"\n"))
+			if err == nil {
+				t.Fatal("want the file refused")
+			}
+			if client.calls != 0 {
+				t.Errorf("sent %d requests, want none before the file is refused", client.calls)
+			}
+			if !strings.Contains(err.Error(), "line 2") {
+				t.Errorf("err = %v, want it to name line 2", err)
+			}
+			if strings.Contains(err.Error(), "s3cr3t") {
+				t.Errorf("err = %v, want the line's content left out", err)
+			}
+		})
+	}
+}
+
+func TestFromFileDelete_MCPChildHidesANumericLine(t *testing.T) {
+	const number = "8675309123"
+	cases := map[string]struct {
+		newCmd func(*registry.CLIContext) *cobra.Command
+		client registry.HTTPClient
+		extra  []string
+	}{
+		"pro, dry run":          {newBuildingsDeleteCmd, &pathEchoClient{}, []string{"--dry-run"}},
+		"pro, delete fails":     {newBuildingsDeleteCmd, &pathEchoClient{}, nil},
+		"classic, dry run":      {newClassicAdvancedComputerSearchesDeleteCmd, &pathEchoClient{}, []string{"--dry-run"}},
+		"classic, delete fails": {newClassicAdvancedComputerSearchesDeleteCmd, &pathEchoClient{}, nil},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(registry.MCPChildEnvVar, "1")
+			stderr, err := runDelete(t, tc.newCmd, tc.client, writeDeleteList(t, number+"\n"), tc.extra...)
+			if strings.Contains(stderr, number) || (err != nil && strings.Contains(err.Error(), number)) {
+				t.Errorf("the numeric line reached the MCP child's output:\nstderr: %s\nerr: %v", stderr, err)
+			}
+			if !strings.Contains(stderr, "line 1") {
+				t.Errorf("stderr = %q, want it to name line 1", stderr)
+			}
+		})
+	}
+}
+
+func TestFromFileDelete_MCPChildReportsAnAmbiguousName(t *testing.T) {
+	t.Setenv(registry.MCPChildEnvVar, "1")
+	twoMatches := fixedClient{`{"totalCount":2,"results":[{"id":"1","name":"` + fileSecret + `"},{"id":"2","name":"` + fileSecret + `"}]}`}
+
+	_, err := runDelete(t, newBuildingsDeleteCmd, twoMatches, writeDeleteList(t, fileSecret+"\n"))
+	if err == nil || !strings.Contains(err.Error(), "line 1: it matches more than one record") {
+		t.Fatalf("err = %v, want the ambiguity named on line 1", err)
+	}
+	if strings.Contains(err.Error(), "s3cr3t") {
+		t.Errorf("err = %v, want the value left out", err)
+	}
+	if got := exitcode.CodeFrom(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage (%d)", got, exitcode.Usage)
+	}
+}
+
+func TestFromFileDelete_OutsideMCPKeepsTheDryRunLine(t *testing.T) {
+	stderr, err := runDelete(t, newBuildingsDeleteCmd, &pathEchoClient{}, writeDeleteList(t, "42\n"), "--dry-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `[dry-run] Would delete building "42" (id: 42)`; !strings.Contains(stderr, want) {
+		t.Errorf("stderr = %q, want %q", stderr, want)
+	}
+}

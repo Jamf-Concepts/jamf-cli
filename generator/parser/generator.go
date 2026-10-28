@@ -457,6 +457,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"hasNonMultipartPostOrPut": hasNonMultipartPostOrPut,
 		"hasDelete":                hasDelete,
 		"hasDestructive":           hasDestructive,
+		"hasBulkFromFile":          hasBulkFromFile,
 		"hasStatusResults":         hasStatusResults,
 		"oneLine":                  oneLine,
 		"hasApply":                 func(ops []*Operation) bool { return hasApply(ops) },
@@ -1288,6 +1289,15 @@ func hasStatusResults(ops []*Operation) bool {
 // generated string literal.
 func oneLine(s string) string {
 	return strings.Join(strings.Fields(s), " ")
+}
+
+func hasBulkFromFile(r *Resource) bool {
+	for _, op := range r.Operations {
+		if op.IsDestructive && opHasNameLookup(op, r) {
+			return true
+		}
+	}
+	return false
 }
 
 func hasDestructive(ops []*Operation) bool {
@@ -2220,10 +2230,13 @@ import (
 {{- if needsMultipart . }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 {{- end }}
-	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 {{- if hasDestructive .Operations }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 {{- end }}
+{{- if hasBulkFromFile . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
+{{- end }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 {{- if hasPaginated .Operations }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 {{- end }}
@@ -2443,42 +2456,45 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var rid string
 {{ range $.LookupFields }}					if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (lookupFieldPath $ .) }}, {{ goStr (.RSQLField) }}, {{ goStr (lookupIDField $) }}, entry, noInputBulk)
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (lookupFieldPath $ .) }}, {{ goStr (.RSQLField) }}, {{ goStr (lookupIDField $) }}, entry.Value, noInputBulk)
 							if lookupErr != nil {
-								return fmt.Errorf("resolving %q via {{ .Flag }}: %w", entry, lookupErr)
+								return entry.Wrap(fmt.Sprintf("resolving %s via {{ .Flag }}", entry.Label()), lookupErr)
 							}
 							rid = id
 						}
 {{ end }}					if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (nameLookupPath $) }}, {{ goStr ($.NameField) }}, {{ goStr (lookupIDField $) }}, entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (nameLookupPath $) }}, {{ goStr ($.NameField) }}, {{ goStr (lookupIDField $) }}, entry.Value, noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf({{ goStr (print "no " $.NameSingular " found matching %q") }}, entry)
+							return fmt.Errorf({{ goStr (print "no " $.NameSingular " found matching %s") }}, entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -2495,7 +2511,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, termSafe(e.id))
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, e.entry.Target(termSafe(e.id)))
 					}
 					return nil
 				}
@@ -2519,7 +2535,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: %v\n") }}, e.label, termSafe(e.id), termSafe(err))
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %s failed: %v\n") }}, e.entry.Target(termSafe(e.id)), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2528,14 +2545,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %q (id: %s) failed: HTTP %d\n") }}, e.label, termSafe(e.id), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %s failed: HTTP %d\n") }}, e.entry.Target(termSafe(e.id)), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %q (id: %s)\n") }}, e.label, termSafe(e.id))
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %s\n") }}, e.entry.Target(termSafe(e.id)))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -4991,24 +5008,6 @@ func resolveFieldValue(obj map[string]any, field string) any {
 		return nil
 	}
 	return m[parts[len(parts)-1]]
-}
-
-// readDeleteFile reads a file of IDs or names for bulk delete.
-// Lines beginning with '#' and blank lines are ignored.
-func readDeleteFile(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading %q: %w", path, err)
-	}
-	var entries []string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		entries = append(entries, line)
-	}
-	return entries, nil
 }
 
 // isNumericID returns true when s consists entirely of ASCII digits.

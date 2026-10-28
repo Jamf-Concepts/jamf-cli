@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
@@ -821,49 +822,52 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var rid string
 						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", entry, noInputBulk)
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", entry.Value, noInputBulk)
 							if lookupErr != nil {
-								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
+								return entry.Wrap(fmt.Sprintf("resolving %s via serial", entry.Label()), lookupErr)
 							}
 							rid = id
 						}
 						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", entry, noInputBulk)
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", entry.Value, noInputBulk)
 							if lookupErr != nil {
-								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+								return entry.Wrap(fmt.Sprintf("resolving %s via udid", entry.Label()), lookupErr)
 							}
 							rid = id
 						}
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", entry.Value, noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no mobile-device found matching %q", entry)
+							return fmt.Errorf("no mobile-device found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -880,7 +884,7 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device %s\n", e.entry.Target(termSafe(e.id)))
 					}
 					return nil
 				}
@@ -904,7 +908,8 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v2/mobile-devices/{id}/erase", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -913,14 +918,14 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"erase\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
+					fmt.Fprintf(os.Stderr, "Ran \"erase\" on mobile-device %s\n", e.entry.Target(termSafe(e.id)))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -1335,49 +1340,52 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var rid string
 						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", entry, noInputBulk)
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", entry.Value, noInputBulk)
 							if lookupErr != nil {
-								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
+								return entry.Wrap(fmt.Sprintf("resolving %s via serial", entry.Label()), lookupErr)
 							}
 							rid = id
 						}
 						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", entry, noInputBulk)
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", entry.Value, noInputBulk)
 							if lookupErr != nil {
-								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+								return entry.Wrap(fmt.Sprintf("resolving %s via udid", entry.Label()), lookupErr)
 							}
 							rid = id
 						}
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", entry.Value, noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no mobile-device found matching %q", entry)
+							return fmt.Errorf("no mobile-device found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -1394,7 +1402,7 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"unmanage\" on mobile-device %s\n", e.entry.Target(termSafe(e.id)))
 					}
 					return nil
 				}
@@ -1418,7 +1426,8 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v2/mobile-devices/{id}/unmanage", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1427,14 +1436,14 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"unmanage\" on mobile-device %q (id: %s)\n", e.label, termSafe(e.id))
+					fmt.Fprintf(os.Stderr, "Ran \"unmanage\" on mobile-device %s\n", e.entry.Target(termSafe(e.id)))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)

@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -710,35 +711,38 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", entry, "delete", noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", entry.Value, "delete", noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							return fmt.Errorf("no os_x_configuration_profile found matching %q", entry)
+							return fmt.Errorf("no os_x_configuration_profile found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
+						bulk = append(bulk, bulkEntry{id: resolvedID, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -755,7 +759,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete os_x_configuration_profile %q (id: %s)\n", e.label, termSafe(e.id))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete os_x_configuration_profile %s\n", e.entry.Target(termSafe(e.id)))
 					}
 					return nil
 				}
@@ -779,7 +783,8 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 					delPath := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete os_x_configuration_profile %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete os_x_configuration_profile %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -788,10 +793,10 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted os_x_configuration_profile %q (id: %s)\n", e.label, termSafe(e.id))
+						fmt.Fprintf(os.Stderr, "Deleted os_x_configuration_profile %s\n", e.entry.Target(termSafe(e.id)))
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete os_x_configuration_profile %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete os_x_configuration_profile %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}

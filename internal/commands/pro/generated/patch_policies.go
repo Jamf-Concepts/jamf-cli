@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
@@ -273,35 +274,38 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// --from-file: bulk delete from a file of IDs or names
 			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
+				entries, err := listfile.Read(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading --from-file: %w", err)
 				}
 				if len(entries) == 0 {
 					return fmt.Errorf("--from-file %q: no entries found", fromFile)
 				}
-				type bulkEntry struct{ id, label string }
+				type bulkEntry struct {
+					id    string
+					entry listfile.Entry
+				}
 				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
+					if isNumericID(entry.Value) {
+						if entry.Value == "0" {
 							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-policies", "name", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-policies", "name", "id", entry.Value, noInputBulk)
 							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
+								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no patch-policy found matching %q", entry)
+							return fmt.Errorf("no patch-policy found matching %s", entry.Label())
 						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
 					}
 				}
 				// Deduplicate resolved IDs to avoid double-delete errors.
@@ -318,7 +322,7 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %q (id: %s)\n", e.label, termSafe(e.id))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %s\n", e.entry.Target(termSafe(e.id)))
 					}
 					return nil
 				}
@@ -342,7 +346,8 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v2/patch-policies/{id}/dashboard", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete patch-policy %q (id: %s) failed: %v\n", e.label, termSafe(e.id), termSafe(err))
+						err = e.entry.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete patch-policy %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -351,14 +356,14 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete patch-policy %q (id: %s) failed: HTTP %d\n", e.label, termSafe(e.id), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete patch-policy %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted patch-policy %q (id: %s)\n", e.label, termSafe(e.id))
+					fmt.Fprintf(os.Stderr, "Deleted patch-policy %s\n", e.entry.Target(termSafe(e.id)))
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
