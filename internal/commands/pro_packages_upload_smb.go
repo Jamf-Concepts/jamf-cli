@@ -248,7 +248,12 @@ func smbCredentials(w io.Writer, reader *bufio.Reader, dp fileShareDP, stored sm
 }
 
 // kerberosCache is a ticket cache and the krb5.conf to use with it.
-type kerberosCache struct{ ccacheFile, configFile string }
+type kerberosCache struct {
+	ccacheFile, configFile string
+	// cleanup removes a private copy of the ticket made for this upload. Nil
+	// when the cache is the user's own file.
+	cleanup func()
+}
 
 // defaultCCacheFile is where a Linux kinit puts a ticket when KRB5CCNAME is
 // unset. A var so a test can point it elsewhere. macOS keeps its tickets in the
@@ -268,15 +273,18 @@ var defaultCCacheFile = func() string { return fmt.Sprintf("/tmp/krb5cc_%d", os.
 //
 // Only a FILE cache can be read. macOS keeps the ticket of a bound Mac, NoMAD
 // or Jamf Connect login in the system's API cache, which this client cannot
-// open, so an explicit API: or KCM: name is refused with the one command that
-// copies it out.
+// open. With KRB5CCNAME unset, macOS's ticket is copied to a private file
+// (discoverSystemTicket); an explicit API: or KCM: name is refused with the
+// command that does the same by hand.
 func smbKerberos() (*kerberosCache, error) {
 	name := os.Getenv(krbCCacheEnv)
 	explicit := name != ""
 	if !explicit {
 		name = defaultCCacheFile()
 		if _, err := os.Stat(name); err != nil {
-			return nil, nil //nolint:nilerr // no default ticket file is the ordinary case
+			// No FILE ticket. On macOS the signed-in user's ticket is in the
+			// system cache; copy it out. Elsewhere this finds nothing.
+			return discoverSystemTicket(), nil
 		}
 	}
 	if kind, _, ok := strings.Cut(name, ":"); ok && kind != "FILE" && !strings.HasPrefix(name, "/") {

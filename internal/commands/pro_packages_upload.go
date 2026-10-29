@@ -66,10 +66,10 @@ The account that writes to the share is read from JAMFSMB_USERNAME and
 JAMFSMB_PASSWORD, else the account saved in the profile by
 "pro packages smb-setup" (password in the keychain), else prompted for. Jamf
 Pro never returns the password, and none is accepted as a flag. With none of those and a Kerberos ticket in a FILE
-cache (KRB5CCNAME, else /tmp/krb5cc_<uid>), the ticket is used; a supplied
-or saved account always wins over it. The server must be named by DNS name,
-and on macOS the ticket must be copied out first: kcc copy_cred_cache
---krbtgt-only FILE:<path>. The package goes in the share's Packages folder, which
+cache (KRB5CCNAME, else /tmp/krb5cc_<uid>), or the signed-in macOS user's
+ticket, which is copied to a private temporary file for the upload and removed
+after, the ticket is used. A supplied or saved account always wins over it. The
+server must be named by DNS name, not an IP address. The package goes in the share's Packages folder, which
 must already exist, written under a temporary name and renamed into place. Jamf Pro never sees the bytes, so it computes no hash:
 the check is that the file on the share has the local file's size.`,
 		Example: `  # Upload a package
@@ -181,6 +181,7 @@ the check is that the file on the share has the local file's size.`,
 				if aerr != nil {
 					return aerr
 				}
+				defer krb.close() // removes a private copy of the ticket, if one was made
 				smbTgt = smbTarget(*smbDP, user, pw, krb)
 				auth := "password"
 				if krb != nil {
