@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net"
 	"strconv"
 	"strings"
@@ -243,8 +242,6 @@ func Size(ctx context.Context, t Target, name string) (int64, error) {
 	}
 	return st.Size(), nil
 }
-
-func isNotExist(err error) bool { return errors.Is(err, fs.ErrNotExist) }
 
 // mount opens a session and mounts the share. The returned func releases both,
 // and is safe to call after ctx is cancelled.

@@ -260,11 +260,11 @@ func forgetSMBCredential(profileName string, dp fileShareDP) error {
 // on the distribution point record; the password is read without echo and is
 // never defaulted.
 func promptSMBAccount(w *os.File, reader *bufio.Reader, dp fileShareDP) (user, password string, err error) {
-	fmt.Fprintf(w, "Enter the account that can write to %s\n", termSafe(`\\`+dp.host+`\`+dp.share))
+	_, _ = fmt.Fprintf(w, "Enter the account that can write to %s\n", termSafe(`\\`+dp.host+`\`+dp.share))
 	if dp.username != "" {
-		fmt.Fprintf(w, "Username [%s]: ", termSafe(dp.username))
+		_, _ = fmt.Fprintf(w, "Username [%s]: ", termSafe(dp.username))
 	} else {
-		fmt.Fprint(w, "Username: ")
+		_, _ = fmt.Fprint(w, "Username: ")
 	}
 	line, rerr := reader.ReadString('\n')
 	if rerr != nil && line == "" {
@@ -277,12 +277,12 @@ func promptSMBAccount(w *os.File, reader *bufio.Reader, dp fileShareDP) (user, p
 	if user == "" {
 		return "", "", errors.New("username is required")
 	}
-	fmt.Fprint(w, "Password: ")
+	_, _ = fmt.Fprint(w, "Password: ")
 	b, perr := term.ReadPassword(int(os.Stdin.Fd()))
 	if perr != nil {
 		return "", "", fmt.Errorf("reading password: %w", perr)
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 	if len(b) == 0 {
 		return "", "", errors.New("password is required")
 	}
