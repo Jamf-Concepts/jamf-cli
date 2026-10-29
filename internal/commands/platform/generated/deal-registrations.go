@@ -70,7 +70,7 @@ func newDealRegistrationsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "registrationStatus", Label: "status"},
 				{Field: "businessType", Label: "businessType"},
 				{Field: "expirationDate", Label: "expires"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

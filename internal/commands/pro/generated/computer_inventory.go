@@ -233,7 +233,7 @@ func newComputerInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 					{field: "hardware.model", label: "model"},
 					{field: "operatingSystem.version", label: "osVersion"},
 					{field: "general.lastCheckIn", label: "lastCheckIn"},
-				}, ctx.Output.Format())
+				}, ctx.Output.Format(), ctx.Output.SelectPaths())
 				return ctx.Output.PrintRaw(combined)
 			}
 
@@ -1177,7 +1177,7 @@ func newComputerInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
 					{field: "hardware.model", label: "model"},
 					{field: "operatingSystem.version", label: "osVersion"},
 					{field: "general.lastCheckIn", label: "lastCheckIn"},
-				}, ctx.Output.Format())
+				}, ctx.Output.Format(), ctx.Output.SelectPaths())
 				return ctx.Output.PrintRaw(combined)
 			}
 

@@ -5,6 +5,8 @@ package platform
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 // TableColumn defines a column selection for list table output.
@@ -15,8 +17,9 @@ type TableColumn struct {
 
 // SelectTableColumns transforms a JSON array to include only the configured
 // columns. For JSON/YAML/raw output formats, the input is returned unchanged
-// so full fidelity is preserved.
-func SelectTableColumns(data []byte, columns []TableColumn, format string) []byte {
+// so full fidelity is preserved. A --select path the columns do not carry is
+// added as a further column, resolved against the full record.
+func SelectTableColumns(data []byte, columns []TableColumn, format string, selectPaths []string) []byte {
 	if format == "json" || format == "yaml" || format == "xml" || format == "raw" {
 		return data
 	}
@@ -25,17 +28,24 @@ func SelectTableColumns(data []byte, columns []TableColumn, format string) []byt
 		return data
 	}
 	result := make([]map[string]any, 0, len(items))
+	records := make([]map[string]any, 0, len(items))
 	for _, raw := range items {
 		var obj map[string]any
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			continue
 		}
+		records = append(records, obj)
 		row := make(map[string]any, len(columns))
 		for _, col := range columns {
 			row[col.Label] = resolveFieldPath(obj, col.Field)
 		}
 		result = append(result, row)
 	}
+	labels := make([]string, len(columns))
+	for i, col := range columns {
+		labels[i] = col.Label
+	}
+	output.AddSelectColumns(records, result, labels, selectPaths)
 	out, err := json.Marshal(result)
 	if err != nil {
 		return data

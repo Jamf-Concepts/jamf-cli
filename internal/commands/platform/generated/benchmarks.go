@@ -72,7 +72,7 @@ func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "syncState", Label: "syncState"},
 				{Field: "updateAvailable", Label: "updateAvailable"},
 				{Field: "modified", Label: "modified"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

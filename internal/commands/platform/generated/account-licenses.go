@@ -69,7 +69,7 @@ func newAccountLicensesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "purchasedSeats", Label: "seats"},
 				{Field: "startDate", Label: "start"},
 				{Field: "endDate", Label: "end"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

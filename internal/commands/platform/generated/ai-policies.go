@@ -124,7 +124,7 @@ func newAiPoliciesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "hasDraft", Label: "hasDraft"},
 				{Field: "schemaDrift", Label: "schemaDrift"},
 				{Field: "updatedAt", Label: "updated"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

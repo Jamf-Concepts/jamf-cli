@@ -218,7 +218,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 					{field: "hardware.model", label: "model"},
 					{field: "general.osVersion", label: "osVersion"},
 					{field: "general.lastInventoryUpdateDate", label: "lastInventoryUpdate"},
-				}, ctx.Output.Format())
+				}, ctx.Output.Format(), ctx.Output.SelectPaths())
 				return ctx.Output.PrintRaw(combined)
 			}
 
@@ -1273,7 +1273,7 @@ func newMobileDevicesPairedDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 					{field: "hardware.model", label: "model"},
 					{field: "general.osVersion", label: "osVersion"},
 					{field: "general.lastInventoryUpdateDate", label: "lastInventoryUpdate"},
-				}, ctx.Output.Format())
+				}, ctx.Output.Format(), ctx.Output.SelectPaths())
 				return ctx.Output.PrintRaw(combined)
 			}
 

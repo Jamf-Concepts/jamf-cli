@@ -259,7 +259,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			{{- range .ListTableColumns }}
 				{Field: {{printf "%q" .Field}}, Label: {{printf "%q" .Label}}},
 			{{- end }}
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 {{- end }}
 			return cliCtx.Output.PrintRaw(b)
 {{- else }}
@@ -334,7 +334,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			{{- range .ListTableColumns }}
 				{Field: {{printf "%q" .Field}}, Label: {{printf "%q" .Label}}},
 			{{- end }}
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 {{- end }}
 			return cliCtx.Output.PrintRaw(b)
 {{- else }}

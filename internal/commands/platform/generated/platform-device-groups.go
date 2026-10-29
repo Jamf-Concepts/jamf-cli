@@ -119,7 +119,7 @@ func newPlatformDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 				{Field: "deviceType", Label: "deviceType"},
 				{Field: "groupType", Label: "groupType"},
 				{Field: "memberCount", Label: "memberCount"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

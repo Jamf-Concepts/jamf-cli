@@ -88,6 +88,10 @@ func (f *Formatter) SetProjector(p Projector) {
 	f.projector = p
 }
 
+// SelectPaths returns the dot paths --select named, blanks dropped. A list
+// command reads it to carry fields outside its summary row into the output.
+func (f *Formatter) SelectPaths() []string { return cleanPaths(f.projector.Select) }
+
 // SetQuiet suppresses advisory output written to stderr (e.g. the
 // list-size hint). Errors and primary output on stdout are unaffected.
 func (f *Formatter) SetQuiet(q bool) {
@@ -266,8 +270,14 @@ func RendersStructureVerbatim(format string) bool {
 
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
-	if rows, ok := data.([]map[string]any); ok {
-		f.reportProjectionMiss(rows)
+	switch v := data.(type) {
+	case []map[string]any:
+		f.reportProjectionMiss(v)
+	case []any:
+		// A JSON list arrives parsed from the wire as []any.
+		if rows, ok := mapRows(v); ok {
+			f.reportProjectionMiss(rows)
+		}
 	}
 	data = f.applyProjection(data)
 
@@ -304,6 +314,19 @@ func (f *Formatter) Print(data any) error {
 	return err
 }
 
+// mapRows returns the elements of v as rows, or false when any is not an object.
+func mapRows(v []any) ([]map[string]any, bool) {
+	rows := make([]map[string]any, 0, len(v))
+	for _, item := range v {
+		m, ok := item.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		rows = append(rows, m)
+	}
+	return rows, true
+}
+
 // reportProjectionMiss says on stderr that --select or --compact matched no
 // field in any row.
 //
@@ -318,6 +341,15 @@ func (f *Formatter) Print(data any) error {
 // separating a mistyped field name from an empty collection.
 func (f *Formatter) reportProjectionMiss(rows []map[string]any) {
 	if !f.projector.RendersNothing(rows) {
+		// Some paths matched; a mistyped one still renders a plausible table
+		// with its column missing, so name it.
+		if missing := f.projector.MissingPaths(rows); len(missing) > 0 {
+			w := f.stderr
+			if w == nil {
+				w = os.Stderr
+			}
+			_, _ = fmt.Fprintf(w, "--select %s matched no field in %d row(s)\n", strings.Join(missing, ","), len(rows))
+		}
 		return
 	}
 	flag := "--compact"
@@ -857,7 +889,8 @@ func keyPriority(key string) int {
 	return 2
 }
 
-// columnKeys returns the column set for rows, in sortedKeys' order.
+// columnKeys returns the column set for rows, in sortedKeys' order, or in
+// --select's own order when one is set.
 //
 // Row 0 alone decides it without a projector, which is the documented
 // convention and keeps every existing table byte-identical.
@@ -882,7 +915,39 @@ func (f *Formatter) columnKeys(rows []map[string]any) []string {
 			union[k] = nil
 		}
 	}
-	return sortedKeys(union)
+	keys := sortedKeys(union)
+	if paths := cleanPaths(f.projector.Select); len(paths) > 0 {
+		return orderBySelect(keys, paths)
+	}
+	return keys
+}
+
+// orderBySelect puts keys in the order --select named them, so a column list
+// reads the way it was asked for and a consumer reading columns by position
+// gets the one it expects. A path that names an object contributes its
+// flattened keys together, in sortedKeys' order. Duplicate paths place a key
+// once, and a key no path claims follows.
+func orderBySelect(keys, paths []string) []string {
+	ordered := make([]string, 0, len(keys))
+	placed := make(map[string]bool, len(keys))
+	place := func(k string) {
+		if !placed[k] {
+			placed[k] = true
+			ordered = append(ordered, k)
+		}
+	}
+	for _, path := range paths {
+		prefix := path + "."
+		for _, k := range keys {
+			if k == path || strings.HasPrefix(k, prefix) {
+				place(k)
+			}
+		}
+	}
+	for _, k := range keys {
+		place(k)
+	}
+	return ordered
 }
 
 // sortedKeys returns map keys in deterministic order:

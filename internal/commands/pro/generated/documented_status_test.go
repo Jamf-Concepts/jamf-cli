@@ -172,3 +172,5 @@ func TestIsTokenAuthorizationError(t *testing.T) {
 		})
 	}
 }
+
+func (o *jsonOutput) SelectPaths() []string { return o.f.SelectPaths() }

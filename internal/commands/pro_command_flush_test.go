@@ -94,6 +94,7 @@ func (d *discardOutput) PrintResponse(_ *http.Response) error { return nil }
 func (d *discardOutput) PrintRaw(_ []byte) error              { return nil }
 func (d *discardOutput) PrintBytes(_ []byte) error            { return nil }
 func (d *discardOutput) Format() string                       { return "json" }
+func (d *discardOutput) SelectPaths() []string                { return nil }
 func (d *discardOutput) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }

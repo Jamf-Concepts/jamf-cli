@@ -24,6 +24,7 @@ func (m *mockFormatter) PrintRaw(data []byte) error {
 }
 func (m *mockFormatter) PrintBytes(data []byte) error { return m.PrintRaw(data) }
 func (m *mockFormatter) Format() string               { return "json" }
+func (m *mockFormatter) SelectPaths() []string        { return nil }
 func (m *mockFormatter) PaginationProgress() *progress.Reporter {
 	return progress.New(io.Discard, progress.Silent)
 }

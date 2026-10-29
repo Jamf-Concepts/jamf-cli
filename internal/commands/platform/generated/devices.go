@@ -169,7 +169,7 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				{Field: "operatingSystemVersion", Label: "osVersion"},
 				{Field: "enrollmentType", Label: "enrollmentType"},
 				{Field: "lastInventoryUpdateTime", Label: "lastInventory"},
-			}, cliCtx.Output.Format())
+			}, cliCtx.Output.Format(), cliCtx.Output.SelectPaths())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
