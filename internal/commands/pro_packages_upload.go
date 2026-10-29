@@ -48,7 +48,12 @@ The command hashes the file locally and checks the result against the hash Jamf
 Pro computes for the uploaded file. It never writes hashes to the package
 record: Jamf computes them and the size itself. The strongest hash the server
 reports is compared, in the order SHA3-512, SHA-256, MD5. Jamf Cloud (JCDS)
-reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
+reports SHA3-512; an Amazon S3 distribution point reports MD5 only.
+
+On a platform gateway profile whose cloud distribution point is Jamf Cloud
+(JCDS), the file goes straight to JCDS storage through a short-lived upload
+grant Jamf Pro issues, rather than through the gateway. Every other combination uploads
+through the Jamf Pro API.`,
 		Example: `  # Upload a package
   jamf-cli pro packages upload --file ./Firefox-134.0.pkg
 
@@ -111,6 +116,18 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 				return nil
 			}
 
+			// Chosen before anything is written, so a tenant with no
+			// distribution point is refused before a record is created.
+			proSDK := proSDKFor(cliCtx)
+			var cdp cdpReader
+			if proSDK != nil {
+				cdp = proSDK
+			}
+			route, err := chooseUploadRoute(ctx, cdp)
+			if err != nil {
+				return err
+			}
+
 			var prev previousHashes // non-empty when replacing an existing package
 			if pkgID != "" {
 				if !flagYes {
@@ -147,7 +164,12 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 
 			// 5. Upload the binary
 			fmt.Fprintf(os.Stderr, "Uploading %s...\n", fileName)
-			if err := uploadPackageFile(ctx, uploader, pkgID, filePath); err != nil {
+			if route == uploadViaJCDS {
+				err = uploadPackageFileDirect(ctx, proSDK, filePath)
+			} else {
+				err = uploadPackageFile(ctx, uploader, pkgID, filePath)
+			}
+			if err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Upload complete\n")
