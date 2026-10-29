@@ -611,3 +611,28 @@ func TestCompactUnionsTheColumnSet(t *testing.T) {
 		t.Errorf("--compact dropped the note column, so row 1's value reaches nothing:\n%s", buf.String())
 	}
 }
+
+func TestPrintRaw_SelectProjectsRowsOfASinglePage(t *testing.T) {
+	page := []byte(`{"totalCount":42,"results":[{"id":"64","name":"a"},{"id":"46","name":"b"}]}`)
+	for _, format := range []string{"json", "csv"} {
+		f, out := newTestFormatter(format)
+		f.SetProjector(Projector{Select: []string{"id"}})
+		if err := f.PrintRaw(page); err != nil {
+			t.Fatalf("%s: %v", format, err)
+		}
+		got := out.String()
+		if !strings.Contains(got, "64") || !strings.Contains(got, "46") || strings.Contains(got, "totalCount") {
+			t.Errorf("%s: want the ids of both rows and no envelope, got %q", format, got)
+		}
+	}
+}
+
+func TestUnwrapPage_LeavesOtherShapesAlone(t *testing.T) {
+	for _, in := range []string{`{"results":[{"id":1}]}`, `{"totalCount":1,"results":"x"}`, `{"id":1}`, `[{"id":1}]`} {
+		var v any
+		_ = json.Unmarshal([]byte(in), &v)
+		if _, ok := UnwrapPage(v); ok {
+			t.Errorf("%s was unwrapped", in)
+		}
+	}
+}

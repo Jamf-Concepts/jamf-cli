@@ -753,6 +753,14 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		return writeErr
 	}
 
+	// A projection names fields of a row, and a single page of a paginated list
+	// is {results, totalCount}: unwrap it so --select reaches the rows, as it
+	// does under --all. Without it `--page 0 --select id` projected the
+	// envelope's own two keys and printed {}.
+	if !f.projector.IsZero() {
+		parsed, _ = UnwrapPage(parsed)
+	}
+
 	// JSON and YAML preserve the parsed shape natively (object stays object,
 	// array stays array). Tabular formats (table/csv/plain) require rows, so
 	// coerce via normalizeForTabular. Print's applyProjection handles both
@@ -770,6 +778,25 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		}
 		return f.Print(normalizeForTabular(parsed))
 	}
+}
+
+// UnwrapPage returns the rows of a single page of a paginated list, which the
+// Pro API answers as {"totalCount": N, "results": [{...}]}. Any other value is
+// returned unchanged with false. Both keys are required, so an ordinary record
+// that happens to carry a "results" field is not mistaken for a page.
+func UnwrapPage(parsed any) (any, bool) {
+	obj, ok := parsed.(map[string]any)
+	if !ok {
+		return parsed, false
+	}
+	if _, ok := obj["totalCount"]; !ok {
+		return parsed, false
+	}
+	results, ok := obj["results"].([]any)
+	if !ok {
+		return parsed, false
+	}
+	return results, true
 }
 
 // normalizeForTabular converts parsed JSON types into the []map[string]any

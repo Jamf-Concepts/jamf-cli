@@ -104,6 +104,9 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 		return fmt.Errorf("cannot extract field from non-JSON response")
 	}
 
+	// --field names a field of a row, so a single page is read as its rows.
+	parsed, _ = output.UnwrapPage(parsed)
+
 	var objects []map[string]any
 	switch v := parsed.(type) {
 	case []any:
