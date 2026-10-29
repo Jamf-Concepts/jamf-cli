@@ -10,11 +10,13 @@ import (
 	"crypto/sha3"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,6 +90,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 			if err != nil {
 				return fmt.Errorf("hashing file: %w", err)
 			}
+			hashes.size = fileSize
 			fmt.Fprintf(os.Stderr, "  SHA3-512: %s...\n", hashes.sha3[:16])
 			fmt.Fprintf(os.Stderr, "  SHA-256:  %s...\n", hashes.sha256[:16])
 			fmt.Fprintf(os.Stderr, "  MD5:      %s...\n", hashes.md5[:16])
@@ -128,6 +131,7 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 				if data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID))); err == nil {
 					prev.sha3, _ = data["hashValue"].(string)
 					prev.md5, _ = data["md5"].(string)
+					prev.size = sizeString(data["size"])
 				}
 
 				fmt.Fprintf(os.Stderr, "Updating existing package (id %s)\n", termSafe(pkgID))
@@ -161,7 +165,12 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 				}
 				// Timeout is non-fatal — server may still be processing
 				fmt.Fprintf(os.Stderr, "WARNING: %v\n", termSafe(err))
-				fmt.Fprintf(os.Stderr, "The file was uploaded. The server may still be processing.\n")
+				var unverified *errUnverified
+				if errors.As(err, &unverified) {
+					fmt.Fprintf(os.Stderr, "The file was uploaded; compare it against your source before relying on it.\n")
+				} else {
+					fmt.Fprintf(os.Stderr, "The file was uploaded. The server may still be processing.\n")
+				}
 			} else {
 				fmt.Fprintf(os.Stderr, "Verified: server hash matches local hash\n")
 			}
@@ -196,13 +205,36 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.`,
 var (
 	verifyTimeout  = 10 * time.Minute
 	verifyInterval = 10 * time.Second
+	// verifyGrace is how long a package that is READY at the right size gets to
+	// show a hash before the upload is reported as unverified. Jamf Pro never
+	// computes one for some large packages, so waiting out verifyTimeout would
+	// only make the caller wait for nothing.
+	verifyGrace = 20 * time.Second
 )
+
+// errUnverified is a package that uploaded but could not be integrity-checked:
+// the server computed no new hash. It is a warning, not a failure.
+type errUnverified struct{ reason string }
+
+func (e *errUnverified) Error() string { return e.reason }
+
+// sizeString renders a record's size field, which arrives as a string or a number.
+func sizeString(v any) string {
+	switch n := v.(type) {
+	case string:
+		return n
+	case float64:
+		return strconv.FormatInt(int64(n), 10)
+	}
+	return ""
+}
 
 // fileHashes holds the computed hash values for a package file.
 type fileHashes struct {
 	sha3   string
 	sha256 string
 	md5    string
+	size   int64 // byte length of the file; 0 when unknown
 }
 
 // hashFile computes SHA3-512, SHA-256, and MD5 in a single pass.
@@ -339,6 +371,7 @@ type previousHashes struct {
 	sha3   string
 	sha256 string
 	md5    string
+	size   string // the record's size field, which Jamf Pro reports as a string
 }
 
 // hashCandidate pairs a package record field with the local and previous value
@@ -375,6 +408,15 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 		{"SHA-256", "sha256", local.sha256, prev.sha256},
 		{"MD5", "md5", local.md5, prev.md5},
 	}
+
+	localSize := ""
+	if local.size > 0 {
+		localSize = strconv.FormatInt(local.size, 10)
+	}
+	// A replace whose old and new files have the same byte length cannot be
+	// confirmed by size: the record looks identical before and after.
+	sameSizeReplace := localSize != "" && prev.size == localSize
+	var graceStart time.Time
 
 	deadline := time.Now().Add(verifyTimeout)
 	for time.Now().Before(deadline) {
@@ -421,6 +463,18 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 			break // the strongest populated hash decides
 		}
 		fmt.Fprintf(os.Stderr, "  %s\n", verdict)
+
+		// READY at the new file's size but still no matching hash: give the server
+		// a short grace to compute one, then report it unverified instead of
+		// waiting out the whole timeout.
+		if localSize != "" && sizeString(data["size"]) == localSize {
+			if graceStart.IsZero() {
+				graceStart = time.Now()
+			}
+			if time.Since(graceStart) >= verifyGrace {
+				return nil, unverifiedErr(fileName, localSize, prev, sameSizeReplace)
+			}
+		}
 	}
 
 	return nil, fmt.Errorf("timed out after %v waiting for the server to compute a hash (check package integrity)", verifyTimeout)
@@ -443,4 +497,17 @@ func humanSize(b int64) string {
 	default:
 		return fmt.Sprintf("%d bytes", b)
 	}
+}
+
+// unverifiedErr explains why a package that is READY at the right size could
+// not be integrity-checked.
+func unverifiedErr(fileName, size string, prev previousHashes, sameSizeReplace bool) error {
+	why := fmt.Sprintf("%s is READY and its size matches (%s bytes), but Jamf Pro computed no hash for it", fileName, size)
+	switch {
+	case sameSizeReplace:
+		why = fmt.Sprintf("%s was replaced by a file of identical size (%s bytes), so the replace cannot be confirmed by size, and Jamf Pro computed no new hash", fileName, size)
+	case prev.sha3 != "" || prev.sha256 != "" || prev.md5 != "":
+		why += " (the previous hash was cleared or left stale by the replace)"
+	}
+	return &errUnverified{reason: why + "; integrity NOT verified. Jamf Pro does not hash some large packages"}
 }
