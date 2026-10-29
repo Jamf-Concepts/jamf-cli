@@ -93,7 +93,27 @@ func chooseUploadRoute(ctx context.Context, cdp cdpReader) (uploadRoute, error) 
 
 // errNoCloudDistributionPoint is chooseUploadRoute's refusal.
 var errNoCloudDistributionPoint = errors.New("no cloud distribution point is configured: an uploaded file could never be verified. " +
-	"Configure one in Settings → Server infrastructure → Cloud distribution point (or with `pro cloud-distribution-point create`), then retry")
+	"Configure one in Settings → Server infrastructure → Cloud distribution point (or with `pro cloud-distribution-point create`), " +
+	"or, for an SMB file share distribution point, name it with --distribution-point (or make one the principal), then retry")
+
+// instanceHasNoCloudDP answers, for a profile with no Platform SDK client (an
+// instance profile), whether the tenant states it has no cloud distribution
+// point. chooseUploadRoute cannot ask: it reads the point through the SDK, and
+// without that every upload took the API route, so a tenant with only a file
+// share distribution point never found it.
+//
+// Only an explicit NONE answers true. A failed read, a missing privilege or an
+// unexpected shape answers false and says nothing: the upload then takes the
+// API route as it always did, and no new warning appears for a client that
+// cannot read this endpoint.
+func instanceHasNoCloudDP(ctx context.Context, client registry.HTTPClient) bool {
+	data, err := fetchJSON(ctx, client, "/v1/cloud-distribution-point")
+	if err != nil {
+		return false
+	}
+	cdn, _ := data["cdnType"].(string)
+	return strings.EqualFold(cdn, pro.CloudDistributionPointCdnTypeNone)
+}
 
 // proSDKFor returns the Platform SDK's Pro client, or nil when the profile is
 // not on the platform gateway.

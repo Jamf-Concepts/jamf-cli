@@ -162,6 +162,9 @@ the check is that the file on the share has the local file's size.`,
 				cdp = proSDK
 			}
 			route, err := chooseUploadRoute(ctx, cdp)
+			if err == nil && smbDP == nil && proSDK == nil && instanceHasNoCloudDP(ctx, client) {
+				err = errNoCloudDistributionPoint
+			}
 			if smbDP == nil && errors.Is(err, errNoCloudDistributionPoint) {
 				// No cloud distribution point: the master file share, if
 				// there is one, is where the package goes.
