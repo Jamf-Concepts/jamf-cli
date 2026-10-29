@@ -361,7 +361,10 @@ func uploadPackageFileSMB(ctx context.Context, t smbupload.Target, filePath stri
 	defer func() { _ = f.Close() }()
 
 	name := filepath.Base(filePath)
-	if _, err := smbupload.Upload(ctx, t, name, f); err != nil {
+	progress := newUploadProgress(f, want)
+	_, err = smbupload.Upload(ctx, t, name, progress)
+	progress.finish()
+	if err != nil {
 		return fmt.Errorf("uploading package to %s: %w", termSafe(t.UNC()), err)
 	}
 	got, err := smbupload.Size(ctx, t, name)

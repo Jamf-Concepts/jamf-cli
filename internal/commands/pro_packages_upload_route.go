@@ -122,7 +122,17 @@ func uploadPackageFileDirect(ctx context.Context, api jcdsupload.API, filePath s
 	}
 	defer func() { _ = f.Close() }()
 
-	if err := directUpload(ctx, api, filepath.Base(filePath), f); err != nil {
+	var body io.Reader = f
+	var progress *uploadProgress
+	if info, err := f.Stat(); err == nil {
+		progress = newUploadProgress(f, info.Size())
+		body = progressFile{File: f, p: progress}
+	}
+	err = directUpload(ctx, api, filepath.Base(filePath), body)
+	if progress != nil {
+		progress.finish()
+	}
+	if err != nil {
 		return fmt.Errorf("uploading package to JCDS: %w", err)
 	}
 	return nil

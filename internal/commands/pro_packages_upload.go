@@ -47,6 +47,9 @@ func newPackagesUploadCmd(cliCtx *registry.CLIContext) *cobra.Command {
 If a package with the same filename already exists, its binary and hash metadata
 are updated. Otherwise a new package record is created first.
 
+Progress is printed to stderr while the file transfers: a line redrawn in place
+on a terminal, a line per quarter anywhere else. --quiet silences it.
+
 The command hashes the file locally and checks the result against the hash Jamf
 Pro computes for the uploaded file. It never writes hashes to the package
 record: Jamf computes them and the size itself. The strongest hash the server
@@ -459,7 +462,9 @@ func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgI
 	}
 
 	path := fmt.Sprintf("/v1/packages/%s/upload", url.PathEscape(pkgID))
-	resp, err := uploader.Upload(ctx, path, body, contentType, contentLength)
+	progress := newUploadProgress(body, contentLength)
+	resp, err := uploader.Upload(ctx, path, progress, contentType, contentLength)
+	progress.finish()
 	if err != nil {
 		return fmt.Errorf("uploading package: %w", err)
 	}
