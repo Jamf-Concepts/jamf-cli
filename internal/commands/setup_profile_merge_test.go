@@ -4,6 +4,7 @@ package commands
 
 import (
 	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -120,7 +121,7 @@ func TestMergePlatformProfileReplacesTheScopeRatherThanUnioningIt(t *testing.T) 
 func TestMergeSecurityProfileBaseIsIdempotent(t *testing.T) {
 	first := mergeSecurityProfileBase(config.Profile{})
 	second := mergeSecurityProfileBase(first)
-	if first != second {
+	if !reflect.DeepEqual(first, second) {
 		t.Errorf("not idempotent: %+v then %+v", first, second)
 	}
 }
@@ -209,4 +210,21 @@ func lineContaining(s, sub string) string {
 		}
 	}
 	return ""
+}
+
+// TestSetupMergesKeepTheSMBAccounts: `platform setup` and `security setup` each
+// rewrite a profile in place, and a saved SMB account belongs to neither. A
+// merge that assigned a fresh literal would silently delete the account of
+// every distribution point.
+func TestSetupMergesKeepTheSMBAccounts(t *testing.T) {
+	smbAccts := map[string]config.SMBCredential{"jamfshare": {Username: "w", Password: "keychain:jamf-cli/p/smb-12-password"}}
+	existing := config.Profile{AuthMethod: "platform", SMBCredentials: smbAccts}
+
+	got := mergePlatformProfile(existing, &platformGatewayCredentials{GatewayURL: "https://us.api.jamfcloud.com", TenantID: "t"}, "id", "secret")
+	if !reflect.DeepEqual(got.SMBCredentials, smbAccts) {
+		t.Errorf("platform setup dropped the SMB accounts: %+v", got.SMBCredentials)
+	}
+	if got := mergeSecurityProfileBase(existing); !reflect.DeepEqual(got.SMBCredentials, smbAccts) {
+		t.Errorf("security setup dropped the SMB accounts: %+v", got.SMBCredentials)
+	}
 }

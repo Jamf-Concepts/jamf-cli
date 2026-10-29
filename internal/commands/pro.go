@@ -96,6 +96,8 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// that the generated multipart template can't produce.
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 
+	addSubcommand(cmd, []string{"packages"}, newPackagesSMBSetupCmd(cliCtx))
+
 	// Add handwritten jcds commands to generated parent (multi-step orchestration).
 	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsDownloadCmd(cliCtx))
 	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsSyncCmd(cliCtx))
