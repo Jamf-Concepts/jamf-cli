@@ -198,14 +198,12 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 // and Content-Length. The body is never buffered, so multi-GB files stream
 // straight through.
 //
-// On the platform gateway the request goes out over HTTP/1.1 as a chunked body
-// with no declared Content-Length, and contentLength is only reported in
-// verbose output. Both halves are measured against the GA gateway, as the
-// jamfplatform-go-sdk does for its own uploads (v1.3.0): CloudFront advertises a
-// 64 KiB per-stream HTTP/2 window, so one h2 upload is capped near 4 MiB/s where
-// HTTP/1.1 runs at the uplink, and a declared length was refused with a 502 at
-// about 1.04 GiB where the same 1.43 GiB file uploaded whole without one. A
-// direct instance connection is unmeasured and keeps h2 and the declared length.
+// On the platform gateway the request goes out over HTTP/1.1 with the declared
+// Content-Length, as the jamfplatform-go-sdk does for its own uploads.
+// CloudFront advertises a 64 KiB per-stream HTTP/2 window, so one h2 upload
+// often runs at half the speed of HTTP/1.1; framing made no measurable
+// difference over HTTP/1.1 (20 MiB uploads, EU gateway, 2026-10-26). A direct
+// instance connection is unmeasured and keeps h2.
 //
 // 429 retry: when body implements io.Seeker (e.g. *os.File, *bytes.Reader, or
 // the seekable multipart body from NewMultipartFileUpload), Upload retries up
@@ -226,9 +224,8 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 	}
 
 	httpClient := c.httpClient
-	wireLength := contentLength
 	if c.gateway {
-		httpClient, wireLength = c.gatewayUploadClient(), -1
+		httpClient = c.gatewayUploadClient()
 		if httpClient != c.httpClient {
 			defer httpClient.CloseIdleConnections()
 		}
@@ -258,12 +255,12 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		req.Header.Set("Accept", "application/json")
 		// -1 declares the length unknown, so net/http chunks without probing
 		// the body first.
-		req.ContentLength = wireLength
+		req.ContentLength = contentLength
 
 		if c.verboseLevel >= 1 {
 			framing := fmt.Sprintf("%d bytes", contentLength)
-			if wireLength < 0 {
-				framing += ", chunked"
+			if contentLength < 0 {
+				framing = "chunked"
 			}
 			if maxAttempts > 1 {
 				fmt.Fprintf(os.Stderr, "--> POST %s (%s, attempt %d/%d)\n", redact.URL(req.URL), framing, attempt+1, maxAttempts)
