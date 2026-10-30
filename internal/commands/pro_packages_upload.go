@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/md5"
@@ -25,6 +26,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
+	"github.com/Jamf-Concepts/jamf-cli/internal/smbupload"
 )
 
 func newPackagesUploadCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -34,6 +36,7 @@ func newPackagesUploadCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		categoryID  string
 		priority    int
 		flagYes     bool
+		flagDP      string
 	)
 
 	cmd := &cobra.Command{
@@ -44,6 +47,9 @@ func newPackagesUploadCmd(cliCtx *registry.CLIContext) *cobra.Command {
 If a package with the same filename already exists, its binary and hash metadata
 are updated. Otherwise a new package record is created first.
 
+Progress is printed to stderr while the file transfers: a line redrawn in place
+on a terminal, a line per quarter anywhere else. --quiet silences it.
+
 The command hashes the file locally and checks the result against the hash Jamf
 Pro computes for the uploaded file. It never writes hashes to the package
 record: Jamf computes them and the size itself. The strongest hash the server
@@ -53,7 +59,22 @@ reports SHA3-512; an Amazon S3 distribution point reports MD5 only.
 On a platform gateway profile whose cloud distribution point is Jamf Cloud
 (JCDS), the file goes straight to JCDS storage through a short-lived upload
 grant Jamf Pro issues, rather than through the gateway. Every other combination uploads
-through the Jamf Pro API.`,
+through the Jamf Pro API.
+
+An SMB file share distribution point is reached directly over SMB2/3, because
+Jamf Pro's upload endpoint only reaches a cloud distribution point. Name one
+with --distribution-point, or leave the flag off on a tenant with no cloud
+distribution point and the master SMB distribution point is used. AFP is not supported.
+The account that writes to the share is read from JAMFSMB_USERNAME and
+JAMFSMB_PASSWORD, else the account saved in the profile by
+"pro packages smb-setup" (password in the keychain), else prompted for. Jamf
+Pro never returns the password, and none is accepted as a flag. With none of those and a Kerberos ticket in a FILE
+cache (KRB5CCNAME, else /tmp/krb5cc_<uid>), or the signed-in macOS user's
+ticket, which is copied to a private temporary file for the upload and removed
+after, the ticket is used. A supplied or saved account always wins over it. The
+server must be named by DNS name, not an IP address. The package goes in the share's Packages folder, which
+must already exist, written under a temporary name and renamed into place. Jamf Pro never sees the bytes, so it computes no hash:
+the check is that the file on the share has the local file's size.`,
 		Example: `  # Upload a package
   jamf-cli pro packages upload --file ./Firefox-134.0.pkg
 
@@ -107,7 +128,30 @@ through the Jamf Pro API.`,
 				return err
 			}
 
+			// An SMB distribution point is resolved before the preview so
+			// -n names the share, and before any record is written so a
+			// missing account fails with nothing to clean up.
+			var smbDP *fileShareDP
+			// upload-multiple resolves the share and its account once and hands
+			// them on, so a prompted password is asked for once, not per file.
+			session, _ := ctx.Value(smbSessionKey{}).(*smbSession)
+			if session != nil {
+				dp := session.dp
+				smbDP = &dp
+			} else if flagDP != "" {
+				dp, err := resolveFileShareDP(ctx, client, flagDP)
+				if err != nil {
+					return err
+				}
+				smbDP = &dp
+			}
+
 			if dryRun {
+				if smbDP != nil {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would upload %s to %s over SMB and %s the package record\n",
+						filePath, termSafe(`\\`+smbDP.host+`\`+smbDP.share), map[bool]string{true: "update", false: "create"}[pkgID != ""])
+					return nil
+				}
 				if pkgID != "" {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would replace the file of package %q (id %s) with %s\n", packageName, termSafe(pkgID), filePath)
 				} else {
@@ -124,8 +168,48 @@ through the Jamf Pro API.`,
 				cdp = proSDK
 			}
 			route, err := chooseUploadRoute(ctx, cdp)
+			if err == nil && smbDP == nil && proSDK == nil && instanceHasNoCloudDP(ctx, client) {
+				err = errNoCloudDistributionPoint
+			}
+			if smbDP != nil && errors.Is(err, errNoCloudDistributionPoint) {
+				err = nil // a named share is the destination; the cloud one is irrelevant
+			}
+			if smbDP == nil && errors.Is(err, errNoCloudDistributionPoint) {
+				// No cloud distribution point: the master file share, if
+				// there is one, is where the package goes.
+				if dp, derr := resolveFileShareDP(ctx, client, ""); derr == nil {
+					smbDP, err = &dp, nil
+				}
+			}
 			if err != nil {
 				return err
+			}
+
+			var smbTgt smbupload.Target
+			if session != nil {
+				smbTgt = session.tgt
+			} else if smbDP != nil {
+				stored, serr := storedSMBCredential(cliCtx.ProfileName, smbDP.name)
+				if serr != nil {
+					return serr
+				}
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				user, pw, krb, aerr := resolveSMBAuth(os.Stderr, bufio.NewReader(os.Stdin), *smbDP, stored, noInput)
+				if aerr != nil {
+					return aerr
+				}
+				defer krb.close() // removes a private copy of the ticket, if one was made
+				smbTgt = smbTarget(*smbDP, user, pw, krb)
+				auth := "password"
+				if krb != nil {
+					auth = "Kerberos"
+				}
+				fmt.Fprintf(os.Stderr, "Distribution point: %s (SMB, %s, %s)\n", smbDP.label(), termSafe(smbTgt.UNC()), auth)
+				// Before any record exists: a wrong account, share or a missing
+				// Packages folder must leave nothing behind.
+				if err := smbupload.Preflight(ctx, smbTgt); err != nil {
+					return fmt.Errorf("checking %s: %w", termSafe(smbTgt.UNC()), err)
+				}
 			}
 
 			var prev previousHashes // non-empty when replacing an existing package
@@ -164,7 +248,9 @@ through the Jamf Pro API.`,
 
 			// 5. Upload the binary
 			fmt.Fprintf(os.Stderr, "Uploading %s...\n", fileName)
-			if route == uploadViaJCDS {
+			if smbDP != nil {
+				err = uploadPackageFileSMB(ctx, smbTgt, filePath, fileSize)
+			} else if route == uploadViaJCDS {
 				err = uploadPackageFileDirect(ctx, proSDK, filePath)
 			} else {
 				err = uploadPackageFile(ctx, uploader, pkgID, filePath)
@@ -179,6 +265,16 @@ through the Jamf Pro API.`,
 			// MD5 only on S3; the strongest one present is compared), so none are sent: a PUT blanks the size, and the
 			// distribution point's own inventory refresh overwrites it anyway.
 			// verifyPackageUpload returns the complete record on success.
+			if smbDP != nil {
+				fmt.Fprintf(os.Stderr, "Verified: %s holds %s (Jamf Pro computes no hash for a file share)\n", termSafe(smbTgt.UNC()), humanSize(fileSize))
+				data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID)))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Package uploaded successfully (id %s)\n", termSafe(pkgID))
+					return nil
+				}
+				result, _ := json.Marshal(data)
+				return cliCtx.Output.PrintRaw(result)
+			}
 			fmt.Fprintf(os.Stderr, "Verifying upload...\n")
 			data, err := verifyPackageUpload(ctx, client, pkgID, fileName, hashes, prev)
 			if err != nil {
@@ -217,6 +313,7 @@ through the Jamf Pro API.`,
 	cmd.Flags().StringVar(&packageName, "name", "", "display name for the package (defaults to filename)")
 	cmd.Flags().StringVar(&categoryID, "category-id", "-1", "category ID for the package")
 	cmd.Flags().IntVar(&priority, "priority", 10, "installation priority for the package (1-20)")
+	cmd.Flags().StringVar(&flagDP, "distribution-point", "", "upload to this SMB distribution point, by its Jamf Pro name (default: the master SMB distribution point when the tenant has no cloud distribution point)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "skip confirmation when replacing an existing package")
 
 	return cmd
@@ -379,7 +476,9 @@ func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgI
 	}
 
 	path := fmt.Sprintf("/v1/packages/%s/upload", url.PathEscape(pkgID))
-	resp, err := uploader.Upload(ctx, path, body, contentType, contentLength)
+	progress := newUploadProgress(body, contentLength)
+	resp, err := uploader.Upload(ctx, path, progress, contentType, contentLength)
+	progress.finish()
 	if err != nil {
 		return fmt.Errorf("uploading package: %w", err)
 	}

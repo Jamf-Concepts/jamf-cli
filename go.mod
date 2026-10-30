@@ -9,6 +9,7 @@ require (
 	github.com/getkin/kin-openapi v0.151.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hashicorp/go-retryablehttp v0.7.8
+	github.com/hirochachacha/go-smb2/v2 v2.0.0-20261011164520-7f69f6587832
 	github.com/iancoleman/strcase v0.3.0
 	github.com/jamf/jamfplatform-go-sdk v1.11.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
@@ -39,15 +40,22 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.5 // indirect
 	github.com/aws/smithy-go v1.28.6 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
+	github.com/geoffgarside/ber v1.1.0 // indirect
+	github.com/go-crypt/x v0.4.17 // indirect
+	github.com/go-krb5/krb5 v0.1.1-0.20260910042439-3e50d4009c09 // indirect
+	github.com/go-krb5/x v0.3.3 // indirect
 	github.com/go-openapi/jsonpointer v0.23.1 // indirect
 	github.com/go-openapi/swag/jsonname v0.26.1 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/oasdiff/yaml v0.1.1 // indirect
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
+	github.com/pierrec/lz4/v4 v4.1.22 // indirect
+	github.com/quic-go/quic-go v0.62.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect

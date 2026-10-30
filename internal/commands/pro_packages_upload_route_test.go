@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform/pro"
@@ -96,5 +98,39 @@ func TestUploadPackageFileDirect_UsesFileBaseName(t *testing.T) {
 	directUpload = func(context.Context, jcdsupload.API, string, io.Reader) error { return errors.New("s3 down") }
 	if err := uploadPackageFileDirect(context.Background(), nil, path); err == nil {
 		t.Error("want error from failed direct upload")
+	}
+}
+
+// fakeRouteClient answers every request with one canned body, or an error.
+type fakeRouteClient struct {
+	body string
+	err  error
+}
+
+func (f *fakeRouteClient) Do(_ context.Context, _, _ string, _ io.Reader) (*http.Response, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(f.body))}, nil
+}
+
+func TestInstanceHasNoCloudDP(t *testing.T) {
+	cases := map[string]struct {
+		body string
+		err  error
+		want bool
+	}{
+		"none":             {`{"cdnType":"NONE"}`, nil, true},
+		"none, any case":   {`{"cdnType":"none"}`, nil, true},
+		"jamf cloud":       {`{"cdnType":"JAMF_CLOUD"}`, nil, false},
+		"s3":               {`{"cdnType":"AWS_S3"}`, nil, false},
+		"no field":         {`{}`, nil, false},
+		"unreadable (403)": {``, errors.New("HTTP 403"), false},
+	}
+	for name, c := range cases {
+		fake := &fakeRouteClient{body: c.body, err: c.err}
+		if got := instanceHasNoCloudDP(context.Background(), fake); got != c.want {
+			t.Errorf("%s: got %v, want %v", name, got, c.want)
+		}
 	}
 }

@@ -20,6 +20,7 @@ things across Pro, Platform, Protect, and School.
 | **UAPI** / **modern API** | The newer Pro JSON REST API at `/api/v1/...` (and `/v2`, `/v3`). What new feature work targets. |
 | **Classic API** | The legacy XML API at `/JSSResource/...`. Still widely used; many resources have no UAPI equivalent. Routed through `/proclassic/...` under Platform gateway auth, with the scope in a request header. |
 | **JCDS** | Jamf Cloud Distribution Service — file storage for installer packages. Commands: `pro packages upload`, `pro jamf-cloud-distribution-service download`, `pro jamf-cloud-distribution-service sync`, `pro jamf-cloud-distribution-service-files list`. |
+| **File share distribution point** | A server's SMB share holding installer packages in its `Packages` folder, recorded in Classic as a `distribution_point` (Settings > Server > File share distribution points). `pro packages upload --distribution-point` writes to it over SMB2/3; the DP's `share_name` is the share and the file goes in `Packages/` inside it. AFP is not supported. Jamf Pro never returns the account's password, so it comes from `JAMFSMB_USERNAME`/`JAMFSMB_PASSWORD` (CI), an account saved in the profile by `pro packages smb-setup` (password in the keychain), a prompt, or a Kerberos ticket file. |
 | **API integration** / **API client** | An OAuth2 client-credentials pairing registered in Pro (Settings > System > API Roles & Clients). Distinct from a generic API token. |
 
 ## Authentication
