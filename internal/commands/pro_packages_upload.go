@@ -132,7 +132,13 @@ the check is that the file on the share has the local file's size.`,
 			// -n names the share, and before any record is written so a
 			// missing account fails with nothing to clean up.
 			var smbDP *fileShareDP
-			if flagDP != "" {
+			// upload-multiple resolves the share and its account once and hands
+			// them on, so a prompted password is asked for once, not per file.
+			session, _ := ctx.Value(smbSessionKey{}).(*smbSession)
+			if session != nil {
+				dp := session.dp
+				smbDP = &dp
+			} else if flagDP != "" {
 				dp, err := resolveFileShareDP(ctx, client, flagDP)
 				if err != nil {
 					return err
@@ -165,6 +171,9 @@ the check is that the file on the share has the local file's size.`,
 			if err == nil && smbDP == nil && proSDK == nil && instanceHasNoCloudDP(ctx, client) {
 				err = errNoCloudDistributionPoint
 			}
+			if smbDP != nil && errors.Is(err, errNoCloudDistributionPoint) {
+				err = nil // a named share is the destination; the cloud one is irrelevant
+			}
 			if smbDP == nil && errors.Is(err, errNoCloudDistributionPoint) {
 				// No cloud distribution point: the master file share, if
 				// there is one, is where the package goes.
@@ -177,7 +186,9 @@ the check is that the file on the share has the local file's size.`,
 			}
 
 			var smbTgt smbupload.Target
-			if smbDP != nil {
+			if session != nil {
+				smbTgt = session.tgt
+			} else if smbDP != nil {
 				stored, serr := storedSMBCredential(cliCtx.ProfileName, smbDP.name)
 				if serr != nil {
 					return serr

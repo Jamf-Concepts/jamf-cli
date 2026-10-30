@@ -96,6 +96,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// that the generated multipart template can't produce.
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 
+	addSubcommand(cmd, []string{"packages"}, newPackagesUploadMultipleCmd(cliCtx))
 	addSubcommand(cmd, []string{"packages"}, newPackagesSMBSetupCmd(cliCtx))
 
 	// The generated delete removes the record only; on an SMB file share

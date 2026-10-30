@@ -146,7 +146,7 @@ func deleteWithShareCleanup(cliCtx *registry.CLIContext, cmd *cobra.Command, arg
 	client := cliCtx.Client
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-	dp, err := deleteFileShareDP(ctx, cliCtx, flagDP)
+	dp, err := selectFileShareDP(ctx, cliCtx, flagDP)
 	if err != nil {
 		return err
 	}
@@ -225,12 +225,12 @@ func deleteWithShareCleanup(cliCtx *registry.CLIContext, cmd *cobra.Command, arg
 	return recordErr
 }
 
-// deleteFileShareDP chooses the share a delete also clears, by the upload's
+// selectFileShareDP chooses the share a delete clears or upload-multiple writes, by the upload's
 // rule, or nil when the delete is record-only. A distribution point named with
 // --distribution-point is an explicit request and any problem with it is an
 // error; the implicit choice is made only when the tenant states it has no
 // cloud distribution point and a master SMB distribution point exists.
-func deleteFileShareDP(ctx context.Context, cliCtx *registry.CLIContext, name string) (*fileShareDP, error) {
+func selectFileShareDP(ctx context.Context, cliCtx *registry.CLIContext, name string) (*fileShareDP, error) {
 	client := cliCtx.Client
 	if name != "" {
 		dp, err := resolveFileShareDP(ctx, client, name)
