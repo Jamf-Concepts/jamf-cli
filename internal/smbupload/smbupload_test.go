@@ -5,6 +5,8 @@ package smbupload
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
@@ -129,5 +131,48 @@ func TestKerberosTarget_NeedsADNSNameAndAConfig(t *testing.T) {
 	tg.KrbConfigFile = ""
 	if err := tg.Validate(); err == nil {
 		t.Fatal("missing krb5.conf accepted")
+	}
+}
+
+func TestRemove_Live(t *testing.T) {
+	tg := liveTarget(t)
+	ctx := context.Background()
+	if _, err := Upload(ctx, tg, "remove-me.pkg", strings.NewReader("payload")); err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	if err := Remove(ctx, tg, "remove-me.pkg"); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if _, err := Size(ctx, tg, "remove-me.pkg"); err == nil {
+		t.Fatal("file still on the share")
+	}
+	// Removing again is reported as absent, not as a failure to act on.
+	if err := Remove(ctx, tg, "remove-me.pkg"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("second remove: want ErrNotExist, got %v", err)
+	}
+}
+
+func TestRemove_RefusesANameThatIsNotAPlainFile(t *testing.T) {
+	tg := Target{Host: "h", Share: "s", Username: "u", Password: "p"}
+	for _, bad := range []string{"", "..", "a/b.pkg", `a\b.pkg`, "x.pkg:stream"} {
+		if err := Remove(context.Background(), tg, bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
+
+func TestNewKerberosCredential_MalformedConfigIsAnErrorNotAPanic(t *testing.T) {
+	dir := t.TempDir()
+	conf := dir + "/krb5.conf"
+	if err := os.WriteFile(conf, []byte("[libdefaults]\n default_realm = A.TEST\n[realms]\n A.TEST = { kdc = 127.0.0.1:88 }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cc := dir + "/cc"
+	if err := os.WriteFile(cc, []byte("not a cache"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := newKerberosCredential(Target{CCacheFile: cc, KrbConfigFile: conf})
+	if err == nil {
+		t.Fatal("malformed input accepted")
 	}
 }

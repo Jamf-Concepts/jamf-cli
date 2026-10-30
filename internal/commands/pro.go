@@ -98,6 +98,12 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	addSubcommand(cmd, []string{"packages"}, newPackagesSMBSetupCmd(cliCtx))
 
+	// The generated delete removes the record only; on an SMB file share
+	// distribution point the file is left on the share, so it is extended to
+	// remove it too.
+	wrapSubcommand(cmd, []string{"packages"}, "delete", func(c *cobra.Command) { wrapPackagesDeleteSMB(cliCtx, c) })
+	wrapSubcommand(cmd, []string{"packages"}, "delete-multiple", func(c *cobra.Command) { wrapPackagesDeleteMultipleSMB(cliCtx, c) })
+
 	// Add handwritten jcds commands to generated parent (multi-step orchestration).
 	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsDownloadCmd(cliCtx))
 	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsSyncCmd(cliCtx))
@@ -251,6 +257,22 @@ func addSubcommand(root *cobra.Command, parentPath []string, child *cobra.Comman
 		return
 	}
 	parent.AddCommand(child)
+}
+
+// wrapSubcommand finds a generated child by path and name and hands it to fn to
+// extend in place, recording a stale wiring when it is gone.
+func wrapSubcommand(root *cobra.Command, parentPath []string, childName string, fn func(*cobra.Command)) {
+	parent := findWiringParent(root, "wrap", parentPath, childName)
+	if parent == nil {
+		return
+	}
+	for _, child := range parent.Commands() {
+		if child.Name() == childName {
+			fn(child)
+			return
+		}
+	}
+	recordStaleProWiring("wrap", parentPath, childName)
 }
 
 // removeSubcommand finds a parent command by path and removes a named child.

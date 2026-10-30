@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"strconv"
 	"strings"
@@ -243,13 +244,49 @@ func Size(ctx context.Context, t Target, name string) (int64, error) {
 	return st.Size(), nil
 }
 
+// Remove deletes name from the share's Packages folder. A file already absent
+// is reported as an error wrapping fs.ErrNotExist so the caller can treat it as
+// the state it wanted. A directory is refused: this removes a package file and
+// nothing else.
+func Remove(ctx context.Context, t Target, name string) error {
+	if err := t.Validate(); err != nil {
+		return err
+	}
+	if err := ValidateFileName(name); err != nil {
+		return err
+	}
+	share, closeShare, err := mount(ctx, t)
+	if err != nil {
+		return err
+	}
+	defer closeShare()
+	if err := requirePackagesDir(ctx, share, t); err != nil {
+		return err
+	}
+	path := PackagesDir + "/" + name
+	st, err := share.Stat(ctx, path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s is not on %s: %w", name, t.UNC(), fs.ErrNotExist)
+		}
+		return fmt.Errorf("stat %s on %s: %w", name, t.UNC(), err)
+	}
+	if st.IsDir() {
+		return fmt.Errorf("%s on %s is a folder, not a package file", name, t.UNC())
+	}
+	if err := share.Remove(ctx, path); err != nil {
+		return fmt.Errorf("removing %s from %s: %w", name, t.UNC(), err)
+	}
+	return nil
+}
+
 // mount opens a session and mounts the share. The returned func releases both,
 // and is safe to call after ctx is cancelled.
 func mount(ctx context.Context, t Target) (*smb2.Share, func(), error) {
 	var creds smb2.Credentials
 	var closeCreds func()
 	if t.Kerberos() {
-		kc, err := auth.NewKerberosCredential(auth.KerberosCCache{ConfigFile: t.KrbConfigFile, File: t.CCacheFile})
+		kc, err := newKerberosCredential(t)
 		if err != nil {
 			return nil, nil, fmt.Errorf("reading the Kerberos ticket cache %s: %w", t.CCacheFile, err)
 		}
@@ -282,4 +319,16 @@ func mount(ctx context.Context, t Target) (*smb2.Share, func(), error) {
 		_ = session.Close()
 		closeCreds()
 	}, nil
+}
+
+// newKerberosCredential reads the ticket cache and krb5.conf. go-krb5's config
+// parser panics on a realm block it cannot split (a one-line `REALM = { kdc = x }`),
+// so a malformed file is reported as an error naming it instead of a stack trace.
+func newKerberosCredential(t Target) (kc *auth.KerberosCredential, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%s is not a krb5.conf this client can parse (a realm block must put its settings on their own lines): %v", t.KrbConfigFile, r)
+		}
+	}()
+	return auth.NewKerberosCredential(auth.KerberosCCache{ConfigFile: t.KrbConfigFile, File: t.CCacheFile})
 }
