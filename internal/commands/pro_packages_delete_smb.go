@@ -37,23 +37,23 @@ type packageFile struct {
 // The generated command stays in charge of ids, confirmation, the cooldown and
 // the record delete; this wrapper decides whether a share is involved, reads
 // each record's file name before the record is gone, and removes the file only
-// for a record that is verifiably gone afterwards. It selects the share by the
-// same rule as `packages upload`: --distribution-point, else the master SMB
-// distribution point when the tenant has no cloud distribution point.
+// for a record that is verifiably gone afterwards. A share is touched only when
+// --distribution-point names one: delete never picks a share on its own, so a
+// plain delete stays a record-only command that needs no SMB account.
 func wrapPackagesDeleteSMB(cliCtx *registry.CLIContext, del *cobra.Command) {
 	var flagDP string
-	del.Flags().StringVar(&flagDP, "distribution-point", "", "also remove the package from this SMB distribution point, by its Jamf Pro name (default: the master SMB distribution point when the tenant has no cloud distribution point)")
+	del.Flags().StringVar(&flagDP, "distribution-point", "", "also remove the package from this SMB distribution point, named as in Jamf Pro (without this flag, delete removes the record only)")
 	inner := del.RunE
 	del.Long = strings.TrimSpace(del.Long) + `
 
-On a tenant with an SMB file share distribution point (named with
---distribution-point, or the master one when the tenant has no cloud
-distribution point), the package's file is also removed from the share's
-Packages folder, once the record is gone. Jamf Pro never touches the share
-itself. The SMB account is found as "pro packages upload" finds it; see that
-command. The share is checked before any record is deleted. A file already
-absent from the share is reported and is not an error. A failure to remove the
-file after the record was deleted exits non-zero and names the file.`
+Without --distribution-point, delete removes the record only and needs no SMB
+account. With --distribution-point naming an SMB file share distribution
+point, delete also removes the package's file from the share's Packages folder
+after the record is gone. Jamf Pro never touches the share itself. The command
+finds the SMB account the way "pro packages upload" does. It checks the share
+before it deletes any record. A file already missing from the share is
+reported, not treated as an error. If the file cannot be removed after the
+record is deleted, the command names the file and exits non-zero.`
 
 	del.RunE = func(cmd *cobra.Command, args []string) error {
 		return deleteWithShareCleanup(cliCtx, cmd, args, flagDP, inner, func() ([]packageFile, error) {
@@ -69,15 +69,14 @@ file after the record was deleted exits non-zero and names the file.`
 // them.
 func wrapPackagesDeleteMultipleSMB(cliCtx *registry.CLIContext, del *cobra.Command) {
 	var flagDP string
-	del.Flags().StringVar(&flagDP, "distribution-point", "", "also remove the packages from this SMB distribution point, by its Jamf Pro name (default: the master SMB distribution point when the tenant has no cloud distribution point)")
+	del.Flags().StringVar(&flagDP, "distribution-point", "", "also remove the packages from this SMB distribution point, named as in Jamf Pro (without this flag, delete removes the records only)")
 	inner := del.RunE
 	del.Long = strings.TrimSpace(del.Long) + `
 
-On a tenant with an SMB file share distribution point (named with
---distribution-point, or the master one when the tenant has no cloud
-distribution point), each package's file is also removed from the share's
-Packages folder, once its record is gone. See "pro packages delete" for the
-rules, which are the same.`
+Without --distribution-point, delete-multiple removes the records only. With
+--distribution-point naming an SMB file share distribution point, it also
+removes each package's file from the share's Packages folder after the record
+is gone. The rules match "pro packages delete".`
 
 	del.RunE = func(cmd *cobra.Command, args []string) error {
 		if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
@@ -146,13 +145,17 @@ func deleteWithShareCleanup(cliCtx *registry.CLIContext, cmd *cobra.Command, arg
 	client := cliCtx.Client
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-	dp, err := selectFileShareDP(ctx, cliCtx, flagDP)
+	// Delete touches a share only when one is named. The upload's implicit
+	// master-DP default replaces a refusal there; here it would change a
+	// working command into one that needs SMB credentials.
+	if flagDP == "" {
+		return inner(cmd, args)
+	}
+	dpv, err := resolveFileShareDP(ctx, client, flagDP)
 	if err != nil {
 		return err
 	}
-	if dp == nil {
-		return inner(cmd, args)
-	}
+	dp := &dpv
 
 	targets, err := listTargets()
 	if err != nil {
@@ -195,12 +198,12 @@ func deleteWithShareCleanup(cliCtx *registry.CLIContext, cmd *cobra.Command, arg
 
 	// Which records are gone is read back rather than inferred from the
 	// generated command's result: a bulk delete carries on past a failure.
-	var failed []string
+	var failed, unknown []string
 	var removed, absent int
 	for _, p := range targets {
 		gone, gerr := packageRecordGone(ctx, client, p.id)
 		if gerr != nil {
-			failed = append(failed, fmt.Sprintf("%s (could not tell whether package %s was deleted: %v)", termSafe(p.fileName), termSafe(p.id), termSafe(gerr)))
+			unknown = append(unknown, fmt.Sprintf("%s (could not tell whether package %s was deleted: %v)", termSafe(p.fileName), termSafe(p.id), termSafe(gerr)))
 			continue
 		}
 		if !gone {
@@ -217,19 +220,29 @@ func deleteWithShareCleanup(cliCtx *registry.CLIContext, cmd *cobra.Command, arg
 			failed = append(failed, fmt.Sprintf("%s (%v)", termSafe(p.fileName), termSafe(rerr)))
 		}
 	}
-	if len(failed) > 0 {
-		return exitcode.New(exitcode.General,
-			fmt.Sprintf("the package record was deleted but %d file(s) remain on %s: %s", len(failed), termSafe(tgt.UNC()), strings.Join(failed, "; "))).
-			WithHint("remove the file from the share by hand; the record is gone, so deleting again will not retry it")
+	var errs []error
+	if recordErr != nil {
+		errs = append(errs, recordErr)
 	}
-	return recordErr
+	if len(failed) > 0 {
+		errs = append(errs, exitcode.New(exitcode.General,
+			fmt.Sprintf("the package record is deleted, but %d file(s) remain on %s: %s", len(failed), termSafe(tgt.UNC()), strings.Join(failed, "; "))).
+			WithHint("remove the file from the share by hand; deleting again will not retry it, because the record is gone"))
+	}
+	if len(unknown) > 0 {
+		errs = append(errs, exitcode.New(exitcode.General,
+			fmt.Sprintf("cannot confirm whether the record is deleted, so %d file(s) stay on %s: %s", len(unknown), termSafe(tgt.UNC()), strings.Join(unknown, "; "))).
+			WithHint("check whether each package still exists; if it does, run delete again with --distribution-point"))
+	}
+	return errors.Join(errs...)
 }
 
-// selectFileShareDP chooses the share a delete clears or upload-multiple writes, by the upload's
-// rule, or nil when the delete is record-only. A distribution point named with
-// --distribution-point is an explicit request and any problem with it is an
-// error; the implicit choice is made only when the tenant states it has no
-// cloud distribution point and a master SMB distribution point exists.
+// selectFileShareDP chooses the share upload-multiple writes, by the upload's
+// rule, or nil when the upload takes the API route. A distribution point named
+// with --distribution-point is an explicit request and any problem with it is
+// an error; the implicit choice is made only when the tenant states it has no
+// cloud distribution point and a master SMB distribution point exists. Delete
+// does not use it: delete selects a share only by name.
 func selectFileShareDP(ctx context.Context, cliCtx *registry.CLIContext, name string) (*fileShareDP, error) {
 	client := cliCtx.Client
 	if name != "" {

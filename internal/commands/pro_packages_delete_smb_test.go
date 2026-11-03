@@ -9,7 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // deleteStubClient answers each path with a canned status and body. A 404 comes
@@ -88,5 +91,25 @@ func TestPackageFileFor_ByID(t *testing.T) {
 	p, err := packageFileFor(context.Background(), c, "5", false)
 	if err != nil || p.fileName != "x.pkg" {
 		t.Fatalf("%+v %v", p, err)
+	}
+}
+
+// A plain delete never reads a distribution point or resolves an SMB account:
+// the client below answers every request with an error, so any lookup fails.
+func TestDeleteWithShareCleanup_NoFlagIsRecordOnly(t *testing.T) {
+	cmd := &cobra.Command{Use: "delete"}
+	cmd.Flags().Bool("dry-run", false, "")
+	cmd.SetContext(context.Background())
+	cliCtx := &registry.CLIContext{Client: deleteStubClient{}}
+
+	called := false
+	inner := func(*cobra.Command, []string) error { called = true; return nil }
+	listed := func() ([]packageFile, error) { t.Fatal("targets listed without a share"); return nil, nil }
+
+	if err := deleteWithShareCleanup(cliCtx, cmd, nil, "", inner, listed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Fatal("the record delete did not run")
 	}
 }
