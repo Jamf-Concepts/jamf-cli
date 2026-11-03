@@ -147,6 +147,13 @@ the check is that the file on the share has the local file's size.`,
 			}
 
 			if dryRun {
+				if smbDP == nil {
+					// A real run would fall back to the master share on a
+					// tenant with no cloud distribution point; name it.
+					if dp, derr := selectFileShareDP(ctx, cliCtx, ""); derr == nil {
+						smbDP = dp
+					}
+				}
 				if smbDP != nil {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would upload %s to %s over SMB and %s the package record\n",
 						filePath, termSafe(`\\`+smbDP.host+`\`+smbDP.share), map[bool]string{true: "update", false: "create"}[pkgID != ""])

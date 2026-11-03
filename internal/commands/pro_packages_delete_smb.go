@@ -196,45 +196,7 @@ func deleteWithShareCleanup(cliCtx *registry.CLIContext, cmd *cobra.Command, arg
 
 	recordErr := inner(cmd, args)
 
-	// Which records are gone is read back rather than inferred from the
-	// generated command's result: a bulk delete carries on past a failure.
-	var failed, unknown []string
-	var removed, absent int
-	for _, p := range targets {
-		gone, gerr := packageRecordGone(ctx, client, p.id)
-		if gerr != nil {
-			unknown = append(unknown, fmt.Sprintf("%s (could not tell whether package %s was deleted: %v)", termSafe(p.fileName), termSafe(p.id), termSafe(gerr)))
-			continue
-		}
-		if !gone {
-			continue // record kept, so its file stays
-		}
-		switch rerr := smbupload.Remove(ctx, tgt, p.fileName); {
-		case rerr == nil:
-			removed++
-			fmt.Fprintf(os.Stderr, "Removed %s from %s\n", termSafe(p.fileName), termSafe(tgt.UNC()))
-		case errors.Is(rerr, fs.ErrNotExist):
-			absent++
-			fmt.Fprintf(os.Stderr, "%s was not on %s; nothing to remove\n", termSafe(p.fileName), termSafe(tgt.UNC()))
-		default:
-			failed = append(failed, fmt.Sprintf("%s (%v)", termSafe(p.fileName), termSafe(rerr)))
-		}
-	}
-	var errs []error
-	if recordErr != nil {
-		errs = append(errs, recordErr)
-	}
-	if len(failed) > 0 {
-		errs = append(errs, exitcode.New(exitcode.General,
-			fmt.Sprintf("the package record is deleted, but %d file(s) remain on %s: %s", len(failed), termSafe(tgt.UNC()), strings.Join(failed, "; "))).
-			WithHint("remove the file from the share by hand; deleting again will not retry it, because the record is gone"))
-	}
-	if len(unknown) > 0 {
-		errs = append(errs, exitcode.New(exitcode.General,
-			fmt.Sprintf("cannot confirm whether the record is deleted, so %d file(s) stay on %s: %s", len(unknown), termSafe(tgt.UNC()), strings.Join(unknown, "; "))).
-			WithHint("check whether each package still exists; if it does, run delete again with --distribution-point"))
-	}
-	return errors.Join(errs...)
+	return removeGoneFiles(ctx, client, tgt, targets, recordErr)
 }
 
 // selectFileShareDP chooses the share upload-multiple writes, by the upload's
@@ -365,4 +327,53 @@ func packageRecordGone(ctx context.Context, client registry.HTTPClient, id strin
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return resp.StatusCode == http.StatusNotFound, nil
+}
+
+// shareRemove removes one file from a share. A variable so a test can stand in
+// for a live SMB server; production never reassigns it.
+var shareRemove = smbupload.Remove
+
+// removeGoneFiles removes from the share the file of every record that is gone,
+// and returns recordErr joined with any cleanup failure. A record that is kept
+// keeps its file.
+func removeGoneFiles(ctx context.Context, client registry.HTTPClient, tgt smbupload.Target, targets []packageFile, recordErr error) error {
+	// Which records are gone is read back rather than inferred from the
+	// generated command's result: a bulk delete carries on past a failure.
+	var failed, unknown []string
+	var removed, absent int
+	for _, p := range targets {
+		gone, gerr := packageRecordGone(ctx, client, p.id)
+		if gerr != nil {
+			unknown = append(unknown, fmt.Sprintf("%s (could not tell whether package %s was deleted: %v)", termSafe(p.fileName), termSafe(p.id), termSafe(gerr)))
+			continue
+		}
+		if !gone {
+			continue // record kept, so its file stays
+		}
+		switch rerr := shareRemove(ctx, tgt, p.fileName); {
+		case rerr == nil:
+			removed++
+			fmt.Fprintf(os.Stderr, "Removed %s from %s\n", termSafe(p.fileName), termSafe(tgt.UNC()))
+		case errors.Is(rerr, fs.ErrNotExist):
+			absent++
+			fmt.Fprintf(os.Stderr, "%s was not on %s; nothing to remove\n", termSafe(p.fileName), termSafe(tgt.UNC()))
+		default:
+			failed = append(failed, fmt.Sprintf("%s (%v)", termSafe(p.fileName), termSafe(rerr)))
+		}
+	}
+	var errs []error
+	if recordErr != nil {
+		errs = append(errs, recordErr)
+	}
+	if len(failed) > 0 {
+		errs = append(errs, exitcode.New(exitcode.General,
+			fmt.Sprintf("the package record is deleted, but %d file(s) remain on %s: %s", len(failed), termSafe(tgt.UNC()), strings.Join(failed, "; "))).
+			WithHint("remove the file from the share by hand; deleting again will not retry it, because the record is gone"))
+	}
+	if len(unknown) > 0 {
+		errs = append(errs, exitcode.New(exitcode.General,
+			fmt.Sprintf("cannot confirm whether the record is deleted, so %d file(s) stay on %s: %s", len(unknown), termSafe(tgt.UNC()), strings.Join(unknown, "; "))).
+			WithHint("check whether each package still exists; if it does, run delete again with --distribution-point"))
+	}
+	return errors.Join(errs...)
 }

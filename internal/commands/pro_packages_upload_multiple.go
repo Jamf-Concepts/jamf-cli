@@ -151,11 +151,8 @@ for a custom --name. --category-id and --priority apply to every file.`,
 			for _, line := range failures {
 				fmt.Fprintf(os.Stderr, "  failed: %s\n", termSafe(line))
 			}
-			if allow, _ := cmd.Flags().GetBool("allow-partial-failure"); ok > 0 && allow {
-				fmt.Fprintf(os.Stderr, "warning: %d of %d packages failed; continuing (--allow-partial-failure)\n", failed, ok+failed)
-				return nil
-			}
-			return exitcode.PartialOrPropagate(ok, failed, firstErr, fmt.Sprintf("%d of %d package uploads failed", failed, ok+failed))
+			allow, _ := cmd.Flags().GetBool("allow-partial-failure")
+			return uploadMultipleOutcome(ok, failed, allow, firstErr)
 		},
 	}
 
@@ -165,4 +162,18 @@ for a custom --name. --category-id and --priority apply to every file.`,
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "skip confirmation when replacing an existing package")
 
 	return cmd
+}
+
+// uploadMultipleOutcome turns the run's counts into its exit status.
+// --allow-partial-failure forgives a run only when something uploaded: a run
+// where every file failed still fails.
+func uploadMultipleOutcome(ok, failed int, allow bool, firstErr error) error {
+	if failed == 0 {
+		return nil
+	}
+	if ok > 0 && allow {
+		fmt.Fprintf(os.Stderr, "warning: %d of %d packages failed; continuing (--allow-partial-failure)\n", failed, ok+failed)
+		return nil
+	}
+	return exitcode.PartialOrPropagate(ok, failed, firstErr, fmt.Sprintf("%d of %d package uploads failed", failed, ok+failed))
 }

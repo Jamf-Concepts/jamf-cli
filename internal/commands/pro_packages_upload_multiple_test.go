@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,5 +44,21 @@ func TestUploadMultiple_RefusesBeforeAnythingIsSent(t *testing.T) {
 	}
 	if err := run(); err == nil {
 		t.Error("no files accepted")
+	}
+}
+
+func TestUploadMultipleOutcome(t *testing.T) {
+	boom := errors.New("boom")
+	if err := uploadMultipleOutcome(0, 3, true, boom); err == nil {
+		t.Error("all files failed with --allow-partial-failure: want a non-zero exit")
+	}
+	if err := uploadMultipleOutcome(1, 2, true, boom); err != nil {
+		t.Errorf("partial failure with --allow-partial-failure: want nil, got %v", err)
+	}
+	if err := uploadMultipleOutcome(1, 2, false, boom); err == nil {
+		t.Error("partial failure without the flag: want an error")
+	}
+	if err := uploadMultipleOutcome(3, 0, false, nil); err != nil {
+		t.Errorf("no failures: want nil, got %v", err)
 	}
 }

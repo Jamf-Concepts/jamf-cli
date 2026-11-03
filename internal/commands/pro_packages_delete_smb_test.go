@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/smbupload"
 )
 
 // deleteStubClient answers each path with a canned status and body. A 404 comes
@@ -111,5 +113,54 @@ func TestDeleteWithShareCleanup_NoFlagIsRecordOnly(t *testing.T) {
 	}
 	if !called {
 		t.Fatal("the record delete did not run")
+	}
+}
+
+func TestRemoveGoneFiles_OnlyAGoneRecordLosesItsFile(t *testing.T) {
+	var removed []string
+	orig := shareRemove
+	shareRemove = func(_ context.Context, _ smbupload.Target, name string) error {
+		removed = append(removed, name)
+		return nil
+	}
+	t.Cleanup(func() { shareRemove = orig })
+
+	client := deleteStubClient{routes: map[string]stubAnswer{
+		"/v1/packages/1": {status: http.StatusOK, body: `{}`}, // kept
+		// /v1/packages/2 is absent: a 404, so gone
+	}}
+	targets := []packageFile{{id: "1", fileName: "kept.pkg"}, {id: "2", fileName: "gone.pkg"}}
+
+	if err := removeGoneFiles(context.Background(), client, smbupload.Target{}, targets, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(removed) != 1 || removed[0] != "gone.pkg" {
+		t.Fatalf("removed %v, want only gone.pkg", removed)
+	}
+}
+
+func TestRemoveGoneFiles_KeepsTheRecordError(t *testing.T) {
+	orig := shareRemove
+	shareRemove = func(context.Context, smbupload.Target, string) error { return errors.New("access denied") }
+	t.Cleanup(func() { shareRemove = orig })
+
+	recordErr := errors.New("record delete failed")
+	targets := []packageFile{{id: "2", fileName: "gone.pkg"}}
+	err := removeGoneFiles(context.Background(), deleteStubClient{}, smbupload.Target{}, targets, recordErr)
+	if !errors.Is(err, recordErr) {
+		t.Fatalf("record error lost: %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "gone.pkg") {
+		t.Fatalf("share failure not reported: %v", err)
+	}
+}
+
+func TestSelectFileShareDP_NoShareWithoutOne(t *testing.T) {
+	for name, body := range map[string]string{"cloud DP configured": `{"cdnType":"JCDS2"}`, "no cloud DP and no share": `{"cdnType":"NONE"}`} {
+		client := deleteStubClient{routes: map[string]stubAnswer{"/v1/cloud-distribution-point": {status: http.StatusOK, body: body}}}
+		dp, err := selectFileShareDP(context.Background(), &registry.CLIContext{Client: client}, "")
+		if err != nil || dp != nil {
+			t.Errorf("%s: got %v, %v; want nil, nil", name, dp, err)
+		}
 	}
 }
