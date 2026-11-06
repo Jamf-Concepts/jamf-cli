@@ -341,6 +341,10 @@ var handWrittenUndeterminedMethods = map[string][]string{
 	"/pro/v1/cloud-distribution-point/refresh-inventory": {"POST"},
 	"/pro/v1/packages/{}":                                {"GET"},
 
+	// pro_classic_logflush.go, logflushPolicyPath — a path builder; the one
+	// caller sends it as a DELETE.
+	"/proclassic/logflush/policy/id/{}/interval/{}": {"DELETE"},
+
 	// pro_classic_group_members.go — classicGroupKind.detailPath, a struct
 	// field read back by fetchClassicStaticGroup (GET) and putGroupMembership
 	// (PUT).

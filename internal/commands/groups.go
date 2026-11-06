@@ -425,6 +425,7 @@ var proGroupMap = map[string]string{
 	"classic-computer-configs":           groupClassicComputers,
 	"classic-computer-apps":              groupClassicComputers,
 	"classic-computer-app-usage":         groupClassicComputers,
+	"classic-logflush":                   groupClassicComputers,
 	"classic-computer-history":           groupClassicComputers,
 	"classic-computer-invitations":       groupClassicComputers,
 	"classic-advanced-computer-searches": groupClassicComputers,
