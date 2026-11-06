@@ -1198,6 +1198,13 @@ func reportTakeover(w io.Writer, t profileconvert.TakeoverReport) {
 	if t.Supported {
 		_, _ = fmt.Fprintln(w, "Takeover supported: deploying this blueprint adopts the profile already installed from Jamf Pro without reinstalling it.")
 		_, _ = fmt.Fprintln(w, "  Keep the Classic profile scoped while the blueprint is deployed. Undeploying the blueprint after the Classic profile is gone removes the profile from devices.")
+		_, _ = fmt.Fprintln(w, "  Large fleets: unscoping or deleting the Classic profile while the blueprint is deployed makes Jamf Pro send RemoveProfile commands the device refuses, and "+
+			"it keeps retrying them. On a large fleet that has been over 100,000 failed commands and an out-of-memory server. Try it on a small group first.")
+		return
+	}
+	if t.NotRequested {
+		_, _ = fmt.Fprintln(w, "Takeover not requested: deploying this blueprint installs it beside the Classic profile, and both stay active until you unscope the Classic profile.")
+		_, _ = fmt.Fprintln(w, "  Unscope the Classic profile when you deploy the blueprint. Pass --takeover to adopt the installed profile instead; read its warning about large fleets first.")
 		return
 	}
 	_, _ = fmt.Fprintln(w, "Warning: takeover is not supported for this profile, so deploying the blueprint installs it alongside the Classic profile (both stay active):")
@@ -1250,6 +1257,7 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		includeUnsupported bool
 		stripDefaults      bool
 		convertProfile     bool
+		takeover           bool
 		takeoverOnly       bool
 		skipExclusions     bool
 		skipLimitations    bool
@@ -1311,11 +1319,16 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		if out.Profile == "" {
 			out.Profile = displayName
 		}
-		convertOpts := importConvertOptions{includeUnsupported: includeUnsupported, stripDefaults: stripDefaults}
+		// Takeover is opt-in. Without it the converted profile is sent carrying none
+		// of the Classic profile's identity, so it installs beside the Classic copy
+		// and unscoping that copy removes it normally. --convert says the same thing
+		// and is kept so existing scripts still run.
+		adopt := takeover || takeoverOnly
+		convertOpts := importConvertOptions{includeUnsupported: includeUnsupported, stripDefaults: stripDefaults, declineTakeover: !adopt}
 		schemaFetcher := profileconvert.NewSchemaFetcher(nil)
 		converted, convErr := buildImportPlan([]byte(mobileconfig), convertOpts, false, schemaFetcher)
 		var plan, fallback *importPlan
-		if convertProfile {
+		if convertProfile || !adopt {
 			if convErr != nil {
 				return out, nothingToImport(convErr)
 			}
@@ -1516,20 +1529,26 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Import a Classic configuration profile as a blueprint",
 		Long: `Download a configuration profile from Jamf Pro and create a blueprint from it.
 
-By default the profile is kept as installed, so the blueprint can take over the
-copy already on devices (see Takeover). With --convert its payloads are instead
-converted to native DDM blueprint components where possible, and Application &
-Custom Settings (MCX) payloads are unwrapped; a converted blueprint cannot take
-over the installed profile.
+By default the profile is converted: payloads become native DDM blueprint
+components where possible, and Application & Custom Settings (MCX) payloads are
+unwrapped. The blueprint carries none of the Classic profile's identifiers, so
+deploying it installs it beside the Classic profile; unscope the Classic profile
+when you deploy. --takeover keeps the profile as installed instead, so the
+blueprint can adopt the copy already on devices (see Takeover). --convert is the
+default and is kept so existing scripts run.
 
-With --convert, payloads are promoted to native DDM components when a mapping
-exists. Currently supported:
+Payloads are promoted to native DDM components when a mapping exists. Currently
+supported:
 
   com.apple.mobiledevice.passwordpolicy  ->  passcode-settings
   com.apple.applicationaccess (safari*)  ->  safari-settings (macOS/iOS 26+)
   com.apple.applicationaccess (deferral) ->  software-update-settings (Deferrals)
   com.apple.applicationaccess (RSR)      ->  software-update-settings (RapidSecurityResponse)
   com.apple.SoftwareUpdate               ->  software-update-settings (AutomaticActions, Beta, etc.)
+
+Energy Saver (a com.apple.MCX payload of com.apple.EnergySaver.* keys in a Jamf Pro
+profile) is delivered as the standalone com.apple.MCX.EnergySaver payload rather than
+wrapped as Custom Settings.
 
 Payloads kept as installed, and those without a DDM mapping, are placed in a
 com.jamf.ddm-configuration-profile component. A single profile with mixed payloads produces multiple components.
@@ -1566,18 +1585,25 @@ The blueprint name defaults to the profile's display name (override with --bluep
 The blueprint description records where it came from and whether it can take over
 the installed profile.
 
-Takeover:
+Takeover (opt-in, --takeover):
   A blueprint can adopt the copy of the profile already installed on devices from
   Jamf Pro, without reinstalling it, so an existing deployment moves to a blueprint
-  with no gap. This is what import-profile does whenever it can: it carries the
-  profile's own identifiers and UUIDs onto the blueprint, and tells you so.
+  with no gap. With --takeover, import-profile carries the profile's own identifiers
+  and UUIDs onto the blueprint whenever it can, and tells you so.
+
+  It is not the default because of what happens when the Classic profile is retired.
+  Unscoping or deleting it while the blueprint is deployed makes Jamf Pro send
+  RemoveProfile commands the device refuses (it holds the profile through the
+  declaration), and Jamf Pro keeps retrying them. On a large fleet that has been over
+  100,000 failed commands and an out-of-memory Jamf Pro server. Try --takeover on a
+  small group first, and do not unscope the Classic profile on a large one.
 
   Takeover needs the blueprint to mirror the installed profile exactly — the same
   payloads, types and order. It is therefore not available when:
     - a payload type is outside the set the API takes standalone, so it has to be
       delivered as Application & Custom Settings (MCX) instead;
     - a payload is skipped, removed as empty, or unwrapped from MCX;
-    - payloads were promoted to native DDM components (--convert);
+    - payloads were promoted to native DDM components;
     - a payload's PayloadUUID differs from its PayloadIdentifier (blueprints force
       the two to match);
     - the profile has no identifiers to carry over.
@@ -1589,20 +1615,20 @@ Takeover:
   accepting therefore takes over without a code change, and the command says so. Any
   other failure is returned as it is, without a retry.
 
-  --takeover-only imports only a profile that can take over: otherwise no blueprint is
+  --takeover-only implies --takeover and imports only a profile that can take over: otherwise no blueprint is
   created and the command exits with an error naming the reasons, which makes it
   usable to sort a set of profiles (it cannot be combined with --convert).
 
-  A profile that cannot take over still imports, with a warning naming the reasons.
-  Its blueprint installs alongside the Classic profile and both stay active, so
+  With --takeover, a profile that cannot take over still imports, with a warning
+  naming the reasons. Its blueprint installs alongside the Classic profile and both stay active, so
   deploying it can produce conflicting settings. The identifiers are deliberately not
   carried over in that case: with identity preserved but a payload changed, the
   declaration is reported invalid and nothing is applied at all.
 
   While a takeover blueprint is deployed it owns the profile. Editing the blueprint
   changes the profile on devices; removing or unscoping the Classic profile leaves it
-  in place, and Jamf Pro logs a failed "Remove Configuration Profile" command that is
-  expected. Undeploying hands the profile back to the Classic definition at the next
+  in place, and Jamf Pro logs a failed "Remove Configuration Profile" command and
+  retries it (see the large-fleet warning above). Undeploying hands the profile back to the Classic definition at the next
   recon — or, if the Classic profile no longer exists, removes it from the devices.
   Keys the blueprints API does not recognise are dropped (the command lists them)
   and stop being enforced once the blueprint takes over.
@@ -1628,7 +1654,9 @@ Importing every profile:
   A profile that was skipped is never deployed. -n/--dry-run previews the table without creating anything;
   it cannot say whether the API will accept a profile as installed.
 
-  The safe way to move the profiles that can be taken over, and only those, is:
+  Without --takeover every blueprint is converted and installs beside its Classic
+  profile. To move only the profiles that can be taken over, on a fleet small enough
+  for the large-fleet warning above not to matter:
     jamf-cli pro blueprints import-profile --all --type computer --takeover-only \
       --skip-exclusions --skip-limitations --deploy
 
@@ -1662,7 +1690,7 @@ Examples:
   jamf-cli pro blueprints import-profile --name "Managed Restrictions" --type mobile
   jamf-cli pro blueprints import-profile 42 --blueprint-name "FV Blueprint"
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
-  jamf-cli pro blueprints import-profile "Passcode Policy" --convert   # native DDM components instead of the profile as installed
+  jamf-cli pro blueprints import-profile "My Restrictions" --takeover   # keep the profile as installed so the blueprint adopts it
   jamf-cli pro blueprints import-profile "My Restrictions" --takeover-only   # create nothing unless the blueprint can take over
   jamf-cli pro blueprints import-profile --all --type mobile --takeover-only   # every mobile profile that can take over, undeployed
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
@@ -1673,8 +1701,8 @@ Examples:
 			if profileType != "computer" && profileType != "mobile" {
 				return fmt.Errorf("--type must be 'computer' or 'mobile', got %q", profileType)
 			}
-			if takeoverOnly && convertProfile {
-				return fmt.Errorf("--takeover-only cannot be combined with --convert: a converted blueprint cannot take over the installed profile")
+			if (takeover || takeoverOnly) && convertProfile {
+				return fmt.Errorf("--takeover and --takeover-only cannot be combined with --convert: a converted blueprint cannot take over the installed profile")
 			}
 			if importAll && (len(args) > 0 || profileName != "" || blueprintName != "") {
 				return fmt.Errorf("--all imports every profile: it cannot be combined with <id>, --name or --blueprint-name")
@@ -1712,11 +1740,13 @@ Examples:
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
-	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads, instead of keeping the profile as installed (a converted blueprint cannot take over the installed profile)")
+	cmd.Flags().BoolVar(&convertProfile, "convert", false, "Convert compatible payloads to native DDM components and unwrap Custom Settings (MCX) payloads (this is the default; the flag is kept so existing scripts run)")
+	_ = cmd.Flags().MarkDeprecated("convert", "converting is now the default; use --takeover to keep the profile as installed")
+	cmd.Flags().BoolVar(&takeover, "takeover", false, "Keep the profile as installed and carry its identity so the blueprint adopts the copy on devices (read the large-fleet warning in --help first)")
 	cmd.Flags().BoolVar(&importAll, "all", false, "Import every configuration profile, computer and mobile unless --type narrows it (not with <id>, --name or --blueprint-name); prints a table of what happened")
 	cmd.Flags().BoolVar(&deploy, "deploy", false, "Deploy each blueprint after it is created (by default blueprints are created undeployed)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation for --all --deploy")
-	cmd.Flags().BoolVar(&takeoverOnly, "takeover-only", false, "Only import a profile whose blueprint can take over the installed profile; otherwise create nothing and exit with an error")
+	cmd.Flags().BoolVar(&takeoverOnly, "takeover-only", false, "Implies --takeover. Only import a profile whose blueprint can take over the installed profile; otherwise create nothing and exit with an error")
 	cmd.Flags().BoolVar(&skipExclusions, "skip-exclusions", false, "Do not import a profile that has scope exclusions blueprints cannot express (excluded device groups are carried over, anything else is not)")
 	cmd.Flags().BoolVar(&skipLimitations, "skip-limitations", false, "Do not import a profile that has scope limitations (blueprints cannot express them)")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")

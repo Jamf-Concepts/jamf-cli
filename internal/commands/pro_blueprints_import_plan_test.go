@@ -5,6 +5,7 @@ package commands
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -772,4 +773,71 @@ func TestRefuseExistingBlueprint(t *testing.T) {
 			t.Errorf("err = %v, want the lookup failure", err)
 		}
 	})
+}
+
+// A profile the blueprint could adopt, imported without --takeover, carries none
+// of its identity. The converted plan is identical to the installed one here, so
+// without the opt-in it would have taken the profile over by default.
+func TestBuildImportPlan_DeclinedTakeoverCarriesNoIdentity(t *testing.T) {
+	profile := planProfile(planFinderPayload)
+
+	adopting, err := buildImportPlan(profile, importConvertOptions{}, false, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !adopting.takeover.Supported {
+		t.Fatalf("fixture must be adoptable when takeover is allowed, got %+v", adopting.takeover)
+	}
+
+	declined, err := buildImportPlan(profile, importConvertOptions{declineTakeover: true}, false, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if declined.takeover.Supported || !declined.takeover.NotRequested {
+		t.Errorf("want takeover not requested, got %+v", declined.takeover)
+	}
+	cfg, _ := json.Marshal(declined.components)
+	for _, id := range []string{planTopID, planFinder} {
+		if strings.Contains(string(cfg), id) {
+			t.Errorf("the declined plan carries the Classic identity %s:\n%s", id, cfg)
+		}
+	}
+	if got := takeoverLabel(declined.takeover); got != "not requested" {
+		t.Errorf("takeoverLabel = %q", got)
+	}
+}
+
+// Energy Saver is a com.apple.MCX payload in a Jamf Pro profile. The blueprints
+// API refuses that type, but takes the same keys as com.apple.MCX.EnergySaver, so
+// the converted profile does not need to wrap it as Custom Settings.
+func TestBuildImportPlan_EnergySaverIsNotWrappedAsCustomSettings(t *testing.T) {
+	const keys = `<key>com.apple.EnergySaver.desktop.ACPower-ProfileNumber</key><integer>-1</integer>` +
+		`<key>com.apple.EnergySaver.desktop.ACPower</key><dict><key>System Sleep Timer</key><integer>10</integer></dict>`
+	profile := planProfile([3]string{"com.apple.MCX", planFinder, keys})
+
+	converted, err := buildImportPlan(profile, importConvertOptions{declineTakeover: true}, false, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := json.Marshal(converted.components)
+	if !strings.Contains(string(cfg), `"payloadType":"com.apple.MCX.EnergySaver"`) {
+		t.Errorf("Energy Saver not delivered as its standalone type:\n%s", cfg)
+	}
+	if strings.Contains(string(cfg), "ManagedClient.preferences") {
+		t.Errorf("Energy Saver was wrapped as Custom Settings:\n%s", cfg)
+	}
+	if !strings.Contains(string(cfg), `"System Sleep Timer":10`) {
+		t.Errorf("a setting was lost:\n%s", cfg)
+	}
+
+	// Kept as installed, the type stays what the device has, so a takeover can
+	// still be judged against it.
+	preserved, err := buildImportPlan(profile, importConvertOptions{}, true, offlineFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ = json.Marshal(preserved.components)
+	if !strings.Contains(string(cfg), `"payloadType":"com.apple.MCX"`) {
+		t.Errorf("the installed form changed the payload type:\n%s", cfg)
+	}
 }

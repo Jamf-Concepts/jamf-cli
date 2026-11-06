@@ -24,6 +24,10 @@ func TestReportTakeover_SupportedExplainsTheLifecycle(t *testing.T) {
 		// Retiring the Classic profile and then undeploying removes the settings
 		// from devices; an admin tidying up would otherwise find that out the hard way.
 		"removes the profile from devices",
+		// Unscoping the Classic copy of a deployed takeover blueprint makes Jamf Pro
+		// retry a RemoveProfile the device refuses; the retries took a server down.
+		"Large fleets",
+		"RemoveProfile",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
@@ -31,6 +35,20 @@ func TestReportTakeover_SupportedExplainsTheLifecycle(t *testing.T) {
 	}
 	if strings.Contains(out, "Warning") {
 		t.Errorf("a supported takeover is not a warning:\n%s", out)
+	}
+}
+
+func TestReportTakeover_NotRequestedSaysBothStayActiveAndHowToTakeOver(t *testing.T) {
+	var buf bytes.Buffer
+	reportTakeover(&buf, profileconvert.TakeoverNotRequested())
+	out := buf.String()
+	for _, want := range []string{"Takeover not requested", "beside the Classic profile", "Unscope the Classic profile", "--takeover"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "not supported") {
+		t.Errorf("declining takeover is not the same as takeover being impossible:\n%s", out)
 	}
 }
 

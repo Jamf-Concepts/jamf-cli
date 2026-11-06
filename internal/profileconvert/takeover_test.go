@@ -278,6 +278,20 @@ func TestDroppedKeys(t *testing.T) {
 	}
 }
 
+// The API drops keys inside a payload's dictionaries too, and respells some
+// ("Wake On LAN" -> "Wake on LAN"), which is not a loss.
+func TestDroppedKeys_NestedAndCaseInsensitive(t *testing.T) {
+	sent := json.RawMessage(`{"payloadContent":[{"payloadType":"com.apple.MCX.EnergySaver",
+		"com.apple.EnergySaver.desktop.ACPower":{"Wake On LAN":1,"Sleep On Power Button":1,"System Sleep Timer":10}}]}`)
+	stored := json.RawMessage(`{"payloadContent":[{"payloadType":"com.apple.MCX.EnergySaver",
+		"com.apple.EnergySaver.desktop.ACPower":{"Wake on LAN":1,"System Sleep Timer":10}}]}`)
+	got := DroppedKeys(sent, stored)
+	want := "payload 1 (com.apple.MCX.EnergySaver): com.apple.EnergySaver.desktop.ACPower.Sleep On Power Button"
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("DroppedKeys = %q, want [%q]", got, want)
+	}
+}
+
 func TestConvertVerbatim_KeepsTheShapeOfTheInstalledProfile(t *testing.T) {
 	dash := takeoverPayload{typ: "com.apple.dashboard", id: "DDDD", uuid: "DDDD", body: `<key>whiteListEnabled</key><false/>`}
 	empty := takeoverPayload{typ: "com.apple.desktop", id: "EEEE", uuid: "EEEE"}

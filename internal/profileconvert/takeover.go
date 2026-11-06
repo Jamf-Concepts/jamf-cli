@@ -32,6 +32,22 @@ type TakeoverReport struct {
 	Supported bool
 	// Reasons lists why takeover is not supported. Empty when Supported.
 	Reasons []string
+	// NotRequested is true when takeover was never attempted because the caller
+	// did not ask for it. The blueprint then carries none of the profile's
+	// identity and installs beside the Classic profile.
+	NotRequested bool
+}
+
+// TakeoverNotRequested is the verdict for a blueprint built without --takeover.
+// Takeover is opt-in: a deployed takeover blueprint owns the profile, and
+// removing the Classic copy makes Jamf Pro send RemoveProfile commands the
+// device refuses, which its push service retries — on a large fleet that was
+// over 100,000 failed commands and an out-of-memory server.
+func TakeoverNotRequested() TakeoverReport {
+	return TakeoverReport{
+		NotRequested: true,
+		Reasons:      []string{"takeover was not requested (pass --takeover to adopt the installed profile)"},
+	}
 }
 
 // ApplyTakeoverIdentity decides whether the converted configuration can take over
@@ -173,6 +189,11 @@ func ImportDescription(profileKind, profileName, profileID string, report Takeov
 		writeScopeNote(&b, scopeNote)
 		return clipDescription(b.String())
 	}
+	if report.NotRequested {
+		b.WriteString("Takeover not requested.")
+		writeScopeNote(&b, scopeNote)
+		return clipDescription(b.String())
+	}
 	b.WriteString("Takeover not supported")
 	if len(report.Reasons) > 0 {
 		b.WriteString(": ")
@@ -241,7 +262,10 @@ func clipDescription(s string) string {
 // blueprint has taken over a profile those keys are no longer enforced on the
 // device (wire-checked: InterfaceLevel on com.apple.finder).
 //
-// Only top-level keys of each payload are compared. Payloads are matched by
+// Keys are compared through nested dictionaries (Energy Saver's settings live two
+// levels down, and the API dropped "Sleep On Power Button" from every one), by a
+// dotted path, ignoring case because the API respells some keys ("Wake On LAN"
+// is stored as "Wake on LAN"). Arrays are not compared. Payloads are matched by
 // position, which holds because the API preserves their order.
 func DroppedKeys(sent, stored json.RawMessage) []string {
 	_, sentContent, err := decodeConfig(sent)
@@ -256,12 +280,7 @@ func DroppedKeys(sent, stored json.RawMessage) []string {
 	for i := range sentContent {
 		s, _ := sentContent[i].(map[string]any)
 		g, _ := storedContent[i].(map[string]any)
-		var lost []string
-		for k := range s {
-			if _, ok := g[k]; !ok {
-				lost = append(lost, k)
-			}
-		}
+		lost := lostKeys("", s, g)
 		if len(lost) == 0 {
 			continue
 		}
@@ -270,4 +289,30 @@ func DroppedKeys(sent, stored json.RawMessage) []string {
 		out = append(out, fmt.Sprintf("payload %d (%s): %s", i+1, t, strings.Join(lost, ", ")))
 	}
 	return out
+}
+
+// lostKeys lists the dotted paths in sent that stored does not carry.
+func lostKeys(prefix string, sent, stored map[string]any) []string {
+	var lost []string
+	for k, sv := range sent {
+		gv, ok := stored[k]
+		if !ok {
+			for sk, v := range stored {
+				if strings.EqualFold(sk, k) {
+					gv, ok = v, true
+					break
+				}
+			}
+		}
+		if !ok {
+			lost = append(lost, prefix+k)
+			continue
+		}
+		sm, sIsMap := sv.(map[string]any)
+		gm, gIsMap := gv.(map[string]any)
+		if sIsMap && gIsMap {
+			lost = append(lost, lostKeys(prefix+k+".", sm, gm)...)
+		}
+	}
+	return lost
 }

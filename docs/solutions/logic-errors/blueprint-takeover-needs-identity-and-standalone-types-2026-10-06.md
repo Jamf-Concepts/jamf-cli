@@ -66,7 +66,7 @@ A profile that fails any of that is not applied and its status is `invalid`.
 | State | Owner | What happens |
 |---|---|---|
 | Blueprint deployed, Classic present | Blueprint | Not reinstalled; blueprint edits apply |
-| Classic unscoped or deleted, blueprint deployed | Blueprint | Jamf sends Remove Configuration Profile; the device refuses (`not installed by the MDM server`); a Failed command is logged, retried once per clear |
+| Classic unscoped or deleted, blueprint deployed | Blueprint | Jamf sends Remove Configuration Profile; the device refuses (`not installed by the MDM server`); a Failed command is logged. One VM saw one retry per clear; a large fleet saw the push service retry it without end (see Takeover is opt-in) |
 | Blueprint undeployed, Classic present | Classic | Classic reinstalls at the next recon |
 | Blueprint undeployed, Classic gone | Nobody | The profile is removed from the device entirely |
 
@@ -115,8 +115,8 @@ takeover is impossible for it anyway.
 
 ## Do not
 - Preserve identity "where possible" on a profile that cannot be adopted.
-- Treat the failed Remove command as a fault; it is the device refusing to let MDM remove a
-  profile it no longer owns.
+- Treat the failed Remove command as harmless at scale. It is the device refusing to let MDM
+  remove a profile it no longer owns, and Jamf Pro retries it: see Takeover is opt-in.
 - Tell an admin they can retire the Classic profile and then undeploy the blueprint: that
   removes the settings from devices.
 
@@ -186,3 +186,33 @@ reinstalled it on its own schedule as the device entered and left. `import-profi
 exclusions from the Classic profile when it carries excluded groups. A device in an excluded group does not keep the
 profile either way; the blueprint's condition removes it.
 
+
+## Takeover is opt-in (2026-11-06)
+A customer migrated Classic profiles to blueprints with `import-profile` (takeover was the
+default), unscoped the Classic profiles, and Jamf Pro generated more than 100,000 failed
+`RemoveProfile` commands. Its push service keeps re-sending the command until the profile
+is gone, the device keeps answering that MDM did not install it, and the server ran out of
+memory within hours. The single VM in the 2026-10 tests saw one retry per clear, so the
+failure scales with fleet size and profile count. This is Jamf Pro's behaviour to fix; the
+CLI should not walk an admin into it by default.
+
+`import-profile` now converts by default and sends no Classic identity, so the blueprint
+installs beside the Classic profile and unscoping the Classic profile removes it normally.
+`--takeover` (and `--takeover-only`, which implies it) keeps the old behaviour and prints the
+large-fleet warning. `buildImportPlan`'s `declineTakeover` skips `ApplyTakeoverIdentity`
+entirely: a profile whose converted form is identical to the installed one would otherwise
+still have been adopted. The verdict is `TakeoverNotRequested()`, not "not supported".
+`--convert` is now the default and is deprecated, not removed, so scripts keep running.
+
+Not done: a mode that keeps the installed payloads with fresh identifiers.
+
+### Energy Saver
+A Jamf Pro Energy Saver pane is a `com.apple.MCX` payload of `com.apple.EnergySaver.*` keys.
+The API refuses `com.apple.MCX` standalone, but accepts the same keys as
+`com.apple.MCX.EnergySaver` (201, wire-checked on `platform-nmjspp`), so the converted
+profile no longer wraps it as Custom Settings (`reclassifyMCXPayload`). The kept-as-installed
+form still says `com.apple.MCX`, so takeover is never offered for it. The API stores the
+payload with a new UUID, drops the `*-ProfileNumber` keys and, inside each dictionary,
+`Disk Sleep Timer-boolean` and `Sleep On Power Button`, and respells `Wake On LAN` as
+`Wake on LAN`. `DroppedKeys` now compares nested keys, ignoring case, so those drops are
+reported.

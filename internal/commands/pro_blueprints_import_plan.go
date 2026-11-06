@@ -43,6 +43,9 @@ func (p *importPlan) logf(format string, a ...any) {
 type importConvertOptions struct {
 	includeUnsupported bool
 	stripDefaults      bool
+	// declineTakeover builds the converted plan without the profile's identity,
+	// whatever it could adopt. Takeover is opt-in (--takeover).
+	declineTakeover bool
 }
 
 // buildImportPlan converts a mobileconfig. preserve keeps the profile as
@@ -124,10 +127,16 @@ func buildImportPlan(mobileconfig []byte, o importConvertOptions, preserve bool,
 	if ddmResult.ProfileConfig != nil {
 		plan.logf("  remaining payloads wrapped in configuration-profile component")
 		plan.messages = append(plan.messages, apiOnlyPayloadNote(ddmResult.ProfileConfig)...)
-		ddmResult.ProfileConfig, plan.takeover, err = profileconvert.ApplyTakeoverIdentity(ddmResult.ProfileConfig, mobileconfig, len(ddmResult.NativeComponents))
-		if err != nil {
-			return nil, fmt.Errorf("checking takeover: %w", err)
+		if o.declineTakeover {
+			plan.takeover = profileconvert.TakeoverNotRequested()
+		} else {
+			ddmResult.ProfileConfig, plan.takeover, err = profileconvert.ApplyTakeoverIdentity(ddmResult.ProfileConfig, mobileconfig, len(ddmResult.NativeComponents))
+			if err != nil {
+				return nil, fmt.Errorf("checking takeover: %w", err)
+			}
 		}
+	} else if o.declineTakeover {
+		plan.takeover = profileconvert.TakeoverNotRequested()
 	} else {
 		plan.takeover = profileconvert.NativeConversionReport(len(ddmResult.NativeComponents))
 	}
