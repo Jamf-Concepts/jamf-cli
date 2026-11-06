@@ -27,7 +27,7 @@ type importOutcome struct {
 	Type      string // "computer" or "mobile"
 	ProfileID string
 	Profile   string
-	Takeover  string // "supported", "not supported", or "" when it was not reached
+	Takeover  string // "supported", "not supported", "not requested", or "" when it was not reached
 	// TakeoverUncertain marks a profile that takes over only if the API accepts
 	// payload types jamf-cli lists as unsupported, which it has not so far.
 	TakeoverUncertain bool
@@ -71,6 +71,9 @@ func (e *skipError) Unwrap() error { return e.err }
 func takeoverLabel(t profileconvert.TakeoverReport) string {
 	if t.Supported {
 		return "supported"
+	}
+	if t.NotRequested {
+		return "not requested"
 	}
 	return "not supported"
 }
@@ -149,9 +152,14 @@ func (c *deployCounts) add(out *importOutcome) {
 func (c deployCounts) deployable() int { return c.takeOver + c.uncertain + c.alongside }
 
 func (c deployCounts) summary() string {
-	return fmt.Sprintf("Deploying would: take over the installed profile for %d; take it over for up to %d more only if the API "+
+	msg := fmt.Sprintf("Deploying would: take over the installed profile for %d; take it over for up to %d more only if the API "+
 		"accepts payload types jamf-cli lists as unsupported (otherwise they install alongside); install alongside the Classic profile "+
 		"(both stay active) for %d; create but not deploy %d whose scope would widen.", c.takeOver, c.uncertain, c.alongside, c.held)
+	if c.takeOver+c.uncertain > 0 {
+		msg += "\nWarning: unscoping or deleting a Classic profile whose blueprint took it over makes Jamf Pro send RemoveProfile commands " +
+			"the device refuses, and it keeps retrying them. On a large fleet that has been over 100,000 failed commands and an out-of-memory server."
+	}
+	return msg
 }
 
 // runImportAll imports every profile of the given types. A profile that fails or
