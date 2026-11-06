@@ -311,6 +311,46 @@ var appleMetadataKeys = map[string]bool{
 	"PayloadContentManagedPreferences": true,
 }
 
+// appleMCXPayloadType is the payload type Jamf Pro writes for several panes that
+// Apple delivers as managed-preference domains (Energy Saver, Time Server, ...).
+// It is not com.apple.ManagedClient.preferences (mcxPayloadType), and the
+// blueprints API refuses it as a standalone payload.
+const appleMCXPayloadType = "com.apple.MCX"
+
+// energySaverPayloadType is the standalone type the blueprints API takes for
+// Energy Saver. Wire-checked 2026-11-06 on platform-nmjspp: a com.apple.MCX
+// payload is refused ("Failed to validate configuration."), and the same
+// com.apple.EnergySaver.* keys under this type answer 201.
+const (
+	energySaverPayloadType = "com.apple.MCX.EnergySaver"
+	energySaverKeyPrefix   = "com.apple.EnergySaver."
+)
+
+// reclassifyMCXPayload returns the standalone blueprints type for a
+// com.apple.MCX payload, or payloadType unchanged. Energy Saver is the one
+// pane identified: a payload whose every setting is a com.apple.EnergySaver.*
+// key. A payload that mixes them with anything else is left alone, since moving
+// part of it would change what the rest is.
+func reclassifyMCXPayload(payloadType string, payload map[string]any) string {
+	if payloadType != appleMCXPayloadType {
+		return payloadType
+	}
+	found := false
+	for k := range payload {
+		if appleMetadataKeys[k] {
+			continue
+		}
+		if !strings.HasPrefix(k, energySaverKeyPrefix) {
+			return payloadType
+		}
+		found = true
+	}
+	if !found {
+		return payloadType
+	}
+	return energySaverPayloadType
+}
+
 // ConvertMobileconfig parses a mobileconfig (XML plist) and returns a
 // DDMProfileDto configuration suitable for a com.jamf.ddm-configuration-profile
 // blueprint component. When filterUnsupported is true, payloads with unsupported
@@ -363,6 +403,14 @@ func convertMobileconfig(data []byte, filterUnsupported, verbatim bool) (json.Ra
 		if canonical := CanonicalPayloadType(payloadType); canonical != payloadType {
 			warnings = append(warnings, fmt.Sprintf("rewrote payload type %q to %q — the blueprints API only accepts Apple's canonical spelling", payloadType, canonical))
 			payloadType = canonical
+		}
+		// The installed form (verbatim) keeps the type as Jamf Pro wrote it; a
+		// converted profile uses the standalone type where the API has one.
+		if !verbatim {
+			if reclassified := reclassifyMCXPayload(payloadType, payload); reclassified != payloadType {
+				warnings = append(warnings, fmt.Sprintf("payload type %q delivered as %q", payloadType, reclassified))
+				payloadType = reclassified
+			}
 		}
 
 		if DisabledPayloadTypes[payloadType] {

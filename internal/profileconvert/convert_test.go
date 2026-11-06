@@ -1059,3 +1059,25 @@ func TestConvertMobileconfig_ProducesValidJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestReclassifyMCXPayload(t *testing.T) {
+	es := map[string]any{
+		"PayloadType": "com.apple.MCX", "PayloadUUID": "A",
+		"com.apple.EnergySaver.desktop.ACPower": map[string]any{},
+	}
+	for name, tc := range map[string]struct {
+		typ     string
+		payload map[string]any
+		want    string
+	}{
+		"energy saver":          {"com.apple.MCX", es, "com.apple.MCX.EnergySaver"},
+		"another type":          {"com.apple.finder", es, "com.apple.finder"},
+		"no settings":           {"com.apple.MCX", map[string]any{"PayloadUUID": "A"}, "com.apple.MCX"},
+		"mixed with other keys": {"com.apple.MCX", map[string]any{"com.apple.EnergySaver.x": 1, "timeServer": "t"}, "com.apple.MCX"},
+		"unrelated keys":        {"com.apple.MCX", map[string]any{"timeServer": "t"}, "com.apple.MCX"},
+	} {
+		if got := reclassifyMCXPayload(tc.typ, tc.payload); got != tc.want {
+			t.Errorf("%s: got %q, want %q", name, got, tc.want)
+		}
+	}
+}

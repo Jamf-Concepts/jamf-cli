@@ -130,6 +130,11 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 				fmt.Sprintf("rewrote payload type %q to %q — the blueprints API only accepts Apple's canonical spelling", payloadType, canonical))
 			payloadType = canonical
 		}
+		if reclassified := reclassifyMCXPayload(payloadType, payload); reclassified != payloadType {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("payload type %q delivered as %q", payloadType, reclassified))
+			payloadType = reclassified
+		}
 
 		matched := findConverters(payloadType)
 		if len(matched) == 0 {

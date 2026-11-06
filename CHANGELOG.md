@@ -11,6 +11,29 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Breaking — `pro blueprints import-profile` no longer takes over the installed profile by default
+
+`import-profile` used to keep the Classic profile as installed and stamp its identifiers onto the
+blueprint, so a deployed blueprint adopted the copy already on devices. It now converts the
+profile and sends none of its identity: the blueprint installs beside the Classic profile, and
+you unscope the Classic profile when you deploy. **Migration:** pass `--takeover` for the old
+behaviour (`--takeover-only` implies it). `--all --deploy` therefore no longer takes anything
+over unless you pass one of them. `--convert` is now the default and is deprecated; it still runs.
+
+Why: unscoping or deleting the Classic profile of a deployed takeover blueprint makes Jamf Pro
+send `RemoveProfile` commands the device refuses, and Jamf Pro keeps retrying them. At one
+customer that was over 100,000 failed commands and an out-of-memory server. `--takeover`
+prints that warning, and the `--all --deploy` confirmation repeats it. The blueprint description
+reads `Takeover not requested.` and the `--all` table's takeover column reads `not requested`.
+
+### Behaviour — Energy Saver imports as `com.apple.MCX.EnergySaver`
+
+A profile's Energy Saver pane (`com.apple.MCX` carrying `com.apple.EnergySaver.*` keys) is
+delivered as the standalone `com.apple.MCX.EnergySaver` payload instead of being wrapped as
+Custom Settings. The API drops some keys inside it (`Disk Sleep Timer-boolean`,
+`Sleep On Power Button`, the `*-ProfileNumber` keys); the dropped-keys warning now looks inside
+nested dictionaries and names them.
+
 ### Behaviour — `--from-file` lists refuse a line that cannot be an ID or a name
 
 The bulk `delete --from-file` commands, `pro classic-policies enable` and `disable
