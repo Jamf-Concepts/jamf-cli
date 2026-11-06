@@ -46,6 +46,8 @@ var notACredentialPrinter = map[string]string{
 	"pro computer-inventory set-auto-admin-password": exemptSetsDeviceSecret,
 	"pro computer-inventory set-recovery-lock":       exemptSetsDeviceSecret,
 
+	"pro packages upload": "its help names JAMFSMB_PASSWORD, an environment variable it reads for an SMB share account; it prints the package record and never the password",
+
 	"pro computer-inventory unlock-user-account":     "its help says it does not change the account's password; it sends a short user name and prints an MDM command UUID",
 	"pro mobile-devices clear-passcode":              exemptSetsDeviceSecret,
 	"pro local-admin-password set-password":          exemptSetsDeviceSecret,
