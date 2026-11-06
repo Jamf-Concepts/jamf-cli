@@ -133,6 +133,10 @@ type configProfileRow struct {
 	ClientSecret  string `json:"client-secret,omitempty"`
 	Status        string `json:"status,omitempty"`
 	Healthy       *bool  `json:"healthy,omitempty"`
+	// SMBDistributionPoints names the distribution points the profile holds a
+	// write account for. Names only: the password is a keychain reference and
+	// never printed. JSON and YAML only; the column formats use their own row.
+	SMBDistributionPoints []string `json:"smb-distribution-points,omitempty"`
 }
 
 // configProfileTableRow is the `config list` row shape for the column-based
@@ -235,6 +239,8 @@ func configShowRows(cfg *config.Config, active string) []configProfileRow {
 			Token:         credential(p.Token),
 			ClientID:      credential(p.ClientID),
 			ClientSecret:  credential(p.ClientSecret),
+
+			SMBDistributionPoints: smbDPNames(p),
 		})
 	}
 	return rows
@@ -376,6 +382,8 @@ func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					TenantID:      p.TenantID,
 					EnvironmentID: p.EnvironmentID,
 					Default:       name == active,
+
+					SMBDistributionPoints: smbDPNames(p),
 				}
 				if r, ok := results[name]; ok {
 					row.Status = r.Status

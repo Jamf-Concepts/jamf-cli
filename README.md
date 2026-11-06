@@ -130,7 +130,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Device actions** — Erase, remove MDM, redeploy framework, blank push, DDM sync, renew MDM, lock, enable/disable Remote Desktop (computers); erase, unmanage, restart, shutdown, update inventory (mobile devices). Target by serial number, name, ID, group, or file. Destructive bulk operations require `--confirm-destructive`
 - **`device`** — Aggregated device deep-dive: identity, hardware, OS, security posture, user info, MDM command history, policy logs
 - **`report security`** — Fleet security posture: FileVault, Gatekeeper, SIP, firewall rates, OS version distribution, flagged devices
-- **JCDS file ops** — Upload, download, sync, and list files on the Jamf Cloud Distribution Service: `jamf-cli pro packages upload`, `pro jamf-cloud-distribution-service download`, `pro jamf-cloud-distribution-service sync`, `pro jamf-cloud-distribution-service-files list`
+- **JCDS file ops** — Upload, download, sync, and list files on the Jamf Cloud Distribution Service: `jamf-cli pro packages upload`, `pro jamf-cloud-distribution-service download`, `pro jamf-cloud-distribution-service sync`, `pro jamf-cloud-distribution-service-files list`. `pro packages upload --distribution-point <name>` writes to an SMB file share distribution point instead
 
 ### Jamf Platform (via Gateway)
 

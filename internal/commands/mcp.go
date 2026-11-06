@@ -665,6 +665,7 @@ var mcpRefusedCommands = []refusedCommand{
 	{"jamf-cli config add-profile", refusedPicksTarget},
 	{"jamf-cli config remove-profile", refusedPicksTarget},
 	{"jamf-cli config set-report-dir", refusedPicksTarget},
+	{"jamf-cli pro packages smb-setup", refusedWritesProfileAccount},
 	{"jamf-cli config validate", refusedReadsCredentials},
 	{"jamf-cli doctor", refusedReadsCredentials},
 	{"jamf-cli platform auth token", refusedPrintsToken},
@@ -738,6 +739,7 @@ type refusedCommand struct {
 
 const (
 	refusedPicksTarget           = "it selects its own instance or writes to a path of its own, so the profile this server was started with cannot pin it"
+	refusedWritesProfileAccount  = "it saves or deletes a file server account, and its keychain item, in the profile, which only the operator may do"
 	refusedReadsCredentials      = "it resolves or reports the credentials of profiles other than the one this server is pinned to, and probes their URLs"
 	refusedPrintsToken           = "it prints a live access token, which works outside this server and every refusal it applies until it expires"
 	refusedMintsClientSecret     = "it mints a new client secret for the API integration and prints it, a credential that works outside this server until it is rotated"

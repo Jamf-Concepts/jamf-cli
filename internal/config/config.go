@@ -71,6 +71,20 @@ type Profile struct {
 	SSEClientID           string         `yaml:"sse-client-id,omitempty"`
 	SSEClientSecret       string         `yaml:"sse-client-secret,omitempty"`
 	DestructiveCooldown   *time.Duration `yaml:"destructive-cooldown,omitempty"`
+
+	// SMBCredentials holds the account `pro packages upload` writes a file
+	// share distribution point as, keyed by the distribution point's name. Jamf
+	// Pro never returns that account's password, so it cannot be derived. The
+	// password is a secret reference (keychain:, env: or file:) and never a
+	// bare value; the username is not a secret and may be literal.
+	SMBCredentials map[string]SMBCredential `yaml:"smb-credentials,omitempty"`
+}
+
+// SMBCredential is one distribution point's write account. Password is a
+// reference resolved by ResolveSecret at the point of use.
+type SMBCredential struct {
+	Username string `yaml:"username,omitempty"`
+	Password string `yaml:"password,omitempty"`
 }
 
 const (
