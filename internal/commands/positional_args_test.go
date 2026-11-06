@@ -27,8 +27,9 @@ import (
 // string, and a variadic leaf that is absent from the table fails the test — so
 // neither a stale entry nor a silent addition survives.
 var unboundedPositionalLeaves = map[string]string{
-	"multi":                        "forwards every positional after the inner command name to that command",
-	"pro packages upload-multiple": "uploads every file named; a list of any length is the point",
+	"multi":                         "forwards every positional after the inner command name to that command",
+	"pro classic-logflush computer": "flushes every computer id given, in one request",
+	"pro packages upload-multiple":  "uploads every file named; a list of any length is the point",
 }
 
 type commandLeaf struct {

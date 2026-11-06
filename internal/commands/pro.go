@@ -35,6 +35,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newGroupToolsCmd(cliCtx))
 	cmd.AddCommand(newDeviceCmd(cliCtx))
 	cmd.AddCommand(newClassicComputerAppUsageCmd(cliCtx))
+	cmd.AddCommand(newClassicLogflushCmd(cliCtx))
 	// Platform API commands (require platform gateway auth)
 	cmd.AddCommand(newBlueprintsCmd(cliCtx))
 	cmd.AddCommand(newComplianceBenchmarksCmd(cliCtx))
