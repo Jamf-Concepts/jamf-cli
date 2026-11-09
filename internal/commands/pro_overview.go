@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 
 	"github.com/spf13/cobra"
@@ -72,7 +73,7 @@ func fetchJSON(ctx context.Context, client registry.HTTPClient, path string) (ma
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB limit
+	body, err := jamfclient.ReadResponseBody(resp)
 	if err != nil {
 		return nil, err
 	}
