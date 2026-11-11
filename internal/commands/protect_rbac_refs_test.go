@@ -237,6 +237,25 @@ func TestGroupInputFromDocument_EmptyRolesAreNotNil(t *testing.T) {
 	}
 }
 
+// A nil RoleIDs is omitted from updateGroup since jamfprotect-go-sdk v0.10.0,
+// and the server keeps the stored roles, so it is not a change. An ID-form
+// document without roleIds against a local access group holding roles used to
+// be reported as changing "roles" and refused. An empty list still clears, so
+// it is still a change.
+func TestGroupUpdateWouldChange_NilRoleIDsIsNoChange(t *testing.T) {
+	existing := &jamfprotect.Group{
+		Name:          "zz-group",
+		AccessGroup:   true,
+		AssignedRoles: []jamfprotect.GroupRole{{ID: "1", Name: "Read Only"}},
+	}
+	if diff := groupUpdateWouldChange(existing, jamfprotect.GroupInput{Name: "zz-group", AccessGroup: true}); diff != "" {
+		t.Errorf("nil RoleIDs: diff = %q, want none", diff)
+	}
+	if diff := groupUpdateWouldChange(existing, jamfprotect.GroupInput{Name: "zz-group", AccessGroup: true, RoleIDs: []string{}}); diff != "roles" {
+		t.Errorf("empty RoleIDs: diff = %q, want %q", diff, "roles")
+	}
+}
+
 func TestApiClientInputFromDocument_EmptyRolesAreNotNil(t *testing.T) {
 	got, err := apiClientInputFromDocument(context.Background(), []byte(`{"name":"Empty"}`), protect.NewResolver(rbacMock()))
 	if err != nil {
