@@ -86,7 +86,7 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&sort, "sort", "", "Sorting criteria in the format: '<field_name>[:sort_direction][,<secondary_sort_field_name>[:sort_direction]]*'. Default sort direction is 'asc' (Ascending). Use 'desc' for Descending ordering. Additional sort parameters are supported and determine order of results that have equivalent values for previous sort parameters.")
 	cmd.Flags().StringVar(&search, "search", "", "Search query to match against 'name' and 'description' properties.")
-	platform.RegisterPageFlags(cmd, &pageFlags, 100)
+	platform.RegisterPageFlags(cmd, &pageFlags, 2000)
 	return cmd
 }
 

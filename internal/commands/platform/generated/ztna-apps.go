@@ -66,7 +66,7 @@ func newZtnaAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	platform.RegisterPageFlags(cmd, &pageFlags, 100)
+	platform.RegisterPageFlags(cmd, &pageFlags, 1000)
 	return cmd
 }
 

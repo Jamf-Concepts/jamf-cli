@@ -564,6 +564,36 @@ var platformPatchMergeOnWire = map[string]bool{
 	"ai-policies": true,
 }
 
+// platformPageSizeOverrides raises a paginated list's page-size ceiling where
+// the spec declares no maximum but the wire has proven one. Keyed
+// "{METHOD} {path}". Above a proven ceiling is never safe: both entries below
+// silently clamp at 2000, and device-groups then answers hasNext: false with
+// rows still unsent.
+//
+// Wire-checked 2026-11-11 on an environment-scoped sandbox seeded to 2106
+// device groups and 2104 blueprints: every size up to 2000 returned that many
+// rows, and walks at 100 and 2000 returned the whole collection with no
+// duplicates. The SDK carries the same values (jamfplatform-go-sdk WIRE-FACTS).
+//
+// The other two are proven without a large collection: ZTNA apps answers 400
+// INVALID_FIELD "must be less than or equal to 1000" at 1001, and benchmark
+// rules declares a server default page size of 500, so it pages at 500 unasked.
+var platformPageSizeOverrides = map[string]int{
+	"GET /device-groups/v1/device-groups":                 2000,
+	"GET /blueprints/v1/blueprints":                       2000,
+	"GET /securitycloud/v1/ztna/apps":                     1000,
+	"GET /compliance-benchmarks/v1/benchmarks/{id}/rules": 500,
+}
+
+// platformPageSize is the page-size ceiling of a paginated op: a proven
+// override, else the spec's declared maximum, else the API default.
+func platformPageSize(op *parser.Operation) int {
+	if n, ok := platformPageSizeOverrides[strings.ToUpper(op.Method)+" "+op.Path]; ok {
+		return n
+	}
+	return parser.PageSizeFromSpec(op.Parameters)
+}
+
 // platformPatchDoesNotMerge names resources whose PATCH does not behave like a
 // merge-patch on the wire, whatever its content type says, keyed by resource
 // name with the field the server replaces wholesale.
@@ -920,7 +950,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			HasResult:       hasResult,
 			QueryParams:     buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path), hasPaginationParams(opCopy.Parameters)),
 			Paginate:        hasPaginationParams(opCopy.Parameters),
-			PageSize:        parser.PageSizeFromSpec(opCopy.Parameters),
+			PageSize:        platformPageSize(&opCopy),
 			ListArrayKey: func() string {
 				if opCopy.Name == "list" || opCopy.IsList {
 					return detectListArrayKey(&opCopy)

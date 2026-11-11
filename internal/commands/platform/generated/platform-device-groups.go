@@ -85,7 +85,7 @@ func newPlatformDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 	}
 	cmd.Flags().StringVar(&sort, "sort", "", "Fields to sort by and their orders. Fields allowed for sorting: 'name', 'description', 'deviceType', 'groupType'.")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter query in RSQL format. Includes all results, by default. Fields allowed in the query: 'name', 'description', 'deviceType', 'groupType'. This param can be combined with paging. Example: 'name==\"*Managed*\" and deviceType==\"MOBILE\"'")
-	platform.RegisterPageFlags(cmd, &pageFlags, 100)
+	platform.RegisterPageFlags(cmd, &pageFlags, 2000)
 	return cmd
 }
 

@@ -213,7 +213,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	cmd.Flags().StringVar(&ruleSearch, "rule-search", "", "string to search in rule title and rule id")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort order of result (e.g., 'ruleTitle:asc', 'passed:desc', 'failed:desc', 'unknown:desc'). Supports chained sorting like 'ruleId,passed:desc'. Ascending order is default and in such a case doesn't require to be specified, such as 'ruleNumber,ruleTitle'.")
-	platform.RegisterPageFlags(cmd, &pageFlags, 100)
+	platform.RegisterPageFlags(cmd, &pageFlags, 500)
 	return cmd
 }
 
