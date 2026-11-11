@@ -84,6 +84,7 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 
 func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var pageFlags platform.PageFlags
 	var ruleId string
 	var deviceSearch string
 	var ruleResult string
@@ -127,56 +128,15 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				q.Set("sort", sort)
 			}
 			var body any
-			// The largest page this endpoint declares it honours. Read from the
-			// spec rather than fixed at the API default, because each Platform
-			// namespace is its own service with its own ceiling: devices/v1
-			// declares 1000 and answers 400 above it, AI Governance declares
-			// 500, and an endpoint declaring nothing stays at the API default.
-			// See parser.PageSizeFromSpec.
-			const pageSize = 100
-			// maxPages is a sanity backstop: the walk below ends on an EMPTY
-			// page rather than a short one, so a server that ignored the page
-			// parameter would otherwise loop forever.
-			const maxPages = 10000
-			// Initialised empty, not nil: a nil slice marshals to "null", so an
-			// empty collection used to answer -o json with "null" while the
-			// unpaginated list path answered "[]" for the identical wire response
-			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
-			// then failed on "Cannot iterate over null" only for tenants where the
-			// collection happened to be empty.
-			aggregated := []json.RawMessage{}
-			for page := 0; ; page++ {
-				pq := url.Values{}
-				for k, v := range q {
-					pq[k] = v
-				}
-				pq.Set("page", strconv.Itoa(page))
-				pq.Set("page-size", strconv.Itoa(pageSize))
-				endpoint := path
-				if encoded := pq.Encode(); encoded != "" {
-					endpoint += "?" + encoded
-				}
-				var pageResult struct {
-					Results []json.RawMessage `json:""`
-				}
-				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
-					return fmt.Errorf("devices: %w", err)
-				}
-				aggregated = append(aggregated, pageResult.Results...)
-				// An EMPTY page ends the walk, not a short one. A short page is
-				// not evidence of the end: a Jamf service may answer an
-				// oversized page-size by silently clamping it to its own
-				// ceiling, and reading that first clamped page as the last one
-				// truncates the collection and reports success (the Jamf Pro
-				// half of issue 385). Ending on an empty page costs one extra
-				// request and cannot be wrong about it, whatever page size the
-				// server decided to use.
-				if len(pageResult.Results) == 0 {
-					break
-				}
-				if page+1 >= maxPages {
-					return fmt.Errorf("devices: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
-				}
+			// The walk, --page, --page-size and --limit are platform.ListPages:
+			// the same four flags as a Jamf Pro list, and a page the server
+			// cannot answer in time is re-fetched smaller rather than re-sent
+			// (the SDK's ListAllRaw). The ceiling is the largest page this
+			// endpoint declares it honours — see parser.PageSizeFromSpec.
+			_ = body
+			aggregated, err := platform.ListPages(cmd.Context(), cliCtx, path, q, &pageFlags, "")
+			if err != nil {
+				return fmt.Errorf("devices: %w", err)
 			}
 			b, err := json.MarshalIndent(aggregated, "", "  ")
 			if err != nil {
@@ -191,11 +151,13 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&deviceSearch, "device-search", "", "Search devices with matching device name or device ID")
 	cmd.Flags().StringVar(&ruleResult, "rule-result", "", "Filter by rule-result")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort order of result (e.g., 'deviceName:asc', 'ruleResult:desc'). Supports chained sorting like 'deviceName,ruleResult:desc'. Ascending order is default and in such a case doesn't require to be specified.")
+	platform.RegisterPageFlags(cmd, &pageFlags, 100)
 	return cmd
 }
 
 func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var pageFlags platform.PageFlags
 	var ruleSearch string
 	var sort string
 	cmd := &cobra.Command{
@@ -231,56 +193,15 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				q.Set("sort", sort)
 			}
 			var body any
-			// The largest page this endpoint declares it honours. Read from the
-			// spec rather than fixed at the API default, because each Platform
-			// namespace is its own service with its own ceiling: devices/v1
-			// declares 1000 and answers 400 above it, AI Governance declares
-			// 500, and an endpoint declaring nothing stays at the API default.
-			// See parser.PageSizeFromSpec.
-			const pageSize = 100
-			// maxPages is a sanity backstop: the walk below ends on an EMPTY
-			// page rather than a short one, so a server that ignored the page
-			// parameter would otherwise loop forever.
-			const maxPages = 10000
-			// Initialised empty, not nil: a nil slice marshals to "null", so an
-			// empty collection used to answer -o json with "null" while the
-			// unpaginated list path answered "[]" for the identical wire response
-			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
-			// then failed on "Cannot iterate over null" only for tenants where the
-			// collection happened to be empty.
-			aggregated := []json.RawMessage{}
-			for page := 0; ; page++ {
-				pq := url.Values{}
-				for k, v := range q {
-					pq[k] = v
-				}
-				pq.Set("page", strconv.Itoa(page))
-				pq.Set("page-size", strconv.Itoa(pageSize))
-				endpoint := path
-				if encoded := pq.Encode(); encoded != "" {
-					endpoint += "?" + encoded
-				}
-				var pageResult struct {
-					Results []json.RawMessage `json:""`
-				}
-				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
-					return fmt.Errorf("rules: %w", err)
-				}
-				aggregated = append(aggregated, pageResult.Results...)
-				// An EMPTY page ends the walk, not a short one. A short page is
-				// not evidence of the end: a Jamf service may answer an
-				// oversized page-size by silently clamping it to its own
-				// ceiling, and reading that first clamped page as the last one
-				// truncates the collection and reports success (the Jamf Pro
-				// half of issue 385). Ending on an empty page costs one extra
-				// request and cannot be wrong about it, whatever page size the
-				// server decided to use.
-				if len(pageResult.Results) == 0 {
-					break
-				}
-				if page+1 >= maxPages {
-					return fmt.Errorf("rules: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
-				}
+			// The walk, --page, --page-size and --limit are platform.ListPages:
+			// the same four flags as a Jamf Pro list, and a page the server
+			// cannot answer in time is re-fetched smaller rather than re-sent
+			// (the SDK's ListAllRaw). The ceiling is the largest page this
+			// endpoint declares it honours — see parser.PageSizeFromSpec.
+			_ = body
+			aggregated, err := platform.ListPages(cmd.Context(), cliCtx, path, q, &pageFlags, "")
+			if err != nil {
+				return fmt.Errorf("rules: %w", err)
 			}
 			b, err := json.MarshalIndent(aggregated, "", "  ")
 			if err != nil {
@@ -292,6 +213,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	cmd.Flags().StringVar(&ruleSearch, "rule-search", "", "string to search in rule title and rule id")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort order of result (e.g., 'ruleTitle:asc', 'passed:desc', 'failed:desc', 'unknown:desc'). Supports chained sorting like 'ruleId,passed:desc'. Ascending order is default and in such a case doesn't require to be specified, such as 'ruleNumber,ruleTitle'.")
+	platform.RegisterPageFlags(cmd, &pageFlags, 100)
 	return cmd
 }
 

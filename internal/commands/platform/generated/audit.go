@@ -108,9 +108,9 @@ func newAuditListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "Actor id to filter by. The `|` in auth0 identifiers must be URI-encoded as `%7C`.\n")
+	cmd.Flags().StringVar(&actor, "actor", "", "Actor id to filter by. The '|' in auth0 identifiers must be URI-encoded as '%7C'.")
 	cmd.Flags().StringVar(&auditSource, "audit-source", "", "Event sources to include (comma-separated, max 50).")
-	cmd.Flags().StringVar(&auditType, "audit-type", "", "Event types to include (comma-separated, max 50). Supports trailing wildcards like `blueprint.*`.")
+	cmd.Flags().StringVar(&auditType, "audit-type", "", "Event types to include (comma-separated, max 50). Supports trailing wildcards like 'blueprint.*'.")
 	cmd.Flags().StringVar(&resourceId, "resource-id", "", "Resource ids to include (comma-separated, max 50).")
 	cmd.Flags().StringVar(&since, "since", "", "Inclusive lower bound on event time (ISO-8601, required).")
 	_ = cmd.MarkFlagRequired("since")
@@ -172,7 +172,7 @@ func newAuditLineageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&auditType, "audit-type", "", "Optional event type filter. Supports trailing wildcards like `blueprint.*`.")
+	cmd.Flags().StringVar(&auditType, "audit-type", "", "Optional event type filter. Supports trailing wildcards like 'blueprint.*'.")
 	cmd.Flags().StringVar(&since, "since", "", "Optional lower bound on event time (ISO-8601).")
 	cmd.Flags().StringVar(&until, "until", "", "Optional upper bound on event time (ISO-8601).")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Transactions per page (1-100, default 25).")

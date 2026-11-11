@@ -147,7 +147,7 @@ func newAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -236,8 +236,8 @@ func newAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is username:desc. Multiple sort criteria are supported and must be separated with a comma. Accepts fields: id, lastPasswordChange, failedLoginAttempts, username, realname, email, phone, ldapServerId, distinguishedName, siteId, privilegeLevel, changePasswordOnNextLogin, accountStatus.  If any other field is passed it will be ignored in sorting operation and/or create unpredictable results. ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format to filter user accounts collection. An empty query returns all results for the requested page. Supported fields: id, lastPasswordChange, failedLoginAttempts, username, realname, email, phone, ldapServerId, distinguishedName, siteId, privilegeLevel, changePasswordOnNextLogin, accountStatus. Multiple conditions can be combined using logical operators. This parameter can be used with paging and sorting parameters. Example: username==\"admin\" and accountStatus==Enabled and failedLoginAttempts==0 ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is username:desc. Multiple sort criteria are supported and must be separated with a comma. Accepts fields: id, lastPasswordChange, failedLoginAttempts, username, realname, email, phone, ldapServerId, distinguishedName, siteId, privilegeLevel, changePasswordOnNextLogin, accountStatus. If any other field is passed it will be ignored in sorting operation and/or create unpredictable results.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format to filter user accounts collection. An empty query returns all results for the requested page. Supported fields: id, lastPasswordChange, failedLoginAttempts, username, realname, email, phone, ldapServerId, distinguishedName, siteId, privilegeLevel, changePasswordOnNextLogin, accountStatus. Multiple conditions can be combined using logical operators. This parameter can be used with paging and sorting parameters. Example: username==\"admin\" and accountStatus==Enabled and failedLoginAttempts==0")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd

@@ -138,7 +138,7 @@ func newAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -227,8 +227,8 @@ func newAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is name:asc. Multiple sort criteria are supported and must be separated with a comma. Accepts fields: id, name, siteId, ldapServerId. ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format to filter account groups collection. An empty query returns all results for the requested page. Supported fields: id, name, siteId, ldapServerId. Multiple conditions can be combined using logical operators. This parameter can be used with paging and sorting parameters. Example: name==\"Admins\" and siteId==-1 ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is name:asc. Multiple sort criteria are supported and must be separated with a comma. Accepts fields: id, name, siteId, ldapServerId.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format to filter account groups collection. An empty query returns all results for the requested page. Supported fields: id, name, siteId, ldapServerId. Multiple conditions can be combined using logical operators. This parameter can be used with paging and sorting parameters. Example: name==\"Admins\" and siteId==-1")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd

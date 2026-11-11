@@ -1385,7 +1385,7 @@ func buildQueryParams(params []*parser.Parameter, service string, paginate bool)
 			Name:        p.Name,
 			FlagName:    strcase.ToKebab(p.Name),
 			Var:         strcase.ToLowerCamel(strings.ReplaceAll(p.Name, "-", "_")),
-			Description: desc,
+			Description: parser.FlagUsage(desc),
 			GoType:      goType,
 			Required:    p.Required && !platformIgnoredRequiredParams[service+"/"+p.Name],
 		})

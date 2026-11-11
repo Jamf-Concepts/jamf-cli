@@ -580,7 +580,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/history"})
+					resp, err := vft.do(ctx.Client, registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/history"})
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -669,7 +669,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
@@ -1086,7 +1086,7 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/definitions"})
+					resp, err := vft.do(ctx.Client, registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/definitions"})
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -1775,7 +1775,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-report"})
+					resp, err := vft.do(ctx.Client, registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-report"})
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after

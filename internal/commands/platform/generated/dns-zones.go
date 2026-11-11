@@ -74,7 +74,7 @@ func newDnsZonesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&sort, "sort", "", "Sort expression in the form `field:direction`, where direction is `asc` or `desc`. Defaults to ascending order when direction is omitted. The only supported sort field is `name`.")
+	cmd.Flags().StringVar(&sort, "sort", "", "Sort expression in the form 'field:direction', where direction is 'asc' or 'desc'. Defaults to ascending order when direction is omitted. The only supported sort field is 'name'.")
 	return cmd
 }
 
