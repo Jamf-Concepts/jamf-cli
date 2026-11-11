@@ -94,8 +94,8 @@ github.com/iancoleman/strcase v0.3.0 h1:nTXanmYxhfFAMjZL34Ov6gkzEsSJZ5DbhxWjvSAS
 github.com/iancoleman/strcase v0.3.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/jamf/jamfplatform-go-sdk v1.12.1-0.20261111072526-fea3b3ce8eb0 h1:WWJI/MQKIUk3VfsaU3VUO/giTsMYV2BedgvNcEhe/uM=
-github.com/jamf/jamfplatform-go-sdk v1.12.1-0.20261111072526-fea3b3ce8eb0/go.mod h1:WV8PyfUqkr47olykvFv1ixI/+QCBEEiYx5Z4IOLtCV8=
+github.com/jamf/jamfplatform-go-sdk v1.12.1 h1:pg8F5g4C0DBnE6OLHYPWbEDbu/LZaveczVJA5FBgFpg=
+github.com/jamf/jamfplatform-go-sdk v1.12.1/go.mod h1:TtTsDLgxiwMq7fo6lfn38HPyZ6vP7u6VczEyau8PrjE=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

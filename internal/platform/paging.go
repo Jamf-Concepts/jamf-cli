@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -101,9 +102,7 @@ func ListPages(ctx context.Context, cliCtx *registry.CLIContext, path string, q 
 	}
 
 	pq := url.Values{}
-	for k, v := range q {
-		pq[k] = v
-	}
+	maps.Copy(pq, q)
 	pq.Set("page", strconv.Itoa(f.Page))
 	pq.Set("page-size", strconv.Itoa(pageSize))
 	var envelope map[string]json.RawMessage

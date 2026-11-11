@@ -1,6 +1,6 @@
 module github.com/Jamf-Concepts/jamf-cli
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.9.1
@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/hirochachacha/go-smb2/v2 v2.0.0-20261011164520-7f69f6587832
 	github.com/iancoleman/strcase v0.3.0
-	github.com/jamf/jamfplatform-go-sdk v1.12.1-0.20261111072526-fea3b3ce8eb0
+	github.com/jamf/jamfplatform-go-sdk v1.12.1
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/smallstep/pkcs7 v0.2.3
 	github.com/spf13/cobra v1.10.2
