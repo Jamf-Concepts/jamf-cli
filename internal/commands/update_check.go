@@ -21,6 +21,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 )
 
 const (
@@ -479,7 +480,7 @@ func newUpdateChecker(version string, now time.Time) *updateChecker {
 	c.cancel = cancel
 	c.result = make(chan updateState, 1)
 	go func() {
-		state, err := fetchLatestRelease(ctx, &http.Client{Timeout: updateProbeTimeout}, "jamf-cli/"+version)
+		state, err := fetchLatestRelease(ctx, &http.Client{Timeout: updateProbeTimeout}, useragent.String())
 		if err != nil {
 			// Record the failure so an offline machine cools down instead of
 			// paying the timeout on every command.

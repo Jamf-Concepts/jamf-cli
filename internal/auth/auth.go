@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 )
 
 // Provider defines the interface for authentication providers
@@ -367,6 +368,7 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 		return "", 0, fmt.Errorf("creating token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", useragent.String())
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
@@ -516,6 +518,7 @@ func (p *PlatformOAuth2Provider) exchangeToken(ctx context.Context) (string, int
 		return "", 0, fmt.Errorf("creating platform token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", useragent.String())
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {

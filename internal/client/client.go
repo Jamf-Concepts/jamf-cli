@@ -26,6 +26,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
 	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 )
 
 // Client is the HTTP client for Jamf Pro API
@@ -134,7 +135,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+	req.Header.Set("User-Agent", useragent.String())
 	c.setScopeHeader(req)
 
 	// Classic API endpoints use XML; modern API uses JSON.
@@ -249,7 +250,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		}
 
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+		req.Header.Set("User-Agent", useragent.String())
 		c.setScopeHeader(req)
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")

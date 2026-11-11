@@ -25,6 +25,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
 
@@ -285,7 +286,7 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	// after Execute returns and have no config to re-resolve from.
 	resolvedPlatformScope = scope
 	opts := []jamfplatform.Option{
-		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
+		jamfplatform.WithUserAgent(useragent.String()),
 	}
 	// Exactly one scope option, or none: the SDK treats both-set as a mistake
 	// and lets environment win, and an organization-scoped credential wants
