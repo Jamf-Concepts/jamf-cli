@@ -151,17 +151,22 @@ func groupUpdateWouldChange(existing *jamfprotect.Group, input jamfprotect.Group
 	if existing.AccessGroup != input.AccessGroup {
 		changes = append(changes, "accessGroup")
 	}
-	have := make([]string, 0, len(existing.AssignedRoles))
-	for _, r := range existing.AssignedRoles {
-		have = append(have, r.ID)
-	}
-	want := slices.Clone(input.RoleIDs)
-	// Membership is a set: the server returns roles in its own order, so comparing
-	// unsorted would report a change on every re-apply of an unedited export.
-	sort.Strings(have)
-	sort.Strings(want)
-	if !slices.Equal(have, want) {
-		changes = append(changes, "roles")
+	// A nil RoleIDs is omitted from the mutation (jamfprotect-go-sdk v0.10.0), and
+	// an omitted roleIds leaves the stored roles as they are, so it asks for no
+	// change. Only a non-nil list — empty included, which clears — is compared.
+	if input.RoleIDs != nil {
+		have := make([]string, 0, len(existing.AssignedRoles))
+		for _, r := range existing.AssignedRoles {
+			have = append(have, r.ID)
+		}
+		want := slices.Clone(input.RoleIDs)
+		// Membership is a set: the server returns roles in its own order, so comparing
+		// unsorted would report a change on every re-apply of an unedited export.
+		sort.Strings(have)
+		sort.Strings(want)
+		if !slices.Equal(have, want) {
+			changes = append(changes, "roles")
+		}
 	}
 	if existing.Connection != nil && existing.Connection.ID != "" {
 		changes = append(changes, "connection")

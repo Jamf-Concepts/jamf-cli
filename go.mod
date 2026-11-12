@@ -3,7 +3,7 @@ module github.com/Jamf-Concepts/jamf-cli
 go 1.27.4
 
 require (
-	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.9.1
+	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.10.0
 	github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2
 	github.com/ebitengine/purego v0.11.3
 	github.com/getkin/kin-openapi v0.152.0
