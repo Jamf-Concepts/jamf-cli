@@ -275,6 +275,26 @@ func (s *stubProtectClientBase) DeleteUnifiedLoggingFilterSet(_ context.Context,
 	return nil
 }
 
+func (s *stubProtectClientBase) ListPreventListSets(_ context.Context) ([]jamfprotect.PreventListSet, error) {
+	return nil, nil
+}
+
+func (s *stubProtectClientBase) GetPreventListSet(_ context.Context, _ string) (*jamfprotect.PreventListSet, error) {
+	return nil, nil
+}
+
+func (s *stubProtectClientBase) CreatePreventListSet(_ context.Context, _ jamfprotect.PreventListSetInput) (jamfprotect.PreventListSet, error) {
+	return jamfprotect.PreventListSet{}, nil
+}
+
+func (s *stubProtectClientBase) UpdatePreventListSet(_ context.Context, _ string, _ jamfprotect.PreventListSetInput) (jamfprotect.PreventListSet, error) {
+	return jamfprotect.PreventListSet{}, nil
+}
+
+func (s *stubProtectClientBase) DeletePreventListSet(_ context.Context, _ string) error {
+	return nil
+}
+
 func (s *stubProtectClientBase) ListRoles(_ context.Context) ([]jamfprotect.Role, error) {
 	return nil, nil
 }

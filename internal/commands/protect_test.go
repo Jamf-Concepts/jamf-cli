@@ -71,6 +71,7 @@ func TestProtectAliases(t *testing.T) {
 		{"comp", "computers"},
 		{"ulf", "unified-logging-filters"},
 		{"ulfs", "unified-logging-filter-sets"},
+		{"pls", "prevent-list-sets"},
 		{"rscs", "removable-storage-control-sets"},
 		{"es", "exception-sets"},
 		{"as", "analytic-sets"},
@@ -117,6 +118,7 @@ func TestProtectSubcommands(t *testing.T) {
 		"custom-prevent-lists",
 		"unified-logging-filters",
 		"unified-logging-filter-sets",
+		"prevent-list-sets",
 		"roles",
 		"users",
 		"groups",
@@ -280,6 +282,24 @@ func TestProtectULFSetsSubcommands(t *testing.T) {
 				t.Errorf("expected unified-logging-filter-sets subcommand %q", name)
 			}
 		})
+	}
+}
+
+func TestProtectPreventListSetsSubcommands(t *testing.T) {
+	protect := findProtectCmd(t)
+	sets := findSubcommand(protect, "prevent-list-sets")
+	if sets == nil {
+		t.Fatal("prevent-list-sets subcommand not found")
+		return
+	}
+	for _, name := range []string{"list", "get", "apply", "delete", "export", "add-list", "remove-list"} {
+		if findSubcommand(sets, name) == nil {
+			t.Errorf("expected prevent-list-sets subcommand %q", name)
+		}
+	}
+	del := findSubcommand(sets, "delete")
+	if del == nil || del.Annotations["jamf:destructive"] != "true" {
+		t.Error("prevent-list-sets delete must be marked jamf:destructive")
 	}
 }
 

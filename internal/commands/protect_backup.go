@@ -551,6 +551,33 @@ func protectResources() []protectResource {
 			},
 		},
 
+		{
+			Name:  "prevent-list-sets",
+			Order: 20,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListPreventListSets(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: preventListSetToExport(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				e, err := decode[preventListSetExport](data)
+				if err != nil {
+					return "", err
+				}
+				input, err := preventListSetExportToInput(ctx, e, r)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolvePreventListSetUUID, c.CreatePreventListSet, c.UpdatePreventListSet)
+			},
+		},
+
 		// --- Order 30: plans bind every set above ---
 		{
 			Name:  "plans",

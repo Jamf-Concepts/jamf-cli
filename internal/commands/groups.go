@@ -557,6 +557,7 @@ var protectGroupMap = map[string]string{
 	"action-configs":                 groupProtectSecurity,
 	"telemetry":                      groupProtectSecurity,
 	"custom-prevent-lists":           groupProtectSecurity,
+	"prevent-list-sets":              groupProtectSecurity,
 	"unified-logging-filters":        groupProtectSecurity,
 	"unified-logging-filter-sets":    groupProtectSecurity,
 	"insights":                       groupProtectSecurity,

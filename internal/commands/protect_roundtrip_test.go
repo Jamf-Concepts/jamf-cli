@@ -149,6 +149,28 @@ func protectRoundTripCases() []roundTripCase {
 			},
 		},
 		{
+			resource: "prevent-list-sets",
+			applyDecode: func(data []byte, r *protect.Resolver) (any, error) {
+				var e preventListSetExport
+				if err := unmarshalInput(data, &e); err != nil {
+					return nil, err
+				}
+				return preventListSetExportToInput(context.Background(), e, r)
+			},
+			seed: func(f *fakeTenant) {
+				f.preventLists = []jamfprotect.CustomPreventList{{ID: "pl-1", Name: "zz-list"}}
+				f.preventSets = []jamfprotect.PreventListSet{{
+					UUID: "pls-1", Name: "zz-list-set", Description: "d",
+					PreventLists: []jamfprotect.PreventListSetList{{ID: "pl-1", Name: "zz-list"}},
+				}}
+			},
+			wants: map[string]func(any) any{
+				"prevent list ids": func(c any) any {
+					return strings.Join(c.(jamfprotect.PreventListSetInput).PreventLists, ",")
+				},
+			},
+		},
+		{
 			resource: "analytic-sets",
 			applyDecode: func(data []byte, r *protect.Resolver) (any, error) {
 				var e analyticSetExport
@@ -221,6 +243,7 @@ func protectRoundTripCases() []roundTripCase {
 			},
 			seed: func(f *fakeTenant) {
 				f.analyticSets = []jamfprotect.AnalyticSet{{UUID: "as-1", Name: "zz-analytic-set"}}
+				f.preventSets = []jamfprotect.PreventListSet{{UUID: "pls-1", Name: "zz-list-set"}}
 				f.plans = []jamfprotect.Plan{{
 					ID: "p-1", Name: "zz-plan", Description: "d",
 					LogLevel: "INFO", AutoUpdate: true,
@@ -228,6 +251,7 @@ func protectRoundTripCases() []roundTripCase {
 						AnalyticSet: jamfprotect.PlanAnalyticSetRef{UUID: "as-1", Name: "zz-analytic-set"},
 						Type:        "Report",
 					}},
+					PreventListSets: []jamfprotect.PlanPreventListSet{{UUID: "pls-1", Name: "zz-list-set"}},
 					// The two fields planExport had drifted from PlanInput.
 					ThreatPreventionStrategy: "CUSTOM_ENGINES",
 					CustomEngineConfig: &jamfprotect.CustomEngineConfig{
@@ -252,6 +276,9 @@ func protectRoundTripCases() []roundTripCase {
 				},
 				"analytic set ids": func(c any) any {
 					return len(c.(jamfprotect.PlanInput).AnalyticSets)
+				},
+				"prevent list set ids": func(c any) any {
+					return strings.Join(c.(jamfprotect.PlanInput).PreventListSets, ",")
 				},
 			},
 		},
@@ -541,6 +568,7 @@ type fakeTenant struct {
 	ulfSets       []jamfprotect.UnifiedLoggingFilterSet
 	telemetries   []jamfprotect.TelemetryV2
 	preventLists  []jamfprotect.CustomPreventList
+	preventSets   []jamfprotect.PreventListSet
 	rscSets       []jamfprotect.RemovableStorageControlSet
 
 	// captured is the input the last create/update received.
@@ -582,6 +610,20 @@ func (f *fakeTenant) ListUnifiedLoggingFilters(context.Context) ([]jamfprotect.U
 
 func (f *fakeTenant) ListUnifiedLoggingFilterSets(context.Context) ([]jamfprotect.UnifiedLoggingFilterSet, error) {
 	return f.ulfSets, nil
+}
+
+func (f *fakeTenant) ListPreventListSets(context.Context) ([]jamfprotect.PreventListSet, error) {
+	return f.preventSets, nil
+}
+
+func (f *fakeTenant) CreatePreventListSet(_ context.Context, in jamfprotect.PreventListSetInput) (jamfprotect.PreventListSet, error) {
+	f.capture(in)
+	return jamfprotect.PreventListSet{}, nil
+}
+
+func (f *fakeTenant) UpdatePreventListSet(_ context.Context, _ string, in jamfprotect.PreventListSetInput) (jamfprotect.PreventListSet, error) {
+	f.capture(in)
+	return jamfprotect.PreventListSet{}, nil
 }
 
 func (f *fakeTenant) ListTelemetriesV2(context.Context) ([]jamfprotect.TelemetryV2, error) {

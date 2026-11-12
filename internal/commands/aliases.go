@@ -89,6 +89,7 @@ var protectAliases = map[string][]string{
 	"analytic-sets":                  {"as"},
 	"action-configs":                 {"ac"},
 	"custom-prevent-lists":           {"cpl"},
+	"prevent-list-sets":              {"pls"},
 	"api-clients":                    {"apic"},
 	"config-freeze":                  {"cf"},
 	"computers":                      {"comp"},

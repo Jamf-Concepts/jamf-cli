@@ -250,6 +250,7 @@ jamf-cli protect <command> [subcommand] [flags]    # Jamf Protect
 | Protect | `analytic-sets` | `as` |
 | Protect | `action-configs` | `ac` |
 | Protect | `custom-prevent-lists` | `cpl` |
+| Protect | `prevent-list-sets` | `pls` |
 | Protect | `api-clients` | `apic` |
 | Protect | `config-freeze` | `cf` |
 | Root | `config` | `cfg` |

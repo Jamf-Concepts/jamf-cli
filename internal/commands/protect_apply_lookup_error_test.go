@@ -146,6 +146,7 @@ var protectApplies = []struct {
 	{"telemetry", newProtectTelemetryApplyCmd, protectOps{"listTelemetriesV2", "createTelemetryV2"}},
 	{"unified-logging-filters", newProtectULFApplyCmd, protectOps{"listUnifiedLoggingFilters", "createUnifiedLoggingFilter"}},
 	{"unified-logging-filter-sets", newProtectULFSetsApplyCmd, protectOps{"listUnifiedLoggingFilterSets", "createUnifiedLoggingFilterSet"}},
+	{"prevent-list-sets", newProtectPreventListSetsApplyCmd, protectOps{"listPreventListSets", "createPreventListSet"}},
 	{"users", newProtectUsersApplyCmd, protectOps{"listUsers", "createUser"}},
 }
 

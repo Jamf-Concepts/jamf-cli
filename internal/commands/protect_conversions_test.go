@@ -1421,3 +1421,34 @@ func TestPlanExportToInputClearsAbsentMembershipOnlyForRestore(t *testing.T) {
 		}
 	})
 }
+
+func TestPlanToExport_PreventListSetNamesSorted(t *testing.T) {
+	export := planToExport(&jamfprotect.Plan{
+		Name: "Plan",
+		PreventListSets: []jamfprotect.PlanPreventListSet{
+			{UUID: "2", Name: "B"},
+			{UUID: "1", Name: "A"},
+		},
+	})
+	if got := strings.Join(export.PreventListSets, ","); got != "A,B" {
+		t.Errorf("PreventListSets = %q, want A,B", got)
+	}
+	if bare := planToExport(&jamfprotect.Plan{Name: "Bare"}); bare.PreventListSets != nil {
+		t.Errorf("PreventListSets = %v, want nil", bare.PreventListSets)
+	}
+}
+
+func TestFlattenPreventListSet(t *testing.T) {
+	m := flattenPreventListSet(jamfprotect.PreventListSet{
+		UUID: "u", Name: "S",
+		PreventLists: []jamfprotect.PreventListSetList{{ID: "1", Name: "L1"}, {ID: "2", Name: "L2"}},
+		Plans:        []jamfprotect.PreventListSetPlan{{ID: "p", Name: "P"}},
+	})
+	if m["preventListsCount"] != 2 || m["preventLists"] != "L1, L2" || m["plans"] != "P" {
+		t.Errorf("unexpected flatten: %v", m)
+	}
+	empty := flattenPreventListSet(jamfprotect.PreventListSet{Name: "E"})
+	if _, ok := empty["preventLists"]; !ok {
+		t.Error("preventLists column must always be present")
+	}
+}
