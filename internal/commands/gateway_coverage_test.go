@@ -82,6 +82,13 @@ func TestCheckAPIMatchAllowsAServedProEndpointOnEitherProfile(t *testing.T) {
 }
 
 func TestCheckAPIMatchRefusesAPlatformCommandOnAnInstanceProfile(t *testing.T) {
+	// The sentence under test is built from credentialSource, which reads
+	// token/tokenFile/clientID/clientSecret. resolveAuth backfills those package
+	// vars from the environment, so any earlier test that called it changes the
+	// message this test is asserting on; in source order that has not happened
+	// yet, under -shuffle it has (issue #370).
+	isolateAuthGlobals(t)
+
 	cmd := cmdWith(map[string]string{annotationAPI: apiPlatformGateway})
 	err := checkAPIMatch(cmd, &auth.OAuth2Provider{}, "pro-instance")
 	if err == nil {
@@ -107,6 +114,10 @@ func TestCheckAPIMatchAllowsAPlatformCommandOnAGatewayProfile(t *testing.T) {
 // An env-var invocation has no profile to blame, and "profile \"\"" reads as a
 // bug rather than as a description of what happened.
 func TestCheckAPIMatchDescribesEnvVarCredentials(t *testing.T) {
+	// "the active credentials" is the default only while all four auth vars are
+	// empty, which is the same state dependency as the test above.
+	isolateAuthGlobals(t)
+
 	cmd := cmdWith(map[string]string{annotationAPI: apiPlatformGateway})
 	err := checkAPIMatch(cmd, &auth.TokenProvider{}, "")
 	if err == nil {
