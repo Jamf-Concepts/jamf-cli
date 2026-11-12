@@ -335,7 +335,7 @@ func newTeamViewerRemoteAdministrationSessionsCmd(ctx *registry.CLIContext) *cob
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -424,7 +424,7 @@ func newTeamViewerRemoteAdministrationSessionsCmd(ctx *registry.CLIContext) *cob
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter sessions collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'deviceId', 'deviceType', 'state'  This param can be combined with paging. ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter sessions collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: 'deviceId', 'deviceType', 'state' This param can be combined with paging.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd

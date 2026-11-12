@@ -146,7 +146,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/groups"})
+					resp, err := vft.do(ctx.Client, registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil, []string{"/v1/groups"})
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after

@@ -142,7 +142,7 @@ func newApnsClientPushStatusListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -231,8 +231,8 @@ func newApnsClientPushStatusListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property(,asc|desc). Default sort order is ascending. Multiple sort criteria are supported. Sortable fields: pushDisabledTime, deviceType, managementId ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter results. Fields allowed in the query: deviceType, disabledAt, managementId. This param can be combined with paging and sorting.  Example: filter=deviceType==\"MOBILE_DEVICE\" Example: filter=disabledAt>2024-11-01T00:00:00Z Example: filter=deviceType==\"COMPUTER\";disabledAt>2024-01-01T00:00:00Z ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property(,asc|desc). Default sort order is ascending. Multiple sort criteria are supported. Sortable fields: pushDisabledTime, deviceType, managementId")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter results. Fields allowed in the query: deviceType, disabledAt, managementId. This param can be combined with paging and sorting. Example: filter=deviceType==\"MOBILE_DEVICE\" Example: filter=disabledAt>2024-11-01T00:00:00Z Example: filter=deviceType==\"COMPUTER\";disabledAt>2024-01-01T00:00:00Z")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd

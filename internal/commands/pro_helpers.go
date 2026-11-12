@@ -98,7 +98,7 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 		}
 		path := fmt.Sprintf("%s%spage=%d&page-size=%d", basePath, sep, page, pageSize)
 
-		resp, err := client.Do(ctx, "GET", path, nil)
+		resp, err := client.Do(registry.WithPageWalk(ctx, pageSize), "GET", path, nil)
 		if err != nil {
 			if smaller, ok := registry.ShrinkAfterTimeout(err, pageSize); ok {
 				notePageSizeReduced(pageSize, smaller)

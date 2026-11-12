@@ -154,7 +154,7 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -243,8 +243,8 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc.<br/> Default sort is name:asc.<br/> If using multiple criteria, separate with commas. Allows sort for id and name.")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc.<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: id, name <br/> Default filter is an empty query and returns all results from the requested page.")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc. Default sort is name:asc. If using multiple criteria, separate with commas. Allows sort for id and name.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Fields allowed in the query: id, name Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
@@ -965,7 +965,7 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after

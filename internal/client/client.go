@@ -26,6 +26,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
 	"github.com/Jamf-Concepts/jamf-cli/internal/redact"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 )
 
 // Client is the HTTP client for Jamf Pro API
@@ -134,7 +135,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+	req.Header.Set("User-Agent", useragent.String())
 	c.setScopeHeader(req)
 
 	// Classic API endpoints use XML; modern API uses JSON.
@@ -249,7 +250,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		}
 
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+		req.Header.Set("User-Agent", useragent.String())
 		c.setScopeHeader(req)
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
@@ -293,7 +294,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 			if wait, ok := rateLimitResetWait(resp, rateLimitWaitMax); ok {
 				delay = wait
 			}
-			c.logRateLimited(resp, true, delay)
+			c.logRetriedStatus(resp, true, delay)
 			_ = resp.Body.Close()
 			if err := sleepWithContext(ctx, delay); err != nil {
 				return nil, err
@@ -455,11 +456,28 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 			}
 			// Do logs only the response that survives this loop, so a 429 is
 			// logged here or never: its x-ratelimit-* headers are the evidence.
-			c.logRateLimited(resp, i < maxRetries-1, delay)
+			c.logRetriedStatus(resp, i < maxRetries-1, delay)
 			_ = resp.Body.Close()
 			if i == maxRetries-1 {
 				break
 			}
+			if sleepErr := sleepWithContext(ctx, delay); sleepErr != nil {
+				return nil, sleepErr
+			}
+			continue
+		}
+
+		// Gateway timeout on a read: retried with backoff, since for a single
+		// object there is nothing smaller to ask for and the edge's 504 is
+		// often load rather than size. Not for a write — the request reached
+		// Jamf Pro and may still be running — and not for a page of a walk,
+		// which asks for a smaller page instead (registry.WithPageWalk). The
+		// last attempt's 504 is returned for Do to map to ErrServerTimeout.
+		if resp.StatusCode == http.StatusGatewayTimeout && retrySafeMethods[req.Method] &&
+			!registry.IsPageWalk(req.Context()) && i < maxRetries-1 {
+			delay := baseDelay * time.Duration(1<<i)
+			c.logRetriedStatus(resp, true, delay)
+			_ = resp.Body.Close()
 			if sleepErr := sleepWithContext(ctx, delay); sleepErr != nil {
 				return nil, sleepErr
 			}
@@ -489,11 +507,11 @@ func (c *Client) pace(ctx context.Context) (uint64, error) {
 	return seq, nil
 }
 
-// logRateLimited logs a 429 that the retry loop consumes, at the levels Do
+// logRetriedStatus logs a 429 or 504 that the retry loop consumes, at the levels Do
 // logs a response: the status line under -v (with the wait when a retry
 // follows), headers under -vv, body under -vvv. It reads at most bodyLogLimit
 // of the body, which the caller then closes.
-func (c *Client) logRateLimited(resp *http.Response, retrying bool, delay time.Duration) {
+func (c *Client) logRetriedStatus(resp *http.Response, retrying bool, delay time.Duration) {
 	if c.verboseLevel < 1 {
 		return
 	}

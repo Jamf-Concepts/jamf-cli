@@ -168,6 +168,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"sortOps":                sortOperations,
 		"dedupeOps":              dedupeOperations,
 		"escapeQuotes":           escapeQuotes,
+		"flagUsage":              FlagUsage,
 		"isDestructive":          func(op *Operation) bool { return op.IsDestructive },
 		// The destructive bulk and confirmation blocks are shared by a plain
 		// DELETE and by an x-action that happens to be destructive, and they
@@ -2905,10 +2906,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 {{- if .FallbackPaths }}
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{ {{- range .FallbackPaths }}{{ goStr (.) }}, {{ end -}} })
+					resp, err := vft.do(ctx.Client, registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil, []string{ {{- range .FallbackPaths }}{{ goStr (.) }}, {{ end -}} })
 {{- else }}
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 {{- end }}
 					if err != nil {
 						// A page the server could not assemble in time is
@@ -3371,9 +3372,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	}
 {{ range queryParams .Parameters }}
 {{- if .IsArray }}
-	cmd.Flags().{{ flagType .Type }}SliceVar(&flag{{ toCamel .Name }}, {{ goStr (toKebab .Name) }}, nil, "{{ escapeQuotes .Description }}")
+	cmd.Flags().{{ flagType .Type }}SliceVar(&flag{{ toCamel .Name }}, {{ goStr (toKebab .Name) }}, nil, {{ goStr (flagUsage .Description) }})
 {{- else }}
-	cmd.Flags().{{ flagType .Type }}Var(&flag{{ toCamel .Name }}, {{ goStr (toKebab .Name) }}, {{ if .Default }}{{ defaultVal .Type .Default }}{{ else if eq .Type "string" }}""{{ else if eq .Type "integer" }}0{{ else if eq .Type "boolean" }}false{{ else }}0{{ end }}, "{{ escapeQuotes .Description }}")
+	cmd.Flags().{{ flagType .Type }}Var(&flag{{ toCamel .Name }}, {{ goStr (toKebab .Name) }}, {{ if .Default }}{{ defaultVal .Type .Default }}{{ else if eq .Type "string" }}""{{ else if eq .Type "integer" }}0{{ else if eq .Type "boolean" }}false{{ else }}0{{ end }}, {{ goStr (flagUsage .Description) }})
 {{- end }}
 {{- end }}
 {{- if .IsPaginated }}

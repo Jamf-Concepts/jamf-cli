@@ -20,6 +20,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 )
@@ -681,7 +682,7 @@ func buildProtectClient(cfg *config.Config, profileName string) (registry.Protec
 	}
 
 	protectOpts := []jamfprotect.Option{
-		jamfprotect.WithUserAgent("jamf-cli/" + cliVersion),
+		jamfprotect.WithUserAgent(useragent.String()),
 		jamfprotect.WithHTTPClient(newProtectHTTPClient()),
 	}
 	if cacheDir, err := os.UserCacheDir(); err == nil {

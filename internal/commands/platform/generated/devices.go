@@ -86,6 +86,7 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var pageFlags platform.PageFlags
 	var sort string
 	var filter string
 	cmd := &cobra.Command{
@@ -106,56 +107,15 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				q.Set("filter", filter)
 			}
 			var body any
-			// The largest page this endpoint declares it honours. Read from the
-			// spec rather than fixed at the API default, because each Platform
-			// namespace is its own service with its own ceiling: devices/v1
-			// declares 1000 and answers 400 above it, AI Governance declares
-			// 500, and an endpoint declaring nothing stays at the API default.
-			// See parser.PageSizeFromSpec.
-			const pageSize = 1000
-			// maxPages is a sanity backstop: the walk below ends on an EMPTY
-			// page rather than a short one, so a server that ignored the page
-			// parameter would otherwise loop forever.
-			const maxPages = 10000
-			// Initialised empty, not nil: a nil slice marshals to "null", so an
-			// empty collection used to answer -o json with "null" while the
-			// unpaginated list path answered "[]" for the identical wire response
-			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
-			// then failed on "Cannot iterate over null" only for tenants where the
-			// collection happened to be empty.
-			aggregated := []json.RawMessage{}
-			for page := 0; ; page++ {
-				pq := url.Values{}
-				for k, v := range q {
-					pq[k] = v
-				}
-				pq.Set("page", strconv.Itoa(page))
-				pq.Set("page-size", strconv.Itoa(pageSize))
-				endpoint := path
-				if encoded := pq.Encode(); encoded != "" {
-					endpoint += "?" + encoded
-				}
-				var pageResult struct {
-					Results []json.RawMessage `json:"results"`
-				}
-				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
-					return fmt.Errorf("list: %w", err)
-				}
-				aggregated = append(aggregated, pageResult.Results...)
-				// An EMPTY page ends the walk, not a short one. A short page is
-				// not evidence of the end: a Jamf service may answer an
-				// oversized page-size by silently clamping it to its own
-				// ceiling, and reading that first clamped page as the last one
-				// truncates the collection and reports success (the Jamf Pro
-				// half of issue 385). Ending on an empty page costs one extra
-				// request and cannot be wrong about it, whatever page size the
-				// server decided to use.
-				if len(pageResult.Results) == 0 {
-					break
-				}
-				if page+1 >= maxPages {
-					return fmt.Errorf("list: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
-				}
+			// The walk, --page, --page-size and --limit are platform.ListPages:
+			// the same four flags as a Jamf Pro list, and a page the server
+			// cannot answer in time is re-fetched smaller rather than re-sent
+			// (the SDK's ListAllRaw). The ceiling is the largest page this
+			// endpoint declares it honours — see parser.PageSizeFromSpec.
+			_ = body
+			aggregated, err := platform.ListPages(cmd.Context(), cliCtx, path, q, &pageFlags, "results")
+			if err != nil {
+				return fmt.Errorf("list: %w", err)
 			}
 			b, err := json.MarshalIndent(aggregated, "", "  ")
 			if err != nil {
@@ -173,8 +133,9 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&sort, "sort", "", "Fields to sort by and their orders. Fields allowed in the query: `id`, `name`, `model`, `modelIdentifier`, `serialNumber`, `lastInventoryUpdateTime`, `lastCheckInTime`, `operatingSystemVersion`, `userId`, `enrollmentType`, `lastEnrollmentTime`")
-	cmd.Flags().StringVar(&filter, "filter", "", "Filter query in RSQL format. Includes all results, by default.</br> Fields allowed in the query: `id`, `name`, `model`, `modelIdentifier`, `serialNumber`, `lastInventoryUpdateTime`, `lastCheckInTime`, `operatingSystemVersion`, `enrollmentType`, `lastEnrollmentTime`.</br> Dates are specified in ISO 8601 format.</br> Example: `name==\"*iPhone*\" and lastInventoryUpdateTime>=\"2025-01-31T18:09:00.000Z\"`")
+	cmd.Flags().StringVar(&sort, "sort", "", "Fields to sort by and their orders. Fields allowed in the query: 'id', 'name', 'model', 'modelIdentifier', 'serialNumber', 'lastInventoryUpdateTime', 'lastCheckInTime', 'operatingSystemVersion', 'userId', 'enrollmentType', 'lastEnrollmentTime'")
+	cmd.Flags().StringVar(&filter, "filter", "", "Filter query in RSQL format. Includes all results, by default. Fields allowed in the query: 'id', 'name', 'model', 'modelIdentifier', 'serialNumber', 'lastInventoryUpdateTime', 'lastCheckInTime', 'operatingSystemVersion', 'enrollmentType', 'lastEnrollmentTime'. Dates are specified in ISO 8601 format. Example: 'name==\"*iPhone*\" and lastInventoryUpdateTime>=\"2025-01-31T18:09:00.000Z\"'")
+	platform.RegisterPageFlags(cmd, &pageFlags, 1000)
 	return cmd
 }
 
@@ -379,6 +340,7 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var pageFlags platform.PageFlags
 	var sort string
 	var filter string
 	cmd := &cobra.Command{
@@ -414,56 +376,15 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				q.Set("filter", filter)
 			}
 			var body any
-			// The largest page this endpoint declares it honours. Read from the
-			// spec rather than fixed at the API default, because each Platform
-			// namespace is its own service with its own ceiling: devices/v1
-			// declares 1000 and answers 400 above it, AI Governance declares
-			// 500, and an endpoint declaring nothing stays at the API default.
-			// See parser.PageSizeFromSpec.
-			const pageSize = 1000
-			// maxPages is a sanity backstop: the walk below ends on an EMPTY
-			// page rather than a short one, so a server that ignored the page
-			// parameter would otherwise loop forever.
-			const maxPages = 10000
-			// Initialised empty, not nil: a nil slice marshals to "null", so an
-			// empty collection used to answer -o json with "null" while the
-			// unpaginated list path answered "[]" for the identical wire response
-			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
-			// then failed on "Cannot iterate over null" only for tenants where the
-			// collection happened to be empty.
-			aggregated := []json.RawMessage{}
-			for page := 0; ; page++ {
-				pq := url.Values{}
-				for k, v := range q {
-					pq[k] = v
-				}
-				pq.Set("page", strconv.Itoa(page))
-				pq.Set("page-size", strconv.Itoa(pageSize))
-				endpoint := path
-				if encoded := pq.Encode(); encoded != "" {
-					endpoint += "?" + encoded
-				}
-				var pageResult struct {
-					Results []json.RawMessage `json:""`
-				}
-				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
-					return fmt.Errorf("applications: %w", err)
-				}
-				aggregated = append(aggregated, pageResult.Results...)
-				// An EMPTY page ends the walk, not a short one. A short page is
-				// not evidence of the end: a Jamf service may answer an
-				// oversized page-size by silently clamping it to its own
-				// ceiling, and reading that first clamped page as the last one
-				// truncates the collection and reports success (the Jamf Pro
-				// half of issue 385). Ending on an empty page costs one extra
-				// request and cannot be wrong about it, whatever page size the
-				// server decided to use.
-				if len(pageResult.Results) == 0 {
-					break
-				}
-				if page+1 >= maxPages {
-					return fmt.Errorf("applications: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
-				}
+			// The walk, --page, --page-size and --limit are platform.ListPages:
+			// the same four flags as a Jamf Pro list, and a page the server
+			// cannot answer in time is re-fetched smaller rather than re-sent
+			// (the SDK's ListAllRaw). The ceiling is the largest page this
+			// endpoint declares it honours — see parser.PageSizeFromSpec.
+			_ = body
+			aggregated, err := platform.ListPages(cmd.Context(), cliCtx, path, q, &pageFlags, "")
+			if err != nil {
+				return fmt.Errorf("applications: %w", err)
 			}
 			b, err := json.MarshalIndent(aggregated, "", "  ")
 			if err != nil {
@@ -473,8 +394,9 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
-	cmd.Flags().StringVar(&sort, "sort", "", "Fields to sort by and their orders. Fields allowed in the query: `name`, `version`")
-	cmd.Flags().StringVar(&filter, "filter", "", "Filter query in RSQL format. Includes all results, by default.</br> Fields allowed in the query: `name`, `version`.</br> Example: `name==\"*Safari*\" and version>=\"26.0.0\"`")
+	cmd.Flags().StringVar(&sort, "sort", "", "Fields to sort by and their orders. Fields allowed in the query: 'name', 'version'")
+	cmd.Flags().StringVar(&filter, "filter", "", "Filter query in RSQL format. Includes all results, by default. Fields allowed in the query: 'name', 'version'. Example: 'name==\"*Safari*\" and version>=\"26.0.0\"'")
+	platform.RegisterPageFlags(cmd, &pageFlags, 1000)
 	return cmd
 }
 

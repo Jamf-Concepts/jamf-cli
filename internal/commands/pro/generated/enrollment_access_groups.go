@@ -147,7 +147,7 @@ func newEnrollmentAccessGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -236,7 +236,7 @@ func newEnrollmentAccessGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'name:asc'. Multiple sort criteria are supported and must be separated with a comma. Example: 'sort=date:desc,name:asc'. ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'name:asc'. Multiple sort criteria are supported and must be separated with a comma. Example: 'sort=date:desc,name:asc'.")
 	cmd.Flags().BoolVar(&flagAllUsersOptionFirst, "all-users-option-first", false, "Return \"All LDAP Users\" option on the first position if it is present in the current page")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")

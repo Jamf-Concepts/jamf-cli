@@ -17,6 +17,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 )
 
 // envVarsToProbe is the closed list of credential-bearing env vars that
@@ -151,7 +152,7 @@ func buildDoctorReport(cfg *config.Config, args []string, version string) doctor
 			// would actually use, not just the profile's. This is the
 			// "shadowed by env var" failure mode.
 			if effURL != "" {
-				ci := probeConnectivity(effURL, version)
+				ci := probeConnectivity(effURL)
 				report.Connectivity = &ci
 			}
 		} else {
@@ -303,7 +304,7 @@ func resolveCredential(field, ref string) credentialOK {
 // Jamf reverse proxies/CDNs reject UA-less requests) and stops at the
 // first redirect rather than following — for a reachability check, a
 // 301/302 to a login page is more informative than its target.
-func probeConnectivity(url, version string) connectivityInfo {
+func probeConnectivity(url string) connectivityInfo {
 	url = strings.TrimRight(url, "/")
 	if !strings.Contains(url, "://") {
 		url = "https://" + url
@@ -319,10 +320,7 @@ func probeConnectivity(url, version string) connectivityInfo {
 		ci.Error = err.Error()
 		return ci
 	}
-	if version == "" {
-		version = "0.0.0"
-	}
-	req.Header.Set("User-Agent", "jamf-cli/"+version+" (doctor)")
+	req.Header.Set("User-Agent", useragent.String())
 
 	client := &http.Client{
 		CheckRedirect: func(*http.Request, []*http.Request) error {

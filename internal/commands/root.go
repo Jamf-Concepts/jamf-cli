@@ -31,6 +31,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/security"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
@@ -755,6 +756,7 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 
 func NewRootCmd(version, commit, date, specProVersion string) *cobra.Command {
 	cliVersion = version
+	useragent.Set(version)
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
 	cliCtx := &registry.CLIContext{}
 	var outFileHandle *os.File
@@ -1918,7 +1920,7 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	}
 
 	protectOpts := []jamfprotect.Option{
-		jamfprotect.WithUserAgent("jamf-cli/" + cliVersion),
+		jamfprotect.WithUserAgent(useragent.String()),
 		jamfprotect.WithHTTPClient(stdClient),
 	}
 	if cacheDir, err := os.UserCacheDir(); err == nil {
@@ -2034,7 +2036,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	}
 
 	schoolOpts := []jamfschool.Option{
-		jamfschool.WithUserAgent("jamf-cli/" + cliVersion),
+		jamfschool.WithUserAgent(useragent.String()),
 		jamfschool.WithHTTPClient(stdClient),
 	}
 	cliCtx.SchoolClient = jamfschool.NewClient(url, networkID, apiKey, schoolOpts...)
@@ -2170,7 +2172,7 @@ func buildSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext, transp
 	}
 
 	cliCtx.SecurityClient = security.NewClient(
-		security.WithUserAgent("jamf-cli/"+cliVersion),
+		security.WithUserAgent(useragent.String()),
 		security.WithHTTPClient(stdClient),
 		security.WithAPIBaseURL(url),
 		security.WithSSEBaseURL(sseURL),

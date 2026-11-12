@@ -512,6 +512,39 @@ func TestPlatformTableColumnKeys(t *testing.T) {
 	}
 }
 
+// TestPlatformPageSizeOverridesNameLivePaginatedOps fails when an override key
+// stops matching a paginated operation, which would silently drop the raised
+// ceiling back to the spec's.
+func TestPlatformPageSizeOverridesNameLivePaginatedOps(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+	live := make(map[string]int)
+	for _, r := range resources {
+		for i := range r.Operations {
+			op := r.Operations[i]
+			if hasPaginationParams(op.Parameters) {
+				live[strings.ToUpper(op.Method)+" "+op.Path] = platformPageSize(op)
+			}
+		}
+	}
+	for key, want := range platformPageSizeOverrides {
+		got, ok := live[key]
+		if !ok {
+			t.Errorf("platformPageSizeOverrides key %q matches no paginated operation", key)
+			continue
+		}
+		if got != want {
+			t.Errorf("%s pages at %d, want the override %d", key, got, want)
+		}
+	}
+}
+
 // TestNamespaceFromPath pins the whole-namespace read, including the
 // multi-segment shapes that broke the first-segment implementation.
 func TestNamespaceFromPath(t *testing.T) {

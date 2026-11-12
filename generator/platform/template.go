@@ -27,8 +27,9 @@ package platform
 //   - Op-specific success status codes from spec responses
 //   - url.PathEscape on path parameters
 //   - Query parameter flags (CLI flag in kebab-case, query key from spec)
-//   - Pagination loop for ops exposing page+page-size; aggregates the named
-//     result array and emits a single flat JSON array
+//   - Pagination for ops exposing page+page-size through platform.ListPages:
+//     --all/--page/--page-size/--limit as on a Jamf Pro list, the walk
+//     shrinking its page on a server timeout; emits a single flat JSON array
 //   - List response unwrapping for non-paginated lists with exactly one
 //     array property
 //   - Documented non-2xx results (platformDocumentedStatusResults) routed
@@ -88,6 +89,9 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- if .SupportsNameLookup }}
 	var nameFlag string
+{{- end }}
+{{- if .Paginate }}
+	var pageFlags platform.PageFlags
 {{- end }}
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
@@ -199,56 +203,15 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .IsDestructive }}
 {{ confirmStmt . }}
 {{- end }}
-			// The largest page this endpoint declares it honours. Read from the
-			// spec rather than fixed at the API default, because each Platform
-			// namespace is its own service with its own ceiling: devices/v1
-			// declares 1000 and answers 400 above it, AI Governance declares
-			// 500, and an endpoint declaring nothing stays at the API default.
-			// See parser.PageSizeFromSpec.
-			const pageSize = {{.PageSize}}
-			// maxPages is a sanity backstop: the walk below ends on an EMPTY
-			// page rather than a short one, so a server that ignored the page
-			// parameter would otherwise loop forever.
-			const maxPages = 10000
-			// Initialised empty, not nil: a nil slice marshals to "null", so an
-			// empty collection used to answer -o json with "null" while the
-			// unpaginated list path answered "[]" for the identical wire response
-			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
-			// then failed on "Cannot iterate over null" only for tenants where the
-			// collection happened to be empty.
-			aggregated := []json.RawMessage{}
-			for page := 0; ; page++ {
-				pq := url.Values{}
-				for k, v := range q {
-					pq[k] = v
-				}
-				pq.Set("page", strconv.Itoa(page))
-				pq.Set("page-size", strconv.Itoa(pageSize))
-				endpoint := path
-				if encoded := pq.Encode(); encoded != "" {
-					endpoint += "?" + encoded
-				}
-				var pageResult struct {
-					Results []json.RawMessage {{goStructTag .ListArrayKey}}
-				}
-				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), {{methodConstant .Method}}, endpoint, body, {{statusConstant .SuccessCode}}, &pageResult); err != nil {
-					return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
-				}
-				aggregated = append(aggregated, pageResult.Results...)
-				// An EMPTY page ends the walk, not a short one. A short page is
-				// not evidence of the end: a Jamf service may answer an
-				// oversized page-size by silently clamping it to its own
-				// ceiling, and reading that first clamped page as the last one
-				// truncates the collection and reports success (the Jamf Pro
-				// half of issue 385). Ending on an empty page costs one extra
-				// request and cannot be wrong about it, whatever page size the
-				// server decided to use.
-				if len(pageResult.Results) == 0 {
-					break
-				}
-				if page+1 >= maxPages {
-					return fmt.Errorf({{goStr (print .Name ": exceeded %d pages without reaching the end; the server may not be honoring the page parameter")}}, maxPages)
-				}
+			// The walk, --page, --page-size and --limit are platform.ListPages:
+			// the same four flags as a Jamf Pro list, and a page the server
+			// cannot answer in time is re-fetched smaller rather than re-sent
+			// (the SDK's ListAllRaw). The ceiling is the largest page this
+			// endpoint declares it honours — see parser.PageSizeFromSpec.
+			_ = body
+			aggregated, err := platform.ListPages(cmd.Context(), cliCtx, path, q, &pageFlags, {{goStr .ListArrayKey}})
+			if err != nil {
+				return fmt.Errorf({{goStr (print .Name ": %w")}}, err)
 			}
 			b, err := json.MarshalIndent(aggregated, "", "  ")
 			if err != nil {
@@ -375,6 +338,9 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .Required }}
 	_ = cmd.MarkFlagRequired({{goStr .FlagName}})
 {{- end }}
+{{- end }}
+{{- if .Paginate }}
+	platform.RegisterPageFlags(cmd, &pageFlags, {{.PageSize}})
 {{- end }}
 	return cmd
 }

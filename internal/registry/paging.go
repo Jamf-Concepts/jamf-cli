@@ -2,17 +2,21 @@
 
 package registry
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 // ErrServerTimeout marks a request the server did not answer in time: the
 // client's response-header timeout fired, or an edge in front of Jamf Pro
 // answered 504 on its behalf. The CloudFront edge in front of the platform
 // gateway gives up after 90 seconds (issue 392).
 //
-// It is a property of how much work the request asked for, not of the network,
-// so re-sending the identical request is the wrong response to it. A paginated
-// walk asks for less instead — see ShrinkAfterTimeout — and every other caller
-// surfaces it.
+// For a page of a walk it is a property of how much work the request asked
+// for, so re-sending the identical page is the wrong response: the walk asks
+// for less instead — see ShrinkAfterTimeout and WithPageWalk. Any other GET
+// has nothing smaller to ask for, so the client retries a 504 on it with
+// backoff before surfacing this error. A client-side timeout is never retried.
 var ErrServerTimeout = errors.New("the server did not answer in time")
 
 // MinShrunkPageSize is the smallest page a fetch-everything walk shrinks to
@@ -47,4 +51,25 @@ func ShrinkAfterTimeout(err error, pageSize int) (int, bool) {
 // --page-size 750 walk shrinks to 375, then 187) produces.
 func PageAt(offset, pageSize int) (page, skip int) {
 	return offset / pageSize, offset % pageSize
+}
+
+type pageWalkKey struct{}
+
+// WithPageWalk marks ctx as carrying one page of a walk that answers a server
+// timeout with ShrinkAfterTimeout. The client then does not re-send that page
+// on a 504: the identical page asks for the work that just failed to finish in
+// time, and the walk has a request that can succeed — a smaller page. A page
+// already at MinShrunkPageSize is not marked, because the walk will not shrink
+// it, so it keeps the 504 retry every other GET gets.
+func WithPageWalk(ctx context.Context, pageSize int) context.Context {
+	if pageSize <= MinShrunkPageSize {
+		return ctx
+	}
+	return context.WithValue(ctx, pageWalkKey{}, true)
+}
+
+// IsPageWalk reports whether ctx was marked by WithPageWalk.
+func IsPageWalk(ctx context.Context) bool {
+	v, _ := ctx.Value(pageWalkKey{}).(bool)
+	return v
 }

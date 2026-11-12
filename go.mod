@@ -1,6 +1,6 @@
 module github.com/Jamf-Concepts/jamf-cli
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.9.1
@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/hirochachacha/go-smb2/v2 v2.0.0-20261011164520-7f69f6587832
 	github.com/iancoleman/strcase v0.3.0
-	github.com/jamf/jamfplatform-go-sdk v1.11.0
+	github.com/jamf/jamfplatform-go-sdk v1.12.1
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/smallstep/pkcs7 v0.2.3
 	github.com/spf13/cobra v1.10.2
@@ -27,18 +27,18 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.47.4 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.24 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.5.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.22 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.5 // indirect
-	github.com/aws/smithy-go v1.28.6 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.47.5 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.25 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.5.2 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.6 // indirect
+	github.com/aws/smithy-go v1.28.7 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/geoffgarside/ber v1.1.0 // indirect
 	github.com/go-crypt/x v0.4.17 // indirect
@@ -60,7 +60,7 @@ require (
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect

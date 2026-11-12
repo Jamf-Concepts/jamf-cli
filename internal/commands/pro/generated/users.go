@@ -153,7 +153,7 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -242,8 +242,8 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to display. Uses zero-based indexing.")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Number of results per page. Maximum of 1000.")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property(:asc|desc). Default sort order is ascending. Multiple sort criteria are supported.  Examples: - sort=username - sort=username:asc - sort=username:asc,realname:desc")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "RSQL filter to limit results. Supports all user fields.  Examples: - filter=username==\"john*\" - filter=realname==\"John Smith\" - filter=email==\"*@jamf.com\" - filter=position==\"Manager\";id!=\"1\" - filter=id=in=(123,456,789)")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property(:asc|desc). Default sort order is ascending. Multiple sort criteria are supported. Examples: - sort=username - sort=username:asc - sort=username:asc,realname:desc")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "RSQL filter to limit results. Supports all user fields. Examples: - filter=username==\"john*\" - filter=realname==\"John Smith\" - filter=email==\"*@jamf.com\" - filter=position==\"Manager\";id!=\"1\" - filter=id=in=(123,456,789)")
 	cmd.Flags().BoolVar(&flagPlatform, "platform", false, "Optional. Return platform identifiers instead of internal identifiers when set to true.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")

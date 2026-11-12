@@ -154,7 +154,8 @@ func TestDo_GatewayTimeout504(t *testing.T) {
 	defer srv.Close()
 
 	c := New(srv.URL, auth.NewTokenProvider("test-token"))
-	_, err := c.Do(context.Background(), http.MethodGet, "/v4/computers-inventory?page=0&page-size=2000", nil)
+	ctx := registry.WithPageWalk(context.Background(), 2000)
+	_, err := c.Do(ctx, http.MethodGet, "/v4/computers-inventory?page=0&page-size=2000", nil)
 	if !errors.Is(err, registry.ErrServerTimeout) {
 		t.Fatalf("error = %v, want one wrapping registry.ErrServerTimeout", err)
 	}
@@ -166,6 +167,52 @@ func TestDo_GatewayTimeout504(t *testing.T) {
 	}
 	if n := hits.Load(); n != 1 {
 		t.Errorf("server saw %d requests, want 1", n)
+	}
+}
+
+// A 504 on a read that is not a page of a walk has nothing smaller to ask for,
+// so it is retried; the walk's own page is not (above), and neither is a write,
+// which reached Jamf Pro and may still be running.
+func TestDo_GatewayTimeoutRetriesAReadButNotAWrite(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hits.Add(1) == 1 {
+			w.WriteHeader(http.StatusGatewayTimeout)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+
+	resp, err := c.Do(context.Background(), http.MethodGet, "/v1/buildings/1", nil)
+	if err != nil {
+		t.Fatalf("GET after one 504: %v", err)
+	}
+	_ = resp.Body.Close()
+	if n := hits.Load(); n != 2 {
+		t.Errorf("GET: server saw %d requests, want 2", n)
+	}
+
+	hits.Store(0)
+	_, err = c.Do(context.Background(), http.MethodPost, "/v1/buildings", strings.NewReader(`{"name":"x"}`))
+	if !errors.Is(err, registry.ErrServerTimeout) {
+		t.Fatalf("POST error = %v, want a server timeout", err)
+	}
+	if n := hits.Load(); n != 1 {
+		t.Errorf("POST: server saw %d requests, want 1", n)
+	}
+}
+
+// A page already at the floor will not be shrunk, so it is not marked and
+// keeps the read retry.
+func TestWithPageWalk_OnlyMarksAPageThatCanShrink(t *testing.T) {
+	if registry.IsPageWalk(registry.WithPageWalk(context.Background(), registry.MinShrunkPageSize)) {
+		t.Error("a floor-sized page was marked")
+	}
+	if !registry.IsPageWalk(registry.WithPageWalk(context.Background(), registry.MinShrunkPageSize+1)) {
+		t.Error("a shrinkable page was not marked")
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/useragent"
 )
 
 func TestFingerprint_LongString(t *testing.T) {
@@ -351,15 +352,17 @@ func TestProbeConnectivity_SetsUserAgentAndStopsAtRedirect(t *testing.T) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 	}))
 	t.Cleanup(srv.Close)
+	useragent.Set("9.9.9")
+	t.Cleanup(func() { useragent.Set(cliVersion) })
 
-	ci := probeConnectivity(srv.URL, "9.9.9")
+	ci := probeConnectivity(srv.URL)
 	if ci.Error != "" {
 		t.Fatalf("unexpected error: %q", ci.Error)
 	}
 	if ci.StatusCode != http.StatusFound {
 		t.Errorf("expected 302 (no redirect follow), got %d", ci.StatusCode)
 	}
-	if !strings.Contains(gotUA, "jamf-cli/9.9.9") {
+	if gotUA != useragent.String() || !strings.Contains(gotUA, "jamf-cli/9.9.9") {
 		t.Errorf("expected User-Agent with version, got %q", gotUA)
 	}
 }

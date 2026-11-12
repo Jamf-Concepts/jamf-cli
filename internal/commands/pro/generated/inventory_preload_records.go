@@ -148,7 +148,7 @@ func newInventoryPreloadRecordsListCmd(ctx *registry.CLIContext) *cobra.Command 
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := ctx.Client.Do(registry.WithPageWalk(reqCtx, pageSize), "GET", pagePath, nil)
 					if err != nil {
 						// A page the server could not assemble in time is
 						// asked for again at half the size, resuming after
@@ -237,8 +237,8 @@ func newInventoryPreloadRecordsListCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to return, zero-based; setting it returns that page alone instead of every page")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Results per page, max 2000; --all requests 2000 unless this asks for fewer")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'id:asc'. Multiple sort criteria are supported and must be separated with a comma. All inventory preload fields are supported, however fields added by extension attributes are not supported. If sorting by deviceType, use '0' for Computer and '1' for Mobile Device.  Example: 'sort=date:desc,name:asc'. ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allowing to filter inventory preload records. Default search is empty query - returning all results for the requested page. All inventory preload fields are supported, however fields added by extension attributes are not supported. If filtering by deviceType, use '0' for Computer and '1' for Mobile Device.  Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='.  Example: 'filter=categoryName==\"Category\"' ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'id:asc'. Multiple sort criteria are supported and must be separated with a comma. All inventory preload fields are supported, however fields added by extension attributes are not supported. If sorting by deviceType, use '0' for Computer and '1' for Mobile Device. Example: 'sort=date:desc,name:asc'.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allowing to filter inventory preload records. Default search is empty query - returning all results for the requested page. All inventory preload fields are supported, however fields added by extension attributes are not supported. If filtering by deviceType, use '0' for Computer and '1' for Mobile Device. Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='. Example: 'filter=categoryName==\"Category\"'")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
