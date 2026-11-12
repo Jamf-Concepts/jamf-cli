@@ -99,6 +99,11 @@ func runProtectOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]over
 		send("unified_logging_filter_sets", formatCount(len(sets)), err)
 	})
 
+	wg.Go(func() {
+		sets, err := client.ListPreventListSets(ctx)
+		send("prevent_list_sets", formatCount(len(sets)), err)
+	})
+
 	// Endpoints
 
 	wg.Go(func() {

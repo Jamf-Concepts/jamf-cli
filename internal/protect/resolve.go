@@ -167,6 +167,12 @@ func (r *Resolver) ResolveCustomPreventListID(ctx context.Context, name string) 
 		listNamed(r.client.ListCustomPreventLists, func(p jamfprotect.CustomPreventList) string { return p.Name }, func(p jamfprotect.CustomPreventList) string { return p.ID }))
 }
 
+// ResolvePreventListSetUUID returns the UUID for a prevent list set given its name.
+func (r *Resolver) ResolvePreventListSetUUID(ctx context.Context, name string) (string, error) {
+	return r.resolveNamed(ctx, namedKind{"prevent list set", "prevent list sets", "prevent-list-sets", "names"}, name,
+		listNamed(r.client.ListPreventListSets, func(s jamfprotect.PreventListSet) string { return s.Name }, func(s jamfprotect.PreventListSet) string { return s.UUID }))
+}
+
 // ResolveUnifiedLoggingFilterUUID returns the UUID for a unified logging filter.
 func (r *Resolver) ResolveUnifiedLoggingFilterUUID(ctx context.Context, name string) (string, error) {
 	return r.resolveNamed(ctx, namedKind{"unified logging filter", "unified logging filters", "unified-logging-filters", "names"}, name,

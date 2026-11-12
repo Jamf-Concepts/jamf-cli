@@ -87,6 +87,12 @@ func flattenPlan(p jamfprotect.Plan) map[string]any {
 	// always present: table/csv columns come from row 0
 	m["unifiedLoggingFilterSets"] = strings.Join(names, ", ")
 
+	plsNames := make([]string, 0, len(p.PreventListSets))
+	for _, s := range p.PreventListSets {
+		plsNames = append(plsNames, s.Name)
+	}
+	m["preventListSets"] = strings.Join(plsNames, ", ")
+
 	return m
 }
 
@@ -365,6 +371,7 @@ type planExport struct {
 	ExceptionSets        []string                                   `json:"exceptionSets,omitempty" yaml:"exceptionSets,omitempty"`
 	AnalyticSets         []planAnalyticSetExport                    `json:"analyticSets,omitempty" yaml:"analyticSets,omitempty"`
 	ULFSets              []string                                   `json:"unifiedLoggingFilterSets,omitempty" yaml:"unifiedLoggingFilterSets,omitempty"`
+	PreventListSets      []string                                   `json:"preventListSets,omitempty" yaml:"preventListSets,omitempty"`
 	USBControlSet        string                                     `json:"usbControlSet,omitempty" yaml:"usbControlSet,omitempty"`
 	Telemetry            string                                     `json:"telemetry,omitempty" yaml:"telemetry,omitempty"`
 	CommsConfig          *jamfprotect.PlanCommsConfigInput          `json:"commsConfig,omitempty" yaml:"commsConfig,omitempty"`
@@ -429,6 +436,14 @@ func planToExport(p *jamfprotect.Plan) planExport {
 		}
 		sort.Strings(names)
 		e.ULFSets = names
+	}
+	if len(p.PreventListSets) > 0 {
+		names := make([]string, len(p.PreventListSets))
+		for i, s := range p.PreventListSets {
+			names[i] = s.Name
+		}
+		sort.Strings(names)
+		e.PreventListSets = names
 	}
 	if p.USBControlSet != nil {
 		e.USBControlSet = p.USBControlSet.Name
@@ -528,6 +543,17 @@ func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver, c
 		}
 		input.UnifiedLoggingFilterSets = uuids
 	}
+	if len(e.PreventListSets) > 0 {
+		uuids := make([]string, len(e.PreventListSets))
+		for i, name := range e.PreventListSets {
+			uuid, err := r.ResolvePreventListSetUUID(ctx, name)
+			if err != nil {
+				return input, fmt.Errorf("resolving prevent list set %q: %w", name, err)
+			}
+			uuids[i] = uuid
+		}
+		input.PreventListSets = uuids
+	}
 	if e.USBControlSet != "" {
 		id, err := r.ResolveRemovableStorageControlSetID(ctx, e.USBControlSet)
 		if err != nil {
@@ -563,6 +589,9 @@ func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver, c
 		}
 		if input.UnifiedLoggingFilterSets == nil {
 			input.UnifiedLoggingFilterSets = []string{}
+		}
+		if input.PreventListSets == nil {
+			input.PreventListSets = []string{}
 		}
 		if input.TelemetryV2 == nil {
 			// TelemetryV2 is a single reference, so clearing it needs the SDK's

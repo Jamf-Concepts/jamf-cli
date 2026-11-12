@@ -32,6 +32,8 @@ func TestProtectResourceOrderEncodesDependencies(t *testing.T) {
 	mustPrecede := [][2]string{
 		{"analytics", "analytic-sets"},
 		{"unified-logging-filters", "unified-logging-filter-sets"},
+		{"custom-prevent-lists", "prevent-list-sets"},
+		{"prevent-list-sets", "plans"},
 		{"analytic-sets", "plans"},
 		{"analytics", "exception-sets"},
 		{"exception-sets", "plans"},

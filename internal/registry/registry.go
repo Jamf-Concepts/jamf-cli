@@ -221,6 +221,13 @@ type ProtectClient interface {
 	UpdateCustomPreventList(ctx context.Context, id string, input jamfprotect.CustomPreventListInput) (jamfprotect.CustomPreventList, error)
 	DeleteCustomPreventList(ctx context.Context, id string) error
 
+	// Prevent List Sets
+	ListPreventListSets(ctx context.Context) ([]jamfprotect.PreventListSet, error)
+	GetPreventListSet(ctx context.Context, uuid string) (*jamfprotect.PreventListSet, error)
+	CreatePreventListSet(ctx context.Context, input jamfprotect.PreventListSetInput) (jamfprotect.PreventListSet, error)
+	UpdatePreventListSet(ctx context.Context, uuid string, input jamfprotect.PreventListSetInput) (jamfprotect.PreventListSet, error)
+	DeletePreventListSet(ctx context.Context, uuid string) error
+
 	// Unified Logging Filters
 	ListUnifiedLoggingFilters(ctx context.Context) ([]jamfprotect.UnifiedLoggingFilter, error)
 	GetUnifiedLoggingFilter(ctx context.Context, uuid string) (*jamfprotect.UnifiedLoggingFilter, error)
