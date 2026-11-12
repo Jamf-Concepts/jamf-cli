@@ -536,9 +536,36 @@ func serverTimeoutError(method string, cause error) *exitcode.Error {
 	return e.WithHint("the request asked for more than the server could assemble in time; for a list, pass a smaller --page-size or narrow it with --section or --filter")
 }
 
-// ReadResponseBody reads the full body from an HTTP response with a 10 MB limit.
+// MaxResponseBody is the largest response body ReadResponseBody and ReadBounded
+// buffer by default. It sits far above any real Jamf document (an advanced
+// computer search that embeds every managed Mac runs to about 10 MB on a large
+// fleet) and exists only so a broken or hostile server cannot exhaust memory.
+const MaxResponseBody = 256 << 20
+
+// ErrBodyTooLarge is wrapped by ReadBounded when the body exceeds its limit.
+var ErrBodyTooLarge = errors.New("response body exceeds size limit")
+
+// ReadBounded reads r to the end, failing when it holds more than max bytes.
+//
+// A bare io.LimitReader cannot be used for this: it reports a clean EOF at the
+// limit, so an oversized body arrives as a truncated one and surfaces later as
+// a parse error ("unexpected EOF") that names neither the size nor the cause.
+// That cut a backup of a large advanced computer search short in #470.
+func ReadBounded(r io.Reader, max int64) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > max {
+		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("%w: more than %d MB", ErrBodyTooLarge, max>>20))
+	}
+	return data, nil
+}
+
+// ReadResponseBody reads the full body from an HTTP response, failing with
+// ErrBodyTooLarge past MaxResponseBody rather than truncating it.
 func ReadResponseBody(resp *http.Response) ([]byte, error) {
-	return io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	return ReadBounded(resp.Body, MaxResponseBody)
 }
 
 // sleepWithContext blocks for the given duration or until the context is cancelled.
