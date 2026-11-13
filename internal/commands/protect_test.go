@@ -83,6 +83,7 @@ func TestProtectAliases(t *testing.T) {
 		{"dr", "data-retention"},
 		{"al", "audit-logs"},
 		{"ins", "insights"},
+		{"tpv", "threat-prevention-versions"},
 	}
 
 	for _, tc := range tests {
@@ -108,6 +109,7 @@ func TestProtectSubcommands(t *testing.T) {
 		"plans",
 		"computers",
 		"alerts",
+		"threat-prevention-versions",
 		"insights",
 		"analytics",
 		"analytic-sets",

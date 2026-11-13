@@ -253,6 +253,7 @@ jamf-cli protect <command> [subcommand] [flags]    # Jamf Protect
 | Protect | `prevent-list-sets` | `pls` |
 | Protect | `api-clients` | `apic` |
 | Protect | `config-freeze` | `cf` |
+| Protect | `threat-prevention-versions` | `tpv` |
 | Root | `config` | `cfg` |
 
 Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamf-cli/wiki/Command-Reference) · [Output Formats](https://github.com/Jamf-Concepts/jamf-cli/wiki/Output-Formats) · [Common Workflows](https://github.com/Jamf-Concepts/jamf-cli/wiki/Common-Workflows)

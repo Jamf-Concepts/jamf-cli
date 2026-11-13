@@ -39,6 +39,7 @@ func newProtectCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Endpoints
 	cmd.AddCommand(newProtectComputersCmd(cliCtx))
 	cmd.AddCommand(newProtectAlertsCmd(cliCtx))
+	cmd.AddCommand(newProtectThreatPreventionVersionsCmd(cliCtx))
 
 	// Security Configuration (compliance)
 	cmd.AddCommand(newProtectInsightsCmd(cliCtx))
