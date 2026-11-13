@@ -562,8 +562,9 @@ var protectGroupMap = map[string]string{
 	"unified-logging-filter-sets":    groupProtectSecurity,
 	"insights":                       groupProtectSecurity,
 
-	"computers": groupProtectEndpoint,
-	"alerts":    groupProtectEndpoint,
+	"computers":                  groupProtectEndpoint,
+	"alerts":                     groupProtectEndpoint,
+	"threat-prevention-versions": groupProtectEndpoint,
 
 	"data-forwarding": groupProtectOrg,
 	"data-retention":  groupProtectOrg,

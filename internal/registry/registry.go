@@ -280,6 +280,9 @@ type ProtectClient interface {
 	UpdateOrganizationConfigFreeze(ctx context.Context, configFreeze bool) (jamfprotect.ChangeManagementConfig, error)
 	ListConnections(ctx context.Context) ([]jamfprotect.Connection, error)
 
+	// Threat Prevention
+	ListThreatPreventionVersions(ctx context.Context) ([]jamfprotect.ThreatPreventionVersion, error)
+
 	// Client metadata
 	BaseURL() string
 	AccessToken(ctx context.Context) (*jamfprotect.Token, error)

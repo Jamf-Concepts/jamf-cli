@@ -395,6 +395,10 @@ func (s *stubProtectClientBase) ListConnections(_ context.Context) ([]jamfprotec
 	return nil, nil
 }
 
+func (s *stubProtectClientBase) ListThreatPreventionVersions(_ context.Context) ([]jamfprotect.ThreatPreventionVersion, error) {
+	return nil, nil
+}
+
 func (s *stubProtectClientBase) BaseURL() string { return "" }
 func (s *stubProtectClientBase) AccessToken(_ context.Context) (*jamfprotect.Token, error) {
 	return nil, nil
