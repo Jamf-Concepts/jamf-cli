@@ -19,6 +19,17 @@ import (
 // backoff before surfacing this error. A client-side timeout is never retried.
 var ErrServerTimeout = errors.New("the server did not answer in time")
 
+// ServerTimeoutHint is the hint every layer that raises ErrServerTimeout on a
+// read attaches. It names no flag, because the layer that raises it cannot know
+// which flags the invoked command has: the Pro client sees an HTTP request, not
+// a cobra command. A hint that said "pass a smaller --page-size" was therefore
+// printed for commands with no --page-size, --section or --filter at all
+// (issue 476). The command-aware step, commands.RefineTimeoutHint, replaces
+// this text with the narrowing flags the executed command really declares; a
+// path that never reaches it still prints a sentence that is true of every
+// command.
+const ServerTimeoutHint = "the server did not answer in time; retry later"
+
 // MinShrunkPageSize is the smallest page a fetch-everything walk shrinks to
 // after a timed-out page. A page this small that still times out is not a
 // page-size problem, and another halving would only lengthen the wait before

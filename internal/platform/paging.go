@@ -124,12 +124,13 @@ func ListPages(ctx context.Context, cliCtx *registry.CLIContext, path string, q 
 // serverTimeout marks a server timeout with registry.ErrServerTimeout, the
 // error a Jamf Pro request reports for the same condition, and names the
 // remedy. The SDK error stays in the chain, so its status and traceId still
-// reach the 403/404 annotators. A deadline on the caller's own context is
+// reach the 403/404 annotators. The hint names no flag; commands.RefineTimeoutHint
+// adds the ones the executed command declares. A deadline on the caller's own context is
 // passed through: a smaller page does not extend it.
 func serverTimeout(ctx context.Context, err error) error {
 	if !jamfplatform.IsServerTimeout(err) || ctx.Err() != nil {
 		return err
 	}
 	return exitcode.Wrap(exitcode.General, fmt.Errorf("%w: %w", registry.ErrServerTimeout, err)).
-		WithHint("the server could not assemble a page in time, even at the smallest page size; narrow the list with --filter, or retry later")
+		WithHint(registry.ServerTimeoutHint)
 }

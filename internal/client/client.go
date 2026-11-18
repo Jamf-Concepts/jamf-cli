@@ -551,7 +551,9 @@ func serverTimeoutError(method string, cause error) *exitcode.Error {
 	if !retrySafeMethods[method] {
 		return e.WithHint(mayHaveAppliedHint)
 	}
-	return e.WithHint("the request asked for more than the server could assemble in time; for a list, pass a smaller --page-size or narrow it with --section or --filter")
+	// No flag is named here: this layer cannot tell whether the invoked command
+	// has any. commands.RefineTimeoutHint adds the ones it does (issue 476).
+	return e.WithHint(registry.ServerTimeoutHint)
 }
 
 // MaxResponseBody is the largest response body ReadResponseBody and ReadBounded
