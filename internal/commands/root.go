@@ -1097,7 +1097,7 @@ in the config file. It never runs in CI, when output is piped, or under
 	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	cmd.PersistentFlags().BoolVar(&noHints, "no-hints", false, "suppress advisory hints (e.g. large-result narrowing tips); keeps spinner and progress output (or JAMF_CLI_NO_HINTS env)")
-	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses (-vv adds headers, -vvv adds bodies)")
+	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses with body sizes and response times (-vv adds headers, -vvv adds bodies)")
 	cmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "never prompt; fail if input required")
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")

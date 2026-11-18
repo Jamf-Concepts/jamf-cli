@@ -159,16 +159,17 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	if c.verboseLevel >= 1 {
-		fmt.Fprintf(os.Stderr, "--> %s %s\n", method, redact.URL(req.URL))
+		fmt.Fprintf(os.Stderr, "--> %s %s%s\n", method, redact.URL(req.URL), RequestNote(int64(len(bodyData)), bodyData != nil))
 	}
 
-	resp, err := c.doWithRetry(ctx, req, bodyData)
+	resp, sentAt, err := c.doWithRetry(ctx, req, bodyData)
 	if err != nil {
 		return nil, err
 	}
 
 	if c.verboseLevel >= 1 {
-		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
+		fmt.Fprintf(os.Stderr, "<-- %s %s%s\n", resp.Proto, resp.Status, ResponseNote(time.Since(sentAt), resp))
+		TrackBody(os.Stderr, resp, sentAt)
 	}
 	if c.verboseLevel >= 2 {
 		logHeaders(os.Stderr, responseWireHeaders(resp), false)
@@ -282,6 +283,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		if err != nil {
 			return nil, err
 		}
+		sentAt := time.Now()
 		resp, err := httpClient.Do(req.WithContext(reqCtx))
 		if err != nil {
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))
@@ -294,7 +296,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 			if wait, ok := rateLimitResetWait(resp, rateLimitWaitMax); ok {
 				delay = wait
 			}
-			c.logRetriedStatus(resp, true, delay)
+			c.logRetriedStatus(resp, true, delay, time.Since(sentAt))
 			_ = resp.Body.Close()
 			if err := sleepWithContext(ctx, delay); err != nil {
 				return nil, err
@@ -303,7 +305,8 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		}
 
 		if c.verboseLevel >= 1 {
-			fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
+			fmt.Fprintf(os.Stderr, "<-- %s %s%s\n", resp.Proto, resp.Status, ResponseNote(time.Since(sentAt), resp))
+			TrackBody(os.Stderr, resp, sentAt)
 		}
 		if c.verboseLevel >= 2 {
 			logHeaders(os.Stderr, responseWireHeaders(resp), false)
@@ -392,7 +395,10 @@ var retrySafeMethods = map[string]bool{
 //     paginated walk shrinks its page instead (registry.ShrinkPageSize).
 //   - sent, then failed otherwise (connection reset): retried for GET, HEAD
 //     and OPTIONS only. A write may already have been applied.
-func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []byte) (*http.Response, error) {
+//
+// It also returns when the surviving attempt was sent, so the caller can report
+// how long that one call took — not the retries and the waits before it.
+func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []byte) (*http.Response, time.Time, error) {
 	maxRetries := 3
 	baseDelay := time.Second
 
@@ -418,25 +424,26 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 
 		seq, err := c.pace(ctx)
 		if err != nil {
-			return nil, err
+			return nil, time.Time{}, err
 		}
+		sentAt := time.Now()
 		resp, err := c.httpClient.Do(attempt)
 		if err != nil {
 			if ctx.Err() != nil {
-				return nil, exitcode.Wrap(exitcode.General, err)
+				return nil, time.Time{}, exitcode.Wrap(exitcode.General, err)
 			}
 			if sent.Load() {
 				if isTimeout(err) {
-					return nil, serverTimeoutError(req.Method, err)
+					return nil, time.Time{}, serverTimeoutError(req.Method, err)
 				}
 				if !retrySafeMethods[req.Method] {
-					return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("%s request failed after it was sent: %w", req.Method, err)).
+					return nil, time.Time{}, exitcode.Wrap(exitcode.General, fmt.Errorf("%s request failed after it was sent: %w", req.Method, err)).
 						WithHint(mayHaveAppliedHint)
 				}
 			}
 			lastErr = err
 			if sleepErr := sleepWithContext(ctx, baseDelay*time.Duration(1<<i)); sleepErr != nil {
-				return nil, sleepErr
+				return nil, time.Time{}, sleepErr
 			}
 			continue
 		}
@@ -456,13 +463,13 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 			}
 			// Do logs only the response that survives this loop, so a 429 is
 			// logged here or never: its x-ratelimit-* headers are the evidence.
-			c.logRetriedStatus(resp, i < maxRetries-1, delay)
+			c.logRetriedStatus(resp, i < maxRetries-1, delay, time.Since(sentAt))
 			_ = resp.Body.Close()
 			if i == maxRetries-1 {
 				break
 			}
 			if sleepErr := sleepWithContext(ctx, delay); sleepErr != nil {
-				return nil, sleepErr
+				return nil, time.Time{}, sleepErr
 			}
 			continue
 		}
@@ -476,21 +483,21 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 		if resp.StatusCode == http.StatusGatewayTimeout && retrySafeMethods[req.Method] &&
 			!registry.IsPageWalk(req.Context()) && i < maxRetries-1 {
 			delay := baseDelay * time.Duration(1<<i)
-			c.logRetriedStatus(resp, true, delay)
+			c.logRetriedStatus(resp, true, delay, time.Since(sentAt))
 			_ = resp.Body.Close()
 			if sleepErr := sleepWithContext(ctx, delay); sleepErr != nil {
-				return nil, sleepErr
+				return nil, time.Time{}, sleepErr
 			}
 			continue
 		}
 
-		return resp, nil
+		return resp, sentAt, nil
 	}
 
 	if lastErr != nil {
-		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr))
+		return nil, time.Time{}, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr))
 	}
-	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
+	return nil, time.Time{}, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
 }
 
 // pace waits for the gateway throttle's go-ahead and returns the start's
@@ -511,14 +518,14 @@ func (c *Client) pace(ctx context.Context) (uint64, error) {
 // logs a response: the status line under -v (with the wait when a retry
 // follows), headers under -vv, body under -vvv. It reads at most bodyLogLimit
 // of the body, which the caller then closes.
-func (c *Client) logRetriedStatus(resp *http.Response, retrying bool, delay time.Duration) {
+func (c *Client) logRetriedStatus(resp *http.Response, retrying bool, delay time.Duration, elapsed time.Duration) {
 	if c.verboseLevel < 1 {
 		return
 	}
 	if retrying {
-		fmt.Fprintf(os.Stderr, "<-- %s %s, retrying in %v\n", resp.Proto, resp.Status, delay.Round(time.Millisecond))
+		fmt.Fprintf(os.Stderr, "<-- %s %s, retrying in %v%s\n", resp.Proto, resp.Status, delay.Round(time.Millisecond), ResponseNote(elapsed, resp))
 	} else {
-		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, resp.Status)
+		fmt.Fprintf(os.Stderr, "<-- %s %s%s\n", resp.Proto, resp.Status, ResponseNote(elapsed, resp))
 	}
 	if c.verboseLevel >= 2 {
 		logHeaders(os.Stderr, responseWireHeaders(resp), false)

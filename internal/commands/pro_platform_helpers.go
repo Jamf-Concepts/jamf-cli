@@ -97,13 +97,14 @@ func verboseRoundTripper(rt http.RoundTripper, plainRetries bool) http.RoundTrip
 func (t *verboseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.level >= 1 {
 		key := req.Method + " " + req.URL.String()
+		reqNote := jamfclient.RequestNote(req.ContentLength, req.Body != nil && req.Body != http.NoBody)
 		if !t.plainRetries && key == t.lastKey && t.lastFailed {
 			t.attempt++
-			fmt.Fprintf(os.Stderr, "--> %s %s (retry %d, waited %s)\n",
-				req.Method, redact.URL(req.URL), t.attempt, time.Since(t.lastSent).Round(100*time.Millisecond))
+			fmt.Fprintf(os.Stderr, "--> %s %s%s (retry %d, waited %s)\n",
+				req.Method, redact.URL(req.URL), reqNote, t.attempt, time.Since(t.lastSent).Round(100*time.Millisecond))
 		} else {
 			t.lastKey, t.attempt = key, 0
-			fmt.Fprintf(os.Stderr, "--> %s %s\n", req.Method, redact.URL(req.URL))
+			fmt.Fprintf(os.Stderr, "--> %s %s%s\n", req.Method, redact.URL(req.URL), reqNote)
 		}
 		t.lastSent = time.Now()
 	}
@@ -143,7 +144,9 @@ func (t *verboseTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		}
 	}
 
+	sentAt := time.Now()
 	resp, err := t.inner.RoundTrip(req)
+	elapsed := time.Since(sentAt)
 	logRequestBody()
 	if err != nil {
 		// A transport-level error is retryable, so the next identical request
@@ -154,18 +157,28 @@ func (t *verboseTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	t.lastFailed = resp.StatusCode >= 400
 
 	if t.level >= 1 {
-		fmt.Fprintf(os.Stderr, "<-- %s %s\n", resp.Proto, termSafe(resp.Status))
+		fmt.Fprintf(os.Stderr, "<-- %s %s%s\n", resp.Proto, termSafe(resp.Status), jamfclient.ResponseNote(elapsed, resp))
+		jamfclient.TrackBody(os.Stderr, resp, sentAt)
 	}
 	if t.level >= 2 {
 		jamfclient.LogHeaders(os.Stderr, jamfclient.ResponseWireHeaders(resp), false)
 	}
 	if t.level >= 3 && resp.Body != nil {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, jamfclient.BodyLogLimit))
-		_ = resp.Body.Close()
 		jamfclient.LogBody(os.Stderr, jamfclient.RedactBodyForLog(preview))
-		resp.Body = io.NopCloser(bytes.NewReader(preview))
+		// Replay the preview ahead of the rest of the body. Closing the original
+		// and handing back the preview alone cut every response past the log
+		// limit short for the command that consumed it.
+		resp.Body = &replayedBody{Reader: io.MultiReader(bytes.NewReader(preview), resp.Body), Closer: resp.Body}
 	}
 	return resp, nil
+}
+
+// replayedBody is a response body whose first bytes were read for logging: it
+// reads them again, then the rest, and closes the original.
+type replayedBody struct {
+	io.Reader
+	io.Closer
 }
 
 // identityEncodingOnWrites asks for an uncompressed response on mutating
