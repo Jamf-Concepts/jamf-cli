@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
 
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
 	"github.com/spf13/cobra"
@@ -18,19 +17,18 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
-var uuidShape = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`)
-
-// IsID reports whether a --list-file line is a Platform ID rather than a name:
-// a UUID, which every Platform resource but one keys on, or an all-digit value,
-// which an SSO domain's integer ID is. Anything else is looked up by name.
-func IsID(v string) bool { return uuidShape.MatchString(v) || resolve.IsNumericID(v) }
-
-// NameLookup is the --list-file name lookup for a Platform collection: one
-// listing (paged, see listAllItems) serves every name in the file, matched by
-// resolve.ResolveNamedEntries on the same fields --name reads — nameField when
-// the resource names one, then name, title and displayName. An item the list
-// returns with no ID cannot be addressed and is left out, so its name reads as
-// unmatched.
+// NameLookup is the --list-file lookup for a Platform collection: one listing
+// (paged, see listAllItems) serves every line in the file. Each item answers
+// to its ID and to the same fields --name reads — nameField when the resource
+// names one, then name, title and displayName — and resolve.ResolveNamedEntries
+// matches each line against those.
+//
+// IDs are matched against the listing rather than recognised by their shape,
+// because Platform IDs have no one shape: most are UUIDs, an SSO domain's is
+// an integer, and an SSO connection's is `con_` plus 16 characters, which a
+// shape test read as a name and reported unmatched. Matching the listing also
+// means an ID that names nothing is skipped before any request is sent for it.
+// An item the list returns with no ID cannot be addressed and is left out.
 func NameLookup(client *jamfplatform.Client, listPath, nameField string) resolve.NameLookup {
 	return func(ctx context.Context, _ []string) ([]resolve.NamedRecord, error) {
 		items, err := listAllItems(ctx, client, listPath)
@@ -47,7 +45,8 @@ func NameLookup(client *jamfplatform.Client, listPath, nameField string) resolve
 			if id == "" {
 				continue
 			}
-			seen := map[string]bool{}
+			out = append(out, resolve.NamedRecord{ID: id, Name: id})
+			seen := map[string]bool{id: true}
 			for _, f := range fields {
 				if v, ok := item[f].(string); ok && v != "" && !seen[v] {
 					seen[v] = true
@@ -59,15 +58,18 @@ func NameLookup(client *jamfplatform.Client, listPath, nameField string) resolve
 	}
 }
 
-// NamedTargets resolves a Platform --list-file: IDs pass through, and names
-// are resolved against the collection at listPath.
+// NamedTargets resolves a Platform --list-file against the collection at
+// listPath: every line, ID or name, is matched in one listing (see NameLookup).
 func NamedTargets(ctx context.Context, client *jamfplatform.Client, label, listPath, nameField, path string) ([]resolve.Target, int, error) {
 	return resolve.ResolveNamedFile(ctx, resolve.NamedEntrySpec{
 		Label:  label,
 		Lookup: NameLookup(client, listPath, nameField),
-		IsID:   IsID,
+		IsID:   neverAnID,
 	}, path)
 }
+
+// neverAnID sends every line to the lookup, IDs included.
+func neverAnID(string) bool { return false }
 
 // PrintListRecords is `get --list-file` for every command whose records are
 // fetched one at a time: it reads each target with fetch — the request

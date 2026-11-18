@@ -158,9 +158,13 @@ desktops.txt`.
 
   Names resolve through `platform.NamedTargets`: one `listAllItems` walk, the
   same pager `--name` uses, which was extracted from `resolveIDByName` so the
-  two cannot drift apart. The match fields are the same as `--name`'s:
-  `nameField`, then `name`, `title` and `displayName`. A line is an ID when it
-  is a UUID or all digits (`platform.IsID`); an SSO domain's ID is an integer.
+  two cannot drift apart. The name fields are the same as `--name`'s:
+  `nameField`, then `name`, `title` and `displayName`. Each line is also
+  matched against the items' **IDs**. The first cut recognised an ID by its
+  shape (a UUID or all digits). On the US org-scoped credential, an SSO
+  connection's `con_RMBLC9S3qpC6Bzv0` was read as a name and skipped as
+  unmatched. Matching IDs against the listing works for every ID shape, and it
+  skips an ID that names nothing before any request is sent for it.
 - **Security Cloud.**
   - The gateway-served commands come out of the Platform template, so this
     change covers them.
