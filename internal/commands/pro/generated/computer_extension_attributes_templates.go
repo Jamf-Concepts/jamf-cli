@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -236,7 +239,8 @@ func newComputerExtensionAttributesTemplatesListCmd(ctx *registry.CLIContext) *c
 
 func newComputerExtensionAttributesTemplatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -250,7 +254,10 @@ func newComputerExtensionAttributesTemplatesGetCmd(ctx *registry.CLIContext) *co
   jamf-cli pro computer-extension-attributes-templates get --name "Example"
 
   # Get a computer-extension-attributes-template and output as YAML
-  jamf-cli pro computer-extension-attributes-templates get 1 -o yaml`,
+  jamf-cli pro computer-extension-attributes-templates get 1 -o yaml
+
+  # Get every computer-extension-attributes-template a file names, one per line
+  jamf-cli pro computer-extension-attributes-templates get --list-file computer-extension-attributes-templates.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -258,7 +265,12 @@ func newComputerExtensionAttributesTemplatesGetCmd(ctx *registry.CLIContext) *co
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes/templates", "name", "id", flagName, noInput)
 				if err != nil {
@@ -271,18 +283,33 @@ func newComputerExtensionAttributesTemplatesGetCmd(ctx *registry.CLIContext) *co
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/computer-extension-attributes/templates/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v1/computer-extension-attributes/templates/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
 			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "computer-extension-attributes-template", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/computer-extension-attributes/templates", "name", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "computer-extension-attributes-templates entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -292,7 +319,9 @@ func newComputerExtensionAttributesTemplatesGetCmd(ctx *registry.CLIContext) *co
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "computer-extension-attributes-templates to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attributes-template by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }

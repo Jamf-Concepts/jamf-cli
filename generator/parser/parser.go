@@ -143,6 +143,16 @@ var resourceLookupFields = map[string][]LookupField{
 	},
 }
 
+// resourceDeviceKinds marks the resources whose records are devices, so their
+// --list-file is read by resolve.ComputerTargetsFromFile or
+// MobileDeviceTargetsFromFile: one batched lookup that takes an ID, serial
+// number, UDID, management ID or name on each line. The Jamf Pro ID is the same
+// one the Classic API uses, so the Classic device resources share it.
+var resourceDeviceKinds = map[string]string{
+	"computer-inventory": "computer",
+	"mobile-devices":     "mobile-device",
+}
+
 // resourceGroupPaths maps canonical resource names to the Classic API group list
 // path (without /JSSResource/ prefix) for --group flag support on delete.
 var resourceGroupPaths = map[string]string{
@@ -156,6 +166,7 @@ func ApplyLookupFields(resources []*Resource) {
 		if fields, ok := resourceLookupFields[r.QualifiedName()]; ok {
 			r.LookupFields = fields
 		}
+		r.DeviceKind = resourceDeviceKinds[r.QualifiedName()]
 		if path, ok := resourceGroupPaths[r.QualifiedName()]; ok {
 			r.GroupsClassicPath = path
 		}

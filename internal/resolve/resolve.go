@@ -1101,10 +1101,17 @@ func fetchInventoryPage(ctx context.Context, client registry.HTTPClient, path st
 		Results    []map[string]any `json:"results"`
 	}
 	if err := json.Unmarshal(body, &page); err != nil {
-		return nil, 0, fmt.Errorf("parsing paginated response: %w", err)
+		return nil, 0, &pageShapeError{err: err}
 	}
 	return page.Results, page.TotalCount, nil
 }
+
+// pageShapeError is a response that is not a {"totalCount", "results"} page,
+// such as a collection that answers a plain array.
+type pageShapeError struct{ err error }
+
+func (e *pageShapeError) Error() string { return "parsing paginated response: " + e.err.Error() }
+func (e *pageShapeError) Unwrap() error { return e.err }
 
 type httpStatusError struct{ code int }
 

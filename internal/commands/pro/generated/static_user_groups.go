@@ -4,10 +4,13 @@ package generated
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +70,8 @@ func newStaticUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -81,7 +85,10 @@ func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro static-user-groups get --name "Example"
 
   # Get a static-user-group and output as YAML
-  jamf-cli pro static-user-groups get 1 -o yaml`,
+  jamf-cli pro static-user-groups get 1 -o yaml
+
+  # Get every static-user-group a file names, one per line
+  jamf-cli pro static-user-groups get --list-file static-user-groups.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Static User Groups", "jamf:api": "pro", "jamf:gateway-privileges": "user-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -89,7 +96,12 @@ func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/static-user-groups", "name", "id", flagName, noInput)
 				if err != nil {
@@ -102,18 +114,33 @@ func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/static-user-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v1/static-user-groups/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
 			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "static-user-group", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/static-user-groups", "name", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "static-user-groups entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -123,7 +150,9 @@ func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "static-user-groups to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up static-user-group by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }

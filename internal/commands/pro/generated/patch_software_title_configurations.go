@@ -15,6 +15,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -92,7 +93,8 @@ func newPatchSoftwareTitleConfigurationsListCmd(ctx *registry.CLIContext) *cobra
 
 func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -106,7 +108,10 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
   jamf-cli pro patch-software-title-configurations get --name "Example"
 
   # Get a patch-software-title-configuration and output as YAML
-  jamf-cli pro patch-software-title-configurations get 1 -o yaml`,
+  jamf-cli pro patch-software-title-configurations get 1 -o yaml
+
+  # Get every patch-software-title-configuration a file names, one per line
+  jamf-cli pro patch-software-title-configurations get --list-file patch-software-title-configurations.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles", "jamf:api": "pro", "jamf:gateway-privileges": "patch-management-software-titles:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -114,7 +119,12 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
@@ -127,19 +137,34 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v3/patch-software-title-configurations/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v3/patch-software-title-configurations/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v3/patch-software-title-configurations/{id}")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "patch-software-title-configurations entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -149,8 +174,10 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "patch-software-title-configurations to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -259,57 +286,22 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --list-file: bulk delete from a file of IDs or names
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
-				entries, err := listfile.Read(flagListFile)
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --list-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no patch-software-title-configuration found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %s\n", e.Label)
 					}
 					return nil
 				}
@@ -327,14 +319,14 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: %v\n", e.Label, termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -343,14 +335,14 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted patch-software-title-configuration %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Deleted patch-software-title-configuration %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -1185,7 +1177,8 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 
 func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -1199,7 +1192,12 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
@@ -1212,19 +1210,34 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v3/patch-software-title-configurations/{id}/dependencies"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v3/patch-software-title-configurations/{id}/dependencies"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/dependencies")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/dependencies"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/dependencies")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/dependencies"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "patch-software-title-configurations entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1234,8 +1247,10 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "patch-software-title-configurations to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -1331,7 +1346,8 @@ func newPatchSoftwareTitleConfigurationsExportReportCmd(ctx *registry.CLIContext
 
 func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -1345,7 +1361,12 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
@@ -1358,19 +1379,34 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v3/patch-software-title-configurations/{id}/extension-attributes"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v3/patch-software-title-configurations/{id}/extension-attributes"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/extension-attributes")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/extension-attributes"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/extension-attributes")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/extension-attributes"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "patch-software-title-configurations entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1380,14 +1416,17 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "patch-software-title-configurations to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
 func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -1401,7 +1440,12 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
@@ -1414,19 +1458,34 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v3/patch-software-title-configurations/{id}/dashboard"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v3/patch-software-title-configurations/{id}/dashboard"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/dashboard")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/dashboard"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/dashboard")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/dashboard"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "patch-software-title-configurations entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1436,8 +1495,10 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "patch-software-title-configurations to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -1458,57 +1519,22 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --list-file: bulk delete from a file of IDs or names
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
-				entries, err := listfile.Read(flagListFile)
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --list-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no patch-software-title-configuration found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %s\n", e.Label)
 					}
 					return nil
 				}
@@ -1526,14 +1552,14 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}/dashboard", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}/dashboard", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: %v\n", e.Label, termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1542,14 +1568,14 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted patch-software-title-configuration %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Deleted patch-software-title-configuration %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -1873,7 +1899,8 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 
 func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -1887,7 +1914,12 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
@@ -1900,19 +1932,34 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v3/patch-software-title-configurations/{id}/patch-summary"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v3/patch-software-title-configurations/{id}/patch-summary"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/patch-summary")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-summary"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/patch-summary")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-summary"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "patch-software-title-configurations entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1922,14 +1969,17 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "patch-software-title-configurations to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
 func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -1943,7 +1993,12 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
@@ -1956,19 +2011,34 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v3/patch-software-title-configurations/{id}/patch-summary/versions"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v3/patch-software-title-configurations/{id}/patch-summary/versions"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/patch-summary/versions")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-summary/versions"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/patch-summary/versions")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-summary/versions"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "patch-software-title-configurations entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1978,8 +2048,10 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "patch-software-title-configurations to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 

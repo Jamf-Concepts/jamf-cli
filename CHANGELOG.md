@@ -49,6 +49,24 @@ deprecated, use --list-file` on stderr. Passing both is a usage error (exit 2). 
 --list-file -` is refused, since setup prompts for credentials on stdin, and over `mcp serve`
 `--list-file -` is refused too, since a command run for the model has no stdin.
 
+### Behaviour — a bulk `delete --list-file` skips a line it cannot resolve instead of stopping
+
+The generated `delete --list-file` (every `pro <resource> delete` and `pro classic-<resource>
+delete` that takes a list) used to stop at the first line that named no record, before deleting
+anything, and to prompt when a name matched several. It now resolves the whole file first,
+reports each line that matches nothing or more than one record on stderr, skips it, deletes the
+rest, and exits 7 (`--allow-partial-failure` makes that 0) — the rule the device actions and
+group-member commands already followed. A file in which no line resolves still fails before any
+request. Names are resolved in batched lookups: a Pro API resource sends one filtered request per
+100 names instead of one per name, and a Classic one reads its collection once instead of once per
+name. **Migration:** a script that relied on one bad line aborting the batch should check for exit
+7, or validate the file with `get --list-file` first.
+
+`get` takes `--list-file` too (issue #342): `pro computer-inventory get --list-file desktops.txt`
+reads every computer named in a file of IDs, serial numbers, UDIDs, management IDs or names, and
+prints them as one JSON array in file order; a Classic `get` prints one XML document by default. Every
+Classic `get` now accepts the form `get [<id>]`, since `--list-file` stands in for the ID.
+
 ### Behaviour — `--from-file` lists refuse a line that cannot be an ID or a name
 
 The bulk `delete --from-file` commands, `pro classic-policies enable` and `disable

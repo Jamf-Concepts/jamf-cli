@@ -45,8 +45,11 @@ Set session defaults with `JAMF_CLI_ARGS`, e.g. `JAMF_CLI_ARGS='--quiet --no-inp
   comments ignored; `-` reads stdin, and stdin is never read without it. Each
   command's help says what a line may be; an all-digit line is always an ID.
   Device commands accept an ID, serial number, UDID, management ID or name and
-  resolve each to the Jamf Pro ID; a line that matches no device, or more than
-  one, is reported and skipped, and the batch exits 7.
+  resolve each to the Jamf Pro ID; other resources accept an ID or a name. A
+  line that matches nothing, or more than one record, is reported and skipped
+  (never prompted for), and the batch exits 7.
+- `get --list-file <path>` reads every record the file names and prints them
+  as one JSON array in file order (Classic: one XML document by default).
 - `--file <path>` — only a multipart upload or a YAML import.
 
 Commands that took their list through `--from-file` before `--list-file`

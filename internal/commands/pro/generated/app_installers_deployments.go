@@ -15,6 +15,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -253,7 +254,8 @@ func newAppInstallersDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newAppInstallersDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -267,7 +269,10 @@ func newAppInstallersDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command 
   jamf-cli pro app-installers-deployments get --name "Example"
 
   # Get a app-installers-deployment and output as YAML
-  jamf-cli pro app-installers-deployments get 1 -o yaml`,
+  jamf-cli pro app-installers-deployments get 1 -o yaml
+
+  # Get every app-installers-deployment a file names, one per line
+  jamf-cli pro app-installers-deployments get --list-file app-installers-deployments.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -275,7 +280,12 @@ func newAppInstallersDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
@@ -288,18 +298,33 @@ func newAppInstallersDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/app-installers/deployments/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v1/app-installers/deployments/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
 			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "app-installers-deployment", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/app-installers/deployments", "name", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "app-installers-deployments entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -309,8 +334,10 @@ func newAppInstallersDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "app-installers-deployments to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-deployment by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -594,57 +621,22 @@ func newAppInstallersDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --list-file: bulk delete from a file of IDs or names
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
-				entries, err := listfile.Read(flagListFile)
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "app-installers-deployment", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/app-installers/deployments", "name", "id")}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --list-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no app-installers-deployment found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete app-installers-deployment %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete app-installers-deployment %s\n", e.Label)
 					}
 					return nil
 				}
@@ -662,14 +654,14 @@ func newAppInstallersDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace("/v1/app-installers/deployments/{id}", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v1/app-installers/deployments/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete app-installers-deployment %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete app-installers-deployment %s failed: %v\n", e.Label, termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -678,14 +670,14 @@ func newAppInstallersDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete app-installers-deployment %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete app-installers-deployment %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted app-installers-deployment %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Deleted app-installers-deployment %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -1602,7 +1594,8 @@ func newAppInstallersDeploymentsInstallationRetryByComputerIdCmd(ctx *registry.C
 
 func newAppInstallersDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -1616,7 +1609,12 @@ func newAppInstallersDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext)
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
@@ -1629,18 +1627,33 @@ func newAppInstallersDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext)
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/app-installers/deployments/{id}/installation-summary"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v1/app-installers/deployments/{id}/installation-summary"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
 			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "app-installers-deployment", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/app-installers/deployments", "name", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "app-installers-deployments entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1650,8 +1663,10 @@ func newAppInstallersDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext)
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "app-installers-deployments to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-deployment by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 

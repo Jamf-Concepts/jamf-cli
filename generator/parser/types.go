@@ -51,11 +51,16 @@ type Resource struct {
 	NameLookupIDField string        // Override ID field extracted from NameLookupPath response (when it differs from IDField)
 	HasVersionLock    bool          // True when PUT/POST request body includes versionLock (optimistic locking for prestages)
 	GroupsClassicPath string        // When set, delete gets --group resolved via Classic API group list (e.g. "computergroups")
-	FileFields        []FileField   // File-sourced request-body fields (attached via --script-file, --token-file, etc.)
-	TableColumns      []TableColumn // Preferred columns for list table output (when set, overrides generic column selection)
-	DefaultSections   []string      // Default --section values for list (when set, fetches these sections for table output)
-	GetDetailPath     string        // When set, "get" uses this path by default (returns all sections). If the get op has a section param, --section overrides back to the original path.
-	UpdateTokenOp     *Operation    // Optional: auxiliary PUT endpoint for file-field payloads (e.g. PUT /{id}/upload-token). When set, update/apply route the file-field flag to this endpoint instead of the main update body, and no standalone subcommand is emitted for it.
+	// DeviceKind is "computer" or "mobile-device" for a resource whose records
+	// are devices. Its --list-file lines are then resolved by the shared device
+	// resolver (ID, serial number, UDID, management ID or name) instead of by
+	// name alone.
+	DeviceKind      string
+	FileFields      []FileField   // File-sourced request-body fields (attached via --script-file, --token-file, etc.)
+	TableColumns    []TableColumn // Preferred columns for list table output (when set, overrides generic column selection)
+	DefaultSections []string      // Default --section values for list (when set, fetches these sections for table output)
+	GetDetailPath   string        // When set, "get" uses this path by default (returns all sections). If the get op has a section param, --section overrides back to the original path.
+	UpdateTokenOp   *Operation    // Optional: auxiliary PUT endpoint for file-field payloads (e.g. PUT /{id}/upload-token). When set, update/apply route the file-field flag to this endpoint instead of the main update body, and no standalone subcommand is emitted for it.
 
 	// Root is the literal (non-parameter, non-version) path segments that
 	// identify this resource — the group's own root, or a sub-resource's

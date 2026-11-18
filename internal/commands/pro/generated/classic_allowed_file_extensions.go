@@ -12,7 +12,9 @@ import (
 	"os"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -113,6 +115,8 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		flagExtension string
 	)
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a allowed_file_extension by ID",
@@ -120,11 +124,33 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
   jamf-cli pro classic-allowed-file-extensions get 1
 
   # Get a allowed_file_extension and output as YAML
-  jamf-cli pro classic-allowed-file-extensions get 1 -o yaml`,
+  jamf-cli pro classic-allowed-file-extensions get 1 -o yaml
+
+  # Get every allowed_file_extension a file names, one per line
+  jamf-cli pro classic-allowed-file-extensions get --list-file allowedfileextensions.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "allowed-file-extension:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "allowed file extension"}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "allowedfileextensions", "allowed_file_extension", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicAllowedFileExtensions)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -172,6 +198,8 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().StringVar(&flagExtension, "extension", "", "Look up allowed_file_extension by extension")
 
+	listfile.AddFlag(cmd, &flagListFile, "allowedfileextensions to get: ID")
+	listfile.MarkExclusive(cmd, "extension")
 	return cmd
 }
 

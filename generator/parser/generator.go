@@ -301,8 +301,13 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr)
 				}
 				if opHasNameLookup(op, r) {
-					return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get --name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
+					ex := fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get --name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 						nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName)
+					if opHasListGet(op, r) {
+						ex += fmt.Sprintf("\n\n  # Get every %s a file names, one per line\n  %s %s get --list-file %s.txt -o json",
+							nameSingular, bin, resourceName, resourceName)
+					}
+					return ex
 				}
 				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName)
@@ -459,6 +464,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"hasDelete":                hasDelete,
 		"hasDestructive":           hasDestructive,
 		"hasBulkFromFile":          hasBulkFromFile,
+		"anyListGet":               anyListGet,
 		"hasStatusResults":         hasStatusResults,
 		"oneLine":                  oneLine,
 		"hasApply":                 func(ops []*Operation) bool { return hasApply(ops) },
@@ -560,6 +566,9 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"hasPatchOp":      hasPatchOp,
 		"patchHasLookup":  func(r *Resource) bool { return patchHasLookup(r) },
 		"opHasNameLookup": func(op *Operation, r *Resource) bool { return opHasNameLookup(op, r) },
+		"opHasListGet":    func(op *Operation, r *Resource) bool { return opHasListGet(op, r) },
+		"listTargetsCall": listTargetsCall,
+		"listFileWhat":    listFileWhat,
 		"nameLookupPath": func(r *Resource) string {
 			return nameResolutionPath(r)
 		},
@@ -580,12 +589,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		},
 		// lookupIDField returns the ID field to extract from nameLookupPath responses.
 		// Falls back to IDField when no separate lookup ID field is configured.
-		"lookupIDField": func(r *Resource) string {
-			if r.NameLookupIDField != "" {
-				return r.NameLookupIDField
-			}
-			return r.IDField
-		},
+		"lookupIDField":    lookupIDFieldOf,
 		"patchExampleText": func(r *Resource, op *Operation) string { return patchExampleText(r, op) },
 		"patchPath":        func(ops []*Operation) string { return patchPath(ops) },
 		"patchPathParam":   func(ops []*Operation) string { return patchPathParam(ops) },
@@ -1648,6 +1652,57 @@ func opHasNameLookup(op *Operation, r *Resource) bool {
 	return hasPathParam(op.Path) && strings.Count(op.Path, "{") == 1
 }
 
+// lookupIDFieldOf is the response property a name lookup reads the ID from.
+func lookupIDFieldOf(r *Resource) string {
+	if r.NameLookupIDField != "" {
+		return r.NameLookupIDField
+	}
+	return r.IDField
+}
+
+// anyListGet reports whether any of r's operations takes --list-file on a get.
+func anyListGet(r *Resource) bool {
+	return slices.ContainsFunc(r.Operations, func(op *Operation) bool { return opHasListGet(op, r) })
+}
+
+// opHasListGet reports whether op is a read of one record that also takes
+// --list-file: a single-{id} GET with a name lookup, so a line that is a name
+// can be resolved. The request it sends is wrapped in a closure the list path
+// calls once per record, so the template excludes what would not survive that
+// wrapping: a paginated read (its walk returns from RunE), a binary download
+// (it streams to a file), and a documented-status read (it reads the request
+// path after the request).
+func opHasListGet(op *Operation, r *Resource) bool {
+	return strings.EqualFold(op.Method, "GET") && !op.IsList && !op.IsPaginated && !op.IsDestructive &&
+		opHasNameLookup(op, r) && !opHasBinaryResponse(op) && len(op.StatusResults) == 0
+}
+
+// listTargetsCall renders the call that resolves a --list-file to
+// []resolve.Target: the shared device resolver for a device resource, else
+// the batched name lookup against the resource's own collection.
+func listTargetsCall(r *Resource) string {
+	switch r.DeviceKind {
+	case "computer":
+		return "resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)"
+	case "mobile-device":
+		return "resolve.MobileDeviceTargetsFromFile(reqCtx, ctx.Client, flagListFile)"
+	}
+	return fmt.Sprintf("resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: %s, Lookup: resolve.ProNameLookup(ctx.Client, %s, %s, %s)}, flagListFile)",
+		strconv.Quote(r.NameSingular), strconv.Quote(nameResolutionPath(r)), strconv.Quote(r.NameField), strconv.Quote(lookupIDFieldOf(r)))
+}
+
+// listFileWhat is the description --list-file's usage starts with: what a
+// line may be, for a device resource or any other.
+func listFileWhat(r *Resource, verb string) string {
+	switch r.DeviceKind {
+	case "computer":
+		return "computers to " + verb + ": ID, serial number, UDID, management ID or name"
+	case "mobile-device":
+		return "mobile devices to " + verb + ": ID, serial number, UDID, management ID or name"
+	}
+	return r.Name + " to " + verb + ": ID or name"
+}
+
 // resourceGetOp returns the resource's own get operation, or nil when it ships
 // none.
 func resourceGetOp(r *Resource) *Operation {
@@ -2212,7 +2267,7 @@ import (
 {{- if or (hasNonMultipartPostOrPut .Operations) (hasList .Operations) (hasPaginated .Operations) (hasAnyBinaryResponse .) }}
 	"io"
 {{- end }}
-{{- if or (hasDelete .Operations) .UpdateTokenOp (hasStatusResults .Operations) }}
+{{- if or (hasDelete .Operations) .UpdateTokenOp (hasStatusResults .Operations) (anyListGet .) }}
 	"net/http"
 {{- end }}
 {{- if needsURL . }}
@@ -2234,10 +2289,13 @@ import (
 {{- if hasDestructive .Operations }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 {{- end }}
-{{- if hasBulkFromFile . }}
+{{- if or (hasBulkFromFile .) (anyListGet .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 {{- end }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+{{- if or (hasBulkFromFile .) (anyListGet .) }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
+{{- end }}
 {{- if hasPaginated .Operations }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 {{- end }}
@@ -2288,6 +2346,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagDryRun bool
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
+		flagListFile string
+{{- end }}
+{{- if opHasListGet . $ }}
 		flagListFile string
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
@@ -2455,64 +2516,22 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
 
-			// --list-file: bulk delete from a file of IDs or names
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
-				entries, err := listfile.Read(flagListFile)
+				bulk, skipped, err := {{ listTargetsCall $ }}
 				if err != nil {
-					return fmt.Errorf("reading --list-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-{{ range $.LookupFields }}					if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (lookupFieldPath $ .) }}, {{ goStr (.RSQLField) }}, {{ goStr (lookupIDField $) }}, entry.Value, noInputBulk)
-							if lookupErr != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s via {{ .Flag }}", entry.Label()), lookupErr)
-							}
-							rid = id
-						}
-{{ end }}					if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, {{ goStr (nameLookupPath $) }}, {{ goStr ($.NameField) }}, {{ goStr (lookupIDField $) }}, entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf({{ goStr (print "no " $.NameSingular " found matching %s") }}, entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, e.Label)
 					}
 					return nil
 				}
@@ -2530,14 +2549,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.id), 1)
+					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %s failed: %v\n") }}, e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %s failed: %v\n") }}, e.Label, termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2546,14 +2565,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %s failed: HTTP %d\n") }}, e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %s failed: HTTP %d\n") }}, e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %s\n") }}, e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrasePast .) " " $.NameSingular " %s\n") }}, e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -2681,6 +2700,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			var resolvedByName string
 {{- end }}
 {{- $opIsDestructive := .IsDestructive }}
+{{- if opHasListGet . $ }}
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else
+{{- end }}
 {{ range $.LookupFields }}
 			if flag{{ toCamel .Flag }} != "" {
 {{- if $opIsDestructive }}
@@ -2765,6 +2792,13 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
 				return err
 			}
+{{- end }}
+{{- if opHasListGet . $ }}
+
+			// fetchOne sends the request ` + "`" + `get <id>` + "`" + ` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 {{- end }}
 
 			// Build request path
@@ -3255,6 +3289,18 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 			resp, err := ctx.Client.Do(reqCtx, {{ goStr (.Method) }}, path, body)
 {{- end }}
+{{- if opHasListGet . $ }}
+				return resp, err
+			}
+			if flagListFile != "" {
+				targets, skipped, err := {{ listTargetsCall $ }}
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, {{ goStr (print $.Name " entries") }}, fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
+{{- end }}
 			if err != nil {
 				return err
 			}
@@ -3392,7 +3438,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
-	listfile.AddFlag(cmd, &flagListFile, {{ goStr (print $.Name " to " (actionPhrase .) ": ID or name") }}, listfile.WithLegacyAlias())
+	listfile.AddFlag(cmd, &flagListFile, {{ goStr (listFileWhat $ (actionPhrase .)) }}, listfile.WithLegacyAlias())
+{{- end }}
+{{- if opHasListGet . $ }}
+	listfile.AddFlag(cmd, &flagListFile, {{ goStr (listFileWhat $ "get") }})
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
 	cmd.Flags().StringVar(&flagGroup, "group", "", {{ goStr (print (actionPhraseTitle .) " every " $.NameSingular " in a Classic API group (name or ID)") }})
@@ -3449,6 +3498,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if opEmitsRenameFlag . $ }}
 	cmd.Flags().StringVar(&flagRename, "name", "", {{ goStr (print "Canonical name to apply to the " $.NameSingular " via a follow-up PUT to " (resourceUpdatePath $) " (this endpoint's body has no name field)") }})
+{{- end }}
+{{- if opHasListGet . $ }}
+	listfile.MarkExclusive(cmd, "name"{{ range $.LookupFields }}, {{ goStr (.Flag) }}{{ end }})
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
 	listfile.MarkExclusive(cmd, "name"{{ range $.LookupFields }}, {{ goStr (.Flag) }}{{ end }}{{ if $.GroupsClassicPath }}, "group"{{ end }})
@@ -3756,6 +3808,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // termSafe renders v for a stderr line a human reads, with the control
@@ -3845,6 +3898,61 @@ func isTokenAuthorizationError(body []byte) bool {
 // items succeeded and some failed it returns a PartialFailure (exit 7), unless
 // --allow-partial-failure is set, in which case it warns and returns nil. A
 // total failure propagates firstErr's exit code.
+// runListGet is ` + "`" + `get --list-file` + "`" + `: it reads each target with fetch — the very
+// request ` + "`" + `get <id>` + "`" + ` sends — and prints the records as one JSON array, in the
+// order the list named them, through the same formatter ` + "`" + `list --all` + "`" + ` uses, so
+// every -o format, --select and --out-file apply. A record that cannot be read
+// is reported on stderr and counted with the entries that never resolved; any
+// failure exits 7 when something succeeded (see batchDeleteError), and the
+// records that were read are still printed. An empty result prints [], never
+// null.
+func runListGet(cmd *cobra.Command, ctx *registry.CLIContext, targets []resolve.Target, skipped int, noun string, fetch func(id string) (*http.Response, error)) error {
+	if skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
+	}
+	records := make([]json.RawMessage, 0, len(targets))
+	failed := skipped
+	var firstErr error
+	for _, t := range targets {
+		body, err := readListRecord(fetch, t.ID)
+		if err != nil {
+			err = t.Hide(err)
+			fmt.Fprintf(os.Stderr, "  warning: could not read %s: %v\n", t.Label, termSafe(err))
+			if firstErr == nil {
+				firstErr = err
+			}
+			failed++
+			continue
+		}
+		records = append(records, body)
+	}
+	combined, err := json.Marshal(records)
+	if err != nil {
+		return err
+	}
+	if err := ctx.Output.PrintRaw(combined); err != nil {
+		return err
+	}
+	return batchDeleteError(cmd, len(records), failed, firstErr, noun)
+}
+
+// readListRecord reads one --list-file record's JSON body.
+func readListRecord(fetch func(id string) (*http.Response, error), id string) (json.RawMessage, error) {
+	resp, err := fetch(id)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	if err != nil {
+		return nil, err
+	}
+	if !json.Valid(body) {
+		return nil, fmt.Errorf("HTTP %d: the response is not JSON", resp.StatusCode)
+	}
+	return json.RawMessage(body), nil
+}
+
 func batchDeleteError(cmd *cobra.Command, succeeded, failed int, firstErr error, noun string) error {
 	if failed == 0 {
 		return nil

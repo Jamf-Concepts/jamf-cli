@@ -14,6 +14,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -331,57 +332,22 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 }`, ctx.Output.Format())
 			}
 
-			// --list-file: bulk delete from a file of IDs or names
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
-				entries, err := listfile.Read(flagListFile)
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile-device-group", Lookup: resolve.ProNameLookup(ctx.Client, "/v2/mobile-device-groups", "displayName", "id")}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --list-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-device-groups", "displayName", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no mobile-device-group found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device-group %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device-group %s\n", e.Label)
 					}
 					return nil
 				}
@@ -399,14 +365,14 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace("/v2/mobile-device-groups/{id}/erase", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v2/mobile-device-groups/{id}/erase", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device-group %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device-group %s failed: %v\n", e.Label, termSafe(err))
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -415,14 +381,14 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device-group %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device-group %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"erase\" on mobile-device-group %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Ran \"erase\" on mobile-device-group %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)

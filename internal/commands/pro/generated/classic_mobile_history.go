@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -42,6 +44,7 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	var flagSubset string
+	var flagListFile string
 
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
@@ -53,11 +56,36 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro classic-mobile-history get --name "Example"
 
   # Get a mobile_device_history and output as YAML
-  jamf-cli pro classic-mobile-history get 1 -o yaml`,
+  jamf-cli pro classic-mobile-history get 1 -o yaml
+
+  # Get every mobile_device_history a file names, one per line
+  jamf-cli pro classic-mobile-history get --list-file mobiledevicehistory.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-history:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.MobileDeviceTargetsFromFile(reqCtx, ctx.Client, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "mobiledevicehistory", "mobile_device_history", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/mobiledevicehistory/id/%s", url.PathEscape(id))
+					if flagSubset != "" {
+						p += "/subset/" + registry.EscapeClassicPathSegment(flagSubset)
+					}
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicMobileHistory)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -137,5 +165,7 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	_ = cmd.RegisterFlagCompletionFunc("subset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"General", "ManagementCommands", "UserLocation", "Audits", "Applications", "Ebooks"}, cobra.ShellCompDirectiveNoFileComp
 	})
+	listfile.AddFlag(cmd, &flagListFile, "mobile devices to get: ID, serial number, UDID, management ID or name")
+	listfile.MarkExclusive(cmd, "name", "serialnumber", "serial", "macaddress", "udid")
 	return cmd
 }

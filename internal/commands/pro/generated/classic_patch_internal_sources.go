@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -93,6 +95,8 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		flagName string
 	)
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a patch_internal_source by ID",
@@ -103,11 +107,33 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
   jamf-cli pro classic-patch-internal-sources get --name "Example"
 
   # Get a patch_internal_source and output as YAML
-  jamf-cli pro classic-patch-internal-sources get 1 -o yaml`,
+  jamf-cli pro classic-patch-internal-sources get 1 -o yaml
+
+  # Get every patch_internal_source a file names, one per line
+  jamf-cli pro classic-patch-internal-sources get --list-file patchinternalsources.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-internal-source:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch internal source", Lookup: classicNameLookup(ctx.Client, "patchinternalsources", "patchinternalsources"), FoldCase: true}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "patchinternalsources", "patch_internal_source", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/patchinternalsources/id/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicPatchInternalSources)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -155,5 +181,7 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch_internal_source by name")
 
+	listfile.AddFlag(cmd, &flagListFile, "patchinternalsources to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }

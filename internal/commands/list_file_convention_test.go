@@ -87,3 +87,61 @@ func TestListFileAliasIsTheSameList(t *testing.T) {
 		}
 	}
 }
+
+// listFileGetExemptions are the `get` leaves that name one record and still
+// take no --list-file, each with the reason. A stale entry fails the test.
+var listFileGetExemptions = map[string]string{
+	"jamf-cli pro mobile-device-groups get": "a paginated membership read: one group's members walked page by page, not one record",
+	// The scope commands read and print one resource's scope as a table of
+	// categories; a list of resources has no single scope to show.
+	"jamf-cli pro classic-ebooks scope get":                 "one resource's scope table",
+	"jamf-cli pro classic-mac-apps scope get":               "one resource's scope table",
+	"jamf-cli pro classic-macos-config-profiles scope get":  "one resource's scope table",
+	"jamf-cli pro classic-mobile-apps scope get":            "one resource's scope table",
+	"jamf-cli pro classic-mobile-config-profiles scope get": "one resource's scope table",
+	"jamf-cli pro classic-policies scope get":               "one resource's scope table",
+	"jamf-cli pro classic-restricted-software scope get":    "one resource's scope table",
+	"jamf-cli pro classic-vpp-assignments scope get":        "one resource's scope table",
+	"jamf-cli pro classic-vpp-invitations scope get":        "one resource's scope table",
+	"jamf-cli pro blueprints get":                           "Platform API: hand-written, not yet migrated",
+	"jamf-cli pro blueprint-components get":                 "Platform API: hand-written, not yet migrated",
+	"jamf-cli pro platform-device-groups get":               "Platform API: hand-written, not yet migrated",
+	"jamf-cli pro compliance-benchmarks get":                "Platform API generator: not yet migrated",
+}
+
+// TestEveryNamedGetTakesAListFile holds issue #342's promise: a `get` that
+// can find one record by name or ID can read a list of them with --list-file.
+// Every Classic `get`, and every Pro `get` that declares --name, has it or is
+// exempted above with a reason.
+func TestEveryNamedGetTakesAListFile(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	seen := map[string]bool{}
+	checked := 0
+	walkCommands(root, func(cmd *cobra.Command) {
+		if cmd.Name() != "get" || cmd.HasSubCommands() {
+			return
+		}
+		path := cmd.CommandPath()
+		classic := cmd.Annotations[annotationAPI] == apiProClassic
+		named := cmd.LocalNonPersistentFlags().Lookup("name") != nil
+		if !strings.HasPrefix(path, "jamf-cli pro ") || (!classic && !named) {
+			return
+		}
+		if _, ok := listFileGetExemptions[path]; ok {
+			seen[path] = true
+			return
+		}
+		checked++
+		if cmd.LocalNonPersistentFlags().Lookup(listfile.FlagName) == nil {
+			t.Errorf("%s: names one record but takes no --list-file (exempt it in listFileGetExemptions with a reason, or add it)", path)
+		}
+	})
+	for path := range listFileGetExemptions {
+		if !seen[path] {
+			t.Errorf("listFileGetExemptions: %q is stale; no such named get remains without --list-file", path)
+		}
+	}
+	if checked < 90 {
+		t.Fatalf("walk checked %d gets; expected the Pro and Classic tree", checked)
+	}
+}

@@ -101,3 +101,48 @@ line validation as everything else.
   `--list-file`, on hand-written commands and on generated ones.
 - `TestBuildChildArgs_RefusesListFileStdin`, plus the `--list-file` cases in
   the MCP input-directory tests.
+
+## `get --list-file` and the shared resolver
+
+Issue #342 asked for this command: `pro computer-inventory get --list-file
+desktops.txt`.
+
+- **One resolver for every list.**
+  - A device resource goes to the device resolver, which already existed for
+    the device actions. One line may be an ID, serial number, UDID, management
+    ID or name. Each kind is looked up in its own batched `=in=` query and
+    resolved to the Jamf Pro ID.
+  - Any other resource goes to `resolve.ResolveNamedFile`. An all-digit line is
+    always an ID. Every name is resolved with one `NameLookup` call:
+    - The Pro API version, `ProNameLookup`, sends chunked
+      `name=in=(…)` filters. If the server answers 400, it retries with OR'd
+      `==` clauses, then lists the whole collection.
+    - The Classic version, `classicNameLookup`, makes one collection GET. After
+      that it calls the resource's other lookup endpoints (for example
+      `/invitation/{v}`) only for names the collection does not hold.
+- **The template code it replaced**, from the generated `delete`:
+  - It looped over the lines and resolved each one separately: one request per
+    name on the Pro API, and one *whole collection* per name on Classic.
+    Verified on the wire: 3 names cost 3 GETs, and 2 Classic names cost 2 full
+    `/printers` listings. They now cost 1 and 1.
+  - It stopped at the first line it could not resolve, and prompted when a name
+    matched several records.
+  - Both paths now follow the device rule: warn, skip, count towards exit 7.
+- **Fetching a record is the `get <id>` request.**
+  - On the Pro side, the template wraps the single-record request in
+    `fetchOne`, so section handling, the detail-path override and the version
+    fallback all apply the same way to every record in a list.
+  - Classic records go through the same MCP-child redaction as `get <id>`
+    (`TestClassicListGet_RedactsInAnMCPChild`, mutation-checked).
+- **Output.**
+  - Pro: one JSON array in list order, printed through `PrintRaw`, so every
+    `-o` format, `--select` and `--out-file` applies.
+  - Classic, default format: one XML document shaped like a Classic list.
+  - Classic, any other format: an array of unwrapped records.
+- **Live results** on `pro-nmartin` (direct) and `platform-nmartin` (EU gateway).
+  - A 6-line mixed file (ID, serial, UDID, management ID, name, one bad line)
+    cost 4 resolution GETs plus 5 record GETs, and exited 7.
+  - `iPhone` was skipped as ambiguous (it matches mobile devices 8 and 10).
+- **`TestEveryNamedGetTakesAListFile`** holds every Classic `get` and every Pro
+  `get` that takes `--name` to the convention. Each exemption carries a reason,
+  and a stale exemption fails.
