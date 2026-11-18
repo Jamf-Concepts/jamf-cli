@@ -65,7 +65,11 @@ name. **Migration:** a script that relied on one bad line aborting the batch sho
 `get` takes `--list-file` too (issue #342): `pro computer-inventory get --list-file desktops.txt`
 reads every computer named in a file of IDs, serial numbers, UDIDs, management IDs or names, and
 prints them as one JSON array in file order; a Classic `get` prints one XML document by default. Every
-Classic `get` now accepts the form `get [<id>]`, since `--list-file` stands in for the ID.
+Classic `get` now accepts the form `get [<id>]`, since `--list-file` stands in for the ID. The
+Platform and gateway-served Security Cloud `get` and `delete` commands with a `--name` lookup
+take `--list-file` as well (names resolved with one listing of the collection), and so do
+`pro platform-devices get`, `pro platform-device-groups get`, `protect computers get` and `school
+devices get`, whose positional is now optional.
 
 ### Behaviour — `--from-file` lists refuse a line that cannot be an ID or a name
 

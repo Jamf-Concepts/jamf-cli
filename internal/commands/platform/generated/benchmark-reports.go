@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -34,6 +36,7 @@ func NewBenchmarkReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "compliance-percentage <id>",
 		Short:       "Get compliance percentage for a benchmark report",
@@ -45,7 +48,12 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return fmt.Errorf("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -60,6 +68,26 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 			path := "/compliance-benchmarks/v1/benchmarks/{id}/compliance-percentage"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "benchmark report", "/compliance-benchmarks/v1/benchmarks", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `compliance-percentage <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/compliance-benchmarks/v1/benchmarks/{id}/compliance-percentage"
+					p = strings.Replace(p, "{id}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "benchmark-reports entries", func(ctx context.Context, id string) (any, error) {
+					var result any
+					err := cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodGet, recordPath(id), nil, http.StatusOK, &result)
+					return result, err
+				})
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -79,6 +107,8 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "benchmark-reports to compliance-percentage: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -230,4 +260,7 @@ var (
 	_ = platform.ResolveIDByName
 	_ = platform.IsNotFound
 	_ = platform.ApplyName
+	_ = platform.NamedTargets
+	_ = listfile.AddFlag
+	_ = context.Background
 )

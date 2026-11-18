@@ -17,6 +17,7 @@ import (
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/jamf/jamfplatform-go-sdk/jamfplatform"
@@ -115,15 +116,18 @@ func pdgItemPath(c *jamfplatform.Client, id string) string {
 }
 
 func newPDGGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var nameFlag, deviceTypeFlag string
+	var nameFlag, deviceTypeFlag, listFile string
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get a device group by ID",
-		Long:  "Retrieve a specific device group by its ID",
+		Long:  "Retrieve a specific device group by its ID, by --name, or every group a --list-file names.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
+			}
+			if listFile != "" {
+				return runPDGListGet(cmd, cliCtx, args, deviceTypeFlag, listFile)
 			}
 			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
 			if err != nil {
@@ -144,8 +148,36 @@ func newPDGGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
-	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow a name lookup (--name, or names in the list) by device type: COMPUTER or MOBILE")
+	listfile.AddFlag(cmd, &listFile, "device groups to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
+}
+
+// runPDGListGet is `platform-device-groups get --list-file`: names resolve
+// against one listing of the groups, narrowed by --device-type as --name is.
+func runPDGListGet(cmd *cobra.Command, cliCtx *registry.CLIContext, args []string, deviceTypeFlag, listFile string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("--list-file names the device groups to get; do not pass an <id> as well")
+	}
+	dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+	if err != nil {
+		return err
+	}
+	c := cliCtx.PlatformSDKClient
+	listPath := pdgListPath(c)
+	if dt != "" {
+		listPath += "?" + url.Values{"filter": {fmt.Sprintf(`deviceType=="%s"`, dt)}}.Encode()
+	}
+	targets, skipped, err := platform.NamedTargets(cmd.Context(), c, "device group", listPath, "", listFile)
+	if err != nil {
+		return err
+	}
+	return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "platform-device-groups entries", func(ctx context.Context, id string) (any, error) {
+		var result any
+		err := c.Transport().DoExpect(ctx, http.MethodGet, pdgItemPath(c, id), nil, http.StatusOK, &result)
+		return result, err
+	})
 }
 
 func newPDGDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {

@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -166,4 +168,7 @@ var (
 	_ = platform.ResolveIDByName
 	_ = platform.IsNotFound
 	_ = platform.ApplyName
+	_ = platform.NamedTargets
+	_ = listfile.AddFlag
+	_ = context.Background
 )

@@ -103,10 +103,6 @@ var listFileGetExemptions = map[string]string{
 	"jamf-cli pro classic-restricted-software scope get":    "one resource's scope table",
 	"jamf-cli pro classic-vpp-assignments scope get":        "one resource's scope table",
 	"jamf-cli pro classic-vpp-invitations scope get":        "one resource's scope table",
-	"jamf-cli pro blueprints get":                           "Platform API: hand-written, not yet migrated",
-	"jamf-cli pro blueprint-components get":                 "Platform API: hand-written, not yet migrated",
-	"jamf-cli pro platform-device-groups get":               "Platform API: hand-written, not yet migrated",
-	"jamf-cli pro compliance-benchmarks get":                "Platform API generator: not yet migrated",
 }
 
 // TestEveryNamedGetTakesAListFile holds issue #342's promise: a `get` that
@@ -127,12 +123,15 @@ func TestEveryNamedGetTakesAListFile(t *testing.T) {
 		if !strings.HasPrefix(path, "jamf-cli pro ") || (!classic && !named) {
 			return
 		}
+		has := cmd.LocalNonPersistentFlags().Lookup(listfile.FlagName) != nil
 		if _, ok := listFileGetExemptions[path]; ok {
-			seen[path] = true
+			if !has {
+				seen[path] = true
+			}
 			return
 		}
 		checked++
-		if cmd.LocalNonPersistentFlags().Lookup(listfile.FlagName) == nil {
+		if !has {
 			t.Errorf("%s: names one record but takes no --list-file (exempt it in listFileGetExemptions with a reason, or add it)", path)
 		}
 	})
@@ -143,5 +142,25 @@ func TestEveryNamedGetTakesAListFile(t *testing.T) {
 	}
 	if checked < 90 {
 		t.Fatalf("walk checked %d gets; expected the Pro and Classic tree", checked)
+	}
+}
+
+// TestHandWrittenDeviceGetsTakeAListFile covers the device reads outside the
+// generators, which resolve a line through their own product's resolver.
+func TestHandWrittenDeviceGetsTakeAListFile(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	for _, path := range [][]string{
+		{"pro", "platform-devices", "get"},
+		{"pro", "platform-device-groups", "get"},
+		{"protect", "computers", "get"},
+		{"school", "devices", "get"},
+	} {
+		cmd, _, err := root.Find(path)
+		if err != nil || cmd.Name() != "get" {
+			t.Fatalf("%v: not found", path)
+		}
+		if cmd.Flags().Lookup(listfile.FlagName) == nil {
+			t.Errorf("%v: no --list-file", path)
+		}
 	}
 }

@@ -7,9 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 )
 
@@ -184,5 +187,47 @@ func TestProNameLookup_ChunksALongList(t *testing.T) {
 	}
 	if len(client.calls) != 3 {
 		t.Errorf("sent %d requests for 250 names, want 3 chunks of at most 100", len(client.calls))
+	}
+}
+
+func writeNamedList(t *testing.T, content string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "list.txt")
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestResolveEachFile_SkipsAMissAndDropsARepeat(t *testing.T) {
+	calls := 0
+	targets, skipped, err := ResolveEachFile(context.Background(), "computer", writeNamedList(t, "a\nmissing\nA\n"),
+		func(_ context.Context, v string) (string, string, error) {
+			calls++
+			if v == "missing" {
+				return "", "", errors.New("no computer found")
+			}
+			return "uuid-a", "Computer A", nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if targetIDs(targets) != "uuid-a" || skipped != 1 || calls != 3 || targets[0].Label != "Computer A" {
+		t.Errorf("targets = %+v, skipped = %d, calls = %d", targets, skipped, calls)
+	}
+}
+
+// TestResolveEachFile_StopsOnARequestFailure: a refusal the next line would
+// meet too ends the list at once, with its exit code, instead of one warning
+// per line.
+func TestResolveEachFile_StopsOnARequestFailure(t *testing.T) {
+	calls := 0
+	_, _, err := ResolveEachFile(context.Background(), "device", writeNamedList(t, "a\nb\nc\n"),
+		func(context.Context, string) (string, string, error) {
+			calls++
+			return "", "", exitcode.New(exitcode.PermissionDenied, "403")
+		})
+	if exitcode.CodeFrom(err) != exitcode.PermissionDenied || calls != 1 {
+		t.Errorf("err = %v (code %d), calls = %d; want a permission refusal after one request", err, exitcode.CodeFrom(err), calls)
 	}
 }

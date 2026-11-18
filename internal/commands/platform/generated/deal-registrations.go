@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -153,6 +155,7 @@ func newDealRegistrationsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newDealRegistrationsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "get <partnerRegistrationId>",
 		Short:       "Get Deal Registration",
@@ -164,7 +167,12 @@ func newDealRegistrationsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return fmt.Errorf("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/partners/v1/deal-registrations"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -179,6 +187,26 @@ func newDealRegistrationsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/partners/v1/deal-registrations/{partnerRegistrationId}"
 			path = strings.Replace(path, "{partnerRegistrationId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "deal registration", "/partners/v1/deal-registrations", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `get <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/partners/v1/deal-registrations/{partnerRegistrationId}"
+					p = strings.Replace(p, "{partnerRegistrationId}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "deal-registrations entries", func(ctx context.Context, id string) (any, error) {
+					var result any
+					err := cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodGet, recordPath(id), nil, http.StatusOK, &result)
+					return result, err
+				})
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -198,6 +226,8 @@ func newDealRegistrationsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "deal-registrations to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -214,4 +244,7 @@ var (
 	_ = platform.ResolveIDByName
 	_ = platform.IsNotFound
 	_ = platform.ApplyName
+	_ = platform.NamedTargets
+	_ = listfile.AddFlag
+	_ = context.Background
 )

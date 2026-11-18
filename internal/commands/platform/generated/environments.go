@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -150,6 +152,7 @@ func newEnvironmentsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newEnvironmentsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "delete <environmentId>",
 		Short:       "Delete Environment",
@@ -161,7 +164,12 @@ func newEnvironmentsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return fmt.Errorf("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/organization/v1/environments"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -176,6 +184,25 @@ func newEnvironmentsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/organization/v1/environments/{environmentId}"
 			path = strings.Replace(path, "{environmentId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "environment", "/organization/v1/environments", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `delete <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/organization/v1/environments/{environmentId}"
+					p = strings.Replace(p, "{environmentId}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.RunListDelete(cmd, cliCtx.DryRun, yes, targets, skipped, "environments", func(ctx context.Context, id string) (string, error) {
+					p := recordPath(id)
+					return p, cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodDelete, p, nil, http.StatusNoContent, nil)
+				}, recordPath)
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -210,6 +237,8 @@ func newEnvironmentsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "environments to delete: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -499,4 +528,7 @@ var (
 	_ = platform.ResolveIDByName
 	_ = platform.IsNotFound
 	_ = platform.ApplyName
+	_ = platform.NamedTargets
+	_ = listfile.AddFlag
+	_ = context.Background
 )

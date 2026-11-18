@@ -284,7 +284,9 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 		// loop on the paginated one, which has no preview to sit behind — and a
 		// second copy of the identifier expression is a second place for the two
 		// to drift apart.
-		"confirmStmt": confirmStmt,
+		"confirmStmt":   confirmStmt,
+		"listFileOp":    listFileOp,
+		"singularLabel": singularLabel,
 		// applyLong/applyExample/applyAnnotations render the apply command's
 		// help. Functions rather than fields on applySpec because they are
 		// presentation built from the spec's own values, and a field would let
@@ -1481,6 +1483,37 @@ func successStatus(op *parser.Operation) (code int, hasResult bool) {
 	resp := op.Responses[strconv.Itoa(code)]
 	hasResult = resp != nil && resp.Schema != nil
 	return code, hasResult
+}
+
+// singularLabel names one record of a resource in a --list-file message:
+// "device-groups" → "device group", "ai-policies" → "ai policy".
+func singularLabel(name string) string {
+	label := strings.ReplaceAll(name, "-", " ")
+	switch {
+	case strings.HasSuffix(label, "ies"):
+		return strings.TrimSuffix(label, "ies") + "y"
+	case strings.HasSuffix(label, "ss"):
+		return label
+	}
+	return strings.TrimSuffix(label, "s")
+}
+
+// listFileOp reports whether op takes --list-file: a single-ID read or a
+// DELETE with a --name lookup, no body, no pagination and no documented
+// status. The list branch reads the query the single request would send, so a
+// paginated read (its walk returns from RunE) and a documented-status read (it
+// renders a non-2xx body) are left out.
+func listFileOp(op templateOp) bool {
+	if !op.SupportsNameLookup || op.HasBody || op.Paginate || len(op.DocumentedStatuses) > 0 || len(op.PathParams) != 1 {
+		return false
+	}
+	switch op.Method {
+	case http.MethodGet:
+		return op.HasResult && !op.IsDestructive
+	case http.MethodDelete:
+		return op.IsDestructive
+	}
+	return false
 }
 
 // confirmStmt renders the platform.ConfirmAction guard for a destructive

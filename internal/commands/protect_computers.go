@@ -3,13 +3,17 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
+	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
@@ -51,14 +55,35 @@ func newProtectComputersListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newProtectComputersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <uuid|serial|hostname>",
+	var listFile string
+	cmd := &cobra.Command{
+		Use:   "get [<uuid|serial|hostname>]",
 		Short: "Get a computer by UUID, serial number, or hostname",
-		Args:  cobra.ExactArgs(1),
+		Long: `Get a computer by UUID, serial number, or hostname, or every computer a
+--list-file names, one per line.`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)
 
+			if listFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the computers to get; do not pass a <uuid|serial|hostname> as well")
+				}
+				targets, skipped, err := resolve.ResolveEachFile(ctx, "computer", listFile, func(ctx context.Context, v string) (string, string, error) {
+					uuid, err := r.ResolveComputerUUID(ctx, v)
+					return uuid, "", err
+				})
+				if err != nil {
+					return err
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "protect computers entries", func(ctx context.Context, uuid string) (any, error) {
+					return cliCtx.ProtectClient.GetComputer(ctx, uuid)
+				})
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("provide a <uuid|serial|hostname> or --list-file")
+			}
 			uuid, err := r.ResolveComputerUUID(ctx, args[0])
 			if err != nil {
 				return err
@@ -71,6 +96,8 @@ func newProtectComputersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return protect.PrintOne(cliCtx.Output, computer)
 		},
 	}
+	listfile.AddFlag(cmd, &listFile, "computers to get: UUID, serial number or hostname")
+	return cmd
 }
 
 func newProtectComputersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {

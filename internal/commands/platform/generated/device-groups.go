@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -112,6 +114,7 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "delete <groupId>",
 		Short:       "Delete a device group",
@@ -123,7 +126,12 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return fmt.Errorf("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -138,6 +146,25 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "device group", "/securitycloud/v2/groups", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `delete <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/securitycloud/v1/groups/{groupId}"
+					p = strings.Replace(p, "{groupId}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.RunListDelete(cmd, cliCtx.DryRun, yes, targets, skipped, "device-groups", func(ctx context.Context, id string) (string, error) {
+					p := recordPath(id)
+					return p, cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodDelete, p, nil, http.StatusNoContent, nil)
+				}, recordPath)
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -172,11 +199,14 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "device-groups to delete: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
 func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "get <groupId>",
 		Short:       "Get a device group by ID",
@@ -188,7 +218,12 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return fmt.Errorf("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -203,6 +238,26 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "device group", "/securitycloud/v2/groups", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `get <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/securitycloud/v1/groups/{groupId}"
+					p = strings.Replace(p, "{groupId}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "device-groups entries", func(ctx context.Context, id string) (any, error) {
+					var result any
+					err := cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodGet, recordPath(id), nil, http.StatusOK, &result)
+					return result, err
+				})
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -222,6 +277,8 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "device-groups to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -466,4 +523,7 @@ var (
 	_ = platform.ResolveIDByName
 	_ = platform.IsNotFound
 	_ = platform.ApplyName
+	_ = platform.NamedTargets
+	_ = listfile.AddFlag
+	_ = context.Background
 )

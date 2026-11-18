@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -314,8 +315,7 @@ func isBadRequest(err error) bool {
 // that answers a plain array in one request.
 func fetchRecords(ctx context.Context, client registry.HTTPClient, path string) ([]map[string]any, error) {
 	records, err := fetchAllPages(ctx, client, path)
-	var parse *pageShapeError
-	if !errors.As(err, &parse) {
+	if _, ok := errors.AsType[*pageShapeError](err); !ok {
 		return records, err
 	}
 	resp, err := client.Do(ctx, "GET", path, nil)
@@ -357,4 +357,65 @@ func dottedString(m map[string]any, path string) string {
 		m = inner
 	}
 	return jsonString(m, parts[len(parts)-1])
+}
+
+// ResolveOne resolves one --list-file line for a resource that has no batched
+// lookup, returning the record's ID and a label naming it.
+type ResolveOne func(ctx context.Context, value string) (id, label string, err error)
+
+// ResolveEachFile resolves path's entries one line at a time, for a hand-written
+// command whose resource resolves an identifier through its own resolver
+// (Protect's computers, School's devices, the Platform devices). It keeps the
+// policy of ResolveNamedEntries — a line that fails to resolve is warned about
+// and skipped, an entry resolving to a record already targeted is dropped, and
+// a list in which nothing resolves is an error — except that a failure the
+// next line would meet too stops the whole list at once rather than printing
+// one warning per line: an authentication, permission, rate-limit or
+// unsupported refusal.
+func ResolveEachFile(ctx context.Context, label, path string, resolveOne ResolveOne) ([]Target, int, error) {
+	entries, err := listfile.Read(path)
+	if err != nil {
+		return nil, 0, fmt.Errorf("reading --%s: %w", listfile.FlagName, err)
+	}
+	if len(entries) == 0 {
+		return nil, 0, fmt.Errorf("%s contains no entries", listfile.SourceName(path))
+	}
+	targets := make([]Target, 0, len(entries))
+	seen := map[string]bool{}
+	skipped := 0
+	for _, e := range entries {
+		id, desc, err := resolveOne(ctx, e.Value)
+		if err != nil {
+			if stopsTheList(err) {
+				return nil, 0, e.Wrap(fmt.Sprintf("resolving %s %s", label, e.Label()), err)
+			}
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %s: %s\n", label, e.Label(), output.SanitizeTerminal(e.Hide(err).Error()))
+			skipped++
+			continue
+		}
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		if desc == "" || e.Hidden() {
+			desc = e.Target(output.SanitizeTerminal(id))
+		} else {
+			desc = output.SanitizeTerminal(desc)
+		}
+		targets = append(targets, Target{ID: id, Label: desc, Entry: e})
+	}
+	if len(targets) == 0 {
+		return nil, skipped, fmt.Errorf("none of the %d entries in %s could be resolved", len(entries), listfile.SourceName(path))
+	}
+	return targets, skipped, nil
+}
+
+// stopsTheList reports whether a resolution failure is about the request
+// rather than the line, so every later line would fail the same way.
+func stopsTheList(err error) bool {
+	switch exitcode.CodeFrom(err) {
+	case exitcode.Authentication, exitcode.PermissionDenied, exitcode.RateLimited, exitcode.Unsupported:
+		return true
+	}
+	return false
 }

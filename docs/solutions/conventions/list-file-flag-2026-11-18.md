@@ -146,3 +146,45 @@ desktops.txt`.
 - **`TestEveryNamedGetTakesAListFile`** holds every Classic `get` and every Pro
   `get` that takes `--name` to the convention. Each exemption carries a reason,
   and a stale exemption fails.
+
+## Platform, Security Cloud, Protect and School
+
+- **Platform template.** Single-ID reads, and DELETEs that have a `--name`
+  lookup, take `--list-file` (`listFileOp`). The remaining ops are left out on
+  purpose:
+  - paginated walks, which return from inside RunE;
+  - ops with a body;
+  - ops with documented-status results.
+
+  Names resolve through `platform.NamedTargets`: one `listAllItems` walk, the
+  same pager `--name` uses, which was extracted from `resolveIDByName` so the
+  two cannot drift apart. The match fields are the same as `--name`'s:
+  `nameField`, then `name`, `title` and `displayName`. A line is an ID when it
+  is a UUID or all digits (`platform.IsID`); an SSO domain's ID is an integer.
+- **Security Cloud.**
+  - The gateway-served commands come out of the Platform template, so this
+    change covers them.
+  - The Radar commands take no `{id}`, so they have no record to list.
+- **Hand-written device reads:** `protect computers get`, `school devices get`
+  and `pro platform-devices get`.
+  - Their products resolve one identifier at a time, and
+    `resolve.ResolveEachFile` wraps that resolver.
+  - A request-level refusal stops the whole list after one request. That covers
+    an authentication, permission, rate-limit or unsupported error, which every
+    later line would hit too. Without the stop, a bad credential would print one
+    warning per line.
+  - `platform-device-groups get` uses the batched Platform lookup, narrowed by
+    `--device-type` the same way `--name` is.
+- **One printer:** `platform.PrintListRecords`. It is used by the Platform
+  template and by every hand-written command.
+- **Exemptions that are still in place:**
+  - the nine Classic `scope get` commands, which print one resource's scope
+    table;
+  - `pro mobile-device-groups get`, a paginated membership walk.
+- **Testing.**
+  - `platform-nmartin` holds no Platform API grants, so every Platform namespace
+    answered 403. The generated Platform path is tested against an httptest SDK
+    instead (`platform_list_file_test.go`): one collection listing for every
+    name, records in file order, exit 7, and a dry run that sends no DELETE.
+  - `pro platform-devices get --list-file` was wire-checked on the EU gateway:
+    serial numbers resolved to Platform device IDs.

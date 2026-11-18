@@ -12,7 +12,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
+	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/school"
 	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
 )
@@ -73,12 +76,32 @@ func flattenSchoolDevice(d jamfschool.Device) map[string]any {
 }
 
 func newSchoolDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <udid|serial|name>",
+	var listFile string
+	cmd := &cobra.Command{
+		Use:   "get [<udid|serial|name>]",
 		Short: "Get a device by name, serial number, or UDID",
-		Args:  cobra.ExactArgs(1),
+		Long: `Get a device by name, serial number, or UDID, or every device a --list-file
+names, one per line.`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if listFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the devices to get; do not pass a <udid|serial|name> as well")
+				}
+				targets, skipped, err := resolve.ResolveEachFile(ctx, "device", listFile, func(ctx context.Context, v string) (string, string, error) {
+					return resolveSchoolDevice(ctx, cliCtx, v)
+				})
+				if err != nil {
+					return err
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "school devices entries", func(ctx context.Context, udid string) (any, error) {
+					return cliCtx.SchoolClient.GetDevice(ctx, udid)
+				})
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("provide a <udid|serial|name> or --list-file")
+			}
 			udid, _, err := resolveSchoolDevice(ctx, cliCtx, args[0])
 			if err != nil {
 				return err
@@ -91,6 +114,8 @@ func newSchoolDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return printResult(cliCtx.Output, item, flattenSchoolDevice(*item))
 		},
 	}
+	listfile.AddFlag(cmd, &listFile, "devices to get: UDID, serial number or name")
+	return cmd
 }
 
 func newSchoolDevicesRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {

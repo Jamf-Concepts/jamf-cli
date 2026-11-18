@@ -49,7 +49,10 @@ Set session defaults with `JAMF_CLI_ARGS`, e.g. `JAMF_CLI_ARGS='--quiet --no-inp
   line that matches nothing, or more than one record, is reported and skipped
   (never prompted for), and the batch exits 7.
 - `get --list-file <path>` reads every record the file names and prints them
-  as one JSON array in file order (Classic: one XML document by default).
+  as one JSON array in file order (Classic: one XML document by default). It
+  works across `pro`, `platform`, `security`, `protect computers get` and
+  `school devices get`; `pro platform-devices get` takes a Platform device ID
+  or a serial number, not a Jamf Pro ID.
 - `--file <path>` — only a multipart upload or a YAML import.
 
 Commands that took their list through `--from-file` before `--list-file`
