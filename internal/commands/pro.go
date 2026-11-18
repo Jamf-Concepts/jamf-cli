@@ -71,7 +71,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// resolved a parent and then removed nothing.
 
 	// Suppress generated commands duplicated by richer handwritten versions (see #39).
-	// The handwritten counterparts target by --serial/--name/--group/--from-file,
+	// The handwritten counterparts target by --serial/--name/--group/--list-file,
 	// confirm the action, honour --dry-run and carry the Find My PIN body, where
 	// the generated ones take an <id>.
 	//

@@ -23,6 +23,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -775,6 +776,7 @@ const (
 // selector.
 var mcpLocalPathFlags = map[string]localPathUse{
 	"from-file":           pathRead,
+	"list-file":           pathRead,
 	"file":                pathRead,
 	"script-file":         pathRead,
 	"mobileconfig-file":   pathRead,
@@ -910,8 +912,8 @@ func refuseOverMCP(inv childInvocation, pinnedProfile string) error {
 	if n := verboseCount(inv.settings); n >= verboseLogsBodies {
 		return fmt.Errorf("--verbose at level %d is not available over MCP: response bodies are logged at -vvv, which is not available over MCP; use -vv or less", n)
 	}
-	if verboseCount(inv.settings) > 0 && slices.ContainsFunc(inv.settings, func(s flagSetting) bool { return s.name == "from-file" }) {
-		return errors.New("--verbose is not available over MCP with --from-file: -v logs each request URL, and a lookup's URL holds lines of the file")
+	if i := slices.IndexFunc(inv.settings, func(s flagSetting) bool { return s.name == "from-file" || s.name == "list-file" }); i >= 0 && verboseCount(inv.settings) > 0 {
+		return fmt.Errorf("--verbose is not available over MCP with --%s: -v logs each request URL, and a lookup's URL holds lines of the file", inv.settings[i].name)
 	}
 	for _, s := range inv.settings {
 		if isBlockedChildFlag("--" + s.name) {
@@ -1016,6 +1018,9 @@ func refuseLocalPath(use localPathUse, s flagSetting, inputDir string) error {
 	}
 	if s.value == "" {
 		return fmt.Errorf("flag --%s names no path; over MCP it must name an existing path inside the input directory %s", s.name, inputDir)
+	}
+	if s.value == listfile.Stdin {
+		return fmt.Errorf("flag --%s - is not available over MCP: a command run for the model has no stdin of its own; name a file inside the input directory %s", s.name, inputDir)
 	}
 	resolved, err := filepath.Abs(s.value)
 	if err == nil {

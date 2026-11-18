@@ -46,7 +46,7 @@ Without --yes, or with -n/--dry-run, the command prints a preview table and
 exits without making any changes.
 
 %s`, verb, policyFilterHelp),
-		Deprecated: fmt.Sprintf("use `jamf-cli pro classic-policies %s` (same filters, plus <id>, --name and --from-file); `pro bulk %s-policies` will be removed in a future release", verb, verb),
+		Deprecated: fmt.Sprintf("use `jamf-cli pro classic-policies %s` (same filters, plus <id>, --name and --list-file); `pro bulk %s-policies` will be removed in a future release", verb, verb),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			selected, unreadable, err := selectPoliciesByFilter(cmd.Context(), cliCtx.Client, cmd.ErrOrStderr(), pf.filters(cmd))
 			if err != nil {

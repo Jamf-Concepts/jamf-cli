@@ -268,12 +268,12 @@ func TestGroupMembers_ListSourcePreviewsUntilYes(t *testing.T) {
 
 	f := newFakeGroupServer(classicComputerGroupKind)
 	f.devices = standardDevices()
-	stderr, err := runGroupMembers(t, f, true, "--name", "Quarantine", "--from-file", path)
+	stderr, err := runGroupMembers(t, f, true, "--name", "Quarantine", "--list-file", path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(f.puts) != 0 {
-		t.Errorf("--from-file without --yes sent %d PUTs", len(f.puts))
+		t.Errorf("--list-file without --yes sent %d PUTs", len(f.puts))
 	}
 	if !strings.Contains(stderr, "[dry-run]") || !strings.Contains(stderr, "--yes") {
 		t.Errorf("stderr = %q, want a preview naming --yes", stderr)
@@ -281,7 +281,7 @@ func TestGroupMembers_ListSourcePreviewsUntilYes(t *testing.T) {
 
 	t.Cleanup(func() { dryRun = false })
 	dryRun = true
-	if _, err := runGroupMembers(t, f, true, "200", "--from-file", path, "--yes"); err != nil {
+	if _, err := runGroupMembers(t, f, true, "200", "--list-file", path, "--yes"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := runGroupMembers(t, f, true, "200", "--computer", "1"); err != nil {
@@ -292,7 +292,7 @@ func TestGroupMembers_ListSourcePreviewsUntilYes(t *testing.T) {
 	}
 
 	dryRun = false
-	if _, err := runGroupMembers(t, f, true, "200", "--from-file", path, "--yes"); err != nil {
+	if _, err := runGroupMembers(t, f, true, "200", "--list-file", path, "--yes"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(f.puts) != 1 {

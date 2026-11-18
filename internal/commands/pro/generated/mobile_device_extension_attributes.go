@@ -534,10 +534,10 @@ func newMobileDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobr
 
 func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		fromFile   string
-		flagName   string
+		flagYes      bool
+		flagDryRun   bool
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -557,14 +557,14 @@ func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobr
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names
+			if flagListFile != "" {
+				entries, err := listfile.Read(flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return fmt.Errorf("reading --list-file: %w", err)
 				}
 				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
 				}
 				type bulkEntry struct {
 					id    string
@@ -575,7 +575,7 @@ func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobr
 				for _, entry := range entries {
 					if isNumericID(entry.Value) {
 						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
 						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
@@ -740,11 +740,10 @@ func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobr
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "mobile-device-extension-attributes to delete: ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-extension-attribute by name")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 

@@ -259,7 +259,7 @@ func computerRecord(id string) string {
 		id, id, id, id)
 }
 
-// writeEntriesFile writes a --from-file fixture and returns its path.
+// writeEntriesFile writes a --list-file fixture and returns its path.
 func writeEntriesFile(t *testing.T, lines string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "targets.txt")

@@ -353,10 +353,10 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		flagName   string
-		fromFile   string
+		flagYes      bool
+		flagDryRun   bool
+		flagName     string
+		flagListFile string
 	)
 
 	cmd := &cobra.Command{
@@ -375,14 +375,14 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names
+			if flagListFile != "" {
+				entries, err := listfile.Read(flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return fmt.Errorf("reading --list-file: %w", err)
 				}
 				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
 				}
 				type bulkEntry struct {
 					id    string
@@ -393,7 +393,7 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				for _, entry := range entries {
 					if isNumericID(entry.Value) {
 						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
 						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
@@ -531,8 +531,8 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user_extension_attribute by name")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	listfile.AddFlag(cmd, &flagListFile, "userextensionattributes to delete: ID or name", listfile.WithLegacyAlias())
+	listfile.MarkExclusive(cmd, "name")
 
 	return cmd
 }

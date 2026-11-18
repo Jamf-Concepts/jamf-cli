@@ -32,13 +32,13 @@ func finishBatch(stderr io.Writer, noun string, succeeded, failed int, firstErr 
 	return exitcode.PartialOrPropagate(succeeded, failed, firstErr, msg)
 }
 
-// warnUnresolvedTargets reports --from-file entries that could not be resolved,
+// warnUnresolvedTargets reports --list-file entries that could not be resolved,
 // before any mutation runs so the count also shows up in a dry-run preview.
 // The resolver warns per entry; this is the total the user acts on.
 func warnUnresolvedTargets(stderr io.Writer, unresolved int) {
 	if unresolved > 0 {
 		_, _ = fmt.Fprintf(stderr,
-			"warning: %d --from-file target(s) could not be resolved and will be skipped\n", unresolved)
+			"warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", unresolved)
 	}
 }
 
@@ -350,15 +350,15 @@ func fetchComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient
 
 // resolveComputerTargets returns a list of (id, name) pairs from either
 // a file or a group name.  Exactly one of fromFile/groupName must be set.
-// The second return value is the number of --from-file entries that could not
+// The second return value is the number of --list-file entries that could not
 // be resolved; callers fold it into their failure tally so a skipped entry
 // shows up in the summary line and the exit code.
 func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fromFile, groupName string) ([]map[string]string, int, error) {
 	switch {
 	case fromFile != "" && groupName != "":
-		return nil, 0, fmt.Errorf("--from-file and --group are mutually exclusive")
+		return nil, 0, fmt.Errorf("--list-file and --group are mutually exclusive")
 	case fromFile == "" && groupName == "":
-		return nil, 0, fmt.Errorf("either --from-file or --group is required")
+		return nil, 0, fmt.Errorf("either --list-file or --group is required")
 	}
 
 	if fromFile != "" {

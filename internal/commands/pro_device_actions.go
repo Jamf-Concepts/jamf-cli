@@ -19,6 +19,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -135,18 +136,20 @@ type deviceTarget struct {
 	fromFile string
 }
 
-// addFlags registers --serial, --name, --id, --group, --from-file on the
-// command and marks them mutually exclusive.
+// addFlags registers --serial, --name, --id, --group and --list-file (with its
+// deprecated --from-file alias) on the command and marks them mutually
+// exclusive.
 func (dt *deviceTarget) addFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&dt.serial, "serial", "", "device serial number")
 	cmd.Flags().StringVar(&dt.name, "name", "", "device name")
 	cmd.Flags().StringVar(&dt.id, "id", "", "device numeric ID")
 	cmd.Flags().StringVar(&dt.group, "group", "", "target all members of a device group")
-	cmd.Flags().StringVar(&dt.fromFile, "from-file", "", "file listing one device per line: ID, serial number, UDID, management ID or name")
-	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group", "from-file")
+	listfile.AddFlag(cmd, &dt.fromFile, "devices: ID, serial number, UDID, management ID or name", listfile.WithLegacyAlias())
+	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group")
+	listfile.MarkExclusive(cmd, "serial", "name", "id", "group")
 }
 
-// addFlushFlags registers --serial, --name, --id, --group (but not --from-file)
+// addFlushFlags registers --serial, --name, --id, --group (but not --list-file)
 // with device-type-specific help text and marks them mutually exclusive.
 // Used by flush-style commands that operate on a single device or group but
 // don't support bulk file input.
@@ -167,7 +170,7 @@ func (dt *deviceTarget) validate() error {
 		}
 	}
 	if set == 0 {
-		return fmt.Errorf("one of --serial, --name, --id, --group, or --from-file is required")
+		return fmt.Errorf("one of --serial, --name, --id, --group, or --list-file is required")
 	}
 	return nil
 }
@@ -178,7 +181,7 @@ func (dt *deviceTarget) isBulk() bool {
 }
 
 // resolveComputersCmd resolves the target to one or more computers using a cobra
-// command's context. The second return value is the number of --from-file
+// command's context. The second return value is the number of --list-file
 // entries that could not be resolved (see resolve.ResolveComputersFromFile).
 func (dt *deviceTarget) resolveComputersCmd(cmd *cobra.Command, client registry.HTTPClient) ([]*resolve.DeviceIdentifiers, int, error) {
 	ctx := cmd.Context()
@@ -397,7 +400,7 @@ func newComputerDDMSyncCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Force a Declarative Device Management sync",
 		Long:  "Force a DDM sync on a computer by serial number, name, or ID.",
 		Example: `  jamf-cli pro comp ddm-sync --serial C02X1234
-  jamf-cli pro comp ddm-sync --from-file devices.txt --yes`,
+  jamf-cli pro comp ddm-sync --list-file devices.txt --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
 				actionName: "ddm-sync",
@@ -592,7 +595,7 @@ func deviceActionPreviewTable(rows []map[string]any) {
 }
 
 // executeAction runs cfg against the resolved devices. unresolved is the count
-// of --from-file entries that never resolved: already warned about per entry by
+// of --list-file entries that never resolved: already warned about per entry by
 // the resolver, and folded into the tally here so the exit code reflects them.
 func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.DeviceIdentifiers, unresolved int, yes, confirmDestructive bool, cfg deviceActionConfig) error {
 	stderr := cmd.ErrOrStderr()
@@ -602,7 +605,7 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 	// Reject --body-file with bulk targeting (body can't be reused per device
 	// and the semantics are unclear).
 	if cfg.bodyFile != "" && dt.isBulk() {
-		return fmt.Errorf("--body-file cannot be used with --group or --from-file")
+		return fmt.Errorf("--body-file cannot be used with --group or --list-file")
 	}
 
 	// Dry-run: print what would happen.
@@ -654,7 +657,7 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 
 	// Every outcome below goes through finishBatch, so an action that reached
 	// some devices and not others exits 7 (or 0 with --allow-partial-failure)
-	// exactly as the group, policy and bulk commands do. A --from-file entry
+	// exactly as the group, policy and bulk commands do. A --list-file entry
 	// that never resolved counts as one that failed. These used to exit 1 for a
 	// partial failure, the same as for a total one, and ignore the flag.
 	noun := cfg.actionName + " operations"

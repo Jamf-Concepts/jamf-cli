@@ -629,13 +629,13 @@ func newComputerInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		fromFile   string
-		flagGroup  string
-		flagName   string
-		flagSerial string
-		flagUdid   string
+		flagYes      bool
+		flagDryRun   bool
+		flagListFile string
+		flagGroup    string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -655,14 +655,14 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names
+			if flagListFile != "" {
+				entries, err := listfile.Read(flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return fmt.Errorf("reading --list-file: %w", err)
 				}
 				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
 				}
 				type bulkEntry struct {
 					id    string
@@ -673,7 +673,7 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				for _, entry := range entries {
 					if isNumericID(entry.Value) {
 						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
 						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
@@ -940,17 +940,13 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "computer-inventory to delete: ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete every computer-inventory in a Classic API group (name or ID)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	listfile.MarkExclusive(cmd, "name", "serial", "udid", "group")
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
 	cmd.MarkFlagsMutuallyExclusive("group", "serial")
 	cmd.MarkFlagsMutuallyExclusive("group", "udid")
@@ -2100,7 +2096,7 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes      bool
 		flagDryRun   bool
-		fromFile     string
+		flagListFile string
 		flagGroup    string
 		flagScaffold bool
 		flagName     string
@@ -2123,14 +2119,14 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 }`, ctx.Output.Format())
 			}
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names
+			if flagListFile != "" {
+				entries, err := listfile.Read(flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return fmt.Errorf("reading --list-file: %w", err)
 				}
 				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
 				}
 				type bulkEntry struct {
 					id    string
@@ -2141,7 +2137,7 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				for _, entry := range entries {
 					if isNumericID(entry.Value) {
 						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
 						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
@@ -2418,18 +2414,14 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"erase\" on (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "computer-inventory to run \"erase\" on: ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagGroup, "group", "", "Run \"erase\" on every computer-inventory in a Classic API group (name or ID)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	listfile.MarkExclusive(cmd, "name", "serial", "udid", "group")
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
 	cmd.MarkFlagsMutuallyExclusive("group", "serial")
 	cmd.MarkFlagsMutuallyExclusive("group", "udid")
@@ -2439,13 +2431,13 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		fromFile   string
-		flagGroup  string
-		flagName   string
-		flagSerial string
-		flagUdid   string
+		flagYes      bool
+		flagDryRun   bool
+		flagListFile string
+		flagGroup    string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -2457,14 +2449,14 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names
+			if flagListFile != "" {
+				entries, err := listfile.Read(flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return fmt.Errorf("reading --list-file: %w", err)
 				}
 				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
 				}
 				type bulkEntry struct {
 					id    string
@@ -2475,7 +2467,7 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 				for _, entry := range entries {
 					if isNumericID(entry.Value) {
 						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
 						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
@@ -2752,17 +2744,13 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"remove-mdm-profile\" on (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "computer-inventory to run \"remove-mdm-profile\" on: ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagGroup, "group", "", "Run \"remove-mdm-profile\" on every computer-inventory in a Classic API group (name or ID)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	listfile.MarkExclusive(cmd, "name", "serial", "udid", "group")
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
 	cmd.MarkFlagsMutuallyExclusive("group", "serial")
 	cmd.MarkFlagsMutuallyExclusive("group", "udid")

@@ -26,7 +26,7 @@ func TestGeneratedBulkDelete_PartialFailure(t *testing.T) {
 		"/v1/buildings/2": {status: 500, body: []byte("boom")},
 	}}
 	cmd := newBuildingsDeleteCmd(&registry.CLIContext{Client: mock})
-	cmd.SetArgs([]string{"--from-file", listFile, "--yes"})
+	cmd.SetArgs([]string{"--list-file", listFile, "--yes"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 

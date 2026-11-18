@@ -37,6 +37,21 @@ check config, credentials, and connectivity without calling the product API.
 
 Set session defaults with `JAMF_CLI_ARGS`, e.g. `JAMF_CLI_ARGS='--quiet --no-input'`.
 
+## File inputs
+
+- `--from-file <path>` — a request body (JSON, YAML or Classic XML) and nothing
+  else. Absent the flag, a write reads its body from piped stdin.
+- `--list-file <path>` — a list of records to act on, one per line, `#`
+  comments ignored; `-` reads stdin, and stdin is never read without it. Each
+  command's help says what a line may be; an all-digit line is always an ID.
+  Device commands accept an ID, serial number, UDID, management ID or name and
+  resolve each to the Jamf Pro ID; a line that matches no device, or more than
+  one, is reported and skipped, and the batch exits 7.
+- `--file <path>` — only a multipart upload or a YAML import.
+
+Commands that took their list through `--from-file` before `--list-file`
+existed still accept it as a deprecated alias, which prints a warning.
+
 ## Exit codes
 
 React to a non-zero exit without parsing the message. The Name column is the
@@ -110,7 +125,8 @@ Rejected: credential- and target-selecting flags; flags whose value is a local
 file or directory (`--from-file`, `--file`, `--script-file`, `--save-to`,
 `--dir` and the like; `-o/--output` as a format is fine); body logging (`-vvv`
 or a `--verbose` level of 3 or more; `-vv` and less are fine), and any
-`--verbose` with `--from-file`; `multi`, `mcp`,
+`--verbose` with `--from-file` or `--list-file`, and `--list-file -` (a
+command run for you has no stdin); `multi`, `mcp`,
 `completion`, the config write subcommands, `config validate`, `doctor`, the
 commands that print an access token (`auth token` under `platform`, `pro` and
 `protect`; `pro api-authentication token`, `oauth-token` and `keep-alive`; `pro

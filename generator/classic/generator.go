@@ -1105,7 +1105,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagYes    bool
 		flagDryRun bool
 {{ if hasDeleteByName . }}		flagName string
-		fromFile string
+		flagListFile string
 {{ end }}{{ if .GroupPath }}		flagGroup string
 {{ end }}	)
 
@@ -1120,14 +1120,14 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 {{ if hasDeleteByName . }}
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names
+			if flagListFile != "" {
+				entries, err := listfile.Read(flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return fmt.Errorf("reading --list-file: %w", err)
 				}
 				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
 				}
 				type bulkEntry struct {
 					id    string
@@ -1138,7 +1138,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				for _, entry := range entries {
 					if isNumericID(entry.Value) {
 						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
 						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
@@ -1370,11 +1370,10 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{ if hasDeleteByName . }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, {{ goStr (print .Name " to delete: ID or name") }}, listfile.WithLegacyAlias())
 {{ end }}{{ if .GroupPath }}	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all {{ .Name }} from a Classic API group (name or ID)")
-{{ end }}{{ if hasDeleteByName . }}	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-{{ if .GroupPath }}	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
-	cmd.MarkFlagsMutuallyExclusive("group", "name")
+{{ end }}{{ if hasDeleteByName . }}	listfile.MarkExclusive(cmd, "name"{{ if .GroupPath }}, "group"{{ end }})
+{{ if .GroupPath }}	cmd.MarkFlagsMutuallyExclusive("group", "name")
 {{ end }}{{ end }}
 	return cmd
 }

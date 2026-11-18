@@ -23,6 +23,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
@@ -477,23 +478,18 @@ func extractSubdomain(rawURL string) string {
 	return host
 }
 
-// readURLsFromFile reads Jamf Pro URLs from a file, one per line.
+// readURLsFromFile reads Jamf Pro URLs from a list file, one per line.
 // Blank lines and lines starting with # are ignored. Duplicate URLs are removed.
 func readURLsFromFile(path string) ([]string, error) {
-	f, err := os.Open(path)
+	entries, err := listfile.Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("opening URL file: %w", err)
+		return nil, fmt.Errorf("reading URL file: %w", err)
 	}
-	defer func() { _ = f.Close() }()
 
 	seen := make(map[string]bool)
 	var urls []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
+	for _, entry := range entries {
+		line := entry.Value
 		normalized, err := normalizeURL(line)
 		if err != nil {
 			return nil, fmt.Errorf("invalid URL %q: %w", line, err)
@@ -503,9 +499,6 @@ func readURLsFromFile(path string) ([]string, error) {
 		}
 		seen[normalized] = true
 		urls = append(urls, normalized)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading URL file: %w", err)
 	}
 	if len(urls) == 0 {
 		return nil, fmt.Errorf("no URLs found in %s", path)
@@ -795,7 +788,7 @@ You type every credential at an interactive prompt. No flag, environment
 variable or stdin route accepts one, so nothing lands in shell history, "ps"
 output or a CI log.
 
-For multi-instance setup (e.g., MSPs), use --from-file with a file
+For multi-instance setup (e.g., MSPs), use --list-file with a file
 containing one Jamf Pro URL per line. Profiles are auto-named
 pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com). With
 --credentials existing, jamf-cli asks for a client per instance, since Jamf Pro
@@ -816,6 +809,9 @@ Deprecation notice for --credentials create:
 			// Determine URLs to process
 			var urls []string
 			if fromFile != "" {
+				if err := listfile.RefuseStdin(fromFile, "pro setup prompts for credentials on stdin"); err != nil {
+					return err
+				}
 				var err error
 				urls, err = readURLsFromFile(fromFile)
 				if err != nil {
@@ -1048,12 +1044,12 @@ Deprecation notice for --credentials create:
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Pro server URL")
 	cmd.Flags().StringVar(&credentialSrc, "credentials", "", fmt.Sprintf("credential source: %s (default: %s)", validCredentialSources(), defaultCredentialSource))
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one Jamf Pro URL per line (for multi-instance setup)")
+	listfile.AddFlag(cmd, &fromFile, "Jamf Pro URLs, for multi-instance setup", listfile.WithLegacyAlias(), listfile.WithoutStdin())
 	cmd.Flags().StringVar(&setupScope, "scope", "", fmt.Sprintf("API scope for --credentials create: %s (default: %s)", validScopeNames(), defaultScope))
-	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --from-file)")
+	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --list-file)")
 	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations (--credentials create only)")
 	cmd.Flags().StringVar(&reportDir, "report-dir", "", "directory HTML reports are written to (the MCP server writes only here)")
-	cmd.MarkFlagsMutuallyExclusive("url", "from-file")
+	listfile.MarkExclusive(cmd, "url")
 
 	return cmd
 }

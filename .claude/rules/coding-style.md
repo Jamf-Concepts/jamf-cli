@@ -63,6 +63,17 @@ The generator-side guard is `getPipeBlock` / `getByNamePipeBlock` (`generator/pa
 
 **The rename was the smaller half; the stdin gap was the real defect.** `ReadBody` in both `internal/platform` and `internal/security` was `os.ReadFile(file)` only. Both now read stdin when the flag is absent. **An empty pipe is not a body** and an empty named file is: a CI runner hands every process a non-character-device stdin, so `file != ""` in `hasInput` is what keeps `bodyinput.Normalize`'s empty-input error reachable.
 
+## List Input Flag — `--list-file`
+
+**A list of records to act on is `--list-file`, never `--from-file`** (issue #342). `--from-file` is a request body and nothing else. The two used to share `--from-file` — a body on ~460 leaves, a list of IDs, serials or names on ~125 — so neither a reader nor an agent could tell from the flag which a command wanted, and `computer-inventory erase`, which needs both, had to call its body `--body-file`.
+
+- **Register it through `listfile.AddFlag`**, which owns the name, the usage wording and the stdin form; mark exclusivity with `listfile.MarkExclusive` so the alias is covered too. Read it with `listfile.Read`, which also reads `-` as stdin. Stdin is **memoised**, because `pro packages delete` reads the list twice (file names first, then the generated delete).
+- **Stdin is read only for an explicit `-`**, never when the flag is absent — a CI runner's non-terminal stdin would otherwise turn a single-ID call into an empty list. `WithoutStdin()` plus `listfile.RefuseStdin` for a command whose stdin is spoken for (`pro setup` prompts on it). Over MCP, `-` is refused outright (`refuseLocalPath`): a command run for the model has no stdin, and a file called `-` must not stand in for it.
+- **Not a root persistent flag.** It would be advertised under Global Flags on ~1,550 leaves that cannot honour it — the "documented flag that does nothing" failure above.
+- **The deprecated alias.** Every leaf that took a list through `--from-file` keeps it via `listfile.WithLegacyAlias()`: hidden, bound to the same variable, mutually exclusive with `--list-file`, removed in `listfile.LegacyAliasRemoval` (2027-05). Never add the alias to a command that gains a list now — it never had one to keep. `listfile.IsListFlag` tells an alias from a body `--from-file`.
+
+`TestFromFileIsAlwaysARequestBody` walks the tree: a non-deprecated `--from-file` whose usage describes a list fails, an alias without `--list-file` beside it fails, and a `--list-file` not registered through `AddFlag` fails.
+
 ## Empty Lists Print `[]`, Never `null`
 
 **An empty list prints `[]`, never `null`.** A nil slice marshals to `null` — so `security ztna-gateways list -o json` answered `null` on a tenant with no gateways while `dns-zones list` answered `[]` for a byte-identical wire response, the difference being only which spec declares `page`/`page-size`. Anything piping to `jq` then failed with "Cannot iterate over null" on exactly the tenants where the collection was empty.

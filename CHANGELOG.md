@@ -34,6 +34,21 @@ Custom Settings. The API drops some keys inside it (`Disk Sleep Timer-boolean`,
 `Sleep On Power Button`, the `*-ProfileNumber` keys); the dropped-keys warning now looks inside
 nested dictionaries and names them.
 
+### Deprecated — a list of records is `--list-file`; `--from-file` on a list command is an alias until 2027-05
+
+`--from-file` meant two things: a request body on `create`, `update` and `apply`, and a list
+of IDs, serials or names on about 125 others — every bulk `delete`, the device actions
+(`pro computer-inventory lock`, `pro mobile-devices restart`, …), `classic-computer-groups` and
+`classic-mobile-device-groups add-members`/`remove-members`, `classic-policies enable`/`disable`,
+`pro bulk`, `multi` and `pro setup`. The list is now `--list-file`, and `--list-file -` reads it
+from stdin; stdin is never read without the `-`. `--from-file` now means a request body only.
+
+**Migration:** rename `--from-file` to `--list-file` on those commands. Until 2027-05 the old
+spelling still works there: it is hidden from `--help` and prints `Flag --from-file has been
+deprecated, use --list-file` on stderr. Passing both is a usage error (exit 2). `pro setup
+--list-file -` is refused, since setup prompts for credentials on stdin, and over `mcp serve`
+`--list-file -` is refused too, since a command run for the model has no stdin.
+
 ### Behaviour — `--from-file` lists refuse a line that cannot be an ID or a name
 
 The bulk `delete --from-file` commands, `pro classic-policies enable` and `disable

@@ -2288,7 +2288,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagDryRun bool
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
-		fromFile string
+		flagListFile string
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
 		flagGroup string
@@ -2455,14 +2455,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names
+			if flagListFile != "" {
+				entries, err := listfile.Read(flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return fmt.Errorf("reading --list-file: %w", err)
 				}
 				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+					return fmt.Errorf("--list-file %s: no entries found", listfile.SourceName(flagListFile))
 				}
 				type bulkEntry struct {
 					id    string
@@ -2473,7 +2473,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				for _, entry := range entries {
 					if isNumericID(entry.Value) {
 						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+							return fmt.Errorf("--list-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
 						}
 						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
 					} else {
@@ -3392,7 +3392,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", {{ goStr (print "Path to file listing IDs or names to " (actionPhrase .) " (one per line, # comments ignored)") }})
+	listfile.AddFlag(cmd, &flagListFile, {{ goStr (print $.Name " to " (actionPhrase .) ": ID or name") }}, listfile.WithLegacyAlias())
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
 	cmd.Flags().StringVar(&flagGroup, "group", "", {{ goStr (print (actionPhraseTitle .) " every " $.NameSingular " in a Classic API group (name or ID)") }})
@@ -3451,10 +3451,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVar(&flagRename, "name", "", {{ goStr (print "Canonical name to apply to the " $.NameSingular " via a follow-up PUT to " (resourceUpdatePath $) " (this endpoint's body has no name field)") }})
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("from-file", {{ goStr (.Flag) }})
-{{ end }}{{- if $.GroupsClassicPath }}
-	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	listfile.MarkExclusive(cmd, "name"{{ range $.LookupFields }}, {{ goStr (.Flag) }}{{ end }}{{ if $.GroupsClassicPath }}, "group"{{ end }})
+{{- if $.GroupsClassicPath }}
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
 {{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("group", {{ goStr (.Flag) }})
 {{ end }}{{- end }}{{- end }}

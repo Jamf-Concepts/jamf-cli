@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -59,18 +60,24 @@ func TestMCPChild_RefusesVerboseBodyLogging(t *testing.T) {
 	}
 }
 
-func TestMCP_RefusesVerboseWithFromFile(t *testing.T) {
+func TestMCP_RefusesVerboseWithAListFile(t *testing.T) {
 	for _, args := range [][]string{
-		{"pro", "computers", "blank-push", "--from-file", "list.txt", "-v"},
-		{"-vv", "pro", "buildings", "delete", "--from-file", "list.txt", "--yes"},
+		{"pro", "computers", "blank-push", "--list-file", "list.txt", "-v"},
+		{"-vv", "pro", "buildings", "delete", "--list-file", "list.txt", "--yes"},
+		// The deprecated alias is the same list, so it is held to the same rule.
+		{"-v", "pro", "buildings", "delete", "--from-file", "list.txt", "--yes"},
 	} {
+		flag := "--list-file"
+		if slices.Contains(args, "--from-file") {
+			flag = "--from-file"
+		}
 		_, err := buildChildArgs("prod", args)
-		if !isMCPRefusal(err) || !strings.Contains(err.Error(), "with --from-file") {
-			t.Errorf("run_command on %q: err = %v, want -v refused with --from-file", args, err)
+		if !isMCPRefusal(err) || !strings.Contains(err.Error(), "with "+flag) {
+			t.Errorf("run_command on %q: err = %v, want -v refused with the list flag", args, err)
 		}
 		argv := append([]string{"--profile", "prod", "--no-input"}, args...)
 		if err := executeAsMCPChild(t, "prod", argv...); !isMCPRefusal(err) {
-			t.Errorf("MCP child ran %q (err %v); it must refuse -v with --from-file on its own parse", argv, err)
+			t.Errorf("MCP child ran %q (err %v); it must refuse -v with the list flag on its own parse", argv, err)
 		}
 	}
 }

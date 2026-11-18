@@ -54,7 +54,7 @@ func (c fixedClient) Do(context.Context, string, string, io.Reader) (*http.Respo
 func runDelete(t *testing.T, newCmd func(*registry.CLIContext) *cobra.Command, client registry.HTTPClient, list string, extra ...string) (string, error) {
 	t.Helper()
 	cmd := newCmd(&registry.CLIContext{Client: client})
-	cmd.SetArgs(append([]string{"--from-file", list, "--yes"}, extra...))
+	cmd.SetArgs(append([]string{"--list-file", list, "--yes"}, extra...))
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 	r, w, perr := os.Pipe()
