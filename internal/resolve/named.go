@@ -386,7 +386,7 @@ func ResolveEachFile(ctx context.Context, label, path string, resolveOne Resolve
 	for _, e := range entries {
 		id, desc, err := resolveOne(ctx, e.Value)
 		if err != nil {
-			if stopsTheList(err) {
+			if StopsTheList(err) {
 				return nil, 0, e.Wrap(fmt.Sprintf("resolving %s %s", label, e.Label()), err)
 			}
 			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve %s %s: %s\n", label, e.Label(), output.SanitizeTerminal(e.Hide(err).Error()))
@@ -410,12 +410,24 @@ func ResolveEachFile(ctx context.Context, label, path string, resolveOne Resolve
 	return targets, skipped, nil
 }
 
-// stopsTheList reports whether a resolution failure is about the request
-// rather than the line, so every later line would fail the same way.
-func stopsTheList(err error) bool {
+// StopsTheList reports whether a failure is about the request rather than the
+// line (authentication, permission, rate limit, unsupported), so every later
+// line of a --list-file batch would fail the same way. Resolution and the
+// delete and read loops all stop on it instead of sending the rest.
+func StopsTheList(err error) bool {
 	switch exitcode.CodeFrom(err) {
 	case exitcode.Authentication, exitcode.PermissionDenied, exitcode.RateLimited, exitcode.Unsupported:
 		return true
 	}
 	return false
+}
+
+// AbortBatch ends a --list-file batch that StopsTheList says cannot go on. It
+// reports how many lines were never attempted and returns err itself, wrapped
+// so the process keeps err's own exit code: not the partial-failure 7 and not
+// the 0 --allow-partial-failure would give, either of which would hide a
+// revoked token or a missing privilege behind a tally.
+func AbortBatch(err error, done, notAttempted int, noun string) error {
+	_, _ = fmt.Fprintf(os.Stderr, "stopping: %d %s not attempted after %d done, because every later request would fail the same way\n", notAttempted, noun, done)
+	return fmt.Errorf("%s batch stopped: %w", noun, err)
 }

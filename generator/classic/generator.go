@@ -1223,6 +1223,9 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// is reported and skipped, and counts as a failure in the summary
 			// and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := {{ classicListTargetsCall . }}
 				if err != nil {
 					return err
@@ -1253,12 +1256,16 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(e.ID))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "{{ .Name }}")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2393,11 +2400,14 @@ func runClassicListGet(cmd *cobra.Command, ctx *registry.CLIContext, targets []r
 	records := make([]json.RawMessage, 0, len(targets))
 	ok, failed := 0, skipped
 	var firstErr error
-	for _, t := range targets {
+	for i, t := range targets {
 		body, err := readClassicListRecord(cmd.Context(), ctx.Client, recordPath(t.ID), redact)
 		if err != nil {
 			err = t.Hide(err)
 			fmt.Fprintf(os.Stderr, "  warning: could not read %s: %v\n", t.Label, termSafe(err))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, ok, len(targets)-i-1, singular)
+			}
 			if firstErr == nil {
 				firstErr = err
 			}

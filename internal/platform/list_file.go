@@ -85,11 +85,14 @@ func PrintListRecords(cmd *cobra.Command, out registry.OutputFormatter, targets 
 	records := make([]any, 0, len(targets))
 	failed := skipped
 	var firstErr error
-	for _, t := range targets {
+	for i, t := range targets {
 		rec, err := fetch(cmd.Context(), t.ID)
 		if err != nil {
 			err = t.Hide(err)
 			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not read %s: %s\n", t.Label, output.SanitizeTerminal(err.Error()))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, len(records), len(targets)-i-1, noun)
+			}
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -141,10 +144,13 @@ func RunListDelete(cmd *cobra.Command, dryRun, yes bool, targets []resolve.Targe
 	}
 	ok, failed := 0, skipped
 	var firstErr error
-	for _, t := range targets {
+	for i, t := range targets {
 		if _, err := send(cmd.Context(), t.ID); err != nil {
 			err = t.Hide(err)
 			_, _ = fmt.Fprintf(os.Stderr, "delete %s failed: %s\n", t.Label, output.SanitizeTerminal(err.Error()))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, ok, len(targets)-i-1, noun)
+			}
 			if firstErr == nil {
 				firstErr = err
 			}

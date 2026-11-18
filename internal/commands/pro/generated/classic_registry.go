@@ -797,11 +797,14 @@ func runClassicListGet(cmd *cobra.Command, ctx *registry.CLIContext, targets []r
 	records := make([]json.RawMessage, 0, len(targets))
 	ok, failed := 0, skipped
 	var firstErr error
-	for _, t := range targets {
+	for i, t := range targets {
 		body, err := readClassicListRecord(cmd.Context(), ctx.Client, recordPath(t.ID), redact)
 		if err != nil {
 			err = t.Hide(err)
 			fmt.Fprintf(os.Stderr, "  warning: could not read %s: %v\n", t.Label, termSafe(err))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, ok, len(targets)-i-1, singular)
+			}
 			if firstErr == nil {
 				firstErr = err
 			}

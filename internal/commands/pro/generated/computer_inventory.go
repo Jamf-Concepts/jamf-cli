@@ -686,6 +686,9 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
 					return err
@@ -716,12 +719,16 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v4/computers-inventory/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "delete computer-inventory %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "computer-inventory")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2167,6 +2174,9 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
 					return err
@@ -2197,12 +2207,16 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v4/computers-inventory/{id}/erase", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "computer-inventory")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2448,6 +2462,9 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
 					return err
@@ -2478,12 +2495,16 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v4/computers-inventory/{id}/remove-mdm-profile", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "computer-inventory")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}

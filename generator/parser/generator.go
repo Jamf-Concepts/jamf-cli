@@ -2521,6 +2521,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := {{ listTargetsCall $ }}
 				if err != nil {
 					return err
@@ -2551,12 +2554,16 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace({{ goStr (.Path) }}, {{ goStr (pathParamName .) }}, url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, {{ goStr (actionMethod .) }}, delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, {{ goStr (print (actionPhrase .) " " $.NameSingular " %s failed: %v\n") }}, e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, {{ goStr $.Name }})
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -3913,11 +3920,14 @@ func runListGet(cmd *cobra.Command, ctx *registry.CLIContext, targets []resolve.
 	records := make([]json.RawMessage, 0, len(targets))
 	failed := skipped
 	var firstErr error
-	for _, t := range targets {
+	for i, t := range targets {
 		body, err := readListRecord(fetch, t.ID)
 		if err != nil {
 			err = t.Hide(err)
 			fmt.Fprintf(os.Stderr, "  warning: could not read %s: %v\n", t.Label, termSafe(err))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, len(records), len(targets)-i-1, noun)
+			}
 			if firstErr == nil {
 				firstErr = err
 			}

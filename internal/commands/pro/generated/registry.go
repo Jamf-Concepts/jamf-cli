@@ -271,11 +271,14 @@ func runListGet(cmd *cobra.Command, ctx *registry.CLIContext, targets []resolve.
 	records := make([]json.RawMessage, 0, len(targets))
 	failed := skipped
 	var firstErr error
-	for _, t := range targets {
+	for i, t := range targets {
 		body, err := readListRecord(fetch, t.ID)
 		if err != nil {
 			err = t.Hide(err)
 			fmt.Fprintf(os.Stderr, "  warning: could not read %s: %v\n", t.Label, termSafe(err))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, len(records), len(targets)-i-1, noun)
+			}
 			if firstErr == nil {
 				firstErr = err
 			}

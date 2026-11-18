@@ -874,6 +874,9 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.MobileDeviceTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
 					return err
@@ -904,12 +907,16 @@ func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v2/mobile-devices/{id}/erase", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "run \"erase\" on mobile-device %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "mobile-devices")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1340,6 +1347,9 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.MobileDeviceTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
 					return err
@@ -1370,12 +1380,16 @@ func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v2/mobile-devices/{id}/unmanage", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "run \"unmanage\" on mobile-device %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "mobile-devices")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}

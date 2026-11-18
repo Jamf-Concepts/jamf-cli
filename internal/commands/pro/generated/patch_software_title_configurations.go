@@ -291,6 +291,9 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
 				if err != nil {
 					return err
@@ -321,12 +324,16 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "patch-software-title-configurations")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1524,6 +1531,9 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
 				if err != nil {
 					return err
@@ -1554,12 +1564,16 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}/dashboard", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "patch-software-title-configurations")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}

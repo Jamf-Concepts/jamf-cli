@@ -431,6 +431,9 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "advanced-user-content-searche", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/advanced-user-content-searches", "name", "id")}, flagListFile)
 				if err != nil {
 					return err
@@ -461,12 +464,16 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v1/advanced-user-content-searches/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "delete advanced-user-content-searche %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "advanced-user-content-searches")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}

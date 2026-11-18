@@ -397,6 +397,9 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// is reported and skipped, and counts as a failure in the summary
 			// and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "dock item", Lookup: classicNameLookup(ctx.Client, "dockitems", "dockitems"), FoldCase: true}, flagListFile)
 				if err != nil {
 					return err
@@ -427,12 +430,16 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(e.ID))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "delete dock_item %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "dockitems")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}

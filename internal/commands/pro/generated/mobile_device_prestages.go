@@ -771,6 +771,9 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile-device-prestage", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/mobile-device-prestages", "displayName", "id")}, flagListFile)
 				if err != nil {
 					return err
@@ -801,12 +804,16 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "delete mobile-device-prestage %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "mobile-device-prestages")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1410,6 +1417,9 @@ func newMobileDevicePrestagesAttachmentsDeleteMultipleCmd(ctx *registry.CLIConte
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile-device-prestage", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/mobile-device-prestages", "displayName", "id")}, flagListFile)
 				if err != nil {
 					return err
@@ -1440,12 +1450,16 @@ func newMobileDevicePrestagesAttachmentsDeleteMultipleCmd(ctx *registry.CLIConte
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v3/mobile-device-prestages/{id}/attachments/delete-multiple", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "run \"attachments-delete-multiple\" on mobile-device-prestage %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "mobile-device-prestages")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -1941,6 +1955,9 @@ func newMobileDevicePrestagesScopeDeleteMultipleCmd(ctx *registry.CLIContext) *c
 			// that matches nothing, or more than one record, is reported and
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
+				if len(args) > 0 {
+					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile-device-prestage", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/mobile-device-prestages", "displayName", "id")}, flagListFile)
 				if err != nil {
 					return err
@@ -1971,12 +1988,16 @@ func newMobileDevicePrestagesScopeDeleteMultipleCmd(ctx *registry.CLIContext) *c
 				}
 				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
+				for i, e := range bulk {
 					delPath := strings.Replace("/v2/mobile-device-prestages/{id}/scope/delete-multiple", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
 						err = e.Hide(err)
 						fmt.Fprintf(os.Stderr, "run \"scope-delete-multiple\" on mobile-device-prestage %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "mobile-device-prestages")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
