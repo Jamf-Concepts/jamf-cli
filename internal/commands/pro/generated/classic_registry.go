@@ -23,6 +23,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"golang.org/x/term"
 	"howett.net/plist"
@@ -670,22 +671,21 @@ type classicNameMatch struct {
 	id, name string
 }
 
-// classicFoldedNameMatches walks a Classic API XML list response and returns
-// every item whose <name> matches name case-insensitively. <name> is read as
-// text, never coerced, so a record named "2024" or "true" matches. Matches
-// found before a malformed token are returned alongside the error.
-func classicFoldedNameMatches(body []byte, name string) ([]classicNameMatch, error) {
+// classicListItems walks a Classic API XML list response and returns each
+// item's <id> and <name>, read as text. Items read before a malformed token
+// are returned alongside the error.
+func classicListItems(body []byte) ([]classicNameMatch, error) {
 	dec := xml.NewDecoder(bytes.NewReader(body))
 	var stack []string
 	var curID, curName string
-	var folded []classicNameMatch
+	var items []classicNameMatch
 	for {
 		tok, err := dec.Token()
 		if err == io.EOF {
-			return folded, nil
+			return items, nil
 		}
 		if err != nil {
-			return folded, err
+			return items, err
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
@@ -696,8 +696,8 @@ func classicFoldedNameMatches(body []byte, name string) ([]classicNameMatch, err
 			}
 		case xml.EndElement:
 			n := len(stack)
-			if n == 2 && curID != "" && strings.EqualFold(curName, name) {
-				folded = append(folded, classicNameMatch{id: curID, name: curName})
+			if n == 2 && curID != "" {
+				items = append(items, classicNameMatch{id: curID, name: curName})
 			}
 			if n > 0 {
 				stack = stack[:n-1]
@@ -715,6 +715,183 @@ func classicFoldedNameMatches(body []byte, name string) ([]classicNameMatch, err
 			}
 		}
 	}
+}
+
+// classicNameLookup is the --list-file name lookup for a Classic resource: one
+// GET of the collection, matched by resolve.ResolveNamedEntries under the
+// Classic API's own rule (case-insensitive, narrowed to the one exact-case
+// match). A name the collection does not hold is then tried against each of
+// extra — the resource's other lookup endpoints, such as /invitation/{value}
+// — so a line the old per-line delete resolved through one still resolves.
+func classicNameLookup(client registry.HTTPClient, apiPath, wrapperKey string, extra ...string) resolve.NameLookup {
+	return func(ctx context.Context, names []string) ([]resolve.NamedRecord, error) {
+		resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
+		if err != nil {
+			return nil, fmt.Errorf("listing resources: %w", err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("reading list response: %w", err)
+		}
+		var items []classicNameMatch
+		if xmlconv.IsXML(body) {
+			if items, err = classicListItems(body); err != nil {
+				return nil, fmt.Errorf("parsing XML list: %w", err)
+			}
+		} else {
+			var wrapper map[string]json.RawMessage
+			if json.Unmarshal(body, &wrapper) == nil {
+				var list []struct {
+					ID   json.Number `json:"id"`
+					Name string      `json:"name"`
+				}
+				if inner, ok := wrapper[wrapperKey]; ok {
+					if err := json.Unmarshal(inner, &list); err != nil {
+						return nil, fmt.Errorf("parsing JSON list: %w", err)
+					}
+				}
+				for _, it := range list {
+					items = append(items, classicNameMatch{id: it.ID.String(), name: it.Name})
+				}
+			}
+		}
+		out := make([]resolve.NamedRecord, 0, len(items))
+		held := map[string]bool{}
+		for _, it := range items {
+			out = append(out, resolve.NamedRecord{ID: it.id, Name: it.name})
+			held[strings.ToLower(it.name)] = true
+		}
+		for _, name := range names {
+			if held[strings.ToLower(name)] {
+				continue
+			}
+			for _, base := range extra {
+				id, err := resolveClassicLookupToID(ctx, client, "/JSSResource/"+apiPath+"/"+base, name)
+				if err != nil {
+					return nil, err
+				}
+				if id != "" {
+					out = append(out, resolve.NamedRecord{ID: id, Name: name})
+					break
+				}
+			}
+		}
+		return out, nil
+	}
+}
+
+// runClassicListGet is a Classic `get --list-file`: it GETs each target's path
+// and prints the records the way `get <id>` prints one. Under the default and
+// -o xml/raw they are one XML document whose root is the collection's path
+// segment (`<policies><size>2</size><policy>…</policy>…</policies>`, the shape of
+// a Classic list); under any other format they are one JSON array of the
+// unwrapped records, as `get -o json` unwraps one. A record that cannot be read is
+// reported on stderr and counted with the entries that never resolved.
+func runClassicListGet(cmd *cobra.Command, ctx *registry.CLIContext, targets []resolve.Target, skipped int, apiPath, singular string, recordPath func(id string) string, redact func([]byte) ([]byte, error)) error {
+	if skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
+	}
+	asXML := (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw"
+	var xmlBuf bytes.Buffer
+	records := make([]json.RawMessage, 0, len(targets))
+	ok, failed := 0, skipped
+	var firstErr error
+	for i, t := range targets {
+		body, err := readClassicListRecord(cmd.Context(), ctx.Client, recordPath(t.ID), redact)
+		if err != nil {
+			err = t.Hide(err)
+			fmt.Fprintf(os.Stderr, "  warning: could not read %s: %v\n", t.Label, termSafe(err))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, ok, len(targets)-i-1, singular)
+			}
+			if firstErr == nil {
+				firstErr = err
+			}
+			failed++
+			continue
+		}
+		ok++
+		if asXML {
+			xmlBuf.Write(classicStripXMLDecl(body))
+			continue
+		}
+		if xmlconv.IsXML(body) {
+			if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+				body = jsonBody
+			}
+		}
+		var wrapper map[string]json.RawMessage
+		if err := json.Unmarshal(body, &wrapper); err == nil {
+			if inner, found := wrapper[singular]; found {
+				body = inner
+			}
+		}
+		records = append(records, json.RawMessage(body))
+	}
+	if asXML {
+		doc := fmt.Sprintf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<%s><size>%d</size>%s</%s>", apiPath, ok, xmlBuf.String(), apiPath)
+		if err := ctx.Output.PrintBytes([]byte(doc)); err != nil {
+			return err
+		}
+	} else {
+		combined, err := json.Marshal(records)
+		if err != nil {
+			return err
+		}
+		if err := ctx.Output.PrintRaw(combined); err != nil {
+			return err
+		}
+	}
+	if failed == 0 {
+		return nil
+	}
+	allow, _ := cmd.Flags().GetBool("allow-partial-failure")
+	if ok > 0 && allow {
+		fmt.Fprintf(os.Stderr, "warning: %d of %d %s entries failed; continuing (--allow-partial-failure)\n", failed, ok+failed, apiPath)
+		return nil
+	}
+	return exitcode.PartialOrPropagate(ok, failed, firstErr, fmt.Sprintf("%d of %d %s entries failed", failed, ok+failed, apiPath))
+}
+
+func readClassicListRecord(ctx context.Context, client registry.HTTPClient, path string, redact func([]byte) ([]byte, error)) ([]byte, error) {
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	if err != nil {
+		return nil, err
+	}
+	return redact(body)
+}
+
+// classicStripXMLDecl drops a leading <?xml …?> declaration, so a record can
+// sit inside another document.
+func classicStripXMLDecl(body []byte) []byte {
+	body = bytes.TrimSpace(body)
+	if bytes.HasPrefix(body, []byte("<?xml")) {
+		if i := bytes.Index(body, []byte("?>")); i >= 0 {
+			body = bytes.TrimSpace(body[i+2:])
+		}
+	}
+	return body
+}
+
+// classicFoldedNameMatches returns every item of a Classic API XML list
+// response whose <name> matches name case-insensitively. <name> is read as
+// text, never coerced, so a record named "2024" or "true" matches. Matches
+// found before a malformed token are returned alongside the error.
+func classicFoldedNameMatches(body []byte, name string) ([]classicNameMatch, error) {
+	items, err := classicListItems(body)
+	var folded []classicNameMatch
+	for _, it := range items {
+		if strings.EqualFold(it.name, name) {
+			folded = append(folded, it)
+		}
+	}
+	return folded, err
 }
 
 // classicNarrowToExactName returns the one match whose name equals name with

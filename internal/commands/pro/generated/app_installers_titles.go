@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -237,8 +240,9 @@ func newAppInstallersTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagVersion string
-		flagName    string
+		flagVersion  string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -252,7 +256,10 @@ func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro app-installers-titles get --name "Example"
 
   # Get a app-installers-title and output as YAML
-  jamf-cli pro app-installers-titles get 1 -o yaml`,
+  jamf-cli pro app-installers-titles get 1 -o yaml
+
+  # Get every app-installers-title a file names, one per line
+  jamf-cli pro app-installers-titles get --list-file app-installers-titles.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -260,7 +267,12 @@ func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", flagName, noInput)
 				if err != nil {
@@ -273,21 +285,36 @@ func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/app-installers/titles/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if flagVersion != "" {
-				queryParts = append(queryParts, "version="+url.QueryEscape(flagVersion))
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
+				// Build request path
+				path := "/v1/app-installers/titles/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				// Build query string
+				var queryParts []string
+				if flagVersion != "" {
+					queryParts = append(queryParts, "version="+url.QueryEscape(flagVersion))
+				}
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
+			}
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "app-installers-title", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/app-installers/titles", "titleName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "app-installers-titles entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -298,14 +325,17 @@ func newAppInstallersTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagVersion, "version", "", "Allow requesting specific app installer version")
+	listfile.AddFlag(cmd, &flagListFile, "app-installers-titles to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-title by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
 func newAppInstallersTitlesVersionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagStartVersion string
+		flagListFile     string
 		flagName         string
 	)
 
@@ -320,7 +350,12 @@ func newAppInstallersTitlesVersionsCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", flagName, noInput)
 				if err != nil {
@@ -333,21 +368,36 @@ func newAppInstallersTitlesVersionsCmd(ctx *registry.CLIContext) *cobra.Command 
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/app-installers/titles/{id}/versions"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if flagStartVersion != "" {
-				queryParts = append(queryParts, "start-version="+url.QueryEscape(flagStartVersion))
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
+				// Build request path
+				path := "/v1/app-installers/titles/{id}/versions"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				// Build query string
+				var queryParts []string
+				if flagStartVersion != "" {
+					queryParts = append(queryParts, "start-version="+url.QueryEscape(flagStartVersion))
+				}
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
+			}
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "app-installers-title", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/app-installers/titles", "titleName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "app-installers-titles entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -358,7 +408,9 @@ func newAppInstallersTitlesVersionsCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 
 	cmd.Flags().StringVar(&flagStartVersion, "start-version", "", "endpoint will return only versions higher than start-version")
+	listfile.AddFlag(cmd, &flagListFile, "app-installers-titles to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installers-title by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }

@@ -135,7 +135,7 @@ func v3ComputerPage(records ...string) string {
 }
 
 // quarantineGroupResponses serves the "Quarantine" static group lookup and its
-// membership PUT, the fixture shared by the --from-file group tests.
+// membership PUT, the fixture shared by the --list-file group tests.
 func quarantineGroupResponses() map[string]overviewMockResponse {
 	return map[string]overviewMockResponse{
 		"GET /JSSResource/computergroups": {200, `{"computer_groups":[
@@ -859,7 +859,7 @@ func TestAddToGroup_FromFile(t *testing.T) {
 	_, _, err := runCobraCmd(
 		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	)
 	if err != nil {
@@ -909,7 +909,7 @@ func TestAddToGroup_FromFile_BatchesLookups(t *testing.T) {
 	if _, _, err := runCobraCmd(
 		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -926,7 +926,7 @@ func TestAddToGroup_FromFile_BatchesLookups(t *testing.T) {
 
 // One unresolvable entry must not abort the whole batch — the remaining
 // entries are still mutated, matching the --group path's soft-fail behavior
-// (and so --allow-partial-failure still means something for --from-file).
+// (and so --allow-partial-failure still means something for --list-file).
 func TestAddToGroup_FromFile_PartialResolutionFailure(t *testing.T) {
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "computers.txt")
@@ -949,7 +949,7 @@ func TestAddToGroup_FromFile_PartialResolutionFailure(t *testing.T) {
 	_, stderr, err := runCobraCmd(
 		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	)
 	// The unresolved entry counts as a failure alongside 2 successes, so the
@@ -1003,7 +1003,7 @@ func TestAddToGroup_FromFile_PartialResolutionAllowed(t *testing.T) {
 	if _, _, err := runCobraCmd(
 		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	); err != nil {
 		t.Fatalf("--allow-partial-failure should tolerate an unresolved entry, got: %v", err)
@@ -1033,7 +1033,7 @@ func TestAddToGroup_FromFile_AllUnresolvableFails(t *testing.T) {
 	_, _, err := runCobraCmd(
 		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	)
 	if err == nil {
@@ -1072,7 +1072,7 @@ func TestAddToGroup_FromFile_NameFallsBackToID(t *testing.T) {
 	_, stderr, err := runCobraCmd(
 		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	)
 	if err != nil {
@@ -1095,11 +1095,11 @@ func TestFromFileMutualExclusion(t *testing.T) {
 	_, _, err := runCobraCmd(
 		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--group", "Lab Macs",
 	)
 	if err == nil {
-		t.Fatal("expected error when both --from-file and --group are set")
+		t.Fatal("expected error when both --list-file and --group are set")
 		return
 	}
 	if !strings.Contains(err.Error(), "mutually exclusive") {
@@ -1174,7 +1174,7 @@ func TestSendCommand_YesDispatches(t *testing.T) {
 	}
 }
 
-// send-command --from-file must resolve serials to numeric IDs before the
+// send-command --list-file must resolve serials to numeric IDs before the
 // Classic MDM command POST — the raw serial 409s ("Unable to match computer").
 func TestSendCommand_FromFile(t *testing.T) {
 	dir := t.TempDir()
@@ -1199,7 +1199,7 @@ func TestSendCommand_FromFile(t *testing.T) {
 	_, _, err := runCobraCmd(
 		t, cmd, "send-command",
 		"--command", "EnableRemoteDesktop",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	)
 	if err != nil {
@@ -1243,7 +1243,7 @@ func TestSendCommand_FromFile_UnresolvedCountsAsFailure(t *testing.T) {
 	_, stderr, err := runCobraCmd(
 		t, cmd, "send-command",
 		"--command", "EnableRemoteDesktop",
-		"--from-file", filePath,
+		"--list-file", filePath,
 		"--yes",
 	)
 	if err == nil {
@@ -1315,7 +1315,7 @@ func TestSendCommand_InvalidCommandName(t *testing.T) {
 	_, _, err := runCobraCmd(
 		t, cmd, "send-command",
 		"--command", "SelfDestruct",
-		"--from-file", "/dev/null",
+		"--list-file", "/dev/null",
 		"--yes",
 	)
 	if err == nil {

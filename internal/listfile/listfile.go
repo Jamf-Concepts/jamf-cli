@@ -1,17 +1,27 @@
 // Copyright 2026, Jamf Software LLC
 
 // Package listfile reads the files of IDs and names that bulk commands take
-// through --from-file, one entry per line.
+// through --list-file, one entry per line, and registers that flag.
+//
+// --list-file is the one flag that takes a list; --from-file is a request body
+// and nothing else. The two used to share --from-file, so a reader could not
+// tell from the name alone whether a command wanted a JSON body or a file of
+// serial numbers. Commands that took a list through --from-file keep it as a
+// hidden, deprecated alias (AddFlagWithLegacyAlias) until LegacyAliasRemoval.
 package listfile
 
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -21,6 +31,140 @@ import (
 // maxLength the Jamf Pro API spec declares for its name fields.
 const MaxLen = 255
 
+const (
+	// FlagName is the flag every list-taking command registers.
+	FlagName = "list-file"
+	// LegacyFlagName is the name the list used to share with the request
+	// body. It survives as a deprecated alias on the commands that took a
+	// list through it, and nowhere else.
+	LegacyFlagName = "from-file"
+	// LegacyAliasRemoval is when the deprecated alias goes: six months after
+	// the rename, the same window the command-name aliases get.
+	LegacyAliasRemoval = "2027-05"
+	// Stdin is the path that reads the list from standard input. Stdin is
+	// never read unless asked for: a CI runner hands every process a
+	// non-terminal stdin, so reading it whenever the flag is absent would turn
+	// a single-ID call into an empty list.
+	Stdin = "-"
+)
+
+// stdinOnce memoises standard input, which can be read only once while a
+// command may read its list more than once (the package delete reads it to
+// find file names, then the generated delete reads it again to delete).
+var (
+	stdinOnce sync.Once
+	stdinData []byte
+	stdinErr  error
+	// stdinReader is os.Stdin, swappable in tests.
+	stdinReader io.Reader = os.Stdin
+)
+
+func readSource(path string) ([]byte, error) {
+	if path != Stdin {
+		return os.ReadFile(path)
+	}
+	stdinOnce.Do(func() {
+		stdinData, stdinErr = io.ReadAll(stdinReader)
+	})
+	return stdinData, stdinErr
+}
+
+// SourceName names path in a message: "stdin" for Stdin, else the path.
+func SourceName(path string) string {
+	if path == Stdin {
+		return "stdin"
+	}
+	return path
+}
+
+// Option adjusts how AddFlag registers --list-file.
+type Option func(*flagOpts)
+
+type flagOpts struct {
+	legacyAlias bool
+	noStdin     bool
+}
+
+// WithLegacyAlias also registers --from-file as a hidden, deprecated alias
+// bound to the same variable. Only a command that took its list through
+// --from-file before the rename gets it; a command that gains a list now never
+// had one to keep.
+func WithLegacyAlias() Option { return func(o *flagOpts) { o.legacyAlias = true } }
+
+// WithoutStdin leaves "- reads stdin" out of the usage, for a command whose
+// stdin is already spoken for (pro setup prompts on it). The command refuses
+// Stdin itself, through RefuseStdin.
+func WithoutStdin() Option { return func(o *flagOpts) { o.noStdin = true } }
+
+// AddFlag registers --list-file on cmd, bound to dst. what describes the
+// entries, e.g. "computers to lock: ID, serial number, UDID, management ID or
+// name". The usage is assembled here so the line format and the stdin form
+// read the same on every command.
+func AddFlag(cmd *cobra.Command, dst *string, what string, opts ...Option) {
+	var o flagOpts
+	for _, opt := range opts {
+		opt(&o)
+	}
+	suffix := " (one per line, # comments ignored; - reads stdin)"
+	if o.noStdin {
+		suffix = " (one per line, # comments ignored)"
+	}
+	cmd.Flags().StringVar(dst, FlagName, "", "file listing "+what+suffix)
+	if !o.legacyAlias {
+		return
+	}
+	cmd.Flags().StringVar(dst, LegacyFlagName, "", "deprecated alias of --"+FlagName)
+	_ = cmd.Flags().MarkDeprecated(LegacyFlagName,
+		fmt.Sprintf("use --%s; --%s now means a request body only, and this alias is removed in %s", FlagName, LegacyFlagName, LegacyAliasRemoval))
+	cmd.MarkFlagsMutuallyExclusive(FlagName, LegacyFlagName)
+}
+
+// RefuseStdin returns an error when path is Stdin, for a command registered
+// WithoutStdin.
+func RefuseStdin(path, why string) error {
+	if path == Stdin {
+		return exitcode.New(exitcode.Usage, fmt.Sprintf("--%s cannot read stdin here: %s", FlagName, why))
+	}
+	return nil
+}
+
+// Conflict is the refusal for --list-file given beside a positional or --name:
+// a usage error (exit 2), like every other flag conflict.
+func Conflict(msg string) error { return exitcode.New(exitcode.Usage, msg) }
+
+// MarkExclusive marks --list-file, and its legacy alias where the command has
+// one, mutually exclusive with each of others.
+func MarkExclusive(cmd *cobra.Command, others ...string) {
+	for _, name := range []string{FlagName, LegacyFlagName} {
+		if !IsListFlag(cmd, name) {
+			continue
+		}
+		for _, other := range others {
+			cmd.MarkFlagsMutuallyExclusive(name, other)
+		}
+	}
+}
+
+// IsListFlag reports whether cmd's flag called name takes a list: --list-file
+// always, and --from-file only where it is the deprecated alias.
+func IsListFlag(cmd *cobra.Command, name string) bool {
+	f := cmd.Flags().Lookup(name)
+	if f == nil {
+		return false
+	}
+	return name == FlagName || (name == LegacyFlagName && f.Deprecated != "")
+}
+
+// Changed reports whether the list was given, through either name.
+func Changed(cmd *cobra.Command) bool {
+	for _, name := range []string{FlagName, LegacyFlagName} {
+		if IsListFlag(cmd, name) && cmd.Flags().Changed(name) {
+			return true
+		}
+	}
+	return false
+}
+
 // Entry is one ID or name from a list file, or one given on the command line.
 type Entry struct {
 	Value string
@@ -29,11 +173,12 @@ type Entry struct {
 	Line int
 }
 
-// Read returns the entries in the file at path, skipping a leading byte order
-// mark, blank lines and #-comments. It refuses the whole file when a line cannot be an ID or a name,
-// and the refusal names only the line.
+// Read returns the entries in the file at path, or on standard input when path
+// is Stdin, skipping a leading byte order mark, blank lines and #-comments. It
+// refuses the whole file when a line cannot be an ID or a name, and the
+// refusal names only the line.
 func Read(path string) ([]Entry, error) {
-	data, err := os.ReadFile(path)
+	data, err := readSource(path)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +189,7 @@ func Read(path string) ([]Entry, error) {
 			continue
 		}
 		if reason := notAName(value); reason != "" {
-			return nil, fmt.Errorf("%s line %d is not an ID or a name: %s", path, i+1, reason)
+			return nil, fmt.Errorf("%s line %d is not an ID or a name: %s", SourceName(path), i+1, reason)
 		}
 		entries = append(entries, Entry{Value: value, Line: i + 1})
 	}

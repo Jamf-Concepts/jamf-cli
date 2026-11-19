@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -42,14 +43,14 @@ func newGroupMutationCmd(cliCtx *registry.CLIContext, add bool) *cobra.Command {
 		Use:   verb,
 		Short: fmt.Sprintf("%s a static computer group", shortVerb),
 		Long: fmt.Sprintf(`%s a static computer group using a list of computer IDs/serials
-from a file (--from-file) or members of another computer group (--group).
+from a file (--list-file) or members of another computer group (--group).
 
 --target-group   Name of the static group to modify (required).
---from-file      Plain-text file: one computer ID or serial per line.
+--list-file      Plain-text file: one computer ID or serial per line.
 --group          Source computer group whose members are the targets.
---from-file and --group are mutually exclusive.
+--list-file and --group are mutually exclusive.
 
-Serials in --from-file are resolved to computer IDs first. A line that matches
+Serials in --list-file are resolved to computer IDs first. A line that matches
 no computer is reported and skipped, and counts as a failure in the summary and
 exit code (use --allow-partial-failure to tolerate it); if no line resolves at
 all, or the file holds no entries, the command fails without changing anything.
@@ -63,7 +64,7 @@ changes.`, shortVerb),
 	}
 
 	cmd.Flags().StringVar(&groupName, "target-group", "", "static computer group to modify (required)")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one computer ID/serial per line")
+	listfile.AddFlag(cmd, &fromFile, "computers: ID, serial number, UDID, management ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&fromGroup, "group", "", "source computer group whose members become the targets")
 	cmd.Flags().BoolVar(&yes, "yes", false, "execute mutations (default: dry-run preview only)")
 

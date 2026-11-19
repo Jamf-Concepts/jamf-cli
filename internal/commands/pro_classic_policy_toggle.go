@@ -149,7 +149,8 @@ func newClassicPolicyToggleCmd(cliCtx *registry.CLIContext, enable bool) *cobra.
 		Long: fmt.Sprintf(`%s policies, chosen one of three ways:
 
   <id> or --name   one policy
-  --from-file      a file listing policy IDs or names, one per line (# comments ignored)
+  --list-file      a file listing policy IDs or names, one per line (# comments
+                   ignored; - reads stdin)
   filters          every policy matching the filters below
 
 A policy already %sd is reported and left alone. A name matching no policy, or
@@ -159,7 +160,7 @@ and exit code (use --allow-partial-failure to tolerate it).
 The write is a minimal Classic PUT carrying only <general><enabled>; no other
 field of the policy is sent or changed.
 
-With --from-file or filters the command prints a preview and changes nothing
+With --list-file or filters the command prints a preview and changes nothing
 unless --yes is given. -n/--dry-run previews any form.
 
 %s
@@ -169,7 +170,7 @@ progress on stderr.`, capitalize(verb), verb, policyFilterHelp),
 		Example: fmt.Sprintf(`  jamf-cli pro classic-policies %s 42
   jamf-cli pro classic-policies %s --name "Deploy Chrome"
   jamf-cli pro classic-policies %s --category "Testing" --scope-group "Lab Macs" --yes
-  jamf-cli pro classic-policies %s --from-file policies.txt -n`, verb, verb, verb, verb),
+  jamf-cli pro classic-policies %s --list-file policies.txt -n`, verb, verb, verb, verb),
 		Annotations: map[string]string{annotationAPI: apiProClassic},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -185,9 +186,9 @@ progress on stderr.`, capitalize(verb), verb, policyFilterHelp),
 			}
 			switch {
 			case forms == 0:
-				return fmt.Errorf("choose policies with an <id>, --name, --from-file, or filters")
+				return fmt.Errorf("choose policies with an <id>, --name, --list-file, or filters")
 			case forms > 1:
-				return fmt.Errorf("pass one of <id>, --name, --from-file, or filters, not a combination")
+				return fmt.Errorf("pass one of <id>, --name, --list-file, or filters, not a combination")
 			}
 
 			var (
@@ -228,8 +229,8 @@ progress on stderr.`, capitalize(verb), verb, policyFilterHelp),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "policy name (instead of the positional ID)")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "file listing policy IDs or names, one per line (# comments ignored)")
-	cmd.Flags().BoolVar(&yes, "yes", false, "apply a --from-file or filtered change (default: preview only)")
+	listfile.AddFlag(cmd, &fromFile, "policies: ID or name", listfile.WithLegacyAlias())
+	cmd.Flags().BoolVar(&yes, "yes", false, "apply a --list-file or filtered change (default: preview only)")
 	pf.register(cmd)
 
 	return markGatewayCoverage(cmd, "PUT", "/JSSResource/policies/id/{id}")
@@ -238,10 +239,10 @@ progress on stderr.`, capitalize(verb), verb, policyFilterHelp),
 func readPolicyEntries(path string) ([]listfile.Entry, error) {
 	entries, err := listfile.Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading --from-file: %w", err)
+		return nil, fmt.Errorf("reading --list-file: %w", err)
 	}
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("--from-file %s contains no entries", path)
+		return nil, fmt.Errorf("--list-file %s contains no entries", listfile.SourceName(path))
 	}
 	return entries, nil
 }

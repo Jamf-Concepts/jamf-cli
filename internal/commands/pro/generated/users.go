@@ -15,6 +15,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -253,6 +254,7 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPlatform bool
+		flagListFile string
 		flagName     string
 	)
 
@@ -267,7 +269,10 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro users get --name "Example"
 
   # Get a user and output as YAML
-  jamf-cli pro users get 1 -o yaml`,
+  jamf-cli pro users get 1 -o yaml
+
+  # Get every user a file names, one per line
+  jamf-cli pro users get --list-file users.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read User", "jamf:api": "pro", "jamf:gateway-privileges": "users:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -275,7 +280,12 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/users", "username", "id", flagName, noInput)
 				if err != nil {
@@ -288,21 +298,36 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/users/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if flagPlatform {
-				queryParts = append(queryParts, "platform=true")
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
+				// Build request path
+				path := "/v1/users/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				// Build query string
+				var queryParts []string
+				if flagPlatform {
+					queryParts = append(queryParts, "platform=true")
+				}
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
+			}
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "user", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/users", "username", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "users entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -313,8 +338,10 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagPlatform, "platform", false, "Optional. Return platform identifiers instead of internal identifiers when set to true.")
+	listfile.AddFlag(cmd, &flagListFile, "users to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -542,10 +569,10 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		fromFile   string
-		flagName   string
+		flagYes      bool
+		flagDryRun   bool
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -565,59 +592,27 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
+				}
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "user", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/users", "username", "id")}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/users", "username", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no user found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete user %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete user %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "users deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -633,14 +628,18 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v1/users/{id}", "{id}", url.PathEscape(e.id), 1)
+				for i, e := range bulk {
+					delPath := strings.Replace("/v1/users/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete user %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete user %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "users")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -649,14 +648,14 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete user %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete user %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted user %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Deleted user %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -748,11 +747,10 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "users to delete: ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 

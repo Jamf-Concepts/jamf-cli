@@ -75,49 +75,16 @@ func resolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath,
 		listPath = listPath + sep + q.Encode()
 	}
 
-	const pageSize = 100
-
-	// First request: no pagination params. Some endpoints return 500 when sent
-	// page/page-size params they don't support (e.g. compliance-benchmarks).
-	// We detect whether the endpoint is paginated from the response shape and
-	// only add params for subsequent pages when totalCount signals more items.
-	var raw json.RawMessage
-	if err := client.Transport().DoExpect(ctx, http.MethodGet, listPath, nil, http.StatusOK, &raw); err != nil {
-		return "", fmt.Errorf("listing %s: %w", listPath, err)
+	items, err := listAllItems(ctx, client, listPath)
+	if err != nil {
+		return "", err
 	}
-	items, paged := extractItems(raw)
 	// Matches accumulate across every page rather than being decided per page.
 	// Deciding per page returned as soon as one page held a single match, so a
 	// name repeated either side of a 100-item boundary read as unique and the
 	// caller upserted the page-1 item with no ambiguity error — the ambiguity
 	// check firing only when both copies happened to land on the same page.
 	matched, nameless := collectMatches(nil, items, name, nameField)
-
-	// Paginate only if the first response signalled more pages.
-	if paged && len(items) == pageSize {
-		for page := 1; ; page++ {
-			q := url.Values{}
-			q.Set("page", strconv.Itoa(page))
-			q.Set("page-size", strconv.Itoa(pageSize))
-			sep := "?"
-			if u, err := url.Parse(listPath); err == nil && u.RawQuery != "" {
-				sep = "&"
-			}
-			endpoint := listPath + sep + q.Encode()
-
-			var pageRaw json.RawMessage
-			if err := client.Transport().DoExpect(ctx, http.MethodGet, endpoint, nil, http.StatusOK, &pageRaw); err != nil {
-				return "", fmt.Errorf("listing %s: %w", listPath, err)
-			}
-			pageItems, _ := extractItems(pageRaw)
-			var pageNameless int
-			matched, pageNameless = collectMatches(matched, pageItems, name, nameField)
-			nameless += pageNameless
-			if len(pageItems) < pageSize {
-				break
-			}
-		}
-	}
 
 	switch {
 	case len(matched) == 1:
@@ -137,6 +104,44 @@ func resolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath,
 	}
 
 	return "", fmt.Errorf("%w: no item with name %q", ErrNotFound, name)
+}
+
+// listAllItems reads every item of a Platform list endpoint, walking pages
+// when the response is paginated.
+//
+// The first request carries no pagination params: some endpoints return 500
+// when sent page/page-size params they don't support (e.g.
+// compliance-benchmarks). Whether the endpoint pages is read from the response
+// shape, and params are added only for later pages, when totalCount signals
+// more items.
+func listAllItems(ctx context.Context, client *jamfplatform.Client, listPath string) ([]map[string]any, error) {
+	const pageSize = 100
+	var raw json.RawMessage
+	if err := client.Transport().DoExpect(ctx, http.MethodGet, listPath, nil, http.StatusOK, &raw); err != nil {
+		return nil, fmt.Errorf("listing %s: %w", listPath, err)
+	}
+	items, paged := extractItems(raw)
+	if !paged || len(items) != pageSize {
+		return items, nil
+	}
+	sep := "?"
+	if u, err := url.Parse(listPath); err == nil && u.RawQuery != "" {
+		sep = "&"
+	}
+	for page := 1; ; page++ {
+		q := url.Values{}
+		q.Set("page", strconv.Itoa(page))
+		q.Set("page-size", strconv.Itoa(pageSize))
+		var pageRaw json.RawMessage
+		if err := client.Transport().DoExpect(ctx, http.MethodGet, listPath+sep+q.Encode(), nil, http.StatusOK, &pageRaw); err != nil {
+			return nil, fmt.Errorf("listing %s: %w", listPath, err)
+		}
+		pageItems, _ := extractItems(pageRaw)
+		items = append(items, pageItems...)
+		if len(pageItems) < pageSize {
+			return items, nil
+		}
+	}
 }
 
 // collectMatches appends the IDs of items whose name matches to matched, and

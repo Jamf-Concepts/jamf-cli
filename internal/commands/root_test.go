@@ -1478,7 +1478,7 @@ func TestUsageErrorPrefixesMatchCobrasOwnMessages(t *testing.T) {
 
 // TestClassifyError_ExclusiveFlagGroupIsAUsageError covers the flag-group half
 // of the widening through a real command. `pro comp erase` marks serial, name,
-// id, group and from-file mutually exclusive, and two of them together exited 1
+// id, group and list-file mutually exclusive, and two of them together exited 1
 // before the group prefixes were listed.
 func TestClassifyError_ExclusiveFlagGroupIsAUsageError(t *testing.T) {
 	resetGlobals()

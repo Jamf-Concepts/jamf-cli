@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -240,7 +243,8 @@ func newJamfRemoteAssistListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newJamfRemoteAssistGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -254,7 +258,10 @@ func newJamfRemoteAssistGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro jamf-remote-assist get --name "Example"
 
   # Get a jamf-remote-assist and output as YAML
-  jamf-cli pro jamf-remote-assist get 1 -o yaml`,
+  jamf-cli pro jamf-remote-assist get 1 -o yaml
+
+  # Get every jamf-remote-assist a file names, one per line
+  jamf-cli pro jamf-remote-assist get --list-file jamf-remote-assist.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist", "jamf:api": "pro", "jamf:gateway-privileges": "remote-assist:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -262,7 +269,12 @@ func newJamfRemoteAssistGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "name", "id", flagName, noInput)
 				if err != nil {
@@ -275,19 +287,34 @@ func newJamfRemoteAssistGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v2/jamf-remote-assist/session/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v2/jamf-remote-assist/session/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v2/jamf-remote-assist/session/{id}")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/jamf-remote-assist/session/{id}"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v2/jamf-remote-assist/session/{id}")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/jamf-remote-assist/session/{id}"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "jamf-remote-assist", Lookup: resolve.ProNameLookup(ctx.Client, "/v2/jamf-remote-assist/session", "name", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "jamf-remote-assist entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -297,8 +324,10 @@ func newJamfRemoteAssistGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "jamf-remote-assist to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-remote-assist by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 

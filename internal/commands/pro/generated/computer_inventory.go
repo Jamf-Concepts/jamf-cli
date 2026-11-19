@@ -16,6 +16,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -277,10 +278,11 @@ func newComputerInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newComputerInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagSection []string
-		flagName    string
-		flagSerial  string
-		flagUdid    string
+		flagSection  []string
+		flagListFile string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -294,7 +296,10 @@ func newComputerInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro computer-inventory get --name "Example"
 
   # Get a computer-inventory and output as YAML
-  jamf-cli pro computer-inventory get 1 -o yaml`,
+  jamf-cli pro computer-inventory get 1 -o yaml
+
+  # Get every computer-inventory a file names, one per line
+  jamf-cli pro computer-inventory get --list-file computer-inventory.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computers", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -302,8 +307,12 @@ func newComputerInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-
-			if flagSerial != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
@@ -330,27 +339,42 @@ func newComputerInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
 			}
 
-			// Build request path
-			path := "/v4/computers-inventory-detail/{id}"
-			if cmd.Flags().Changed("section") {
-				path = "/v4/computers-inventory/{id}"
-			}
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(flagSection) > 0 {
-				for _, v := range flagSection {
-					queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				// Build request path
+				path := "/v4/computers-inventory-detail/{id}"
+				if cmd.Flags().Changed("section") {
+					path = "/v4/computers-inventory/{id}"
 				}
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-			vft := newVersionFallback("/v4/computers-inventory/{id}")
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}", "/v2/computers-inventory/{id}", "/v1/computers-inventory/{id}"})
+				// Build query string
+				var queryParts []string
+				if len(flagSection) > 0 {
+					for _, v := range flagSection {
+						queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
+					}
+				}
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v4/computers-inventory/{id}")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}", "/v2/computers-inventory/{id}", "/v1/computers-inventory/{id}"})
+				return resp, err
+			}
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "computer-inventory entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -361,10 +385,12 @@ func newComputerInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=general&section=hardware")
+	listfile.AddFlag(cmd, &flagListFile, "computers to get: ID, serial number, UDID, management ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
+	listfile.MarkExclusive(cmd, "name", "serial", "udid")
 	return cmd
 }
 
@@ -629,13 +655,13 @@ func newComputerInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		fromFile   string
-		flagGroup  string
-		flagName   string
-		flagSerial string
-		flagUdid   string
+		flagYes      bool
+		flagDryRun   bool
+		flagListFile string
+		flagGroup    string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -655,73 +681,27 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
+				}
+				bulk, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", entry.Value, noInputBulk)
-							if lookupErr != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s via serial", entry.Label()), lookupErr)
-							}
-							rid = id
-						}
-						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", entry.Value, noInputBulk)
-							if lookupErr != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s via udid", entry.Label()), lookupErr)
-							}
-							rid = id
-						}
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no computer-inventory found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-inventory %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-inventory %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "computer-inventory deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -737,14 +717,18 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v4/computers-inventory/{id}", "{id}", url.PathEscape(e.id), 1)
+				for i, e := range bulk {
+					delPath := strings.Replace("/v4/computers-inventory/{id}", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete computer-inventory %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete computer-inventory %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "computer-inventory")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -753,14 +737,14 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete computer-inventory %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete computer-inventory %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted computer-inventory %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Deleted computer-inventory %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -940,17 +924,13 @@ func newComputerInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "computers to delete: ID, serial number, UDID, management ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete every computer-inventory in a Classic API group (name or ID)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	listfile.MarkExclusive(cmd, "name", "serial", "udid", "group")
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
 	cmd.MarkFlagsMutuallyExclusive("group", "serial")
 	cmd.MarkFlagsMutuallyExclusive("group", "udid")
@@ -1691,9 +1671,10 @@ func newComputerInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newComputerInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName   string
-		flagSerial string
-		flagUdid   string
+		flagListFile string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -1707,8 +1688,12 @@ func newComputerInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-
-			if flagSerial != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
@@ -1735,19 +1720,34 @@ func newComputerInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Comma
 				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
 			}
 
-			// Build request path
-			path := "/v4/computers-inventory/{id}/filevault"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v4/computers-inventory/{id}/filevault"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v4/computers-inventory/{id}/filevault")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/filevault", "/v2/computers-inventory/{id}/filevault", "/v1/computers-inventory/{id}/filevault"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v4/computers-inventory/{id}/filevault")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/filevault", "/v2/computers-inventory/{id}/filevault", "/v1/computers-inventory/{id}/filevault"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "computer-inventory entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1757,18 +1757,21 @@ func newComputerInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "computers to get: ID, serial number, UDID, management ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
+	listfile.MarkExclusive(cmd, "name", "serial", "udid")
 	return cmd
 }
 
 func newComputerInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName   string
-		flagSerial string
-		flagUdid   string
+		flagListFile string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -1782,8 +1785,12 @@ func newComputerInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.C
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-
-			if flagSerial != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
@@ -1810,19 +1817,34 @@ func newComputerInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.C
 				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
 			}
 
-			// Build request path
-			path := "/v4/computers-inventory/{id}/view-device-lock-pin"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v4/computers-inventory/{id}/view-device-lock-pin"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v4/computers-inventory/{id}/view-device-lock-pin")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/view-device-lock-pin", "/v2/computers-inventory/{id}/view-device-lock-pin", "/v1/computers-inventory/{id}/view-device-lock-pin"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v4/computers-inventory/{id}/view-device-lock-pin")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/view-device-lock-pin", "/v2/computers-inventory/{id}/view-device-lock-pin", "/v1/computers-inventory/{id}/view-device-lock-pin"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "computer-inventory entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1832,18 +1854,21 @@ func newComputerInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "computers to get: ID, serial number, UDID, management ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
+	listfile.MarkExclusive(cmd, "name", "serial", "udid")
 	return cmd
 }
 
 func newComputerInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName   string
-		flagSerial string
-		flagUdid   string
+		flagListFile string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -1857,8 +1882,12 @@ func newComputerInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) *
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-
-			if flagSerial != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
@@ -1885,19 +1914,34 @@ func newComputerInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) *
 				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
 			}
 
-			// Build request path
-			path := "/v4/computers-inventory/{id}/view-recovery-lock-password"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v4/computers-inventory/{id}/view-recovery-lock-password"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+				vft := newVersionFallback("/v4/computers-inventory/{id}/view-recovery-lock-password")
+
+				// Make request
+				resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/view-recovery-lock-password", "/v2/computers-inventory/{id}/view-recovery-lock-password", "/v1/computers-inventory/{id}/view-recovery-lock-password"})
+				return resp, err
 			}
-			vft := newVersionFallback("/v4/computers-inventory/{id}/view-recovery-lock-password")
-
-			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/view-recovery-lock-password", "/v2/computers-inventory/{id}/view-recovery-lock-password", "/v1/computers-inventory/{id}/view-recovery-lock-password"})
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "computer-inventory entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -1907,10 +1951,12 @@ func newComputerInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) *
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "computers to get: ID, serial number, UDID, management ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
+	listfile.MarkExclusive(cmd, "name", "serial", "udid")
 	return cmd
 }
 
@@ -2100,7 +2146,7 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes      bool
 		flagDryRun   bool
-		fromFile     string
+		flagListFile string
 		flagGroup    string
 		flagScaffold bool
 		flagName     string
@@ -2123,73 +2169,27 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 }`, ctx.Output.Format())
 			}
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
+				}
+				bulk, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", entry.Value, noInputBulk)
-							if lookupErr != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s via serial", entry.Label()), lookupErr)
-							}
-							rid = id
-						}
-						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", entry.Value, noInputBulk)
-							if lookupErr != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s via udid", entry.Label()), lookupErr)
-							}
-							rid = id
-						}
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no computer-inventory found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on computer-inventory %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on computer-inventory %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "computer-inventory erase actions")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -2205,14 +2205,18 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v4/computers-inventory/{id}/erase", "{id}", url.PathEscape(e.id), 1)
+				for i, e := range bulk {
+					delPath := strings.Replace("/v4/computers-inventory/{id}/erase", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "computer-inventory")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2221,14 +2225,14 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"erase\" on computer-inventory %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"erase\" on computer-inventory %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Ran \"erase\" on computer-inventory %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -2418,18 +2422,14 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"erase\" on (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "computers to run \"erase\" on: ID, serial number, UDID, management ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagGroup, "group", "", "Run \"erase\" on every computer-inventory in a Classic API group (name or ID)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	listfile.MarkExclusive(cmd, "name", "serial", "udid", "group")
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
 	cmd.MarkFlagsMutuallyExclusive("group", "serial")
 	cmd.MarkFlagsMutuallyExclusive("group", "udid")
@@ -2439,13 +2439,13 @@ func newComputerInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		fromFile   string
-		flagGroup  string
-		flagName   string
-		flagSerial string
-		flagUdid   string
+		flagYes      bool
+		flagDryRun   bool
+		flagListFile string
+		flagGroup    string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
@@ -2457,73 +2457,27 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, in batched lookups; a line
+			// that matches nothing, or more than one record, is reported and
+			// skipped, and counts as a failure in the summary and exit code.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
+				}
+				bulk, skipped, err := resolve.ComputerTargetsFromFile(reqCtx, ctx.Client, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", entry.Value, noInputBulk)
-							if lookupErr != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s via serial", entry.Label()), lookupErr)
-							}
-							rid = id
-						}
-						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", entry.Value, noInputBulk)
-							if lookupErr != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s via udid", entry.Label()), lookupErr)
-							}
-							rid = id
-						}
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", entry.Value, noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no computer-inventory found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: rid, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"remove-mdm-profile\" on computer-inventory %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"remove-mdm-profile\" on computer-inventory %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "computer-inventory remove-mdm-profile actions")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -2539,14 +2493,18 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v4/computers-inventory/{id}/remove-mdm-profile", "{id}", url.PathEscape(e.id), 1)
+				for i, e := range bulk {
+					delPath := strings.Replace("/v4/computers-inventory/{id}/remove-mdm-profile", "{id}", url.PathEscape(e.ID), 1)
 					resp, err := ctx.Client.Do(reqCtx, "POST", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "computer-inventory")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -2555,14 +2513,14 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "run \"remove-mdm-profile\" on computer-inventory %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Ran \"remove-mdm-profile\" on computer-inventory %s\n", e.entry.Target(termSafe(e.id)))
+					fmt.Fprintf(os.Stderr, "Ran \"remove-mdm-profile\" on computer-inventory %s\n", e.Label)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -2752,17 +2710,13 @@ func newComputerInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to run \"remove-mdm-profile\" on (one per line, # comments ignored)")
+	listfile.AddFlag(cmd, &flagListFile, "computers to run \"remove-mdm-profile\" on: ID, serial number, UDID, management ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&flagGroup, "group", "", "Run \"remove-mdm-profile\" on every computer-inventory in a Classic API group (name or ID)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
 
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	listfile.MarkExclusive(cmd, "name", "serial", "udid", "group")
 	cmd.MarkFlagsMutuallyExclusive("group", "name")
 	cmd.MarkFlagsMutuallyExclusive("group", "serial")
 	cmd.MarkFlagsMutuallyExclusive("group", "udid")

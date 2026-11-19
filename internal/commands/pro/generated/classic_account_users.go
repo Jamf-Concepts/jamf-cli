@@ -12,7 +12,9 @@ import (
 	"os"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -226,6 +228,8 @@ func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagUsername string
 	)
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a account_user by ID",
@@ -233,11 +237,33 @@ func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro classic-account-users get 1
 
   # Get a account_user and output as YAML
-  jamf-cli pro classic-account-users get 1 -o yaml`,
+  jamf-cli pro classic-account-users get 1 -o yaml
+
+  # Get every account_user a file names, one per line
+  jamf-cli pro classic-account-users get --list-file account-users.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "account user"}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "accounts", "account_user", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicAccountUsers)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -285,6 +311,8 @@ func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagUsername, "username", "", "Look up account_user by username")
 
+	listfile.AddFlag(cmd, &flagListFile, "account-users to get: ID")
+	listfile.MarkExclusive(cmd, "username")
 	return cmd
 }
 

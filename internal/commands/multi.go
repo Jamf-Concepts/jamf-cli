@@ -17,6 +17,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -35,7 +36,7 @@ func newMultiCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long: `Execute any jamf-cli command against multiple config profiles.
 
 Target profiles can be selected by glob pattern (--filter), explicit list
-(--profiles), or from a file (--from-file). The file can contain profile
+(--profiles), or from a file (--list-file). The file can contain profile
 names or instance URLs — URLs are matched against profile URLs in your
 config.
 
@@ -64,7 +65,7 @@ Examples:
   jamf-cli multi --filter 'pro-*' -- pro report profile-status
 
   # Reuse the same URL file from setup
-  jamf-cli multi --from-file instances.txt -- pro buildings apply --from-file b.json --yes`,
+  jamf-cli multi --list-file instances.txt -- pro buildings apply --from-file b.json --yes`,
 		// Every positional belongs to the inner command. RunE tells an absent
 		// command from one absent after the -- separator and names multi's own
 		// usage, which a count validator would pre-empt with cobra's generic
@@ -230,9 +231,10 @@ Examples:
 
 	cmd.Flags().StringVar(&filter, "filter", "", "glob pattern to match profile names (e.g., 'pro-*')")
 	cmd.Flags().StringVar(&profilesCSV, "profiles", "", "comma-separated list of profile names")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing profile names or instance URLs (one per line)")
+	listfile.AddFlag(cmd, &fromFile, "profiles: profile name or instance URL", listfile.WithLegacyAlias())
 	cmd.Flags().BoolVar(&sequential, "sequential", false, "show each instance's output separately instead of aggregating")
-	cmd.MarkFlagsMutuallyExclusive("filter", "profiles", "from-file")
+	cmd.MarkFlagsMutuallyExclusive("filter", "profiles", listfile.FlagName)
+	listfile.MarkExclusive(cmd, "filter", "profiles")
 
 	return cmd
 }
@@ -797,24 +799,19 @@ func validateProfileNames(cfg *config.Config, names []string) ([]string, error) 
 	return result, nil
 }
 
-// readProfilesFromFile reads profile names or instance URLs from a file.
-// URLs are resolved to profile names by matching against config.
+// readProfilesFromFile reads profile names or instance URLs from a list file
+// (or stdin, for "-"). URLs are resolved to profile names by matching against
+// config.
 func readProfilesFromFile(cfg *config.Config, path string) ([]string, error) {
-	f, err := os.Open(path)
+	entries, err := listfile.Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("opening file: %w", err)
+		return nil, fmt.Errorf("reading --%s: %w", listfile.FlagName, err)
 	}
-	defer func() { _ = f.Close() }()
 
 	seen := make(map[string]bool)
 	var names []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
+	for _, entry := range entries {
+		line := entry.Value
 		var profileName string
 		if _, ok := cfg.Profiles[line]; ok {
 			// Exact profile name match — use it directly
@@ -835,11 +832,8 @@ func readProfilesFromFile(cfg *config.Config, path string) ([]string, error) {
 			names = append(names, profileName)
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
-	}
 	if len(names) == 0 {
-		return nil, fmt.Errorf("no profiles found in %s", path)
+		return nil, fmt.Errorf("no profiles found in %s", listfile.SourceName(path))
 	}
 	return names, nil
 }
@@ -894,10 +888,10 @@ func normalizeURLForMatch(rawURL string) string {
 // promptProfileSelection shows an interactive profile picker.
 func promptProfileSelection(cfg *config.Config, allNames []string, noInput bool) ([]string, error) {
 	if noInput {
-		return nil, fmt.Errorf("no profiles specified — use --filter, --profiles, or --from-file (required with --no-input)")
+		return nil, fmt.Errorf("no profiles specified — use --filter, --profiles, or --list-file (required with --no-input)")
 	}
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return nil, fmt.Errorf("no profiles specified and stdin is not a terminal — use --filter, --profiles, or --from-file")
+		return nil, fmt.Errorf("no profiles specified and stdin is not a terminal — use --filter, --profiles, or --list-file")
 	}
 
 	fmt.Fprintln(os.Stderr, "\nAvailable profiles:")

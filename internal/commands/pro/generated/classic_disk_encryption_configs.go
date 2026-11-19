@@ -14,6 +14,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -145,6 +146,8 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		flagName string
 	)
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a disk_encryption_configuration by ID",
@@ -155,11 +158,33 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
   jamf-cli pro classic-disk-encryption-configs get --name "Example"
 
   # Get a disk_encryption_configuration and output as YAML
-  jamf-cli pro classic-disk-encryption-configs get 1 -o yaml`,
+  jamf-cli pro classic-disk-encryption-configs get 1 -o yaml
+
+  # Get every disk_encryption_configuration a file names, one per line
+  jamf-cli pro classic-disk-encryption-configs get --list-file diskencryptionconfigurations.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "disk encryption configuration", Lookup: classicNameLookup(ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations"), FoldCase: true}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "diskencryptionconfigurations", "disk_encryption_configuration", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/diskencryptionconfigurations/id/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicDiskEncryptionConfigs)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -207,6 +232,8 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up disk_encryption_configuration by name")
 
+	listfile.AddFlag(cmd, &flagListFile, "diskencryptionconfigurations to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -366,10 +393,10 @@ Credential fields (--from-file only, never --set): institutional_recovery_key.da
 
 func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		flagName   string
-		fromFile   string
+		flagYes      bool
+		flagDryRun   bool
+		flagName     string
+		flagListFile string
 	)
 
 	cmd := &cobra.Command{
@@ -388,59 +415,28 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, with one GET of the
+			// collection; a line that matches nothing, or more than one record,
+			// is reported and skipped, and counts as a failure in the summary
+			// and exit code.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
+				}
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "disk encryption configuration", Lookup: classicNameLookup(ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations"), FoldCase: true}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var resolvedID string
-						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations", entry.Value, "delete", noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							resolvedID = id
-						}
-						if resolvedID == "" {
-							return fmt.Errorf("no disk_encryption_configuration found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: resolvedID, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete disk_encryption_configuration %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete disk_encryption_configuration %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "diskencryptionconfigurations deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -456,14 +452,18 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
-					delPath := fmt.Sprintf("/JSSResource/diskencryptionconfigurations/id/%s", url.PathEscape(e.id))
+				for i, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/diskencryptionconfigurations/id/%s", url.PathEscape(e.ID))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete disk_encryption_configuration %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete disk_encryption_configuration %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "diskencryptionconfigurations")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -472,10 +472,10 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted disk_encryption_configuration %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "Deleted disk_encryption_configuration %s\n", e.Label)
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete disk_encryption_configuration %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete disk_encryption_configuration %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -544,8 +544,8 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up disk_encryption_configuration by name")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	listfile.AddFlag(cmd, &flagListFile, "diskencryptionconfigurations to delete: ID or name", listfile.WithLegacyAlias())
+	listfile.MarkExclusive(cmd, "name")
 
 	return cmd
 }

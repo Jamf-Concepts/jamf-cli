@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -78,10 +79,10 @@ disable-remote-desktop send those through it on a platform gateway profile.
 Every other command is refused before anything is sent, naming its
 replacement where there is one.
 
-Targets are specified via --from-file (one computer per line: ID, serial number,
+Targets are specified via --list-file (one computer per line: ID, serial number,
 UDID, management ID or name) or --group (all members of a computer group).
 
-Entries in --from-file are resolved to computer IDs first. A line that matches
+Entries in --list-file are resolved to computer IDs first. A line that matches
 no computer is reported and skipped, and counts as a failure in the summary and
 exit code (use --allow-partial-failure to tolerate it); if no line resolves at
 all, or the file holds no entries, the command fails without sending anything.
@@ -90,14 +91,14 @@ Without --yes, or with -n/--dry-run, the command prints a preview table and
 exits without making any changes.
 
 Commands still sent: EnableRemoteDesktop, DisableRemoteDesktop`,
-		Deprecated: "use `jamf-cli pro computer-inventory enable-remote-desktop` or `disable-remote-desktop` (--group / --from-file), which reach a platform gateway through the Classic API; `pro bulk send-command` will be removed in a future release",
+		Deprecated: "use `jamf-cli pro computer-inventory enable-remote-desktop` or `disable-remote-desktop` (--group / --list-file), which reach a platform gateway through the Classic API; `pro bulk send-command` will be removed in a future release",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSendCommand(cmd, cliCtx, command, fromFile, fromGroup, yes)
 		},
 	}
 
 	cmd.Flags().StringVar(&command, "command", "", "MDM command name (required)")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "file listing one computer per line: ID, serial number, UDID, management ID or name")
+	listfile.AddFlag(cmd, &fromFile, "computers: ID, serial number, UDID, management ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&fromGroup, "group", "", "computer group whose members receive the command")
 	cmd.Flags().BoolVar(&yes, "yes", false, "execute mutations (default: dry-run preview only)")
 	// Kept so an existing invocation still parses; nothing send-command can
@@ -177,7 +178,7 @@ func runSendCommand(
 	// 5. Execute.
 	_, _ = fmt.Fprintf(stderr, "Sending %q to %d computers...\n", command, len(targets))
 
-	// Unresolvable --from-file entries count as failures (see runGroupMutation).
+	// Unresolvable --list-file entries count as failures (see runGroupMutation).
 	successCount, failCount := 0, unresolved
 	var firstErr error
 	for _, t := range targets {

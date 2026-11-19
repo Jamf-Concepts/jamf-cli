@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -167,6 +169,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "delete <blueprintId>",
 		Short:       "Delete a blueprint",
@@ -178,7 +181,12 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return listfile.Conflict("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -193,6 +201,25 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "blueprint", "/blueprints/v1/blueprints", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `delete <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/blueprints/v1/blueprints/{blueprintId}"
+					p = strings.Replace(p, "{blueprintId}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.RunListDelete(cmd, cliCtx.DryRun, yes, targets, skipped, "blueprints", func(ctx context.Context, id string) (string, error) {
+					p := recordPath(id)
+					return p, cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodDelete, p, nil, http.StatusNoContent, nil)
+				}, recordPath)
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -227,11 +254,14 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "blueprints to delete: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
 func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "get <blueprintId>",
 		Short:       "Get a blueprint",
@@ -243,7 +273,12 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return listfile.Conflict("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -258,6 +293,26 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "blueprint", "/blueprints/v1/blueprints", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `get <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/blueprints/v1/blueprints/{blueprintId}"
+					p = strings.Replace(p, "{blueprintId}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "blueprints entries", func(ctx context.Context, id string) (any, error) {
+					var result any
+					err := cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodGet, recordPath(id), nil, http.StatusOK, &result)
+					return result, err
+				})
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -277,6 +332,8 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "blueprints to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -426,6 +483,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
+	var listFile string
 	cmd := &cobra.Command{
 		Use:         "report <blueprintId>",
 		Short:       "Get blueprint status report",
@@ -437,7 +495,12 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var resolvedID string
-			if nameFlag != "" {
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return listfile.Conflict("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else if nameFlag != "" {
 				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
@@ -452,6 +515,26 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/blueprints/v1/blueprints/{blueprintId}/report"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, "blueprint", "/blueprints/v1/blueprints", "", listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path `report <id>` sends, query and all.
+				recordPath := func(id string) string {
+					p := "/blueprints/v1/blueprints/{blueprintId}/report"
+					p = strings.Replace(p, "{blueprintId}", url.PathEscape(id), 1)
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "blueprints entries", func(ctx context.Context, id string) (any, error) {
+					var result any
+					err := cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodGet, recordPath(id), nil, http.StatusOK, &result)
+					return result, err
+				})
+			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -471,6 +554,8 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	listfile.AddFlag(cmd, &listFile, "blueprints to report: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -548,4 +633,7 @@ var (
 	_ = platform.ResolveIDByName
 	_ = platform.IsNotFound
 	_ = platform.ApplyName
+	_ = platform.NamedTargets
+	_ = listfile.AddFlag
+	_ = context.Background
 )

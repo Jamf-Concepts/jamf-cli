@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
@@ -133,7 +134,8 @@ func newClassicGroupMembersCmd(cliCtx *registry.CLIContext, kind classicGroupKin
 
 Members come from one of:
   --%s       a %s: ID, serial number, UDID, management ID or name (repeatable)
-  --from-file      a file listing one of those per line (# comments ignored)
+  --list-file      a file listing one of those per line (# comments ignored;
+                   - reads stdin)
   --from-group     every member of another %s, smart or static
 
 Every entry is resolved before anything is sent, and one that matches nothing,
@@ -145,7 +147,7 @@ Members go %s the group in batched requests to the Classic API, and the group
 is read back afterwards to confirm each change landed. Smart groups are refused:
 their membership is computed from criteria.
 
-With --from-file or --from-group the command prints a preview and changes
+With --list-file or --from-group the command prints a preview and changes
 nothing unless --yes is given. Members named with --%s are written at once,
 as one-off edits are; -n/--dry-run previews any form.
 
@@ -155,7 +157,7 @@ progress on stderr.`,
 			kind.flag, kind.label, kind.groupLabel, kind.label,
 			membershipSkipNote(kind, add), prep, kind.flag),
 		Example: fmt.Sprintf(`  jamf-cli pro classic-%ss %s 42 --%s C02X1234 --%s 117
-  jamf-cli pro classic-%ss %s --name "Quarantine" --from-file serials.txt --yes
+  jamf-cli pro classic-%ss %s --name "Quarantine" --list-file serials.txt --yes
   jamf-cli pro classic-%ss %s --name "Quarantine" --from-group "Lab Macs" -n`,
 			strings.ReplaceAll(kind.groupLabel, " ", "-"), verb, kind.flag, kind.flag,
 			strings.ReplaceAll(kind.groupLabel, " ", "-"), verb,
@@ -170,11 +172,12 @@ progress on stderr.`,
 	cmd.Flags().StringVar(&o.groupName, "name", "", "group name (instead of the positional ID)")
 	cmd.Flags().StringArrayVar(&o.members, kind.flag, nil,
 		fmt.Sprintf("%s to %s: ID, serial number, UDID, management ID or name (repeatable)", kind.label, strings.TrimSuffix(verb, "-members")))
-	cmd.Flags().StringVar(&o.fromFile, "from-file", "", "file listing one "+kind.label+" identifier per line (# comments ignored)")
+	listfile.AddFlag(cmd, &o.fromFile, kind.label+"s: ID, serial number, UDID, management ID or name", listfile.WithLegacyAlias())
 	cmd.Flags().StringVar(&o.fromGroup, "from-group", "", "take every member of this "+kind.groupLabel+" (smart or static)")
-	cmd.Flags().BoolVar(&o.yes, "yes", false, "apply a --from-file or --from-group change (default: preview only)")
-	cmd.MarkFlagsMutuallyExclusive(kind.flag, "from-file", "from-group")
-	cmd.MarkFlagsOneRequired(kind.flag, "from-file", "from-group")
+	cmd.Flags().BoolVar(&o.yes, "yes", false, "apply a --list-file or --from-group change (default: preview only)")
+	cmd.MarkFlagsMutuallyExclusive(kind.flag, listfile.FlagName, "from-group")
+	listfile.MarkExclusive(cmd, kind.flag, "from-group")
+	cmd.MarkFlagsOneRequired(kind.flag, listfile.FlagName, listfile.LegacyFlagName, "from-group")
 
 	return markGatewayCoverage(cmd, "PUT", strings.Replace(kind.detailPath, "%s", "{id}", 1))
 }

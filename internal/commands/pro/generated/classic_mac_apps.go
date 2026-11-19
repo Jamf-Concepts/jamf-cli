@@ -14,6 +14,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
@@ -341,6 +342,8 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagName string
 	)
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a mac_application by ID",
@@ -351,11 +354,33 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro classic-mac-apps get --name "Example"
 
   # Get a mac_application and output as YAML
-  jamf-cli pro classic-mac-apps get 1 -o yaml`,
+  jamf-cli pro classic-mac-apps get 1 -o yaml
+
+  # Get every mac_application a file names, one per line
+  jamf-cli pro classic-mac-apps get --list-file macapplications.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mac application", Lookup: classicNameLookup(ctx.Client, "macapplications", "macapplications"), FoldCase: true}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "macapplications", "mac_application", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicMacApps)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -403,6 +428,8 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mac_application by name")
 
+	listfile.AddFlag(cmd, &flagListFile, "macapplications to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -585,10 +612,10 @@ Optional sections: general, scope, self_service, vpp`,
 
 func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		flagName   string
-		fromFile   string
+		flagYes      bool
+		flagDryRun   bool
+		flagName     string
+		flagListFile string
 	)
 
 	cmd := &cobra.Command{
@@ -607,59 +634,28 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, with one GET of the
+			// collection; a line that matches nothing, or more than one record,
+			// is reported and skipped, and counts as a failure in the summary
+			// and exit code.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
+				}
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mac application", Lookup: classicNameLookup(ctx.Client, "macapplications", "macapplications"), FoldCase: true}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var resolvedID string
-						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "macapplications", "macapplications", entry.Value, "delete", noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							resolvedID = id
-						}
-						if resolvedID == "" {
-							return fmt.Errorf("no mac_application found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: resolvedID, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mac_application %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mac_application %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "macapplications deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -675,14 +671,18 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
-					delPath := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(e.id))
+				for i, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(e.ID))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete mac_application %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete mac_application %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "macapplications")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -691,10 +691,10 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted mac_application %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "Deleted mac_application %s\n", e.Label)
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete mac_application %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete mac_application %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -763,8 +763,8 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mac_application by name")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	listfile.AddFlag(cmd, &flagListFile, "macapplications to delete: ID or name", listfile.WithLegacyAlias())
+	listfile.MarkExclusive(cmd, "name")
 
 	return cmd
 }

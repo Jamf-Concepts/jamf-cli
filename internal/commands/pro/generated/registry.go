@@ -28,6 +28,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // termSafe renders v for a stderr line a human reads, with the control
@@ -255,6 +256,64 @@ func isTokenAuthorizationError(body []byte) bool {
 // items succeeded and some failed it returns a PartialFailure (exit 7), unless
 // --allow-partial-failure is set, in which case it warns and returns nil. A
 // total failure propagates firstErr's exit code.
+// runListGet is `get --list-file`: it reads each target with fetch — the very
+// request `get <id>` sends — and prints the records as one JSON array, in the
+// order the list named them, through the same formatter `list --all` uses, so
+// every -o format, --select and --out-file apply. A record that cannot be read
+// is reported on stderr and counted with the entries that never resolved; any
+// failure exits 7 when something succeeded (see batchDeleteError), and the
+// records that were read are still printed. An empty result prints [], never
+// null.
+func runListGet(cmd *cobra.Command, ctx *registry.CLIContext, targets []resolve.Target, skipped int, noun string, fetch func(id string) (*http.Response, error)) error {
+	if skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
+	}
+	records := make([]json.RawMessage, 0, len(targets))
+	failed := skipped
+	var firstErr error
+	for i, t := range targets {
+		body, err := readListRecord(fetch, t.ID)
+		if err != nil {
+			err = t.Hide(err)
+			fmt.Fprintf(os.Stderr, "  warning: could not read %s: %v\n", t.Label, termSafe(err))
+			if resolve.StopsTheList(err) {
+				return resolve.AbortBatch(err, len(records), len(targets)-i-1, noun)
+			}
+			if firstErr == nil {
+				firstErr = err
+			}
+			failed++
+			continue
+		}
+		records = append(records, body)
+	}
+	combined, err := json.Marshal(records)
+	if err != nil {
+		return err
+	}
+	if err := ctx.Output.PrintRaw(combined); err != nil {
+		return err
+	}
+	return batchDeleteError(cmd, len(records), failed, firstErr, noun)
+}
+
+// readListRecord reads one --list-file record's JSON body.
+func readListRecord(fetch func(id string) (*http.Response, error), id string) (json.RawMessage, error) {
+	resp, err := fetch(id)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	if err != nil {
+		return nil, err
+	}
+	if !json.Valid(body) {
+		return nil, fmt.Errorf("HTTP %d: the response is not JSON", resp.StatusCode)
+	}
+	return json.RawMessage(body), nil
+}
+
 func batchDeleteError(cmd *cobra.Command, succeeded, failed int, firstErr error, noun string) error {
 	if failed == 0 {
 		return nil

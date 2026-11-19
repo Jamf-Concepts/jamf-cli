@@ -108,7 +108,7 @@
     },
     {
       "description": "Blank push the computers listed in a file",
-      "command": "jamf-cli pro computer-inventory blank-push --from-file devices.txt --yes"
+      "command": "jamf-cli pro computer-inventory blank-push --list-file devices.txt --yes"
     }
   ],
   "pro computer-inventory enable-remote-desktop": [
@@ -130,7 +130,7 @@
     },
     {
       "description": "Preview adding computers listed in a file (IDs, serials, UDIDs or names)",
-      "command": "jamf-cli pro classic-computer-groups add-members --name \"Lab Macs\" --from-file devices.txt"
+      "command": "jamf-cli pro classic-computer-groups add-members --name \"Lab Macs\" --list-file devices.txt"
     },
     {
       "description": "Add two computers by serial number",
@@ -140,7 +140,7 @@
   "pro classic-computer-groups remove-members": [
     {
       "description": "Remove computers listed in a file from a static group",
-      "command": "jamf-cli pro classic-computer-groups remove-members --name \"Production\" --from-file retired.txt --yes"
+      "command": "jamf-cli pro classic-computer-groups remove-members --name \"Production\" --list-file retired.txt --yes"
     }
   ],
   "pro classic-mobile-device-groups add-members": [
@@ -170,7 +170,7 @@
     },
     {
       "description": "Enable policies listed in a file",
-      "command": "jamf-cli pro classic-policies enable --from-file policies.txt --yes"
+      "command": "jamf-cli pro classic-policies enable --list-file policies.txt --yes"
     }
   ],
   "pro group-tools list": [

@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -59,18 +61,45 @@ func NewClassicGsxConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get a gsx_connection by ID",
 		Example: `  # Get a gsx_connection by ID
   jamf-cli pro classic-gsx-connection get 1
 
   # Get a gsx_connection and output as YAML
-  jamf-cli pro classic-gsx-connection get 1 -o yaml`,
+  jamf-cli pro classic-gsx-connection get 1 -o yaml
+
+  # Get every gsx_connection a file names, one per line
+  jamf-cli pro classic-gsx-connection get --list-file gsxconnection.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "gsx-connection:read"},
-		Args:        cobra.ExactArgs(1),
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "gsx connection"}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "gsxconnection", "gsx_connection", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/gsxconnection/id/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicGsxConnection)
+					return body, err
+				})
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("provide an <id> argument or --list-file")
+			}
 			path := fmt.Sprintf("/JSSResource/gsxconnection/id/%s", url.PathEscape(args[0]))
 
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
@@ -107,6 +136,7 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "gsxconnection to get: ID")
 	return cmd
 }
 

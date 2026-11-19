@@ -54,7 +54,7 @@ func (c fixedClient) Do(context.Context, string, string, io.Reader) (*http.Respo
 func runDelete(t *testing.T, newCmd func(*registry.CLIContext) *cobra.Command, client registry.HTTPClient, list string, extra ...string) (string, error) {
 	t.Helper()
 	cmd := newCmd(&registry.CLIContext{Client: client})
-	cmd.SetArgs(append([]string{"--from-file", list, "--yes"}, extra...))
+	cmd.SetArgs(append([]string{"--list-file", list, "--yes"}, extra...))
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 	r, w, perr := os.Pipe()
@@ -70,16 +70,23 @@ func runDelete(t *testing.T, newCmd func(*registry.CLIContext) *cobra.Command, c
 	return string(stderr), err
 }
 
+// TestFromFileDelete_MCPChildNamesTheLineNotTheEntry: an entry that matches
+// nothing is skipped with a warning, and in an MCP child that warning names its
+// line, never its value. A lookup that fails outright is not any one line's
+// fault — every name goes in one batched request — so its error names the file
+// and keeps only the exit code; either way the value stays out.
 func TestFromFileDelete_MCPChildNamesTheLineNotTheEntry(t *testing.T) {
 	cases := map[string]struct {
-		newCmd func(*registry.CLIContext) *cobra.Command
-		client registry.HTTPClient
+		newCmd     func(*registry.CLIContext) *cobra.Command
+		client     registry.HTTPClient
+		lookupFail bool
 	}{
-		"pro, no match":            {newBuildingsDeleteCmd, emptyListClient{}},
-		"pro, lookup fails":        {newBuildingsDeleteCmd, &pathEchoClient{}},
-		"pro, by-field lookup":     {newComputerInventoryDeleteCmd, &pathEchoClient{}},
-		"classic, lookup fails":    {newClassicAdvancedComputerSearchesDeleteCmd, &pathEchoClient{}},
-		"classic, by-field lookup": {newClassicMobileDevicesDeleteCmd, &pathEchoClient{}},
+		"pro, no match":            {newBuildingsDeleteCmd, emptyListClient{}, false},
+		"pro, lookup fails":        {newBuildingsDeleteCmd, &pathEchoClient{}, true},
+		"pro, device lookup":       {newComputerInventoryDeleteCmd, &pathEchoClient{}, true},
+		"classic, lookup fails":    {newClassicAdvancedComputerSearchesDeleteCmd, &pathEchoClient{}, true},
+		"classic, device lookup":   {newClassicMobileDevicesDeleteCmd, &pathEchoClient{}, true},
+		"classic, device no match": {newClassicMobileDevicesDeleteCmd, emptyListClient{}, false},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -91,17 +98,23 @@ func TestFromFileDelete_MCPChildNamesTheLineNotTheEntry(t *testing.T) {
 			if strings.Contains(err.Error(), "s3cr3t") || strings.Contains(stderr, "s3cr3t") {
 				t.Errorf("a file line reached the MCP child's output:\nerr: %v\nstderr: %s", err, stderr)
 			}
-			if !strings.Contains(err.Error(), "line 2") {
-				t.Errorf("err = %v, want it to name line 2", err)
+			if tc.lookupFail {
+				if !strings.Contains(err.Error(), "delete.txt") || !strings.Contains(err.Error(), "the request failed") {
+					t.Errorf("err = %v, want the file named and the failure kept opaque", err)
+				}
+				return
+			}
+			if !strings.Contains(stderr, "line 2") || !strings.Contains(err.Error(), "could be resolved") {
+				t.Errorf("stderr = %q, err = %v; want the skipped entry named by line 2", stderr, err)
 			}
 		})
 	}
 }
 
 func TestFromFileDelete_OutsideMCPQuotesTheEntry(t *testing.T) {
-	_, err := runDelete(t, newBuildingsDeleteCmd, emptyListClient{}, writeDeleteList(t, fileSecret+"\n"))
-	if err == nil || !strings.Contains(err.Error(), strconv.Quote(fileSecret)) {
-		t.Errorf("err = %v, want the entry quoted for a person at the terminal", err)
+	stderr, err := runDelete(t, newBuildingsDeleteCmd, emptyListClient{}, writeDeleteList(t, fileSecret+"\n"))
+	if err == nil || !strings.Contains(stderr, strconv.Quote(fileSecret)) {
+		t.Errorf("stderr = %q, err = %v; want the entry quoted for a person at the terminal", stderr, err)
 	}
 }
 
@@ -160,15 +173,15 @@ func TestFromFileDelete_MCPChildReportsAnAmbiguousName(t *testing.T) {
 	t.Setenv(registry.MCPChildEnvVar, "1")
 	twoMatches := fixedClient{`{"totalCount":2,"results":[{"id":"1","name":"` + fileSecret + `"},{"id":"2","name":"` + fileSecret + `"}]}`}
 
-	_, err := runDelete(t, newBuildingsDeleteCmd, twoMatches, writeDeleteList(t, fileSecret+"\n"))
-	if err == nil || !strings.Contains(err.Error(), "line 1: it matches more than one record") {
-		t.Fatalf("err = %v, want the ambiguity named on line 1", err)
+	stderr, err := runDelete(t, newBuildingsDeleteCmd, twoMatches, writeDeleteList(t, fileSecret+"\n"))
+	if err == nil || !strings.Contains(stderr, "line 1: it matches more than one building; give its numeric ID") {
+		t.Fatalf("stderr = %q, err = %v; want the ambiguity named on line 1", stderr, err)
 	}
-	if strings.Contains(err.Error(), "s3cr3t") {
-		t.Errorf("err = %v, want the value left out", err)
+	if strings.Contains(err.Error(), "s3cr3t") || strings.Contains(stderr, "s3cr3t") {
+		t.Errorf("err = %v, stderr = %q; want the value left out", err, stderr)
 	}
-	if got := exitcode.CodeFrom(err); got != exitcode.Usage {
-		t.Errorf("exit code = %d, want Usage (%d)", got, exitcode.Usage)
+	if got := exitcode.CodeFrom(err); got == exitcode.Success {
+		t.Errorf("exit code = %d, want a failure", got)
 	}
 }
 

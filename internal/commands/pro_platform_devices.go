@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/pickone"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -104,26 +105,50 @@ func flattenDeviceList(d devices.DeviceListReadRepresentationV1) map[string]any 
 }
 
 func newPlatformDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id|serial>",
+	var listFile string
+	cmd := &cobra.Command{
+		Use:   "get [<id|serial>]",
 		Short: "Get a device by ID or serial number",
-		Args:  cobra.ExactArgs(1),
+		Long: `Get a device by its Platform device ID (a UUID) or serial number, or every
+device a --list-file names, one ID or serial number per line. The Platform
+device ID is not the Jamf Pro computer or mobile device ID.`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
 			ctx := cmd.Context()
-			id, _, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
+			client := cliCtx.PlatformSDKClient
+			if listFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the devices to get; do not pass an <id|serial> as well")
+				}
+				targets, skipped, err := resolve.ResolveEachFile(ctx, "device", listFile, func(ctx context.Context, v string) (string, string, error) {
+					return resolveDeviceIDDirect(ctx, client, v)
+				})
+				if err != nil {
+					return err
+				}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, "platform-devices entries", func(ctx context.Context, id string) (any, error) {
+					return devices.New(client).GetDevice(ctx, id)
+				})
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("provide an <id|serial> or --list-file")
+			}
+			id, _, err := resolveDeviceIDDirect(ctx, client, args[0])
 			if err != nil {
 				return err
 			}
-			dev, err := devices.New(cliCtx.PlatformSDKClient).GetDevice(ctx, id)
+			dev, err := devices.New(client).GetDevice(ctx, id)
 			if err != nil {
 				return err
 			}
 			return platform.PrintOne(cliCtx.Output, dev)
 		},
 	}
+	listfile.AddFlag(cmd, &listFile, "devices to get: Platform device ID or serial number")
+	return cmd
 }
 
 func newPlatformDevicesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {

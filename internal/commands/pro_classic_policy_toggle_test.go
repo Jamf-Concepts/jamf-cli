@@ -82,7 +82,7 @@ func TestPolicyToggle_FromFile(t *testing.T) {
 	}
 
 	mock := policyToggleFixture()
-	stderr, err := runPolicyToggle(t, mock, false, "--from-file", path)
+	stderr, err := runPolicyToggle(t, mock, false, "--list-file", path)
 	if err != nil {
 		t.Fatalf("preview: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestPolicyToggle_FromFile(t *testing.T) {
 	}
 
 	mock = policyToggleFixture()
-	_, err = runPolicyToggle(t, mock, false, "--from-file", path, "--yes")
+	_, err = runPolicyToggle(t, mock, false, "--list-file", path, "--yes")
 	if exitcode.CodeFrom(err) != exitcode.PartialFailure {
 		t.Fatalf("err = %v, want a partial failure for the unknown line", err)
 	}
@@ -138,7 +138,7 @@ func TestPolicyToggle_OneTargetForm(t *testing.T) {
 		{},
 		{"1", "--name", "Deploy Chrome"},
 		{"1", "--category", "Lab"},
-		{"--from-file", "x", "--scope-group", "Lab Macs"},
+		{"--list-file", "x", "--scope-group", "Lab Macs"},
 		{"Deploy Chrome"},
 	} {
 		if _, err := runPolicyToggle(t, policyToggleFixture(), true, args...); err == nil {

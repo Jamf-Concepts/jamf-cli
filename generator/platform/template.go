@@ -43,6 +43,7 @@ const resourceTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -52,6 +53,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -89,6 +91,9 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- if .SupportsNameLookup }}
 	var nameFlag string
+{{- end }}
+{{- if listFileOp . }}
+	var listFile string
 {{- end }}
 {{- if .Paginate }}
 	var pageFlags platform.PageFlags
@@ -145,6 +150,14 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 {{- if .SupportsNameLookup }}
 			var resolvedID string
+{{- if listFileOp . }}
+			if listFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 || nameFlag != "" {
+					return listfile.Conflict("--list-file names the records; do not pass an <id> or --name as well")
+				}
+			} else
+{{- end }}
 			if nameFlag != "" {
 				listPath := {{printf "%q" .ListPath}}
 {{- if .NameLookupField }}
@@ -190,6 +203,37 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				q.Set({{goStr .Name}}, {{.Var}})
 			}
 {{- end }}
+{{- end }}
+{{- if listFileOp . }}
+			if listFile != "" {
+				targets, skipped, err := platform.NamedTargets(cmd.Context(), cliCtx.PlatformSDKClient, {{goStr (singularLabel $.Name)}}, {{goStr .ListPath}}, {{goStr .NameLookupField}}, listFile)
+				if err != nil {
+					return err
+				}
+				// recordPath is the path ` + "`" + `{{.Name}} <id>` + "`" + ` sends, query and all.
+				recordPath := func(id string) string {
+					p := {{goStr .Path}}
+{{- range .PathParams }}
+					p = strings.Replace(p, {{goStr (print "{" . "}")}}, url.PathEscape(id), 1)
+{{- end }}
+					if encoded := q.Encode(); encoded != "" {
+						p += "?" + encoded
+					}
+					return p
+				}
+{{- if eq .Method "GET" }}
+				return platform.PrintListRecords(cmd, cliCtx.Output, targets, skipped, {{goStr (print $.Name " entries")}}, func(ctx context.Context, id string) (any, error) {
+					var result any
+					err := cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodGet, recordPath(id), nil, {{statusConstant .SuccessCode}}, &result)
+					return result, err
+				})
+{{- else }}
+				return platform.RunListDelete(cmd, cliCtx.DryRun, yes, targets, skipped, {{goStr $.Name}}, func(ctx context.Context, id string) (string, error) {
+					p := recordPath(id)
+					return p, cliCtx.PlatformSDKClient.Transport().DoExpect(ctx, http.MethodDelete, p, nil, {{statusConstant .SuccessCode}}, nil)
+				}, recordPath)
+{{- end }}
+			}
 {{- end }}
 {{- if .HasBody }}
 			body, err := platform.ReadBody(bodyFile, setFlags{{ range .CredentialPaths }}, {{ goStr . }}{{ end }})
@@ -324,6 +368,10 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{- if .SupportsNameLookup }}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+{{- end }}
+{{- if listFileOp . }}
+	listfile.AddFlag(cmd, &listFile, {{goStr (print $.Name " to " .Name ": ID or name")}})
+	listfile.MarkExclusive(cmd, "name")
 {{- end }}
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
@@ -495,5 +543,8 @@ var (
 	_ = platform.ResolveIDByName
 	_ = platform.IsNotFound
 	_ = platform.ApplyName
+	_ = platform.NamedTargets
+	_ = listfile.AddFlag
+	_ = context.Background
 )
 `

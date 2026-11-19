@@ -213,7 +213,7 @@ const batchChunkSize = 100
 // can be any length.
 const batchFilterMaxBytes = 4096
 
-// fileEntrySpec describes how to batch-resolve --from-file entries for one
+// fileEntrySpec describes how to batch-resolve --list-file entries for one
 // device type.
 type fileEntrySpec struct {
 	label    string // "computer" / "mobile device", used in messages
@@ -257,17 +257,17 @@ func resolveEntriesFromFile(ctx context.Context, client registry.HTTPClient, pat
 		return nil, 0, err
 	}
 	if len(entries) == 0 {
-		return nil, 0, fmt.Errorf("file %s contains no entries", path)
+		return nil, 0, fmt.Errorf("%s contains no entries", listfile.SourceName(path))
 	}
 	devices, skipped, err := resolveEntries(ctx, client, spec, entries)
 	if err != nil {
 		if registry.InMCPChild() {
-			return nil, 0, listfile.Opaque(fmt.Sprintf("looking up the %ss in %s", spec.label, path), err)
+			return nil, 0, listfile.Opaque(fmt.Sprintf("looking up the %ss in %s", spec.label, listfile.SourceName(path)), err)
 		}
 		return nil, 0, err
 	}
 	if len(devices) == 0 {
-		return nil, skipped, fmt.Errorf("none of the %d entries in %s could be resolved", len(entries), path)
+		return nil, skipped, fmt.Errorf("none of the %d entries in %s could be resolved", len(entries), listfile.SourceName(path))
 	}
 	return devices, skipped, nil
 }
@@ -1101,10 +1101,17 @@ func fetchInventoryPage(ctx context.Context, client registry.HTTPClient, path st
 		Results    []map[string]any `json:"results"`
 	}
 	if err := json.Unmarshal(body, &page); err != nil {
-		return nil, 0, fmt.Errorf("parsing paginated response: %w", err)
+		return nil, 0, &pageShapeError{err: err}
 	}
 	return page.Results, page.TotalCount, nil
 }
+
+// pageShapeError is a response that is not a {"totalCount", "results"} page,
+// such as a collection that answers a plain array.
+type pageShapeError struct{ err error }
+
+func (e *pageShapeError) Error() string { return "parsing paginated response: " + e.err.Error() }
+func (e *pageShapeError) Unwrap() error { return e.err }
 
 type httpStatusError struct{ code int }
 

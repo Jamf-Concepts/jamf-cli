@@ -69,6 +69,8 @@ func TestBuildChildArgs_AllowsReadPathsInsideTheInputDir(t *testing.T) {
 		{"pro", "classic-macos-config-profiles", "create", "--custom-payload-file", fx.spaced, "--custom-payload-file=" + fx.inside},
 		{"pro", "scripts", "create", "--script-file", "./body.xml"},
 		{"protect", "analytics", "import", "--dir", fx.sub},
+		{"pro", "buildings", "delete", "--list-file", fx.inside, "--yes"},
+		{"pro", "computer-inventory", "blank-push", "--list-file=" + fx.inside},
 	} {
 		if _, err := buildChildArgs("prod", args); err != nil {
 			t.Errorf("buildChildArgs(%q) = %v; a read path inside the input directory is allowed", args, err)
@@ -90,11 +92,28 @@ func TestBuildChildArgs_RefusesReadPathsOutsideTheInputDir(t *testing.T) {
 		"sync --dir":          {"pro", "jcds", "sync", "--dir", fx.sub},
 		"leaf --output":       {"protect", "downloads", "installer", "--output", fx.inside},
 		"report-dir":          {"pro", "setup", "--report-dir", fx.sub},
+		"list-file outside":   {"pro", "buildings", "delete", "--list-file", fx.outside, "--yes"},
 	}
 	for name, args := range cases {
 		if got, err := buildChildArgs("prod", args); err == nil {
 			t.Errorf("%s: buildChildArgs(%q) = %q; it must be refused even with an input directory", name, args, got)
 		}
+	}
+}
+
+// TestBuildChildArgs_RefusesListFileStdin pins that "-" is refused for what it
+// means — stdin, which a command run for the model does not have — even where
+// a file called "-" sits inside the input directory and the path check alone
+// would let it through.
+func TestBuildChildArgs_RefusesListFileStdin(t *testing.T) {
+	fx := newInputDirFixture(t)
+	t.Chdir(fx.dir)
+	if err := os.WriteFile(filepath.Join(fx.dir, "-"), []byte("1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := buildChildArgs("prod", []string{"pro", "buildings", "delete", "--list-file", "-", "--yes"})
+	if err == nil || !strings.Contains(err.Error(), "no stdin") {
+		t.Errorf("--list-file - over MCP = %v; want it refused as stdin", err)
 	}
 }
 

@@ -12,7 +12,9 @@ import (
 	"os"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -145,6 +147,8 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		flagInvitation string
 	)
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a mobile_device_invitation by ID",
@@ -152,11 +156,33 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
   jamf-cli pro classic-mobile-invitations get 1
 
   # Get a mobile_device_invitation and output as YAML
-  jamf-cli pro classic-mobile-invitations get 1 -o yaml`,
+  jamf-cli pro classic-mobile-invitations get 1 -o yaml
+
+  # Get every mobile_device_invitation a file names, one per line
+  jamf-cli pro classic-mobile-invitations get --list-file mobiledeviceinvitations.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile device invitation"}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "mobiledeviceinvitations", "mobile_device_invitation", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/mobiledeviceinvitations/id/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicMobileInvitations)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -204,6 +230,8 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.Flags().StringVar(&flagInvitation, "invitation", "", "Look up mobile_device_invitation by invitation")
 
+	listfile.AddFlag(cmd, &flagListFile, "mobiledeviceinvitations to get: ID")
+	listfile.MarkExclusive(cmd, "invitation")
 	return cmd
 }
 

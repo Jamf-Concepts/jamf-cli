@@ -30,9 +30,14 @@ func TestProWritesTakeABodyFromFile(t *testing.T) {
 		}
 	}
 
+	// The ID list is --list-file; --from-file survives on delete only as its
+	// deprecated alias.
 	del, _, _ := root.Find([]string{"pro", "categories", "delete"})
-	if f := del.Flags().Lookup("from-file"); f == nil || !strings.Contains(f.Usage, "IDs or names") {
-		t.Errorf("pro categories delete: --from-file is no longer the ID list (%v)", f)
+	if f := del.Flags().Lookup("list-file"); f == nil || !strings.Contains(f.Usage, "ID or name") {
+		t.Errorf("pro categories delete: --list-file is not the ID list (%v)", f)
+	}
+	if f := del.Flags().Lookup("from-file"); f == nil || f.Deprecated == "" {
+		t.Errorf("pro categories delete: --from-file is not the deprecated alias of --list-file (%v)", f)
 	}
 
 	// --set builds the whole body, so a file beside it is refused by cobra

@@ -49,7 +49,7 @@ jamf-cli pro setup --url https://jamf.company.com
 jamf-cli pro setup --url https://jamf.company.com --credentials create
 
 # Multi-instance setup (MSPs): bootstrap credentials for many instances at once
-jamf-cli pro setup --from-file instances.txt --credentials create --scope standard
+jamf-cli pro setup --list-file instances.txt --credentials create --scope standard
 
 # Instance health dashboard
 jamf-cli pro overview
@@ -167,11 +167,11 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing
-- **`--from-file` bulk operations** — `apply`, `delete`, and other write commands accept `--from-file <path>` for newline-separated names or a CSV. Pair with `--yes` and `--confirm-destructive` for unattended bulk cleanup
+- **`--list-file` bulk operations** — `get`, `delete`, device actions, group membership and policy enable/disable accept `--list-file <path>` (or `--list-file -` for stdin): one ID or name per line, and for devices a serial number, UDID or management ID too, each resolved to the Jamf Pro ID in batched lookups before anything is sent. `jamf-cli pro computer-inventory get --list-file serials.txt -o json` reads every computer the file names. Pair with `--yes` and `--confirm-destructive` for unattended bulk cleanup. `--from-file` is the request body for `create`, `update` and `apply`, and nothing else
 - **`multi`** — Run any command against multiple profiles: `jamf-cli multi --filter 'pro-*' -- pro comp list`. Supports glob patterns, file input (profile names or URLs), and interactive selection
 - **`dashboard`** — One self-contained HTML fleet report across Jamf Pro, Protect and Platform: fleet counts, security posture, OS distribution, check-in compliance, audit findings and environment stats, with `--full` adding patch compliance, hardware models, cleanup analysis and org structure. Use the global `--out-file`; a partially-collected run says so in the document's own header and exits 7. `--include-profile` pulls a second *product* into the same report. `jamf-cli config set-report-dir <dir>` is the prerequisite for the MCP server's `generate_report` tool, which writes the same report and hands a connecting AI its path rather than its contents
 - **Destructive safeguards** — Delete and replace operations require `--yes` confirmation
-- **`setup`** — Bootstrap API roles and OAuth2 credentials from a username/password. Idempotent (safe to re-run): updates roles and integrations in place without rotating credentials. Use `--rotate-credentials` to explicitly regenerate secrets. Supports multi-instance setup via `--from-file` for MSPs
+- **`setup`** — Bootstrap API roles and OAuth2 credentials from a username/password. Idempotent (safe to re-run): updates roles and integrations in place without rotating credentials. Use `--rotate-credentials` to explicitly regenerate secrets. Supports multi-instance setup via `--list-file` for MSPs
 - **System keychain** — Secrets stored via macOS Keychain or Linux secret-service
 - **Jamf Platform Gateway** — Route Jamf Pro through regional gateways with `--tenant-id`
 

@@ -18,7 +18,7 @@ func TestPolicyToggle_MCPChildNamesTheLineNotTheEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stderr, err := runPolicyToggle(t, policyToggleFixture(), true, "--from-file", path, "--yes")
+	stderr, err := runPolicyToggle(t, policyToggleFixture(), true, "--list-file", path, "--yes")
 	if err == nil {
 		t.Fatal("want an error for lines that resolve to no policy")
 	}
@@ -41,7 +41,7 @@ func TestPolicyToggle_RefusesANonNameLineBeforeAnyRequest(t *testing.T) {
 	}
 	mock := policyToggleFixture()
 
-	_, err := runPolicyToggle(t, mock, true, "--from-file", path, "--yes")
+	_, err := runPolicyToggle(t, mock, true, "--list-file", path, "--yes")
 	if err == nil || !strings.Contains(err.Error(), "line 2") || strings.Contains(err.Error(), "s3cr3t") {
 		t.Errorf("err = %v, want line 2 refused without its content", err)
 	}

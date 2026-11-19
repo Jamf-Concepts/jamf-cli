@@ -14,6 +14,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -160,6 +161,8 @@ func newClassicAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cob
 		flagName string
 	)
 
+	var flagListFile string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a advanced_mobile_device_search by ID",
@@ -170,11 +173,33 @@ func newClassicAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cob
   jamf-cli pro classic-advanced-mobile-device-searches get --name "Example"
 
   # Get a advanced_mobile_device_search and output as YAML
-  jamf-cli pro classic-advanced-mobile-device-searches get 1 -o yaml`,
+  jamf-cli pro classic-advanced-mobile-device-searches get 1 -o yaml
+
+  # Get every advanced_mobile_device_search a file names, one per line
+  jamf-cli pro classic-advanced-mobile-device-searches get --list-file advancedmobiledevicesearches.txt -o json`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --list-file: read several records, each with the request
+			// `get <id>` sends.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "advanced mobile device search", Lookup: classicNameLookup(ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches"), FoldCase: true}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runClassicListGet(cmd, ctx, targets, skipped, "advancedmobiledevicesearches", "advanced_mobile_device_search", func(id string) string {
+					p := fmt.Sprintf("/JSSResource/advancedmobiledevicesearches/id/%s", url.PathEscape(id))
+					return p
+				}, func(body []byte) ([]byte, error) {
+					body, err := redactClassicReadInMCPChild(body, bodySpecClassicAdvancedMobileDeviceSearches)
+					return body, err
+				})
+			}
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
@@ -222,6 +247,8 @@ func newClassicAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cob
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced_mobile_device_search by name")
 
+	listfile.AddFlag(cmd, &flagListFile, "advancedmobiledevicesearches to get: ID or name")
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 
@@ -383,10 +410,10 @@ its default silently — so --set refuses one rather than letting it through.`,
 
 func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
-		flagDryRun bool
-		flagName   string
-		fromFile   string
+		flagYes      bool
+		flagDryRun   bool
+		flagName     string
+		flagListFile string
 	)
 
 	cmd := &cobra.Command{
@@ -405,59 +432,28 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := listfile.Read(fromFile)
+			// --list-file: bulk delete from a file of IDs or names. Every line
+			// is resolved before anything is sent, with one GET of the
+			// collection; a line that matches nothing, or more than one record,
+			// is reported and skipped, and counts as a failure in the summary
+			// and exit code.
+			if flagListFile != "" {
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
+				}
+				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "advanced mobile device search", Lookup: classicNameLookup(ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches"), FoldCase: true}, flagListFile)
 				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
+					return err
 				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				if skipped > 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --list-file entr(ies) could not be resolved and will be skipped\n", skipped)
 				}
-				type bulkEntry struct {
-					id    string
-					entry listfile.Entry
-				}
-				bulk := make([]bulkEntry, 0, len(entries))
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry.Value) {
-						if entry.Value == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry.Value, entry: entry})
-					} else {
-						var resolvedID string
-						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedmobiledevicesearches", "advancedmobiledevicesearches", entry.Value, "delete", noInputBulk)
-							if err != nil {
-								return entry.Wrap(fmt.Sprintf("resolving %s", entry.Label()), err)
-							}
-							resolvedID = id
-						}
-						if resolvedID == "" {
-							return fmt.Errorf("no advanced_mobile_device_search found matching %s", entry.Label())
-						}
-						bulk = append(bulk, bulkEntry{id: resolvedID, entry: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced_mobile_device_search %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced_mobile_device_search %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "advancedmobiledevicesearches deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -473,14 +469,18 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
-				var okCount, failCount int
+				okCount, failCount := 0, skipped
 				var firstErr error
-				for _, e := range bulk {
-					delPath := fmt.Sprintf("/JSSResource/advancedmobiledevicesearches/id/%s", url.PathEscape(e.id))
+				for i, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/advancedmobiledevicesearches/id/%s", url.PathEscape(e.ID))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						err = e.entry.Hide(err)
-						fmt.Fprintf(os.Stderr, "delete advanced_mobile_device_search %s failed: %v\n", e.entry.Target(termSafe(e.id)), termSafe(err))
+						err = e.Hide(err)
+						fmt.Fprintf(os.Stderr, "delete advanced_mobile_device_search %s failed: %v\n", e.Label, termSafe(err))
+						if resolve.StopsTheList(err) {
+							cooldown.Record(ctx.ProfileName)
+							return resolve.AbortBatch(err, okCount, len(bulk)-i-1, "advancedmobiledevicesearches")
+						}
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -489,10 +489,10 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted advanced_mobile_device_search %s\n", e.entry.Target(termSafe(e.id)))
+						fmt.Fprintf(os.Stderr, "Deleted advanced_mobile_device_search %s\n", e.Label)
 						okCount++
 					} else {
-						fmt.Fprintf(os.Stderr, "delete advanced_mobile_device_search %s failed: HTTP %d\n", e.entry.Target(termSafe(e.id)), resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete advanced_mobile_device_search %s failed: HTTP %d\n", e.Label, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
@@ -561,8 +561,8 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced_mobile_device_search by name")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	listfile.AddFlag(cmd, &flagListFile, "advancedmobiledevicesearches to delete: ID or name", listfile.WithLegacyAlias())
+	listfile.MarkExclusive(cmd, "name")
 
 	return cmd
 }

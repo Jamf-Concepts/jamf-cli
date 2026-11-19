@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/listfile"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
@@ -239,7 +242,8 @@ func newCloudIdpListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newCloudIdpGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagListFile string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -253,7 +257,10 @@ func newCloudIdpGetCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro cloud-idp get --name "Example"
 
   # Get a cloud-idp and output as YAML
-  jamf-cli pro cloud-idp get 1 -o yaml`,
+  jamf-cli pro cloud-idp get 1 -o yaml
+
+  # Get every cloud-idp a file names, one per line
+  jamf-cli pro cloud-idp get --list-file cloud-idp.txt -o json`,
 		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -261,7 +268,12 @@ func newCloudIdpGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
-			if flagName != "" {
+			if flagListFile != "" {
+				// --list-file names the records; each is resolved below.
+				if len(args) > 0 {
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
+				}
+			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/cloud-idp", "displayName", "id", flagName, noInput)
 				if err != nil {
@@ -274,18 +286,33 @@ func newCloudIdpGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide an <id> argument, --name")
 			}
 
-			// Build request path
-			path := "/v1/cloud-idp/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			// fetchOne sends the request `get <id>` sends, for one ID; --list-file
+			// sends it once per record, so a record in the list reads exactly as it
+			// does on its own.
+			fetchOne := func(resolvedID string) (*http.Response, error) {
 
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
+				// Build request path
+				path := "/v1/cloud-idp/{id}"
+				path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+				// Build query string
+				var queryParts []string
+				if len(queryParts) > 0 {
+					path = path + "?" + strings.Join(queryParts, "&")
+				}
+
+				// Make request
+				resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+				return resp, err
 			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if flagListFile != "" {
+				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "cloud-idp", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/cloud-idp", "displayName", "id")}, flagListFile)
+				if err != nil {
+					return err
+				}
+				return runListGet(cmd, ctx, targets, skipped, "cloud-idp entries", fetchOne)
+			}
+			resp, err := fetchOne(resolvedID)
 			if err != nil {
 				return err
 			}
@@ -295,8 +322,10 @@ func newCloudIdpGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	listfile.AddFlag(cmd, &flagListFile, "cloud-idp to get: ID or name")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up cloud-idp by name")
 
+	listfile.MarkExclusive(cmd, "name")
 	return cmd
 }
 

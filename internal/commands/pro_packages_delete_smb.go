@@ -236,7 +236,7 @@ func selectFileShareDP(ctx context.Context, cliCtx *registry.CLIContext, name st
 // packageDeleteTargets reads, before anything is deleted, the file name of every
 // package the generated command is about to delete.
 func packageDeleteTargets(ctx context.Context, cmd *cobra.Command, client registry.HTTPClient, args []string) ([]packageFile, error) {
-	fromFile, _ := cmd.Flags().GetString("from-file")
+	fromFile, _ := cmd.Flags().GetString(listfile.FlagName) // the alias shares the variable
 	name, _ := cmd.Flags().GetString("name")
 
 	var refs []string
@@ -244,7 +244,7 @@ func packageDeleteTargets(ctx context.Context, cmd *cobra.Command, client regist
 	case fromFile != "":
 		entries, err := listfile.Read(fromFile)
 		if err != nil {
-			return nil, fmt.Errorf("reading --from-file: %w", err)
+			return nil, fmt.Errorf("reading --list-file: %w", err)
 		}
 		for _, e := range entries {
 			refs = append(refs, e.Value)
@@ -271,7 +271,7 @@ func packageDeleteTargets(ctx context.Context, cmd *cobra.Command, client regist
 }
 
 // packageFileFor reads one record's file name. ref is an id, or a package name
-// when byName is set (a numeric --from-file entry is an id, as the generated
+// when byName is set (a numeric --list-file entry is an id, as the generated
 // command reads it).
 func packageFileFor(ctx context.Context, client registry.HTTPClient, ref string, byName bool) (packageFile, error) {
 	if !byName {
