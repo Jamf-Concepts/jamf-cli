@@ -11,6 +11,15 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
+### Behaviour — a server-timeout hint names only the flags the command has
+
+A timeout or edge 504 on a read used to end with `pass a smaller --page-size or narrow it with
+--section or --filter` on every command, including ones with none of the three
+(`pro patch-software-title-configurations list`, any single-object `get`). The `hint` (stderr line,
+and the `hint` field of the JSON error envelope) now names only the flags the executed command
+declares, and says plainly when there are none. Exit code and the `error` text are unchanged.
+**Migration:** none, unless a script matches the old hint wording.
+
 ### Breaking — `pro blueprints import-profile` no longer takes over the installed profile by default
 
 `import-profile` used to keep the Classic profile as installed and stamp its identifiers onto the

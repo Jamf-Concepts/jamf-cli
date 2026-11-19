@@ -96,6 +96,7 @@ func run(args []string, envArgs string) int {
 	err = commands.AnnotateScopeLevelError(executedCmd, err)
 	err = commands.ClassifyError(err)
 	err = commands.EnrichPrivilegeError(executedCmd, err)
+	err = commands.RefineTimeoutHint(executedCmd, err)
 	if !commands.FormatError(err) {
 		commands.FprintError(os.Stderr, err)
 	}

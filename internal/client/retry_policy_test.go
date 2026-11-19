@@ -76,8 +76,11 @@ func TestDoWithRetry_TimeoutIsNotRetried(t *testing.T) {
 				t.Errorf("server saw %d requests, want 1", n)
 			}
 			hint := hintOf(t, err)
-			if method == http.MethodGet && !strings.Contains(hint, "--page-size") {
-				t.Errorf("GET hint = %q, want it to name --page-size", hint)
+			// The client cannot know which flags the invoked command has, so a
+			// read's hint names none (issue 476); commands.RefineTimeoutHint
+			// adds the ones the command declares.
+			if method == http.MethodGet && hint != registry.ServerTimeoutHint {
+				t.Errorf("GET hint = %q, want the neutral server-timeout hint", hint)
 			}
 			if method != http.MethodGet && hint != mayHaveAppliedHint {
 				t.Errorf("%s hint = %q, want the may-have-been-applied hint", method, hint)

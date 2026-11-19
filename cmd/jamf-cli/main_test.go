@@ -386,3 +386,79 @@ func TestRunRendersAStrayPositionalRefusal(t *testing.T) {
 		}
 	}
 }
+
+// TestRunNamesOnlyTheNarrowingFlagsTheCommandHas pins that run applies
+// RefineTimeoutHint (issue 476). The refinement is a pure function the commands
+// tests exercise directly, so deleting its call here would leave them green
+// while every timeout printed the generic hint again. The pairing is a command
+// that declares none of --page-size, --section or --filter against one that
+// declares all three, both answered by an edge 504.
+func TestRunNamesOnlyTheNarrowingFlagsTheCommandHas(t *testing.T) {
+	// The token exchange answers; everything else is the edge's 504. Client
+	// credentials rather than JAMF_TOKEN, because an earlier test in this
+	// package leaves its credentials in commands' auth globals and they win
+	// over an empty environment.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/oauth/token") {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, `{"access_token":"stub-token","token_type":"Bearer","expires_in":900}`)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusGatewayTimeout)
+		_, _ = fmt.Fprint(w, "<HTML><TITLE>ERROR: The request could not be satisfied</TITLE></HTML>")
+	}))
+	t.Cleanup(srv.Close)
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("JAMF_URL", srv.URL)
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_CLIENT_ID", "id")
+	t.Setenv("JAMF_CLIENT_SECRET", "secret")
+	t.Setenv("JAMF_ENVIRONMENT_ID", "")
+	t.Setenv("JAMF_TENANT_ID", "")
+
+	cases := []struct {
+		name string
+		argv []string
+		want []string
+		not  []string
+	}{
+		{
+			"no narrowing flag",
+			[]string{"jamf-cli", "pro", "patch-software-title-configurations", "list"},
+			[]string{"no flag that narrows the request"},
+			[]string{"--page-size", "--section", "--filter"},
+		},
+		{
+			"all three",
+			[]string{"jamf-cli", "pro", "computers-inventory", "list"},
+			[]string{"smaller --page-size", "--section or --filter"},
+			nil,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var code int
+			got := captureOutput(t, func() {
+				code = run(append(tc.argv, "--no-update-check", "--no-version-check"), "")
+			})
+			if code == exitcode.Success {
+				t.Fatalf("the server answered 504; run reported success:\n%s", got)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("output lacks %q:\n%s", w, got)
+				}
+			}
+			for _, n := range tc.not {
+				if strings.Contains(got, n) {
+					t.Errorf("output names %q, which the command does not declare:\n%s", n, got)
+				}
+			}
+		})
+	}
+}
