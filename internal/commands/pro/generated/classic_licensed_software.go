@@ -233,7 +233,7 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// `get <id>` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "licensed software", Lookup: classicNameLookup(ctx.Client, "licensedsoftware", "licensedsoftware"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -488,7 +488,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 			// and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "licensed software", Lookup: classicNameLookup(ctx.Client, "licensedsoftware", "licensedsoftware"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -502,7 +502,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete licensed_software %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "licensedsoftware deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

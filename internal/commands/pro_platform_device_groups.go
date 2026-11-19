@@ -158,7 +158,7 @@ func newPDGGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // against one listing of the groups, narrowed by --device-type as --name is.
 func runPDGListGet(cmd *cobra.Command, cliCtx *registry.CLIContext, args []string, deviceTypeFlag, listFile string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("--list-file names the device groups to get; do not pass an <id> as well")
+		return listfile.Conflict("--list-file names the device groups to get; do not pass an <id> as well")
 	}
 	dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
 	if err != nil {

@@ -186,7 +186,7 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 			// `get <id>` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "advanced computer search", Lookup: classicNameLookup(ctx.Client, "advancedcomputersearches", "advancedcomputersearches"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -439,7 +439,7 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 			// and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "advanced computer search", Lookup: classicNameLookup(ctx.Client, "advancedcomputersearches", "advancedcomputersearches"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -453,7 +453,7 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced_computer_search %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "advancedcomputersearches deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

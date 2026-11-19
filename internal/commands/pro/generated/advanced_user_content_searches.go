@@ -108,7 +108,7 @@ func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -432,7 +432,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "advanced-user-content-searche", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/advanced-user-content-searches", "name", "id")}, flagListFile)
 				if err != nil {
@@ -446,7 +446,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced-user-content-searche %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "advanced-user-content-searches deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

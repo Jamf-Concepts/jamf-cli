@@ -275,7 +275,7 @@ func newApiRolesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -569,7 +569,7 @@ func newApiRolesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "api-role", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/api-roles", "displayName", "id")}, flagListFile)
 				if err != nil {
@@ -583,7 +583,7 @@ func newApiRolesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete api-role %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "api-roles deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

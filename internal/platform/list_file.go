@@ -135,9 +135,10 @@ func RunListDelete(cmd *cobra.Command, dryRun, yes bool, targets []resolve.Targe
 	}
 	if dryRun {
 		for _, t := range targets {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] DELETE %s (%s)\n", previewPath(t.ID), t.Label)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] DELETE %s: %s\n", previewPath(t.ID), t.Label)
 		}
-		return nil
+		// A line that did not resolve fails the real run, so it fails the preview.
+		return FinishListBatch(cmd, len(targets), skipped, nil, noun+" deletes")
 	}
 	if err := ConfirmAction("delete", fmt.Sprintf("%d %s", len(targets), noun), yes); err != nil {
 		return err

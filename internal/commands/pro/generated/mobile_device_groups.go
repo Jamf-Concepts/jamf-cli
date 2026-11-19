@@ -338,7 +338,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile-device-group", Lookup: resolve.ProNameLookup(ctx.Client, "/v2/mobile-device-groups", "displayName", "id")}, flagListFile)
 				if err != nil {
@@ -352,7 +352,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would run \"erase\" on mobile-device-group %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "mobile-device-groups erase actions")
 				}
 				if !flagYes {
 					if noInputBulk {

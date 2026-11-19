@@ -87,7 +87,7 @@ names, one per line.`,
 			ctx := cmd.Context()
 			if listFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the devices to get; do not pass a <udid|serial|name> as well")
+					return listfile.Conflict("--list-file names the devices to get; do not pass a <udid|serial|name> as well")
 				}
 				targets, skipped, err := resolve.ResolveEachFile(ctx, "device", listFile, func(ctx context.Context, v string) (string, string, error) {
 					return resolveSchoolDevice(ctx, cliCtx, v)

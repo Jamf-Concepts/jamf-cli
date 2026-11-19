@@ -762,7 +762,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// ` + "`" + `get <id>` + "`" + ` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := {{ classicListTargetsCall . }}
 				if err != nil {
@@ -1224,7 +1224,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := {{ classicListTargetsCall . }}
 				if err != nil {
@@ -1238,7 +1238,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "{{ .Name }} deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

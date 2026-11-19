@@ -122,7 +122,7 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -292,7 +292,7 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
 				if err != nil {
@@ -306,7 +306,7 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "patch-software-title-configurations deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -1202,7 +1202,7 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -1371,7 +1371,7 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -1450,7 +1450,7 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -1532,7 +1532,7 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch-software-title-configuration", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id")}, flagListFile)
 				if err != nil {
@@ -1546,7 +1546,7 @@ func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLICont
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "patch-software-title-configurations deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -1931,7 +1931,7 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -2010,7 +2010,7 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")

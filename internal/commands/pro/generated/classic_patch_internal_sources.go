@@ -120,7 +120,7 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			// `get <id>` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "patch internal source", Lookup: classicNameLookup(ctx.Client, "patchinternalsources", "patchinternalsources"), FoldCase: true}, flagListFile)
 				if err != nil {

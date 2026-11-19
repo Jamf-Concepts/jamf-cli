@@ -275,7 +275,7 @@ func newEnrollmentAccessGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -581,7 +581,7 @@ func newEnrollmentAccessGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "enrollment-access-group", Lookup: resolve.ProNameLookup(ctx.Client, "/v3/enrollment/access-groups", "name", "id")}, flagListFile)
 				if err != nil {
@@ -595,7 +595,7 @@ func newEnrollmentAccessGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-access-group %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "enrollment-access-groups deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

@@ -278,7 +278,7 @@ func newMobileDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.C
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -590,7 +590,7 @@ func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobr
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile-device-extension-attribute", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id")}, flagListFile)
 				if err != nil {
@@ -604,7 +604,7 @@ func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobr
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-extension-attribute %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "mobile-device-extension-attributes deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -1073,7 +1073,7 @@ func newMobileDeviceExtensionAttributesDataDependencyCmd(ctx *registry.CLIContex
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")

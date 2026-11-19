@@ -173,7 +173,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if listFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 || nameFlag != "" {
-					return fmt.Errorf("--list-file names the records; do not pass an <id> or --name as well")
+					return listfile.Conflict("--list-file names the records; do not pass an <id> or --name as well")
 				}
 			} else if nameFlag != "" {
 				listPath := "/compliance-benchmarks/v1/benchmarks"
@@ -265,7 +265,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if listFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 || nameFlag != "" {
-					return fmt.Errorf("--list-file names the records; do not pass an <id> or --name as well")
+					return listfile.Conflict("--list-file names the records; do not pass an <id> or --name as well")
 				}
 			} else if nameFlag != "" {
 				listPath := "/compliance-benchmarks/v1/benchmarks"

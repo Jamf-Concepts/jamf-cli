@@ -176,7 +176,7 @@ func newClassicMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command
 			// `get <id>` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile device group", Lookup: classicNameLookup(ctx.Client, "mobiledevicegroups", "mobiledevicegroups"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -427,7 +427,7 @@ func newClassicMobileDeviceGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			// and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "mobile device group", Lookup: classicNameLookup(ctx.Client, "mobiledevicegroups", "mobiledevicegroups"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -441,7 +441,7 @@ func newClassicMobileDeviceGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device_group %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "mobiledevicegroups deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

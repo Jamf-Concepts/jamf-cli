@@ -144,7 +144,7 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			// `get <id>` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "removable mac address", Lookup: classicNameLookup(ctx.Client, "removablemacaddresses", "removablemacaddresses"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -373,7 +373,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			// and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "removable mac address", Lookup: classicNameLookup(ctx.Client, "removablemacaddresses", "removablemacaddresses"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -387,7 +387,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete removable_mac_address %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "removablemacaddresses deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

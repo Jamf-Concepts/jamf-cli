@@ -171,7 +171,7 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			// `get <id>` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "disk encryption configuration", Lookup: classicNameLookup(ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -422,7 +422,7 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			// and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "disk encryption configuration", Lookup: classicNameLookup(ctx.Client, "diskencryptionconfigurations", "diskencryptionconfigurations"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -436,7 +436,7 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete disk_encryption_configuration %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "diskencryptionconfigurations deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

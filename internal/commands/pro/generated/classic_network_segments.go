@@ -164,7 +164,7 @@ func newClassicNetworkSegmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// `get <id>` sends.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 				targets, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "network segment", Lookup: classicNameLookup(ctx.Client, "networksegments", "networksegments"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -399,7 +399,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 			// and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "network segment", Lookup: classicNameLookup(ctx.Client, "networksegments", "networksegments"), FoldCase: true}, flagListFile)
 				if err != nil {
@@ -413,7 +413,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete network_segment %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "networksegments deletes")
 				}
 				if !flagYes {
 					if noInputBulk {

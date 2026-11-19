@@ -282,7 +282,7 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -582,7 +582,7 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := resolve.ResolveNamedFile(reqCtx, resolve.NamedEntrySpec{Label: "computer-extension-attribute", Lookup: resolve.ProNameLookup(ctx.Client, "/v1/computer-extension-attributes", "name", "id")}, flagListFile)
 				if err != nil {
@@ -596,7 +596,7 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-extension-attribute %s\n", e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, "computer-extension-attributes deletes")
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -1219,7 +1219,7 @@ func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -1297,7 +1297,7 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")

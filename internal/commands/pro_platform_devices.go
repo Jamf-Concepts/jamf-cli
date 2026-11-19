@@ -121,7 +121,7 @@ device ID is not the Jamf Pro computer or mobile device ID.`,
 			client := cliCtx.PlatformSDKClient
 			if listFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the devices to get; do not pass an <id|serial> as well")
+					return listfile.Conflict("--list-file names the devices to get; do not pass an <id|serial> as well")
 				}
 				targets, skipped, err := resolve.ResolveEachFile(ctx, "device", listFile, func(ctx context.Context, v string) (string, string, error) {
 					return resolveDeviceIDDirect(ctx, client, v)

@@ -128,6 +128,10 @@ func RefuseStdin(path, why string) error {
 	return nil
 }
 
+// Conflict is the refusal for --list-file given beside a positional or --name:
+// a usage error (exit 2), like every other flag conflict.
+func Conflict(msg string) error { return exitcode.New(exitcode.Usage, msg) }
+
 // MarkExclusive marks --list-file, and its legacy alias where the command has
 // one, mutually exclusive with each of others.
 func MarkExclusive(cmd *cobra.Command, others ...string) {

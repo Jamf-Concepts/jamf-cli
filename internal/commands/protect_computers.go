@@ -68,7 +68,7 @@ func newProtectComputersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 			if listFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the computers to get; do not pass a <uuid|serial|hostname> as well")
+					return listfile.Conflict("--list-file names the computers to get; do not pass a <uuid|serial|hostname> as well")
 				}
 				targets, skipped, err := resolve.ResolveEachFile(ctx, "computer", listFile, func(ctx context.Context, v string) (string, string, error) {
 					uuid, err := r.ResolveComputerUUID(ctx, v)

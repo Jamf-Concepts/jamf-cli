@@ -2522,7 +2522,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// skipped, and counts as a failure in the summary and exit code.
 			if flagListFile != "" {
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to delete; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to delete; do not pass an <id> as well")
 				}
 				bulk, skipped, err := {{ listTargetsCall $ }}
 				if err != nil {
@@ -2536,7 +2536,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, {{ goStr (print "[dry-run] Would " (actionPhrase .) " " $.NameSingular " %s\n") }}, e.Label)
 					}
-					return nil
+					return batchDeleteError(cmd, len(bulk), skipped, nil, {{ goStr (print $.Name " " (actionNoun .)) }})
 				}
 				if !flagYes {
 					if noInputBulk {
@@ -2711,7 +2711,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			if flagListFile != "" {
 				// --list-file names the records; each is resolved below.
 				if len(args) > 0 {
-					return fmt.Errorf("--list-file names the records to get; do not pass an <id> as well")
+					return listfile.Conflict("--list-file names the records to get; do not pass an <id> as well")
 				}
 			} else
 {{- end }}
